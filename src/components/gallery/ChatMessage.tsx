@@ -218,38 +218,66 @@ export default function ChatMessage({
                   onClick={() => onJumpToMessage?.(message.reply_to!.id)}
                 />
               )}
-              {message.image_url && !message.video_url && (
-                <img
-                  src={message.thumbnail_url || message.image_url}
-                  alt="Изображение"
-                  className="rounded-lg mb-2 cursor-pointer hover:opacity-90 transition-opacity touch-manipulation object-cover"
-                  onClick={(e) => {
-                    if (selectionMode) return;
-                    e.stopPropagation();
-                    onImageClick(message.image_url!);
-                  }}
-                  loading="lazy"
-                  style={{
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    width: '180px',
-                    height: '180px',
-                    maxWidth: '100%',
-                  }}
-                />
-              )}
-              {message.video_url && (
-                <div className="relative mb-2 inline-block">
-                  <video
-                    src={message.video_url}
-                    poster={message.thumbnail_url || message.image_url}
-                    controls
-                    playsInline
-                    className="rounded-lg"
-                    style={{ width: '220px', maxWidth: '100%', maxHeight: '220px' }}
-                  />
-                </div>
-              )}
+              {message.image_url && !message.video_url && (() => {
+                const rawName = decodeURIComponent(message.image_url.split('/').pop() || '');
+                const fileName = rawName.replace(/^[0-9a-f-]{8,}_/, '').trim() || 'фото';
+                return (
+                  <div
+                    className="relative rounded-md overflow-hidden cursor-pointer hover:opacity-90 transition-opacity mb-2"
+                    style={{ width: 80, height: 80 }}
+                    onClick={(e) => {
+                      if (selectionMode) return;
+                      e.stopPropagation();
+                      onImageClick(message.image_url!);
+                    }}
+                  >
+                    <img
+                      src={message.thumbnail_url || message.image_url}
+                      alt={fileName}
+                      className="object-cover w-full h-full"
+                      loading="lazy"
+                      style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5">
+                      <span className="text-[10px] text-white truncate block">{fileName}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+              {message.video_url && (() => {
+                const rawName = decodeURIComponent(message.video_url.split('/').pop() || '');
+                const fileName = rawName.replace(/^[0-9a-f-]{8,}_/, '').trim() || 'видео';
+                return (
+                  <div
+                    className="relative rounded-md overflow-hidden cursor-pointer hover:opacity-90 transition-opacity mb-2"
+                    style={{ width: 80, height: 80 }}
+                    onClick={(e) => {
+                      if (selectionMode) return;
+                      e.stopPropagation();
+                      onImageClick(message.video_url!);
+                    }}
+                  >
+                    {message.thumbnail_url || message.image_url ? (
+                      <img
+                        src={message.thumbnail_url || message.image_url}
+                        alt={fileName}
+                        className="object-cover w-full h-full"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-black flex items-center justify-center">
+                        <Icon name="Video" size={28} className="text-white" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                      <Icon name="Play" size={24} className="text-white drop-shadow" />
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5">
+                      <span className="text-[10px] text-white truncate block">{fileName}</span>
+                    </div>
+                  </div>
+                );
+              })()}
               {message.message && (
                 <p className="whitespace-pre-wrap break-words">
                   {renderMessageText(message.message)}
