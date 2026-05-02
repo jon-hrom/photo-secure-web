@@ -258,6 +258,14 @@ export function useChatApi({
         }
       }
 
+      console.log('[CHAT] Building POST body...', {
+        uploadedUrlsCount: uploadedUrls.length,
+        fallbackCount: fallbackBase64.length,
+        clientId,
+        photographerId,
+        senderType,
+      });
+
       const body: Record<string, unknown> = {
         client_id: clientId,
         photographer_id: photographerId,
@@ -273,22 +281,29 @@ export function useChatApi({
         body.file_names = fallbackNames;
       }
 
+      console.log('[CHAT] POST body keys:', Object.keys(body), 'image_urls:', body.image_urls);
+      console.log('[CHAT] Sending POST to', CHAT_API);
+
       const response = await fetch(CHAT_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      console.log('[CHAT] POST response status:', response.status);
       if (!response.ok) {
         const text = await response.text().catch(() => '');
+        console.error('[CHAT] POST failed body:', text);
         throw new Error(`HTTP ${response.status}: ${text || 'не удалось отправить сообщение'}`);
       }
+      const respJson = await response.json().catch(() => null);
+      console.log('[CHAT] POST success, response:', respJson);
       setNewMessage('');
       setSelectedImages([]);
       setReplyTo(null);
       await loadMessages();
       if (onMessageSent) onMessageSent();
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('[CHAT] sendMessage caught error:', error);
       const msg = error instanceof Error ? error.message : 'Неизвестная ошибка';
       alert(`Не удалось отправить сообщение: ${msg}`);
     } finally {
