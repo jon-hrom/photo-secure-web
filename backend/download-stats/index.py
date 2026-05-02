@@ -4,13 +4,21 @@ from typing import Dict, Any, Optional
 import psycopg2
 import requests
 
+# Кэш геолокации IP в памяти процесса. Между холодными стартами теряется,
+# но в рамках одного запроса (и в горячем экземпляре между запросами)
+# исключает повторные походы во внешний API для одинаковых IP.
+_IP_CACHE: Dict[str, Optional[Dict[str, str]]] = {}
+
+
 def get_location_from_ip(ip: str) -> Optional[Dict[str, str]]:
-    '''
-    Определяет город по IP через ipapi.co
-    '''
+    '''Определяет город по IP через ipapi.co с кэшированием.'''
     if not ip or ip in ['127.0.0.1', 'localhost', '::1']:
         return None
-    
+
+    if ip in _IP_CACHE:
+        return _IP_CACHE[ip]
+
+    result: Optional[Dict[str, str]] = None
     try:
         response = requests.get(f'https://ipapi.co/{ip}/json/', timeout=2)
         if response.status_code == 200:
@@ -18,22 +26,45 @@ def get_location_from_ip(ip: str) -> Optional[Dict[str, str]]:
             city = data.get('city')
             country = data.get('country_name')
             country_code = data.get('country_code', '')
-            
-            # Эмодзи флага страны
+
             emoji = ''
             if country_code and len(country_code) == 2:
                 emoji = ''.join(chr(127397 + ord(c)) for c in country_code.upper())
-            
+
             if city or country:
-                return {
+                result = {
                     'city': city or '',
                     'country': country or '',
-                    'emoji': emoji
+                    'emoji': emoji,
                 }
-    except:
+    except Exception:
         pass
-    
-    return None
+
+    _IP_CACHE[ip] = result
+    return result
+
+
+def resolve_ips_batch(ips):
+    '''
+    Резолвит уникальные IP-адреса максимум за N сетевых походов
+    с общим бюджетом времени, чтобы функция не падала по таймауту.
+    Возвращает dict ip -> location (или None).
+    '''
+    import time
+    unique = list({ip for ip in ips if ip})
+    out: Dict[str, Optional[Dict[str, str]]] = {}
+    # Жёсткий бюджет на резолвинг: не больше 5 сек суммарно.
+    deadline = time.time() + 5.0
+    # И не больше 20 запросов наружу за раз (rate-limit ipapi.co — 30/мин).
+    max_calls = 20
+    calls = 0
+    for ip in unique:
+        if time.time() > deadline or calls >= max_calls:
+            out[ip] = None
+            continue
+        out[ip] = get_location_from_ip(ip)
+        calls += 1
+    return out
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -102,18 +133,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         )
         
         rows = cur.fetchall()
-        
+
+        # Резолвим геолокацию ОДИН раз для каждого уникального IP,
+        # а не на каждый лог. Это предотвращает таймаут при больших
+        # объёмах логов и одинаковых IP клиентов.
+        unique_ips = [row[4] for row in rows]
+        ip_locations = resolve_ips_batch(unique_ips)
+
         logs = []
         for row in rows:
             ip = row[4]
-            location = get_location_from_ip(ip)
-            
-            # Если геолокация определена - сохраняем JSON, иначе - просто IP
+            location = ip_locations.get(ip)
+
             if location:
                 ip_display = json.dumps(location, ensure_ascii=False)
             else:
                 ip_display = ip
-            
+
             logs.append({
                 'id': row[0],
                 'folder_id': row[1],
