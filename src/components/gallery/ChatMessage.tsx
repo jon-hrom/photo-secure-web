@@ -222,25 +222,31 @@ export default function ChatMessage({
                 <img
                   src={message.thumbnail_url || message.image_url}
                   alt="Изображение"
-                  className="rounded-lg mb-2 max-w-full cursor-pointer hover:opacity-90 transition-opacity touch-manipulation"
+                  className="rounded-lg mb-2 cursor-pointer hover:opacity-90 transition-opacity touch-manipulation object-cover"
                   onClick={(e) => {
                     if (selectionMode) return;
                     e.stopPropagation();
                     onImageClick(message.image_url!);
                   }}
                   loading="lazy"
-                  style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                  style={{
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    width: '180px',
+                    height: '180px',
+                    maxWidth: '100%',
+                  }}
                 />
               )}
               {message.video_url && (
-                <div className="relative mb-2">
+                <div className="relative mb-2 inline-block">
                   <video
                     src={message.video_url}
                     poster={message.thumbnail_url || message.image_url}
                     controls
                     playsInline
-                    className="rounded-lg max-w-full"
-                    style={{ maxHeight: '300px' }}
+                    className="rounded-lg"
+                    style={{ width: '220px', maxWidth: '100%', maxHeight: '220px' }}
                   />
                 </div>
               )}
