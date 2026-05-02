@@ -202,15 +202,32 @@ export function useChatApi({
           }
           console.log('[CHAT] Got presigned URL, doing PUT to S3...');
 
-          const putResp = await fetch(presignData.upload_url, {
-            method: 'PUT',
-            headers: { 'Content-Type': contentType },
-            body: img.file,
+          // Используем XHR (как в CameraUploadLogic) — он надёжнее
+          // для PUT в Yandex S3, не добавляет лишних заголовков и
+          // не модифицирует Content-Type, что критично для подписи.
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', presignData.upload_url);
+            xhr.setRequestHeader('Content-Type', contentType);
+            xhr.upload.addEventListener('progress', (e) => {
+              if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                if (pct % 10 === 0) {
+                  console.log(`[CHAT] PUT progress: ${pct}%`);
+                }
+              }
+            });
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+              } else {
+                reject(new Error(`S3 PUT HTTP ${xhr.status}: ${(xhr.responseText || '').slice(0, 300)}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Сеть оборвалась при загрузке в S3 (CORS / network)'));
+            xhr.onabort = () => reject(new Error('Загрузка отменена'));
+            xhr.send(img.file);
           });
-          if (!putResp.ok) {
-            const t = await putResp.text().catch(() => '');
-            throw new Error(`S3 PUT HTTP ${putResp.status}: ${t.slice(0, 200)}`);
-          }
           console.log(`[CHAT] Uploaded successfully: ${presignData.cdn_url}`);
           uploadedUrls.push(presignData.cdn_url);
         } catch (uploadErr) {

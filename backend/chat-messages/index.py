@@ -63,11 +63,10 @@ def handler(event: dict, context) -> dict:
                 
                 s3_key = f"chat/{photographer_id}/{uuid.uuid4()}_{file_name}"
                 
-                # ВАЖНО: НЕ включаем ACL в подпись — иначе фронт обязан
-                # слать заголовок x-amz-acl, который бакет должен явно
-                # разрешить в CORS. Чтобы избежать CORS-преград, оставляем
-                # только Content-Type. Доступ public-read настроен на
-                # самом бакете (bucket policy).
+                # Подписываем PUT URL ровно так же, как рабочая функция
+                # upload-url (которая успешно используется в фотобанке).
+                # Без ACL и Metadata — только Bucket/Key/ContentType.
+                # Доступ public-read настроен на самом бакете.
                 presigned_url = s3.generate_presigned_url(
                     'put_object',
                     Params={
@@ -75,7 +74,7 @@ def handler(event: dict, context) -> dict:
                         'Key': s3_key,
                         'ContentType': content_type,
                     },
-                    ExpiresIn=300
+                    ExpiresIn=900
                 )
                 
                 cdn_url = f"https://storage.yandexcloud.net/{chat_bucket}/{s3_key}"
