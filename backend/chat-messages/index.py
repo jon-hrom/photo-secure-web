@@ -651,36 +651,40 @@ def handler(event: dict, context) -> dict:
             message_ids = []
             created_timestamps = []
             
-            if message or not final_image_urls:
-                # Основное текстовое сообщение (или пустое если только текст без изображений)
-                first_media = final_image_urls[0] if final_image_urls else None
-                first_image = first_media if first_media and not isinstance(first_media, dict) else (first_media.get('image_url') if isinstance(first_media, dict) else None)
-                first_video = first_media.get('video_url') if isinstance(first_media, dict) else None
-                
+            # ВСЕГДА создаём как минимум одно сообщение:
+            # - если есть текст — первое сообщение содержит текст и (опционально) первый файл
+            # - если нет текста, но есть файлы — первое сообщение содержит первый файл
+            # - если нет ни текста, ни файлов — выше уже отфильтровано
+            first_media = final_image_urls[0] if final_image_urls else None
+            first_image = first_media if first_media and not isinstance(first_media, dict) else (first_media.get('image_url') if isinstance(first_media, dict) else None)
+            first_video = first_media.get('video_url') if isinstance(first_media, dict) else None
+
+            cur.execute('''
+                INSERT INTO t_p28211681_photo_secure_web.client_messages 
+                (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url, reply_to_id)
+                VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s, %s)
+                RETURNING id, created_at
+            ''', (client_id, photographer_id, message or '', sender_type, author_name, first_image, first_video, reply_to_id))
+            result = cur.fetchone()
+            message_ids.append(result[0])
+            created_timestamps.append(result[1])
+            print(f'[POST] Inserted main message id={result[0]} with image={first_image}, video={first_video}', flush=True)
+
+            # Остальные изображения как отдельные сообщения
+            for media in final_image_urls[1:]:
+                media_image = media if not isinstance(media, dict) else media.get('image_url')
+                media_video = media.get('video_url') if isinstance(media, dict) else None
+
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url, reply_to_id)
-                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s, %s)
+                    (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url)
+                    VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s)
                     RETURNING id, created_at
-                ''', (client_id, photographer_id, message, sender_type, author_name, first_image, first_video, reply_to_id))
+                ''', (client_id, photographer_id, '', sender_type, author_name, media_image, media_video))
                 result = cur.fetchone()
                 message_ids.append(result[0])
                 created_timestamps.append(result[1])
-                
-                # Остальные изображения как отдельные сообщения
-                for media in final_image_urls[1:]:
-                    media_image = media if not isinstance(media, dict) else media.get('image_url')
-                    media_video = media.get('video_url') if isinstance(media, dict) else None
-                    
-                    cur.execute('''
-                        INSERT INTO t_p28211681_photo_secure_web.client_messages 
-                        (client_id, photographer_id, content, sender_type, is_read, is_delivered, created_at, type, author, image_url, video_url)
-                        VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW(), 'chat', %s, %s, %s)
-                        RETURNING id, created_at
-                    ''', (client_id, photographer_id, '', sender_type, author_name, media_image, media_video))
-                    result = cur.fetchone()
-                    message_ids.append(result[0])
-                    created_timestamps.append(result[1])
+                print(f'[POST] Inserted extra image message id={result[0]} with image={media_image}', flush=True)
             
             message_id = message_ids[0] if message_ids else None
             created_at = created_timestamps[0] if created_timestamps else None
