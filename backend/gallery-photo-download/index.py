@@ -97,6 +97,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     use_presigned: bool = query_params.get('presigned', 'false').lower() == 'true'
     photo_id_str = query_params.get('photo_id')
     folder_id_str = query_params.get('folder_id')
+
+    # Если s3_key не передан, но передан photo_id — достаём ключ из БД.
+    # Это надёжнее чем парсить URL на фронте (presigned URL Yandex Cloud
+    # имеет другую структуру и парсинг ломается).
+    if not s3_key and photo_id_str and photo_id_str.isdigit():
+        try:
+            dsn = os.environ.get('DATABASE_URL')
+            if dsn:
+                conn = psycopg2.connect(dsn)
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT s3_key, file_name, folder_id FROM t_p28211681_photo_secure_web.photo_bank WHERE id = %s",
+                    (int(photo_id_str),)
+                )
+                row = cur.fetchone()
+                cur.close()
+                conn.close()
+                if row and row[0]:
+                    s3_key = row[0]
+                    if not folder_id_str and row[2]:
+                        folder_id_str = str(row[2])
+        except Exception as e:
+            print(f'[RESOLVE_S3_KEY_ERROR] {e}')
     
     # Извлекаем IP и User-Agent для статистики
     request_context = event.get('requestContext', {})

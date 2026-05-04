@@ -118,18 +118,17 @@ export function useFavoritesData(folderId: number | null, userId: number) {
 
   const handleDownloadSinglePhoto = async (photo: Photo) => {
     try {
-      console.log('[FAVORITES] Downloading photo:', photo.photo_url);
-      const urlParts = photo.photo_url.split('/bucket/');
-      let s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
-      s3_key = s3_key.split('?')[0];
-      console.log('[FAVORITES] Extracted s3_key:', s3_key);
-      
-      const isLargeFile = photo.file_name.toUpperCase().endsWith('.CR2') || 
+      console.log('[FAVORITES] Downloading photo id:', photo.id, photo.file_name);
+
+      const isLargeFile = photo.file_name.toUpperCase().endsWith('.CR2') ||
                          photo.file_name.toUpperCase().endsWith('.NEF') ||
                          photo.file_name.toUpperCase().endsWith('.ARW');
-      
+
+      // Передаём photo_id — бэк сам достанет s3_key из БД.
+      // Парсинг URL на фронте ненадёжен: Yandex presigned URL имеет
+      // другую структуру и s3_key восстанавливается некорректно.
       const response = await fetch(
-        `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}${isLargeFile ? '&presigned=true' : ''}`
+        `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?photo_id=${photo.id}${isLargeFile ? '&presigned=true' : ''}`
       );
 
       if (!response.ok) {
@@ -180,12 +179,11 @@ export function useFavoritesData(folderId: number | null, userId: number) {
 
       for (const photo of displayPhotos) {
         try {
-          const urlParts = photo.photo_url.split('/bucket/');
-          let s3_key = urlParts[1] || photo.photo_url.split('/').slice(-3).join('/');
-          s3_key = s3_key.split('?')[0];
-          
-          const proxyUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3_key)}`;
-          
+          // Передаём photo_id — бэк по нему сам достанет реальный s3_key
+          // из БД и отдаст бинарный поток. Парсинг URL на фронте ломался
+          // на presigned URL'ах Yandex Cloud, из-за чего архив был пустой.
+          const proxyUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?photo_id=${photo.id}`;
+
           await zipWriter.add(photo.file_name, new HttpReader(proxyUrl));
         } catch (photoError) {
           console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
