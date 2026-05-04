@@ -173,17 +173,70 @@ export function useFavoritesData(folderId: number | null, userId: number) {
       return;
     }
 
+    const suggestedName = `${client.full_name}.zip`.replace(/[\\/:*?"<>|]/g, '_');
+    const proxyBase = 'https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215';
+
+    // 1) СОВРЕМЕННЫЙ ПУТЬ: showSaveFilePicker — диалог открывается СРАЗУ,
+    // а файлы скачиваются и пишутся в архив уже после выбора места.
+    // Поддерживается в Chrome/Edge/Opera (desktop).
+    const showSaveFilePicker = (window as unknown as {
+      showSaveFilePicker?: (opts: {
+        suggestedName?: string;
+        types?: Array<{ description?: string; accept: Record<string, string[]> }>;
+      }) => Promise<FileSystemFileHandle>;
+    }).showSaveFilePicker;
+
+    if (typeof showSaveFilePicker === 'function') {
+      let fileHandle: FileSystemFileHandle | undefined;
+      try {
+        fileHandle = await showSaveFilePicker({
+          suggestedName,
+          types: [
+            {
+              description: 'ZIP архив',
+              accept: { 'application/zip': ['.zip'] },
+            },
+          ],
+        });
+      } catch (pickerError) {
+        const err = pickerError as { name?: string };
+        if (err?.name === 'AbortError') return;
+        console.error('[FAVORITES] showSaveFilePicker failed:', pickerError);
+      }
+
+      if (fileHandle) {
+        try {
+          const writable = await fileHandle.createWritable();
+          const { ZipWriter, HttpReader } = await import('@zip.js/zip.js');
+          const zipWriter = new ZipWriter(writable);
+
+          for (const photo of displayPhotos) {
+            try {
+              const proxyUrl = `${proxyBase}?photo_id=${photo.id}`;
+              await zipWriter.add(photo.file_name, new HttpReader(proxyUrl));
+            } catch (photoError) {
+              console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
+            }
+          }
+
+          await zipWriter.close();
+          return;
+        } catch (e) {
+          console.error('[FAVORITES] Streamed archive failed:', e);
+          alert('Ошибка при записи архива');
+          return;
+        }
+      }
+    }
+
+    // 2) ФОЛБЭК для Safari/Firefox: собираем архив в памяти, потом скачиваем.
     try {
       const { ZipWriter, BlobWriter, HttpReader } = await import('@zip.js/zip.js');
       const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
 
       for (const photo of displayPhotos) {
         try {
-          // Передаём photo_id — бэк по нему сам достанет реальный s3_key
-          // из БД и отдаст бинарный поток. Парсинг URL на фронте ломался
-          // на presigned URL'ах Yandex Cloud, из-за чего архив был пустой.
-          const proxyUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?photo_id=${photo.id}`;
-
+          const proxyUrl = `${proxyBase}?photo_id=${photo.id}`;
           await zipWriter.add(photo.file_name, new HttpReader(proxyUrl));
         } catch (photoError) {
           console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
@@ -194,7 +247,7 @@ export function useFavoritesData(folderId: number | null, userId: number) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${client.full_name}.zip`;
+      a.download = suggestedName;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
