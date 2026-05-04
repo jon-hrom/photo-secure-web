@@ -34,12 +34,14 @@ export default function GalleryCover({
       <img
         src={coverPhoto.photo_url}
         alt={gallery.folder_name}
-        className="w-full h-full object-cover"
+        className={`w-full h-full ${isMobile ? 'object-cover' : 'object-contain'}`}
         style={{ objectPosition: `${focusX * 100}% ${focusY * 100}%` }}
         draggable={false}
         onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" style={{ pointerEvents: 'none' }} />
+      {isMobile && (
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" style={{ pointerEvents: 'none' }} />
+      )}
       {(() => {
         const pos = gallery.cover_text_position || 'bottom-center';
         const posClasses = pos === 'center' ? 'inset-0 flex flex-col items-center justify-center text-center px-6'
