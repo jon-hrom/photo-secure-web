@@ -1072,20 +1072,21 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         res_c = res_small.max(axis=2).astype(np.int16) - res_small.min(axis=2).astype(np.int16)
         orig_c = orig_small.max(axis=2).astype(np.int16) - orig_small.min(axis=2).astype(np.int16)
         # Потеря насыщенности: orig был насыщеннее, result стал серее.
-        # Порог 8 (раньше 4) — реагируем только на ЯВНУЮ потерю цвета.
-        chroma_loss = np.clip((orig_c - res_c - 8).astype(np.float32) / 22.0, 0.0, 1.0)
+        # Порог 5 — реагируем на умеренную потерю цвета (LaMa-артефакты).
+        chroma_loss = np.clip((orig_c - res_c - 5).astype(np.float32) / 20.0, 0.0, 1.0)
         del res_c, orig_c
 
-        # ВАЖНО: не подмешиваем оригинал там где он сам был ярким/бликовым.
-        # Иначе блик с оригинала "возвращается" обратно и создаёт нимб.
+        # ВАЖНО: не подмешиваем оригинал там где он сам был ОЧЕНЬ ярким (блик).
+        # Иначе блик с оригинала возвращается и создаёт нимб.
+        # Раньше порог 200 был слишком жёстким — блокировал здоровые светлые
+        # участки кожи, и серые пятна не лечились.
         orig_y_small = (
             orig_small[:, :, 0].astype(np.float32) * 0.299
             + orig_small[:, :, 1].astype(np.float32) * 0.587
             + orig_small[:, :, 2].astype(np.float32) * 0.114
         )
-        # Чем ярче оригинал, тем меньше восстанавливаем (защита от возврата бликов).
-        # Полное подавление при Y > 200 (явный блик), полная сила при Y < 160.
-        anti_highlight = np.clip((200.0 - orig_y_small) / 40.0, 0.0, 1.0)
+        # Полное подавление при Y > 235 (реальный блик), полная сила при Y < 210.
+        anti_highlight = np.clip((235.0 - orig_y_small) / 25.0, 0.0, 1.0)
         chroma_loss *= anti_highlight
         del orig_y_small, anti_highlight, orig_small, res_small
 
@@ -1103,9 +1104,10 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         ).filter(ImageFilter.GaussianBlur(radius=5))
         del chroma_loss, skin_cr
 
-        # Сила восстановления цвета снижена до 0.30 (было 0.55).
-        # Иначе тянет картинку к оригиналу с прыщами и тусклеет результат.
-        restore_strength = 0.30
+        # Сила восстановления цвета 0.40 — баланс:
+        # - 0.55 тянет к оригиналу с прыщами → тускло
+        # - 0.30 не лечит серые LaMa-артефакты → пятна
+        restore_strength = 0.40
         # Апскейл карты + применение полосами
         chunk = 192
         applied_px = 0
@@ -1152,16 +1154,31 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Аварийный выход при любой нехватке памяти/исключении.
     import gc as _gc
     _gc.collect()
+    _gc.collect()  # двойной collect — освобождает циклические ссылки от PIL
     try:
-        # Проверяем доступную память — если впритык, пропускаем
+        # Проверяем ТЕКУЩУЮ память (не peak!) через /proc/self/status.
+        # Раньше использовали ru_maxrss — это PEAK за весь процесс, поэтому
+        # color match всегда скипался (peak=251MB после ретуши).
         skip_color_match = False
         try:
-            import resource as _res
-            # Текущее RSS в КБ → МБ. Если уже > 180 МБ — рискованно
-            cur_rss_mb = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss / 1024.0
-            if cur_rss_mb > 180:
+            cur_rss_mb = 0.0
+            try:
+                with open('/proc/self/status', 'r') as _f:
+                    for _line in _f:
+                        if _line.startswith('VmRSS:'):
+                            cur_rss_mb = float(_line.split()[1]) / 1024.0
+                            break
+            except Exception:
+                # fallback: ru_maxrss (peak), мягкий порог
+                import resource as _res
+                cur_rss_mb = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss / 1024.0 * 0.7
+            # Лимит функции 256MB. Color match добавляет ~25-35MB на 384px.
+            # Скипаем только если уже > 215MB (реальный риск OOM).
+            if cur_rss_mb > 215:
                 print(f"[RETOUCH] [v3] color match: skip, RSS={cur_rss_mb:.0f}MB high")
                 skip_color_match = True
+            else:
+                print(f"[RETOUCH] [v3] color match: RSS={cur_rss_mb:.0f}MB ok, running")
         except Exception:
             pass
 
