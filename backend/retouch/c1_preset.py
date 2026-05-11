@@ -552,7 +552,8 @@ def _compute_exposure_correction(stats: dict) -> dict:
     # делало весь кадр тёмным когда в углу было яркое окно.
     if highlight_density > 15.0:
         bright_delta *= 0.85  # очень сильный пересвет — лёгкая страховка
-    brightness = float(np.clip(bright_delta * 0.55, -25.0, 30.0))
+    # Снижено: 0.55 → 0.42, max 30 → 20. Раньше делал результат тусклым/пересвеченным.
+    brightness = float(np.clip(bright_delta * 0.42, -25.0, 20.0))
 
     # === SHADOW: поднимаем тени если их много ===
     if shadow_density > 25.0:
@@ -579,13 +580,14 @@ def _compute_exposure_correction(stats: dict) -> dict:
     highlight = float(np.clip(highlight, -35.0, 0.0))
 
     # === CONTRAST: меньше контраста на flat-кадрах, больше на нормальных ===
+    # Подняли все значения на +6 — раньше результат был "вареным" / тусклым.
     dynamic_range = p95 - p05
     if dynamic_range < 130:
-        contrast = 16.0  # плоский кадр — добавить хруста
+        contrast = 22.0  # плоский кадр — добавить хруста
     elif dynamic_range > 200:
-        contrast = 6.0   # уже контрастный — слегка
+        contrast = 10.0  # уже контрастный — слегка
     else:
-        contrast = 12.0
+        contrast = 18.0
 
     # === BLACK LIFT: чуть-чуть, чтобы не было «matte» эффекта ===
     black_lift = 4.0 if p05 < 10 else 3.0

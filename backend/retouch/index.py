@@ -1071,9 +1071,23 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         # Chroma = max-min RGB (прокси насыщенности, дёшево)
         res_c = res_small.max(axis=2).astype(np.int16) - res_small.min(axis=2).astype(np.int16)
         orig_c = orig_small.max(axis=2).astype(np.int16) - orig_small.min(axis=2).astype(np.int16)
-        # Потеря насыщенности: orig был насыщеннее, result стал серее
-        chroma_loss = np.clip((orig_c - res_c - 4).astype(np.float32) / 18.0, 0.0, 1.0)
-        del res_c, orig_c, res_small
+        # Потеря насыщенности: orig был насыщеннее, result стал серее.
+        # Порог 8 (раньше 4) — реагируем только на ЯВНУЮ потерю цвета.
+        chroma_loss = np.clip((orig_c - res_c - 8).astype(np.float32) / 22.0, 0.0, 1.0)
+        del res_c, orig_c
+
+        # ВАЖНО: не подмешиваем оригинал там где он сам был ярким/бликовым.
+        # Иначе блик с оригинала "возвращается" обратно и создаёт нимб.
+        orig_y_small = (
+            orig_small[:, :, 0].astype(np.float32) * 0.299
+            + orig_small[:, :, 1].astype(np.float32) * 0.587
+            + orig_small[:, :, 2].astype(np.float32) * 0.114
+        )
+        # Чем ярче оригинал, тем меньше восстанавливаем (защита от возврата бликов).
+        # Полное подавление при Y > 200 (явный блик), полная сила при Y < 160.
+        anti_highlight = np.clip((200.0 - orig_y_small) / 40.0, 0.0, 1.0)
+        chroma_loss *= anti_highlight
+        del orig_y_small, anti_highlight, orig_small, res_small
 
         # Только на коже (маска skin_mask_for_post)
         skin_cr_pil = Image.fromarray(
@@ -1087,12 +1101,11 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         cr_pil = Image.fromarray(
             (chroma_loss * 255.0).clip(0, 255).astype(np.uint8), 'L'
         ).filter(ImageFilter.GaussianBlur(radius=5))
-        del chroma_loss, skin_cr, orig_small
+        del chroma_loss, skin_cr
 
-        # Сила восстановления цвета — до 50%, применяется ТОЛЬКО к цвету,
-        # текстура остаётся от result (через смешивание U+V, оставляя Y от result).
-        # Дёшево: смешиваем все 3 канала, но мягче чем заменой.
-        restore_strength = 0.55
+        # Сила восстановления цвета снижена до 0.30 (было 0.55).
+        # Иначе тянет картинку к оригиналу с прыщами и тусклеет результат.
+        restore_strength = 0.30
         # Апскейл карты + применение полосами
         chunk = 192
         applied_px = 0
