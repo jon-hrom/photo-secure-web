@@ -54,17 +54,32 @@ export const usePhotoBankEffects = ({
   //   }
   // }, [selectedFolder?.folder_type, photos.length]);
 
-  // Автообновление для RAW файлов (проверка превью каждые 10 сек)
+  // Автообновление для RAW файлов (проверка превью каждые 10 сек, максимум 2 минуты)
   useEffect(() => {
     if (!selectedFolder || !photos.length) return;
     
     const hasRawWithoutThumbnail = photos.some(p => p.is_raw && !p.thumbnail_s3_url);
     if (!hasRawWithoutThumbnail) return;
     
-    console.log('[PHOTO_BANK] RAW files without thumbnail detected, scheduling refresh');
+    console.log('[PHOTO_BANK] RAW files without thumbnail detected, scheduling refresh (max 2 min)');
+    let attempts = 0;
+    const MAX_ATTEMPTS = 12;
+    
     const intervalId = setInterval(() => {
-      console.log('[PHOTO_BANK] Auto-refreshing photos for thumbnail updates');
+      // Пропускаем тик, если у пользователя открыт просмотр фото
+      if (document.body.getAttribute('data-photo-viewer-open') === 'true') {
+        console.log('[PHOTO_BANK] Viewer is open, skipping auto-refresh tick');
+        return;
+      }
+      
+      attempts += 1;
+      console.log(`[PHOTO_BANK] Auto-refreshing photos for thumbnail updates (attempt ${attempts}/${MAX_ATTEMPTS})`);
       fetchPhotos(selectedFolder.id);
+      
+      if (attempts >= MAX_ATTEMPTS) {
+        console.log('[PHOTO_BANK] Auto-refresh limit reached, stopping');
+        clearInterval(intervalId);
+      }
     }, 10000);
     
     return () => clearInterval(intervalId);

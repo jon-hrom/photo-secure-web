@@ -66,6 +66,7 @@ const PhotoGridViewer = ({
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
+      document.body.setAttribute('data-photo-viewer-open', 'true');
       
       return () => {
         // Восстанавливаем оригинальные значения
@@ -74,6 +75,7 @@ const PhotoGridViewer = ({
         document.body.style.width = originalWidth;
         document.body.style.height = originalHeight;
         document.body.style.top = '';
+        document.body.removeAttribute('data-photo-viewer-open');
         window.scrollTo(0, scrollY);
       };
     }
