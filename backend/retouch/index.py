@@ -1013,111 +1013,129 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     del diff
 
     # === ЛОКАЛЬНОЕ ВЫРАВНИВАНИЕ ЦВЕТА (anti-bright/desaturated-spot) ===
-    # После inpaint остаются два типа артефактов:
-    #   1) светлые пятна (ярче окружающей кожи)
-    #   2) серые/обесцвеченные пятна (chroma ниже окружения) — часто ВЫПАДАЮТ
-    #      из skin-mask, поэтому ищем их в РАСШИРЕННОЙ зоне кожи (dilate).
-    # Тянем такие пиксели к локальному среднему цвету кожи (R/G/B канально).
+    # Ищем 2 типа артефактов inpaint: светлые и серые/обесцвеченные пятна.
+    # Память жёстко лимитирована (256 МБ Lambda) — поэтому весь анализ
+    # делаем на УМЕНЬШЕННОЙ копии (long side = 512 px), карту силы пятна и
+    # карту локального цвета затем апскейлим обратно. Тяжёлых float32 массивов
+    # полного размера не создаём.
     try:
         if skin_mask_for_post.sum() > 200 and result.shape == orig_u8.shape:
-            # 1) РАСШИРЕННАЯ зона поиска: skin-mask + dilate, чтобы захватить
-            # "дыры" внутри лица, где маска пропустила серый артефакт.
-            skin_u8_raw = (skin_mask_for_post.astype(np.uint8) * 255)
-            search_pil = Image.fromarray(skin_u8_raw, 'L').filter(
-                ImageFilter.MaxFilter(size=25)  # морфологический dilate ~12px
-            ).filter(ImageFilter.GaussianBlur(radius=8))
+            H, W = result.shape[:2]
+            long_side = 512
+            scale = min(1.0, long_side / float(max(H, W)))
+            sH = max(8, int(round(H * scale)))
+            sW = max(8, int(round(W * scale)))
+
+            # Маленький RGB
+            small_pil = Image.fromarray(result, 'RGB').resize((sW, sH), Image.BILINEAR)
+            small_rgb = np.asarray(small_pil, dtype=np.uint8)
+            del small_pil
+
+            # Маленькая skin-маска
+            skin_small_pil = Image.fromarray(
+                (skin_mask_for_post.astype(np.uint8) * 255), 'L'
+            ).resize((sW, sH), Image.BILINEAR)
+
+            # Расширенная зона (dilate ~5px на маленьком масштабе)
+            search_pil = skin_small_pil.filter(
+                ImageFilter.MaxFilter(size=11)
+            ).filter(ImageFilter.GaussianBlur(radius=4))
             search_w = np.asarray(search_pil, dtype=np.float32) / 255.0
             del search_pil
 
-            # Для построения «эталона кожи» используем УЗКУЮ маску (только кожа)
-            base_pil = Image.fromarray(skin_u8_raw, 'L').filter(
-                ImageFilter.GaussianBlur(radius=6)
-            )
-            base_w = np.asarray(base_pil, dtype=np.float32) / 255.0
-            del base_pil, skin_u8_raw
+            # Узкая маска кожи для построения эталона
+            base_pil = skin_small_pil.filter(ImageFilter.GaussianBlur(radius=3))
+            base_u8 = np.asarray(base_pil, dtype=np.uint8)
+            del base_pil, skin_small_pil
 
-            # Знаменатель для blur(C*w)/blur(w) — на УЗКОЙ маске.
-            w_blur_pil = Image.fromarray(
-                (base_w * 255.0).clip(0, 255).astype(np.uint8), 'L'
-            ).filter(ImageFilter.GaussianBlur(radius=40))
+            blur_r = 14  # подходит для long_side=512
+            w_blur_pil = Image.fromarray(base_u8, 'L').filter(
+                ImageFilter.GaussianBlur(radius=blur_r)
+            )
             w_blur = np.asarray(w_blur_pil, dtype=np.float32)
             np.maximum(w_blur, 1.0, out=w_blur)
             del w_blur_pil
 
-            # Локальный средний цвет кожи (RGB) считаем один раз сразу,
-            # сохраняем в float16 чтобы экономить память.
-            local_rgb = np.empty(result.shape, dtype=np.float16)
+            # Локальный средний цвет кожи на маленьком — uint8
+            local_rgb_small = np.empty((sH, sW, 3), dtype=np.uint8)
+            base_w_f = base_u8.astype(np.float32) / 255.0
             for c in range(3):
-                cw = result[:, :, c].astype(np.float32) * base_w
+                cw = small_rgb[:, :, c].astype(np.float32) * base_w_f
                 cw_pil = Image.fromarray(
                     np.clip(cw, 0, 255).astype(np.uint8), 'L'
-                ).filter(ImageFilter.GaussianBlur(radius=40))
+                ).filter(ImageFilter.GaussianBlur(radius=blur_r))
                 local_c = (np.asarray(cw_pil, dtype=np.float32) * 255.0) / w_blur
-                local_rgb[:, :, c] = local_c.astype(np.float16)
+                local_rgb_small[:, :, c] = np.clip(local_c, 0, 255).astype(np.uint8)
                 del cw, cw_pil, local_c
-            del base_w
+            del base_u8, base_w_f, w_blur
 
-            # Локальный средний Y кожи
-            local_y = (
-                local_rgb[:, :, 0].astype(np.float32) * 0.299
-                + local_rgb[:, :, 1].astype(np.float32) * 0.587
-                + local_rgb[:, :, 2].astype(np.float32) * 0.114
-            )
-            # Текущий Y результата
+            # Признаки пятна на маленьком масштабе (≤ 1 МБ на массив)
             res_y = (
-                result[:, :, 0].astype(np.float32) * 0.299
-                + result[:, :, 1].astype(np.float32) * 0.587
-                + result[:, :, 2].astype(np.float32) * 0.114
+                small_rgb[:, :, 0].astype(np.float32) * 0.299
+                + small_rgb[:, :, 1].astype(np.float32) * 0.587
+                + small_rgb[:, :, 2].astype(np.float32) * 0.114
             )
-            # Chroma «дёшево»: max-min по RGB (0..255). Прокси насыщенности.
+            local_y = (
+                local_rgb_small[:, :, 0].astype(np.float32) * 0.299
+                + local_rgb_small[:, :, 1].astype(np.float32) * 0.587
+                + local_rgb_small[:, :, 2].astype(np.float32) * 0.114
+            )
             res_chroma = (
-                result.max(axis=2).astype(np.float32)
-                - result.min(axis=2).astype(np.float32)
+                small_rgb.max(axis=2).astype(np.float32)
+                - small_rgb.min(axis=2).astype(np.float32)
             )
             local_chroma = (
-                local_rgb.max(axis=2).astype(np.float32)
-                - local_rgb.min(axis=2).astype(np.float32)
+                local_rgb_small.max(axis=2).astype(np.float32)
+                - local_rgb_small.min(axis=2).astype(np.float32)
             )
 
-            # --- ярче окружения ---
-            dY = res_y - local_y
-            bright_spot = np.clip((dY - 5.0) / 14.0, 0.0, 1.0)
+            bright_spot = np.clip((res_y - local_y - 5.0) / 14.0, 0.0, 1.0)
+            desat_spot = np.clip((local_chroma - res_chroma - 5.0) / 15.0, 0.0, 1.0)
+            spot_strength = np.maximum(bright_spot, desat_spot) * search_w
+            del bright_spot, desat_spot, res_y, local_y
+            del res_chroma, local_chroma, search_w, small_rgb
 
-            # --- обесцвечено / серое пятно ---
-            # res_chroma МЕНЬШЕ окружающей хромы — потеря красноты кожи.
-            d_chroma = local_chroma - res_chroma
-            desat_spot = np.clip((d_chroma - 5.0) / 15.0, 0.0, 1.0)
-
-            # Итоговая сила пятна: либо ярче, либо обесцвечено
-            spot_strength = np.maximum(bright_spot, desat_spot)
-
-            # Ограничиваем РАСШИРЕННОЙ зоной (skin+dilate), чтобы не зацепить фон/волосы
-            spot_strength *= search_w
-            del bright_spot, desat_spot, dY, d_chroma, res_y, local_y
-            del res_chroma, local_chroma, search_w
-
-            # Мягкие края
-            spot_pil = Image.fromarray(
+            spot_small_pil = Image.fromarray(
                 (spot_strength * 255.0).clip(0, 255).astype(np.uint8), 'L'
-            ).filter(ImageFilter.GaussianBlur(radius=5))
+            ).filter(ImageFilter.GaussianBlur(radius=3))
             del spot_strength
 
+            # Карта силы пятна → полный размер
+            spot_full_pil = spot_small_pil.resize((W, H), Image.BILINEAR)
+            del spot_small_pil
+
+            # Карта локального цвета → полный размер (uint8 RGB ≈ 7.7 МБ при 1600x1600)
+            local_rgb_full_pil = Image.fromarray(local_rgb_small, 'RGB').resize(
+                (W, H), Image.BILINEAR
+            )
+            local_rgb_full = np.asarray(local_rgb_full_pil, dtype=np.uint8)
+            del local_rgb_small, local_rgb_full_pil
+
             pull = 0.9
-            spot_w = (np.asarray(spot_pil, dtype=np.float32) / 255.0) * pull
-            del spot_pil
+            # spot_w — uint8 сначала, переводим in-place построчно при применении,
+            # чтобы избежать большого float32 массива
+            spot_w_u8 = np.asarray(spot_full_pil, dtype=np.uint8)
+            del spot_full_pil
+            affected = float((spot_w_u8 > 13).sum()) / float(spot_w_u8.size)  # ~0.05 * 255
 
-            affected = float((spot_w > 0.05).sum()) / float(spot_w.size)
+            # Применяем поканально, чанками по строкам — пик памяти минимальный
+            chunk = 256
+            for y0 in range(0, H, chunk):
+                y1 = min(H, y0 + chunk)
+                sw = (spot_w_u8[y0:y1].astype(np.float32) / 255.0) * pull
+                inv = 1.0 - sw
+                for c in range(3):
+                    new_c = (
+                        result[y0:y1, :, c].astype(np.float32) * inv
+                        + local_rgb_full[y0:y1, :, c].astype(np.float32) * sw
+                    )
+                    result[y0:y1, :, c] = np.clip(new_c, 0, 255).astype(np.uint8)
+                    del new_c
+                del sw, inv
 
-            # Тянем результат к локальному цвету кожи поканально in-place
-            for c in range(3):
-                lc = local_rgb[:, :, c].astype(np.float32)
-                new_c = result[:, :, c].astype(np.float32) * (1.0 - spot_w) + lc * spot_w
-                result[:, :, c] = np.clip(new_c, 0, 255).astype(np.uint8)
-                del lc, new_c
-
-            del spot_w, w_blur, local_rgb
+            del spot_w_u8, local_rgb_full
             print(
-                f"[RETOUCH] [v3] Local color match v2: affected={affected*100:.2f}% pull={pull:.2f}"
+                f"[RETOUCH] [v3] Local color match v2 (scale={scale:.2f}): affected={affected*100:.2f}% pull={pull:.2f}"
             )
     except Exception as e:
         print(f"[RETOUCH] Local color match failed (non-critical): {e}")
