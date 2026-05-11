@@ -126,24 +126,54 @@ export const createAddProjectHandler = (
       shooting_address: '',
       add_to_calendar: false
     });
-    toast.success('Услуга добавлена' + (newProject.startDate ? ' и создана запись' : ''));
+    toast.success('Проект сохранён' + (newProject.startDate ? ' и создана запись' : ''));
 
     if (onProjectCreated) {
       onProjectCreated();
     }
 
     // Отправляем уведомления если есть дата съёмки (время по умолчанию 10:00).
-    // Раньше требовалось И дата И время — но shooting_time может быть пустой
-    // строкой если фотограф очистил поле. Теперь подставим дефолт.
     if (newProject.startDate) {
+      const notifyToast = toast.loading('Отправляем уведомления...');
       try {
         const projectForNotify = {
           ...project,
           shooting_time: project.shooting_time || newProject.shooting_time || '10:00',
         };
-        await sendProjectNotification(updatedClient, projectForNotify, photographerName);
-        console.log('[PROJECT] Notification sent for project:', project.id, project.name, '| time:', projectForNotify.shooting_time);
+        const report = await sendProjectNotification(updatedClient, projectForNotify, photographerName);
+        console.log('[PROJECT] Notification report:', report);
+
+        // Формируем подробный список доставки
+        const icon = (s: 'sent' | 'failed' | 'skipped') =>
+          s === 'sent' ? '✅' : s === 'failed' ? '❌' : '⚪️';
+        const label = (s: 'sent' | 'failed' | 'skipped', reason?: string) =>
+          s === 'sent' ? 'отправлено'
+          : s === 'failed' ? `ошибка${reason ? ` (${reason})` : ''}`
+          : reason ? `пропущено (${reason})` : 'пропущено';
+
+        const lines = [
+          `${icon(report.whatsappClient)} Клиенту в MAX: ${label(report.whatsappClient, report.reasons.whatsappClient)}`,
+          `${icon(report.whatsappPhotographer)} Фотографу в MAX: ${label(report.whatsappPhotographer, report.reasons.whatsappPhotographer)}`,
+          `${icon(report.email)} Клиенту на email: ${label(report.email, report.reasons.email)}`,
+        ];
+        const summary = lines.join('\n');
+
+        const anySent = [report.whatsappClient, report.whatsappPhotographer, report.email].includes('sent');
+        const anyFailed = [report.whatsappClient, report.whatsappPhotographer, report.email].includes('failed');
+
+        toast.dismiss(notifyToast);
+        if (anySent && !anyFailed) {
+          toast.success('Уведомления отправлены', { description: summary, duration: 8000 });
+        } else if (anySent && anyFailed) {
+          toast.warning('Уведомления отправлены частично', { description: summary, duration: 10000 });
+        } else if (anyFailed) {
+          toast.error('Не удалось отправить уведомления', { description: summary, duration: 10000 });
+        } else {
+          toast.info('Уведомления не отправлялись', { description: summary, duration: 8000 });
+        }
       } catch (error) {
+        toast.dismiss(notifyToast);
+        toast.error('Ошибка отправки уведомлений');
         console.error('[PROJECT] Error sending notifications:', error);
       }
     } else {
