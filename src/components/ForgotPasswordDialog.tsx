@@ -16,9 +16,10 @@ import {
 interface ForgotPasswordDialogProps {
   open: boolean;
   onClose: () => void;
+  initialContact?: string;
 }
 
-const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
+const ForgotPasswordDialog = ({ open, onClose, initialContact }: ForgotPasswordDialogProps) => {
   const [step, setStep] = useState<'contact' | 'method' | 'code' | 'password'>('contact');
   const [contact, setContact] = useState('');
   const [method, setMethod] = useState<'email' | 'sms'>('email');
@@ -65,8 +66,10 @@ const ForgotPasswordDialog = ({ open, onClose }: ForgotPasswordDialogProps) => {
       setUserPhone('');
       setCanUseEmail(false);
       setCanUseSms(false);
+    } else if (initialContact) {
+      setContact(initialContact);
     }
-  }, [open]);
+  }, [open, initialContact]);
 
   const handleContactSubmit = async () => {
     if (!contact) {

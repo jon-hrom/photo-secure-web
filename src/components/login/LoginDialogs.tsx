@@ -13,6 +13,7 @@ interface LoginDialogsProps {
   onHandle2FACancel: () => void;
   showForgotPassword: boolean;
   onCloseForgotPassword: () => void;
+  forgotPasswordInitialContact?: string;
   showPrivacyPolicy: boolean;
   onClosePrivacyPolicy: () => void;
   showBiometricPrompt: boolean;
@@ -35,6 +36,7 @@ const LoginDialogs = ({
   onHandle2FACancel,
   showForgotPassword,
   onCloseForgotPassword,
+  forgotPasswordInitialContact,
   showPrivacyPolicy,
   onClosePrivacyPolicy,
   showBiometricPrompt,
@@ -59,6 +61,7 @@ const LoginDialogs = ({
       <ForgotPasswordDialog 
         open={showForgotPassword} 
         onClose={onCloseForgotPassword}
+        initialContact={forgotPasswordInitialContact}
       />
 
       <PrivacyPolicyDialog

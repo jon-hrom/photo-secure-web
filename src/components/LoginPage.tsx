@@ -89,6 +89,7 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         onHandle2FACancel={state.handle2FACancel}
         showForgotPassword={state.showForgotPassword}
         onCloseForgotPassword={() => state.setShowForgotPassword(false)}
+        forgotPasswordInitialContact={state.email}
         showPrivacyPolicy={state.showPrivacyPolicy}
         onClosePrivacyPolicy={() => state.setShowPrivacyPolicy(false)}
         showBiometricPrompt={state.showBiometricPrompt}
