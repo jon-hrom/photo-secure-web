@@ -183,12 +183,33 @@ const LoginFormFields = ({
         </Button>
 
         {loginAttemptFailed && !isBlocked && !isRegistering && (
+          <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="p-3 bg-orange-50 dark:bg-orange-950/30 border-2 border-orange-300 dark:border-orange-700 rounded-xl">
+              <p className="text-sm text-orange-700 dark:text-orange-300 flex items-start gap-2">
+                <Icon name="Info" size={16} className="mt-0.5 shrink-0" />
+                <span>Не помните пароль? Восстановите его — мы отправим код на email или SMS.</span>
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={onForgotPassword}
+              variant="outline"
+              className="w-full rounded-xl h-11 border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground font-semibold"
+            >
+              <Icon name="KeyRound" size={18} className="mr-2" />
+              Восстановить пароль
+            </Button>
+          </div>
+        )}
+
+        {!loginAttemptFailed && !isBlocked && !isRegistering && (
           <button
+            type="button"
             onClick={onForgotPassword}
-            className="w-full text-sm text-primary hover:underline flex items-center gap-2 justify-center"
+            className="w-full text-sm text-muted-foreground hover:text-primary hover:underline flex items-center gap-2 justify-center"
           >
-            <Icon name="KeyRound" size={16} />
-            Забыли пароль? Восстановить
+            <Icon name="KeyRound" size={14} />
+            Забыли пароль?
           </button>
         )}
       </div>
