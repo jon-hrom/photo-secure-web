@@ -311,49 +311,39 @@ def mark_seen(conn, user_id: str, transfer_id) -> dict:
 
 
 def transfer_client_full(conn, transfer: dict, new_user_id: str):
-    """Перенос всей карточки клиента — меняем user_id у клиента и всех связанных таблиц."""
+    """Перенос всей карточки клиента — меняем владельца (user_id + photographer_id) только в таблице clients.
+    Все связанные данные (проекты, фото, оплаты, переписка, документы, комментарии) принадлежат
+    клиенту через client_id и автоматически переезжают вместе с ним. В client_messages есть
+    photographer_id — он тоже обновляется."""
     client_id = transfer['client_id']
     schema = SCHEMA
+    # new_user_id для clients.user_id (VARCHAR), photographer_id — integer
+    try:
+        new_photographer_id = int(new_user_id)
+    except (ValueError, TypeError):
+        new_photographer_id = None
+
     with conn.cursor() as cur:
-        # Главная запись клиента
-        cur.execute(
-            f"UPDATE {schema}.clients SET user_id = {esc(new_user_id)}, updated_at = CURRENT_TIMESTAMP "
-            f"WHERE id = {esc(client_id)}"
-        )
-        # Сообщения
-        cur.execute(
-            f"UPDATE {schema}.client_messages SET user_id = {esc(new_user_id)} "
-            f"WHERE client_id = {esc(client_id)}"
-        )
-        # Платежи
-        cur.execute(
-            f"UPDATE {schema}.client_payments SET user_id = {esc(new_user_id)} "
-            f"WHERE client_id = {esc(client_id)}"
-        )
-        # Возвраты
-        cur.execute(
-            f"UPDATE {schema}.client_refunds SET user_id = {esc(new_user_id)} "
-            f"WHERE client_id = {esc(client_id)}"
-        )
-        # Документы
-        cur.execute(
-            f"UPDATE {schema}.client_documents SET user_id = {esc(new_user_id)} "
-            f"WHERE client_id = {esc(client_id)}"
-        )
-        # Комментарии
-        cur.execute(
-            f"UPDATE {schema}.client_comments SET user_id = {esc(new_user_id)} "
-            f"WHERE client_id = {esc(client_id)}"
-        )
-        # Папки фото клиента
-        cur.execute(
-            f"UPDATE {schema}.client_upload_folders SET user_id = {esc(new_user_id)} "
-            f"WHERE client_id = {esc(client_id)}"
-        )
-        cur.execute(
-            f"UPDATE {schema}.client_upload_photos SET user_id = {esc(new_user_id)} "
-            f"WHERE client_id = {esc(client_id)}"
-        )
+        # Главная запись клиента — меняем владельца
+        if new_photographer_id is not None:
+            cur.execute(
+                f"UPDATE {schema}.clients "
+                f"SET user_id = {esc(new_user_id)}, photographer_id = {new_photographer_id}, "
+                f"    updated_at = CURRENT_TIMESTAMP "
+                f"WHERE id = {esc(client_id)}"
+            )
+            # Сообщения — обновим photographer_id (поле сменит "автора-фотографа")
+            cur.execute(
+                f"UPDATE {schema}.client_messages "
+                f"SET photographer_id = {new_photographer_id} "
+                f"WHERE client_id = {esc(client_id)}"
+            )
+        else:
+            cur.execute(
+                f"UPDATE {schema}.clients "
+                f"SET user_id = {esc(new_user_id)}, updated_at = CURRENT_TIMESTAMP "
+                f"WHERE id = {esc(client_id)}"
+            )
 
 
 def transfer_project_only(conn, transfer: dict, new_user_id: str):
@@ -362,6 +352,10 @@ def transfer_project_only(conn, transfer: dict, new_user_id: str):
     client_id = transfer['client_id']
     project_id = transfer['project_id']
     schema = SCHEMA
+    try:
+        new_photographer_id = int(new_user_id)
+    except (ValueError, TypeError):
+        new_photographer_id = None
 
     with conn.cursor() as cur:
         # Получим данные исходного клиента
@@ -393,11 +387,13 @@ def transfer_project_only(conn, transfer: dict, new_user_id: str):
 
         if not recipient_client_id:
             # Создаём нового клиента у получателя (копия карточки)
+            photo_id_expr = str(new_photographer_id) if new_photographer_id is not None else 'NULL'
             cur.execute(
                 f"""
                 INSERT INTO {schema}.clients
-                (user_id, name, phone, email, address, vk_profile, birthdate, vk_username)
-                VALUES ({esc(new_user_id)}, {esc(src_client.get('name'))}, {esc(src_client.get('phone'))},
+                (user_id, photographer_id, name, phone, email, address, vk_profile, birthdate, vk_username)
+                VALUES ({esc(new_user_id)}, {photo_id_expr},
+                        {esc(src_client.get('name'))}, {esc(src_client.get('phone'))},
                         {esc(src_client.get('email'))}, {esc(src_client.get('address'))},
                         {esc(src_client.get('vk_profile'))}, {esc(src_client.get('birthdate'))},
                         {esc(src_client.get('vk_username'))})
@@ -414,24 +410,19 @@ def transfer_project_only(conn, transfer: dict, new_user_id: str):
         # Платежи и возвраты по проекту
         cur.execute(
             f"UPDATE {schema}.client_payments "
-            f"SET client_id = {esc(recipient_client_id)}, user_id = {esc(new_user_id)} "
+            f"SET client_id = {esc(recipient_client_id)} "
             f"WHERE project_id = {esc(project_id)}"
         )
         cur.execute(
             f"UPDATE {schema}.client_refunds "
-            f"SET client_id = {esc(recipient_client_id)}, user_id = {esc(new_user_id)} "
+            f"SET client_id = {esc(recipient_client_id)} "
             f"WHERE project_id = {esc(project_id)}"
         )
-        # Папки фото, привязанные к проекту
+        # Папки фото клиента переезжают на нового client_id (фото внутри папок — через upload_folder_id, перепривязка не нужна)
         cur.execute(
             f"UPDATE {schema}.client_upload_folders "
-            f"SET client_id = {esc(recipient_client_id)}, user_id = {esc(new_user_id)} "
-            f"WHERE project_id = {esc(project_id)}"
-        )
-        cur.execute(
-            f"UPDATE {schema}.client_upload_photos "
-            f"SET client_id = {esc(recipient_client_id)}, user_id = {esc(new_user_id)} "
-            f"WHERE project_id = {esc(project_id)}"
+            f"SET client_id = {esc(recipient_client_id)} "
+            f"WHERE client_id = {esc(client_id)}"
         )
 
 
@@ -515,10 +506,20 @@ def accept_transfer(conn, user_id: str, body: dict) -> dict:
             conn.commit()
 
         transfer['reply_comment'] = reply
-        write_history(conn, transfer, 'accepted')
-        notify_sender_about_response(transfer, accepted=True, reply=reply)
+        try:
+            write_history(conn, transfer, 'accepted')
+        except Exception as he:
+            print(f'[TRANSFER] history write failed: {he}')
+            conn.rollback()
+        try:
+            notify_sender_about_response(transfer, accepted=True, reply=reply)
+        except Exception as ne:
+            print(f'[TRANSFER] notify failed: {ne}')
         return ok({'success': True, 'status': 'accepted'})
     except Exception as e:
+        import traceback
+        print(f'[TRANSFER] accept failed: {e}')
+        print(traceback.format_exc())
         conn.rollback()
         return err(f'Transfer failed: {str(e)}', 500)
 

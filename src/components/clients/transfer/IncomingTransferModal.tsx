@@ -67,7 +67,15 @@ const IncomingTransferModal = ({ transfer, onResolved, onClose }: Props) => {
       return;
     }
     const clean = phone.replace(/\D/g, '');
-    window.open(`https://wa.me/${clean}`, '_blank');
+    // MAX-мессенджер: открываем чат по номеру
+    const url = `https://max.ru/${clean}`;
+    const win = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!win) {
+      navigator.clipboard?.writeText(`+${clean}`).catch(() => {});
+      toast.info('Номер скопирован', {
+        description: `+${clean} — откройте MAX или позвоните вручную`,
+      });
+    }
   };
 
   const senderLabel = transfer.sender_name || transfer.sender_email || transfer.sender_phone || 'Фотограф';
