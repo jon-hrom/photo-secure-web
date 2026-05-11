@@ -150,16 +150,16 @@ def _ensure_jpeg_bytes(image_bytes, file_name=None):
     if fmt in ('JPEG', 'JPG'):
         return image_bytes, False
 
-    # PNG без альфы — API обычно ест. С альфой — лучше сразу в JPEG.
-    if fmt == 'PNG' and img.mode in ('RGB', 'L'):
-        return image_bytes, False
-
-    # Всё остальное (WEBP, HEIC, BMP, TIFF, GIF, RGBA-PNG и т.п.) — перегоняем в JPEG
+    # PNG, WEBP, HEIC, BMP, TIFF, GIF и т.п. — ВСЕГДА перегоняем в JPEG.
+    # Причина: PNG большой по байтам и тяжёлый по памяти при decode,
+    # а Lambda с 256 МБ часто падает с OOM на PNG > 1800px.
     if img.mode not in ('RGB', 'L'):
         if img.mode == 'RGBA' or 'transparency' in img.info:
+            rgba = img.convert('RGBA')
             bg = Image.new('RGB', img.size, (255, 255, 255))
-            bg.paste(img.convert('RGBA'), mask=img.convert('RGBA').split()[-1])
+            bg.paste(rgba, mask=rgba.split()[-1])
             img = bg
+            del rgba
         else:
             img = img.convert('RGB')
 
@@ -1526,6 +1526,24 @@ def _handle_create(event, conn, user_id):
             return _response(400, {
                 'error': f'Неподдерживаемый формат файла: {conv_err}'
             })
+
+        # Если оригинал был не-JPEG (PNG/WEBP/HEIC и т.п.) — сохраняем JPEG-копию
+        # в S3 и используем её как in_key. Это критично: PNG на больших размерах
+        # вызывает OOM в композиции (декодирование PNG тяжелее JPEG, плюс альфа).
+        # Композиция и весь дальнейший пайплайн будут работать с лёгким JPEG.
+        if _converted:
+            try:
+                compose_key = in_key.rsplit('.', 1)[0] + '.compose.jpg'
+                s3_client.put_object(
+                    Bucket=S3_BUCKET,
+                    Key=compose_key,
+                    Body=image_bytes,
+                    ContentType='image/jpeg',
+                )
+                print(f"[RETOUCH] Saved JPEG copy for composing: {compose_key} ({len(image_bytes)} bytes)")
+                in_key = compose_key
+            except Exception as conv_save_err:
+                print(f"[RETOUCH] Failed to save JPEG copy (non-critical): {conv_save_err}")
 
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
 
