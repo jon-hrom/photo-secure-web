@@ -1011,6 +1011,10 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # out = orig + diff (с клиппингом в uint8)
     result = np.clip(orig_u8.astype(np.int16) + diff, 0, 255).astype(np.uint8)
     del diff
+    # orig_u8 больше не нужен — освобождаем 4-12 МБ для color match и smoothing
+    del orig_u8
+    import gc as _gc_e
+    _gc_e.collect()
 
     # === ЛОКАЛЬНОЕ ВЫРАВНИВАНИЕ ЦВЕТА (anti-bright/desaturated-spot) ===
     # ULTRA-LOW MEMORY: весь анализ на маленьком масштабе (long side = 384px).
@@ -1032,12 +1036,12 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         except Exception:
             pass
 
-        # Также пропускаем для очень больших фото — там лимит впритык
-        if not skip_color_match and result.shape[0] * result.shape[1] > 1500 * 1500:
+        # Также пропускаем только для ОЧЕНЬ больших фото
+        if not skip_color_match and result.shape[0] * result.shape[1] > 1900 * 1900:
             print(f"[RETOUCH] [v3] color match: skip, image too big ({result.shape[1]}x{result.shape[0]})")
             skip_color_match = True
 
-        if not skip_color_match and skin_mask_for_post.sum() > 200 and result.shape == orig_u8.shape:
+        if not skip_color_match and skin_mask_for_post.sum() > 200 and result.ndim == 3:
             H, W = result.shape[:2]
             long_side = 384  # меньше → меньше памяти
             scale = min(1.0, long_side / float(max(H, W)))
@@ -1163,8 +1167,6 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         print(f"[RETOUCH] Local color match skipped (OOM): {e}")
     except Exception as e:
         print(f"[RETOUCH] Local color match failed (non-critical): {e}")
-
-    del orig_u8
 
     # === МЯГКОЕ РАЗГЛАЖИВАНИЕ КОЖИ ===
     # На средних/дальних планах LaMa почти не сглаживает (масштаб мелкий),
