@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import CoverPreviewDesktop from './cover/CoverPreviewDesktop';
 import CoverControlsPanel from './cover/CoverControlsPanel';
 import CoverPreviewMobile from './cover/CoverPreviewMobile';
@@ -19,7 +20,13 @@ export default function CoverSettings({
   folderName,
   extractDominantColor
 }: CoverSettingsProps) {
-  const coverPhoto = photos.find(p => p.id === settings.coverPhotoId) || photos[0] || null;
+  const sortedPhotos = useMemo(() => {
+    return [...photos].sort((a, b) =>
+      (a.file_name || '').localeCompare(b.file_name || '', 'ru', { numeric: true, sensitivity: 'base' })
+    );
+  }, [photos]);
+
+  const coverPhoto = photos.find(p => p.id === settings.coverPhotoId) || sortedPhotos[0] || null;
   const mobileCoverPhoto = photos.find(p => p.id === settings.mobileCoverPhotoId) || coverPhoto;
 
   const handleSelectCoverPhoto = (photoId: number) => {
@@ -40,7 +47,7 @@ export default function CoverSettings({
 
   const effectiveMobileSelectedId = settings.mobileCoverPhotoId
     ? settings.mobileCoverPhotoId
-    : (settings.coverPhotoId || photos[0]?.id || null);
+    : (settings.coverPhotoId || sortedPhotos[0]?.id || null);
 
   return (
     <>
@@ -65,7 +72,7 @@ export default function CoverSettings({
 
       <CoverPhotoSelector
         title="Фото для web-обложки"
-        photos={photos}
+        photos={sortedPhotos}
         selectedPhotoId={settings.coverPhotoId}
         onSelect={handleSelectCoverPhoto}
         accentColor="blue"
@@ -74,7 +81,7 @@ export default function CoverSettings({
       <CoverPhotoSelector
         title="Фото для mobile-обложки"
         subtitle="Если не выбрано — используется web-обложка"
-        photos={photos}
+        photos={sortedPhotos}
         selectedPhotoId={effectiveMobileSelectedId}
         onSelect={handleSelectMobileCoverPhoto}
         accentColor="green"

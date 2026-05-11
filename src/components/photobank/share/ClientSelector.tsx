@@ -42,11 +42,18 @@ export default function ClientSelector({ clients, selectedClient, onClientChange
           </div>
         </div>
       ) : (
-        <Select value={selectedClient?.id.toString()} onValueChange={onClientChange}>
+        <Select value={selectedClient?.id.toString() ?? 'none'} onValueChange={onClientChange}>
           <SelectTrigger className="w-full bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white">
             <SelectValue placeholder="Выберите клиента" />
           </SelectTrigger>
           <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700">
+            <SelectItem
+              value="none"
+              className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <span className="block truncate">Нет клиента</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Не отправлять ссылку автоматически</span>
+            </SelectItem>
             {clients.map(client => (
               <SelectItem 
                 key={client.id} 

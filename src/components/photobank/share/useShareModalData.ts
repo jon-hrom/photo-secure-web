@@ -381,7 +381,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
     }
   };
 
-  const linkFolderToClient = async (clientId: number) => {
+  const linkFolderToClient = async (clientId: number | null) => {
     try {
       await fetch(FOLDER_CLIENT_URL, {
         method: 'POST',
@@ -604,6 +604,11 @@ export default function useShareModalData(folderId: number, folderName: string, 
   };
 
   const handleClientChange = (clientId: string) => {
+    if (clientId === 'none') {
+      setSelectedClient(null);
+      linkFolderToClient(null);
+      return;
+    }
     const client = clients.find(c => c.id === parseInt(clientId));
     if (client) {
       setSelectedClient(client);

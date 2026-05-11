@@ -87,13 +87,13 @@ def handler(event: dict, context) -> dict:
             folder_id = data.get('folder_id')
             client_id = data.get('client_id')
             
-            if not folder_id or not client_id:
+            if not folder_id:
                 cur.close()
                 conn.close()
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'folder_id and client_id required'})
+                    'body': json.dumps({'error': 'folder_id required'})
                 }
             
             cur.execute(

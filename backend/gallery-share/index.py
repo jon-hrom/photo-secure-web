@@ -318,6 +318,7 @@ def handler(event: dict, context) -> dict:
             subfolder_password = event.get('queryStringParameters', {}).get('subfolder_password', '')
             lookup_folder_id = event.get('queryStringParameters', {}).get('folder_id')
 
+            is_owner_lookup = False
             if not short_code and lookup_folder_id:
                 lookup_user_id = event.get('headers', {}).get('x-user-id')
                 if not lookup_user_id:
@@ -337,6 +338,7 @@ def handler(event: dict, context) -> dict:
                 row = cur.fetchone()
                 if row:
                     short_code = row[0]
+                    is_owner_lookup = True
                 else:
                     cur.close()
                     conn.close()
@@ -398,7 +400,7 @@ def handler(event: dict, context) -> dict:
             user_is_blocked = user_check[0] if user_check else False
             photographer_email_check = user_check[1] if user_check else None
             
-            if is_blocked or user_is_blocked:
+            if (is_blocked or user_is_blocked) and not is_owner_lookup:
                 cur.close()
                 conn.close()
                 return {
@@ -422,7 +424,7 @@ def handler(event: dict, context) -> dict:
              mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
              _is_blocked, client_upload_enabled, link_id, client_folders_visibility) = result
             
-            if password_hash:
+            if password_hash and not is_owner_lookup:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
                 print(f'[PASSWORD_CHECK] Provided: {provided_password}, Hash stored: {password_hash[:16]}...')
                 import hashlib
@@ -439,7 +441,7 @@ def handler(event: dict, context) -> dict:
                     }
                 print(f'[PASSWORD_CHECK] Password correct!')
             
-            if expires_at and datetime.now() > expires_at:
+            if expires_at and datetime.now() > expires_at and not is_owner_lookup:
                 cur.close()
                 conn.close()
                 return {
