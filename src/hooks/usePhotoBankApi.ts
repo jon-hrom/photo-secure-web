@@ -86,9 +86,10 @@ export const usePhotoBankApi = (
     }
   }, [userId, setFolders, setLoading, toast]);
 
-  const fetchPhotos = useCallback(async (folderId: number) => {
-    console.log('[FETCH_PHOTOS] Starting fetch for folder:', folderId);
-    setLoading(true);
+  const fetchPhotos = useCallback(async (folderId: number, options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
+    console.log('[FETCH_PHOTOS] Starting fetch for folder:', folderId, silent ? '(silent)' : '');
+    if (!silent) setLoading(true);
     try {
       const url = `${PHOTOBANK_FOLDERS_API}?action=list_photos&folder_id=${folderId}`;
       console.log('[FETCH_PHOTOS] Fetching from:', url);
@@ -112,13 +113,15 @@ export const usePhotoBankApi = (
       setPhotos(data.photos || []);
     } catch (error: any) {
       console.error('[FETCH_PHOTOS] Error:', error);
-      toast({
-        title: 'Ошибка',
-        description: 'Не удалось загрузить фотографии',
-        variant: 'destructive'
-      });
+      if (!silent) {
+        toast({
+          title: 'Ошибка',
+          description: 'Не удалось загрузить фотографии',
+          variant: 'destructive'
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [userId, setPhotos, setLoading, toast]);
 

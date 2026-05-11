@@ -8,7 +8,7 @@ interface PhotoBankEffectsProps {
   folders: any[];
   selectionMode: boolean;
   fetchFolders: () => void;
-  fetchPhotos: (folderId: number) => void;
+  fetchPhotos: (folderId: number, options?: { silent?: boolean }) => void;
   fetchStorageUsage: () => void;
   setSelectedFolder: (folder: any) => void;
   setSelectionMode: (mode: boolean) => void;
@@ -74,7 +74,7 @@ export const usePhotoBankEffects = ({
       
       attempts += 1;
       console.log(`[PHOTO_BANK] Auto-refreshing photos for thumbnail updates (attempt ${attempts}/${MAX_ATTEMPTS})`);
-      fetchPhotos(selectedFolder.id);
+      fetchPhotos(selectedFolder.id, { silent: true });
       
       if (attempts >= MAX_ATTEMPTS) {
         console.log('[PHOTO_BANK] Auto-refresh limit reached, stopping');
