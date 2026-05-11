@@ -1013,42 +1013,50 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     del diff
 
     # === ЛОКАЛЬНОЕ ВЫРАВНИВАНИЕ ЦВЕТА (anti-bright/desaturated-spot) ===
-    # Ищем 2 типа артефактов inpaint: светлые и серые/обесцвеченные пятна.
-    # Память жёстко лимитирована (256 МБ Lambda) — поэтому весь анализ
-    # делаем на УМЕНЬШЕННОЙ копии (long side = 512 px), карту силы пятна и
-    # карту локального цвета затем апскейлим обратно. Тяжёлых float32 массивов
-    # полного размера не создаём.
+    # ULTRA-LOW MEMORY: весь анализ на маленьком масштабе (long side = 384px).
+    # Полноразмерных массивов НЕ создаём вообще — апскейл идёт построчно
+    # прямо из маленьких PIL-картинок через crop+resize по полосам.
+    # Аварийный выход при любой нехватке памяти/исключении.
     try:
-        if skin_mask_for_post.sum() > 200 and result.shape == orig_u8.shape:
+        # Проверяем доступную память — если впритык, пропускаем
+        skip_color_match = False
+        try:
+            import resource as _res
+            # Текущее RSS в КБ → МБ. Если уже > 200 МБ — рискованно
+            cur_rss_mb = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss / 1024.0
+            if cur_rss_mb > 200:
+                print(f"[RETOUCH] [v3] color match: skip, RSS={cur_rss_mb:.0f}MB high")
+                skip_color_match = True
+        except Exception:
+            pass
+
+        if not skip_color_match and skin_mask_for_post.sum() > 200 and result.shape == orig_u8.shape:
             H, W = result.shape[:2]
-            long_side = 512
+            long_side = 384  # меньше → меньше памяти
             scale = min(1.0, long_side / float(max(H, W)))
             sH = max(8, int(round(H * scale)))
             sW = max(8, int(round(W * scale)))
 
-            # Маленький RGB
+            # === ВСЁ НА МАЛЕНЬКОМ МАСШТАБЕ ===
             small_pil = Image.fromarray(result, 'RGB').resize((sW, sH), Image.BILINEAR)
             small_rgb = np.asarray(small_pil, dtype=np.uint8)
             del small_pil
 
-            # Маленькая skin-маска
             skin_small_pil = Image.fromarray(
                 (skin_mask_for_post.astype(np.uint8) * 255), 'L'
             ).resize((sW, sH), Image.BILINEAR)
 
-            # Расширенная зона (dilate ~5px на маленьком масштабе)
             search_pil = skin_small_pil.filter(
-                ImageFilter.MaxFilter(size=11)
-            ).filter(ImageFilter.GaussianBlur(radius=4))
+                ImageFilter.MaxFilter(size=9)
+            ).filter(ImageFilter.GaussianBlur(radius=3))
             search_w = np.asarray(search_pil, dtype=np.float32) / 255.0
             del search_pil
 
-            # Узкая маска кожи для построения эталона
-            base_pil = skin_small_pil.filter(ImageFilter.GaussianBlur(radius=3))
+            base_pil = skin_small_pil.filter(ImageFilter.GaussianBlur(radius=2))
             base_u8 = np.asarray(base_pil, dtype=np.uint8)
             del base_pil, skin_small_pil
 
-            blur_r = 14  # подходит для long_side=512
+            blur_r = 10
             w_blur_pil = Image.fromarray(base_u8, 'L').filter(
                 ImageFilter.GaussianBlur(radius=blur_r)
             )
@@ -1056,7 +1064,6 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
             np.maximum(w_blur, 1.0, out=w_blur)
             del w_blur_pil
 
-            # Локальный средний цвет кожи на маленьком — uint8
             local_rgb_small = np.empty((sH, sW, 3), dtype=np.uint8)
             base_w_f = base_u8.astype(np.float32) / 255.0
             for c in range(3):
@@ -1069,7 +1076,6 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
                 del cw, cw_pil, local_c
             del base_u8, base_w_f, w_blur
 
-            # Признаки пятна на маленьком масштабе (≤ 1 МБ на массив)
             res_y = (
                 small_rgb[:, :, 0].astype(np.float32) * 0.299
                 + small_rgb[:, :, 1].astype(np.float32) * 0.587
@@ -1097,46 +1103,57 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
 
             spot_small_pil = Image.fromarray(
                 (spot_strength * 255.0).clip(0, 255).astype(np.uint8), 'L'
-            ).filter(ImageFilter.GaussianBlur(radius=3))
+            ).filter(ImageFilter.GaussianBlur(radius=2))
             del spot_strength
 
-            # Карта силы пятна → полный размер
-            spot_full_pil = spot_small_pil.resize((W, H), Image.BILINEAR)
-            del spot_small_pil
-
-            # Карта локального цвета → полный размер (uint8 RGB ≈ 7.7 МБ при 1600x1600)
-            local_rgb_full_pil = Image.fromarray(local_rgb_small, 'RGB').resize(
-                (W, H), Image.BILINEAR
-            )
-            local_rgb_full = np.asarray(local_rgb_full_pil, dtype=np.uint8)
-            del local_rgb_small, local_rgb_full_pil
+            # Финальные маленькие PIL-картинки — апскейлим ПОЛОСАМИ
+            local_rgb_small_pil = Image.fromarray(local_rgb_small, 'RGB')
+            del local_rgb_small
 
             pull = 0.9
-            # spot_w — uint8 сначала, переводим in-place построчно при применении,
-            # чтобы избежать большого float32 массива
-            spot_w_u8 = np.asarray(spot_full_pil, dtype=np.uint8)
-            del spot_full_pil
-            affected = float((spot_w_u8 > 13).sum()) / float(spot_w_u8.size)  # ~0.05 * 255
-
-            # Применяем поканально, чанками по строкам — пик памяти минимальный
-            chunk = 256
+            chunk = 192
+            affected_px = 0
+            total_px = 0
             for y0 in range(0, H, chunk):
                 y1 = min(H, y0 + chunk)
-                sw = (spot_w_u8[y0:y1].astype(np.float32) / 255.0) * pull
+                ch_h = y1 - y0
+                # Соответствующая полоса на маленьком масштабе
+                sy0 = int(y0 * scale)
+                sy1 = max(sy0 + 1, int(y1 * scale))
+                # Полоса локального цвета → ресайз к (W, ch_h)
+                lc_band_pil = local_rgb_small_pil.crop(
+                    (0, sy0, sW, sy1)
+                ).resize((W, ch_h), Image.BILINEAR)
+                lc_band = np.asarray(lc_band_pil, dtype=np.uint8)
+                del lc_band_pil
+                # Полоса силы пятна
+                sw_band_pil = spot_small_pil.crop(
+                    (0, sy0, sW, sy1)
+                ).resize((W, ch_h), Image.BILINEAR)
+                sw_u8 = np.asarray(sw_band_pil, dtype=np.uint8)
+                del sw_band_pil
+
+                affected_px += int((sw_u8 > 13).sum())
+                total_px += sw_u8.size
+
+                sw = (sw_u8.astype(np.float32) / 255.0) * pull
                 inv = 1.0 - sw
                 for c in range(3):
                     new_c = (
                         result[y0:y1, :, c].astype(np.float32) * inv
-                        + local_rgb_full[y0:y1, :, c].astype(np.float32) * sw
+                        + lc_band[:, :, c].astype(np.float32) * sw
                     )
                     result[y0:y1, :, c] = np.clip(new_c, 0, 255).astype(np.uint8)
                     del new_c
-                del sw, inv
+                del sw, inv, sw_u8, lc_band
 
-            del spot_w_u8, local_rgb_full
+            del local_rgb_small_pil, spot_small_pil
+            affected = (affected_px / total_px) if total_px else 0.0
             print(
-                f"[RETOUCH] [v3] Local color match v2 (scale={scale:.2f}): affected={affected*100:.2f}% pull={pull:.2f}"
+                f"[RETOUCH] [v3] Local color match v3 (scale={scale:.2f}, low-mem): affected={affected*100:.2f}% pull={pull:.2f}"
             )
+    except MemoryError as e:
+        print(f"[RETOUCH] Local color match skipped (OOM): {e}")
     except Exception as e:
         print(f"[RETOUCH] Local color match failed (non-critical): {e}")
 
