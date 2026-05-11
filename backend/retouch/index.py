@@ -1010,7 +1010,115 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
 
     # out = orig + diff (с клиппингом в uint8)
     result = np.clip(orig_u8.astype(np.int16) + diff, 0, 255).astype(np.uint8)
-    del orig_u8, diff
+    del diff
+
+    # === ЛОКАЛЬНОЕ ВЫРАВНИВАНИЕ ЦВЕТА (anti-bright-spot) ===
+    # После inpaint в зонах удалённых прыщей нередко остаются светлые/обесцвеченные
+    # пятна, которые HIGHLIGHT GUARD не ловит (яркость ниже его порога).
+    # Подгоняем L/a/b таких пятен к окружающей коже.
+    try:
+        if skin_mask_for_post.sum() > 200:
+            from PIL import ImageCms
+            skin_u8_lm = (skin_mask_for_post.astype(np.uint8) * 255)
+            # blur маски: внутри лица 1.0, снаружи 0.0 (мягкие края)
+            skin_blur_pil = Image.fromarray(skin_u8_lm, 'L').filter(
+                ImageFilter.GaussianBlur(radius=8)
+            )
+            skin_w = np.array(skin_blur_pil, dtype=np.float32) / 255.0
+            del skin_blur_pil
+
+            # Преобразуем в LAB через OpenCV-совместимую формулу на numpy (через PIL ICC).
+            # Если что-то идёт не так — пропускаем шаг.
+            res_pil = Image.fromarray(result, 'RGB')
+            orig_pil_lm = Image.fromarray(orig_u8, 'RGB')
+            try:
+                srgb_profile = ImageCms.createProfile("sRGB")
+                lab_profile = ImageCms.createProfile("LAB")
+                rgb2lab = ImageCms.buildTransformFromOpenProfiles(
+                    srgb_profile, lab_profile, "RGB", "LAB"
+                )
+                lab2rgb = ImageCms.buildTransformFromOpenProfiles(
+                    lab_profile, srgb_profile, "LAB", "RGB"
+                )
+                res_lab = np.array(ImageCms.applyTransform(res_pil, rgb2lab), dtype=np.float32)
+                orig_lab = np.array(ImageCms.applyTransform(orig_pil_lm, rgb2lab), dtype=np.float32)
+            except Exception:
+                rgb2lab = None
+                lab2rgb = None
+                res_lab = None
+                orig_lab = None
+            del res_pil, orig_pil_lm
+
+            if res_lab is not None and orig_lab is not None:
+                # Локальное среднее по коже (большое размытие = «средний цвет окружающей кожи»)
+                # Считаем взвешенное среднее: blur(L * w) / blur(w)
+                w_pil = Image.fromarray(
+                    (skin_w * 255.0).clip(0, 255).astype(np.uint8), 'L'
+                )
+                w_blur = np.array(
+                    w_pil.filter(ImageFilter.GaussianBlur(radius=40)),
+                    dtype=np.float32,
+                ) / 255.0
+                w_blur = np.maximum(w_blur, 1e-3)
+
+                local_skin = np.zeros_like(res_lab)
+                for c in range(3):
+                    wc = (res_lab[..., c] * skin_w)
+                    wc_pil = Image.fromarray(
+                        np.clip(wc, 0, 255).astype(np.uint8), 'L'
+                    ).filter(ImageFilter.GaussianBlur(radius=40))
+                    local_skin[..., c] = np.array(wc_pil, dtype=np.float32) / w_blur
+                    del wc, wc_pil
+
+                # diff: насколько текущий результат "светлее/обесцвеченнее" локальной кожи
+                dL = res_lab[..., 0] - local_skin[..., 0]   # >0 = ярче окружения
+                da = res_lab[..., 1] - local_skin[..., 1]   # сдвиг a (зелёный/красный)
+                db = res_lab[..., 2] - local_skin[..., 2]   # сдвиг b (синий/жёлтый)
+
+                # Маска "подозрительно светлых" пятен на коже:
+                # ярче окружения на 6+ единиц L и/или цвет сильно сместился.
+                bright_spot = np.clip((dL - 6.0) / 14.0, 0.0, 1.0)
+                color_drift = np.clip(
+                    (np.sqrt(da * da + db * db) - 3.0) / 8.0, 0.0, 1.0
+                )
+                spot_strength = np.maximum(bright_spot, color_drift) * skin_w
+                # Сглаживаем границы пятна
+                spot_pil = Image.fromarray(
+                    (spot_strength * 255.0).clip(0, 255).astype(np.uint8), 'L'
+                ).filter(ImageFilter.GaussianBlur(radius=4))
+                spot_w = np.array(spot_pil, dtype=np.float32) / 255.0
+                # Сила компенсации: 0.85 = почти полностью подтягиваем к локальной коже
+                pull = 0.85
+                spot_w = spot_w * pull
+                del spot_pil, bright_spot, color_drift, spot_strength
+
+                # Тянем LAB к локальному цвету кожи там, где есть пятно
+                corrected_lab = res_lab.copy()
+                for c in range(3):
+                    corrected_lab[..., c] = (
+                        res_lab[..., c] * (1.0 - spot_w)
+                        + local_skin[..., c] * spot_w
+                    )
+
+                if lab2rgb is not None:
+                    lab_u8 = corrected_lab.clip(0, 255).astype(np.uint8)
+                    corrected_pil = ImageCms.applyTransform(
+                        Image.fromarray(lab_u8, 'LAB'), lab2rgb
+                    )
+                    result = np.array(corrected_pil, dtype=np.uint8)
+                    del corrected_pil, lab_u8
+
+                affected = float((spot_w > 0.05).sum()) / float(spot_w.size)
+                print(
+                    f"[RETOUCH] [v3] Local color match: affected={affected*100:.2f}% "
+                    f"pull={pull:.2f}"
+                )
+                del res_lab, orig_lab, local_skin, dL, da, db, corrected_lab, spot_w, w_blur
+            del skin_w, skin_u8_lm
+    except Exception as e:
+        print(f"[RETOUCH] Local color match failed (non-critical): {e}")
+
+    del orig_u8
 
     # === МЯГКОЕ РАЗГЛАЖИВАНИЕ КОЖИ ===
     # На средних/дальних планах LaMa почти не сглаживает (масштаб мелкий),
