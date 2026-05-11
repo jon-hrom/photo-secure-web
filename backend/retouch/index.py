@@ -1017,18 +1017,25 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # Полноразмерных массивов НЕ создаём вообще — апскейл идёт построчно
     # прямо из маленьких PIL-картинок через crop+resize по полосам.
     # Аварийный выход при любой нехватке памяти/исключении.
+    import gc as _gc
+    _gc.collect()
     try:
         # Проверяем доступную память — если впритык, пропускаем
         skip_color_match = False
         try:
             import resource as _res
-            # Текущее RSS в КБ → МБ. Если уже > 200 МБ — рискованно
+            # Текущее RSS в КБ → МБ. Если уже > 180 МБ — рискованно
             cur_rss_mb = _res.getrusage(_res.RUSAGE_SELF).ru_maxrss / 1024.0
-            if cur_rss_mb > 200:
+            if cur_rss_mb > 180:
                 print(f"[RETOUCH] [v3] color match: skip, RSS={cur_rss_mb:.0f}MB high")
                 skip_color_match = True
         except Exception:
             pass
+
+        # Также пропускаем для очень больших фото — там лимит впритык
+        if not skip_color_match and result.shape[0] * result.shape[1] > 1500 * 1500:
+            print(f"[RETOUCH] [v3] color match: skip, image too big ({result.shape[1]}x{result.shape[0]})")
+            skip_color_match = True
 
         if not skip_color_match and skin_mask_for_post.sum() > 200 and result.shape == orig_u8.shape:
             H, W = result.shape[:2]
