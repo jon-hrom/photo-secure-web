@@ -722,9 +722,16 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # hf_std: общая активность текстуры
     # blob_density: круглые пятна (прыщи/постакне)
     #
+    # ПРИОРИТЕТ: сильное акне (много blob) → ВСЕГДА young_acne, даже если
+    # wrinkle_score высокий. Причина: скопления прыщей дают ложно-высокий
+    # wrinkle_score (детектор линий путает кластеры прыщей с морщинами).
+    # Без этого парень-подросток с акне классифицируется как "mature".
+    if blob_density > 5.0:
+        skin_type = "young_acne"
+        lf_strength = 0.85
     # Главная идея: ВЫСОКИЙ wrinkle_score → alpha ВНИЗ, независимо от других метрик.
     # Это защищает пожилые лица от "омолаживания".
-    if wrinkle_score > 18:
+    elif wrinkle_score > 18:
         # Пожилая кожа: alpha=0.60. Сервер для mature НЕ делает cleanup (морщины
         # защищены), поэтому мы можем применить его результат сильнее — это уберёт
         # возрастные пигментные пятна (их сервер чистит на первом проходе LaMa),
@@ -925,33 +932,59 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     except Exception as e:
         print(f"[RETOUCH] Local darkening guard failed (non-critical): {e}")
 
-    # Для mature лиц КРУПНОГО ПЛАНА: запрашиваем маску НОСА и усиливаем alpha до 0.90.
-    # На носу особенно заметны возрастные пятна, а морщин на нём мало — можно чистить сильнее.
+    # NOSE BOOST: усиливаем alpha до 0.90 на носу для крупных планов.
+    # Применяется ДЛЯ ВСЕХ типов кожи (раньше только mature) — у молодых
+    # с акне на носу скопление чёрных точек, базовая alpha их пропускает.
     # На средних/дальних планах усиление не нужно — лицо и так маленькое.
-    if skin_type in ("mature", "mature_textured") and shot_type == "closeup":
+    if shot_type == "closeup":
         try:
-            # Импорт локально, чтобы не ломать если skin_mask недоступен
             from skin_mask import _call_ai_face_parse
-            # Ресайзим исходное изображение чтобы ИИ-маска соответствовала текущему размеру orig_img
             buf_nose = io.BytesIO()
             orig_img.save(buf_nose, format='JPEG', quality=85)
             nose_mask_np = _call_ai_face_parse(buf_nose.getvalue(), mode="nose")
             if nose_mask_np is not None and nose_mask_np.size > 0:
-                # Маска носа в uint8 0/255. Сглаживаем края.
                 nose_pil = Image.fromarray(nose_mask_np, mode='L').filter(
                     ImageFilter.GaussianBlur(radius=4)
                 )
                 nose_u8 = np.array(nose_pil)
-                # На носу ставим alpha=0.90 вместо lf_strength (0.60)
-                nose_alpha = int(0.90 * 255)
-                # m_u8 = max(m_u8, nose_mask * 0.90) — поднимаем alpha в зоне носа
+                # Для acne-кожи ставим 0.95 (агрессивнее), для остальных 0.90
+                nose_target = 0.95 if skin_type == "young_acne" else 0.90
+                nose_alpha = int(nose_target * 255)
                 nose_component = ((nose_u8.astype(np.float32) / 255.0) * nose_alpha).astype(np.uint8)
                 m_u8 = np.maximum(m_u8, nose_component)
                 nose_cov = float(np.count_nonzero(nose_u8 > 128)) * 100 / max(1, nose_u8.size)
-                print(f"[RETOUCH] Nose boost: coverage={nose_cov:.1f}% alpha_on_nose=0.90")
+                print(f"[RETOUCH] Nose boost: coverage={nose_cov:.1f}% alpha_on_nose={nose_target:.2f} (skin={skin_type})")
                 del nose_u8, nose_component, nose_mask_np
         except Exception as e:
             print(f"[RETOUCH] Nose boost failed (non-critical): {e}")
+
+    # CHIN/MOUTH AREA BOOST: подбородок и зона вокруг рта.
+    # Прыщи на подбородке часто не чистятся, потому что:
+    #  1) попадают в stubble_zone (легкая щетина)
+    #  2) SCRFD focus-mask имеет мягкие края — alpha там ниже
+    # Поднимаем alpha до 0.85 в нижней трети маски кожи (где подбородок).
+    try:
+        h_m, w_m = m_u8.shape
+        # Нижняя треть лица — там обычно подбородок
+        chin_top = int(h_m * 0.55)
+        chin_band = np.zeros_like(m_u8)
+        chin_band[chin_top:, :] = 255
+        # Сглаживаем верх перехода чтобы не было резкой границы
+        chin_pil = Image.fromarray(chin_band, mode='L').filter(
+            ImageFilter.GaussianBlur(radius=max(8, h_m // 40))
+        )
+        chin_band_f = np.asarray(chin_pil, dtype=np.float32) / 255.0
+        # Чтобы не задевало шею/одежду — пересекаем с skin-маской mask_arr
+        chin_only_skin = chin_band_f * mask_arr  # mask_arr float32 [0..1]
+        # Поднимаем alpha до 0.85 в этой зоне (для acne — 0.92)
+        chin_target = 0.92 if skin_type == "young_acne" else 0.85
+        chin_alpha_u8 = (chin_only_skin * chin_target * 255.0).clip(0, 255).astype(np.uint8)
+        m_u8 = np.maximum(m_u8, chin_alpha_u8)
+        chin_cov = float(np.count_nonzero(chin_alpha_u8 > 80)) * 100 / chin_alpha_u8.size
+        print(f"[RETOUCH] Chin boost: coverage={chin_cov:.1f}% alpha_on_chin={chin_target:.2f}")
+        del chin_band, chin_pil, chin_band_f, chin_only_skin, chin_alpha_u8
+    except Exception as e:
+        print(f"[RETOUCH] Chin boost failed (non-critical): {e}")
 
     # Сохраняем bool-маску ДО удаления mask_arr — нужна для post-обработки
     # (smoothing + WB correction в самом конце)
