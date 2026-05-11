@@ -51,6 +51,15 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   
   // Хук для работы с данными
   const { clients, setClients, loading, emailVerified, loadClients, CLIENTS_API } = useClientsData(userId, propClients, onClientsUpdate);
+
+  // Глобальное событие — перезагрузить клиентов (после передачи, например)
+  useEffect(() => {
+    const handler = () => {
+      loadClients?.();
+    };
+    window.addEventListener('clients:refresh', handler);
+    return () => window.removeEventListener('clients:refresh', handler);
+  }, [loadClients]);
   
   // Хук для управления диалогами и состоянием
   const dialogsState = useClientsDialogs(userId, clients);

@@ -1,0 +1,49 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Missing X-User-Id",
+      "method": "POST",
+      "body": { "action": "list_incoming" },
+      "expectedStatus": 401,
+      "expectedBody": { "error": "string" },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Missing action",
+      "method": "POST",
+      "headers": { "X-User-Id": "1" },
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": { "error": "string" },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "List incoming",
+      "method": "POST",
+      "headers": { "X-User-Id": "1" },
+      "body": { "action": "list_incoming" },
+      "expectedStatus": 200
+    },
+    {
+      "name": "List outgoing",
+      "method": "POST",
+      "headers": { "X-User-Id": "1" },
+      "body": { "action": "list_outgoing" },
+      "expectedStatus": 200
+    },
+    {
+      "name": "Create without lookup",
+      "method": "POST",
+      "headers": { "X-User-Id": "1" },
+      "body": { "action": "create", "scope": "client", "client_id": 1 },
+      "expectedStatus": 400,
+      "expectedBody": { "error": "string" },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

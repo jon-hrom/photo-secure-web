@@ -31,6 +31,7 @@ import ShortLink from "./pages/ShortLink";
 import PublicGallery from "./pages/PublicGallery";
 import { RetouchProvider } from "./contexts/RetouchContext";
 import FloatingRetouchBar from "./components/photobank/FloatingRetouchBar";
+import IncomingTransfersWatcher from "./components/clients/transfer/IncomingTransfersWatcher";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,15 @@ const ConditionalRetouchBar = () => {
   );
   if (isPublicPage) return null;
   return <FloatingRetouchBar />;
+};
+
+const ConditionalTransfersWatcher = () => {
+  const { pathname } = useLocation();
+  const isPublicPage = PUBLIC_PATHS.some(p =>
+    p === '/' ? pathname === '/' : pathname.startsWith(p)
+  );
+  if (isPublicPage) return null;
+  return <IncomingTransfersWatcher />;
 };
 
 const App = () => {
@@ -103,6 +113,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
         <ConditionalRetouchBar />
+        <ConditionalTransfersWatcher />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/help" element={<Help />} />

@@ -196,6 +196,11 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
               localClient={localClient} 
               onUpdate={onUpdate}
               setLocalClient={setLocalClient}
+              projects={projects}
+              onTransferred={() => {
+                onOpenChange(false);
+                window.dispatchEvent(new Event('clients:refresh'));
+              }}
             />
             <ClientDialogTabs activeTab={activeTab} />
           </div>
