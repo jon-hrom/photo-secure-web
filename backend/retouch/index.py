@@ -1011,6 +1011,89 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     # out = orig + diff (с клиппингом в uint8)
     result = np.clip(orig_u8.astype(np.int16) + diff, 0, 255).astype(np.uint8)
     del diff
+
+    # === CHROMA RESTORATION ===
+    # В зонах скопления прыщей LaMa часто «обесцвечивает» кожу (теряется
+    # розовый тон → серый матовый лоск). Решение: где result стал значительно
+    # МЕНЕЕ насыщенным чем оригинал — подмешиваем оригинал обратно. Так
+    # текстуру/удаление прыщей сохраняем, а цвет возвращаем к естественному.
+    # Работа на МАЛЕНЬКОМ масштабе для экономии памяти, потом апскейл.
+    try:
+        import gc as _gc_cr
+        _gc_cr.collect()
+        H_, W_ = result.shape[:2]
+        long_side = 384
+        scale_cr = min(1.0, long_side / float(max(H_, W_)))
+        sH_ = max(8, int(round(H_ * scale_cr)))
+        sW_ = max(8, int(round(W_ * scale_cr)))
+
+        res_small = np.asarray(
+            Image.fromarray(result, 'RGB').resize((sW_, sH_), Image.BILINEAR),
+            dtype=np.uint8,
+        )
+        orig_small = np.asarray(
+            Image.fromarray(orig_u8, 'RGB').resize((sW_, sH_), Image.BILINEAR),
+            dtype=np.uint8,
+        )
+        # Chroma = max-min RGB (прокси насыщенности, дёшево)
+        res_c = res_small.max(axis=2).astype(np.int16) - res_small.min(axis=2).astype(np.int16)
+        orig_c = orig_small.max(axis=2).astype(np.int16) - orig_small.min(axis=2).astype(np.int16)
+        # Потеря насыщенности: orig был насыщеннее, result стал серее
+        chroma_loss = np.clip((orig_c - res_c - 4).astype(np.float32) / 18.0, 0.0, 1.0)
+        del res_c, orig_c, res_small
+
+        # Только на коже (маска skin_mask_for_post)
+        skin_cr_pil = Image.fromarray(
+            (skin_mask_for_post.astype(np.uint8) * 255), 'L'
+        ).resize((sW_, sH_), Image.BILINEAR)
+        skin_cr = np.asarray(skin_cr_pil, dtype=np.float32) / 255.0
+        del skin_cr_pil
+
+        # Сглаживаем переходы
+        chroma_loss *= skin_cr
+        cr_pil = Image.fromarray(
+            (chroma_loss * 255.0).clip(0, 255).astype(np.uint8), 'L'
+        ).filter(ImageFilter.GaussianBlur(radius=5))
+        del chroma_loss, skin_cr, orig_small
+
+        # Сила восстановления цвета — до 50%, применяется ТОЛЬКО к цвету,
+        # текстура остаётся от result (через смешивание U+V, оставляя Y от result).
+        # Дёшево: смешиваем все 3 канала, но мягче чем заменой.
+        restore_strength = 0.55
+        # Апскейл карты + применение полосами
+        chunk = 192
+        applied_px = 0
+        total = 0
+        for y0 in range(0, H_, chunk):
+            y1 = min(H_, y0 + chunk)
+            ch_h = y1 - y0
+            sy0 = int(y0 * scale_cr)
+            sy1 = max(sy0 + 1, int(y1 * scale_cr))
+            cr_band_pil = cr_pil.crop((0, sy0, sW_, sy1)).resize((W_, ch_h), Image.BILINEAR)
+            cr_u8 = np.asarray(cr_band_pil, dtype=np.uint8)
+            del cr_band_pil
+            applied_px += int((cr_u8 > 20).sum())
+            total += cr_u8.size
+
+            w_cr = (cr_u8.astype(np.float32) / 255.0) * restore_strength
+            inv_cr = 1.0 - w_cr
+            for c in range(3):
+                new_c = (
+                    result[y0:y1, :, c].astype(np.float32) * inv_cr
+                    + orig_u8[y0:y1, :, c].astype(np.float32) * w_cr
+                )
+                result[y0:y1, :, c] = np.clip(new_c, 0, 255).astype(np.uint8)
+                del new_c
+            del w_cr, inv_cr, cr_u8
+
+        del cr_pil
+        affected_cr = (applied_px / total) if total else 0.0
+        print(
+            f"[RETOUCH] [v3] Chroma restoration: affected={affected_cr*100:.2f}% strength={restore_strength:.2f}"
+        )
+    except Exception as e:
+        print(f"[RETOUCH] Chroma restoration failed (non-critical): {e}")
+
     # orig_u8 больше не нужен — освобождаем 4-12 МБ для color match и smoothing
     del orig_u8
     import gc as _gc_e
