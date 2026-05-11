@@ -232,6 +232,8 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     message = "\n".join(message_parts)
     
     results = {}
+    sent_ok = False
+    sent_channel = None
     
     # Отправляем в WhatsApp если есть телефон
     if client_data.get('phone'):
@@ -243,6 +245,8 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
                 message
             )
             results['whatsapp'] = {'success': True, 'message_id': result.get('idMessage')}
+            sent_ok = True
+            sent_channel = 'whatsapp'
         except Exception as e:
             print(f'[SHOOTING_NOTIF] WhatsApp error: {str(e)}')
             results['whatsapp'] = {'error': str(e)}
@@ -251,6 +255,32 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     if client_data.get('telegram_id'):
         telegram_result = send_via_telegram(client_data['telegram_id'], message)
         results['telegram'] = telegram_result
+        if telegram_result.get('success') or telegram_result.get('ok'):
+            sent_ok = True
+            sent_channel = sent_channel or 'telegram'
+    
+    # Дублируем отправленное сообщение во вкладку "Переписка" карточки клиента
+    if sent_ok and conn and client_data.get('id') and photographer_data.get('id'):
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO t_p28211681_photo_secure_web.client_messages
+                    (client_id, photographer_id, sender_type, content, type, author, message_date, is_delivered)
+                    VALUES (%s, %s, 'photographer', %s, %s, 'Система', NOW(), TRUE)
+                """, (
+                    client_data['id'],
+                    photographer_data['id'],
+                    message,
+                    sent_channel or 'whatsapp',
+                ))
+                conn.commit()
+                print(f'[SHOOTING_NOTIF] Saved to client_messages (client_id={client_data["id"]}, channel={sent_channel})')
+        except Exception as e:
+            print(f'[SHOOTING_NOTIF] Failed to save to client_messages: {e}')
+            try:
+                conn.rollback()
+            except Exception:
+                pass
     
     return results if results else {'error': 'No contact methods available'}
 

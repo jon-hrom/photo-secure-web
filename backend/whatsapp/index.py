@@ -393,6 +393,37 @@ def save_message_to_db(conn, user_id: str, phone: str, message: str, message_id:
         
         conn.commit()
         print(f"[MAX] Message saved to DB: chat_id={chat_id}")
+        
+        # Дублируем в client_messages (вкладка "Переписка" в карточке клиента),
+        # если телефон принадлежит клиенту этого фотографа.
+        try:
+            digits = ''.join(ch for ch in phone if ch.isdigit())
+            if len(digits) >= 10:
+                tail = digits[-10:]  # последние 10 цифр — устойчиво к +7/8
+                cur.execute(f"""
+                    SELECT id FROM t_p28211681_photo_secure_web.clients
+                    WHERE photographer_id = {user_id}
+                      AND regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') LIKE '%{tail}'
+                    ORDER BY id DESC LIMIT 1
+                """)
+                row = cur.fetchone()
+                client_row = dict_from_row(cur, row) if row else None
+                if client_row:
+                    sender_type = 'photographer' if is_from_me else 'client'
+                    author = 'Фотограф' if is_from_me else 'Клиент'
+                    cur.execute(f"""
+                        INSERT INTO t_p28211681_photo_secure_web.client_messages
+                        (client_id, photographer_id, sender_type, content, type, author, message_date, is_delivered, is_read)
+                        VALUES ({client_row['id']}, {user_id}, '{sender_type}', '{message_escaped}', 'whatsapp', '{author}', NOW(), TRUE, {is_from_me})
+                    """)
+                    conn.commit()
+                    print(f"[MAX] Mirrored to client_messages: client_id={client_row['id']} sender={sender_type}")
+        except Exception as mirror_err:
+            print(f"[MAX] Mirror to client_messages failed: {mirror_err}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
 
 def mark_as_read(conn, chat_id: str, user_id: str) -> Dict[str, Any]:
     """Отметить чат как прочитанный"""

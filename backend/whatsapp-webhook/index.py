@@ -134,3 +134,38 @@ def save_incoming_message(conn, message_id: str, sender_phone: str, sender_name:
         
         conn.commit()
         print(f"Message saved: chat_id={chat_id}, message_id={message_id}")
+        
+        # Зеркалим входящее во вкладку "Переписка" в карточке клиента,
+        # если номер совпадает с клиентом какого-либо фотографа.
+        try:
+            digits = ''.join(ch for ch in sender_phone if ch.isdigit())
+            if len(digits) >= 10:
+                tail = digits[-10:]
+                cur.execute("""
+                    SELECT id, photographer_id
+                    FROM t_p28211681_photo_secure_web.clients
+                    WHERE regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') LIKE %s
+                    ORDER BY id DESC LIMIT 1
+                """, (f'%{tail}',))
+                client_row = cur.fetchone()
+                if client_row and client_row.get('photographer_id'):
+                    author_name = sender_name or 'Клиент'
+                    cur.execute("""
+                        INSERT INTO t_p28211681_photo_secure_web.client_messages
+                        (client_id, photographer_id, sender_type, content, type, author, message_date, is_delivered, is_read)
+                        VALUES (%s, %s, 'client', %s, 'whatsapp', %s, to_timestamp(%s), TRUE, FALSE)
+                    """, (
+                        client_row['id'],
+                        client_row['photographer_id'],
+                        message_text,
+                        author_name,
+                        timestamp,
+                    ))
+                    conn.commit()
+                    print(f"[WH-WEBHOOK] Mirrored incoming to client_messages: client_id={client_row['id']}")
+        except Exception as mirror_err:
+            print(f"[WH-WEBHOOK] Mirror to client_messages failed: {mirror_err}")
+            try:
+                conn.rollback()
+            except Exception:
+                pass
