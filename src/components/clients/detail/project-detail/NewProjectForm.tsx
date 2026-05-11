@@ -164,8 +164,7 @@ const NewProjectForm = ({
             Добавить в Google Calendar
           </Label>
         </div>
-        <div className="h-16"></div>
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t md:static md:border-0 md:p-0">
+        <div className="sticky bottom-0 -mx-3 px-3 pt-3 pb-3 bg-background border-t md:border-0 md:static md:mx-0 md:px-0 md:pt-2 md:pb-0 z-10">
           <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full md:w-auto h-11 md:h-9 text-sm md:text-xs shadow-lg md:shadow-none">
             <Icon name={isSubmitting ? "Loader2" : "Plus"} size={16} className={`mr-2${isSubmitting ? " animate-spin" : ""}`} />
             {isSubmitting ? "Создаём..." : "Создать услугу"}

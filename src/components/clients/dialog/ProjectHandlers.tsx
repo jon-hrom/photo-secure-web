@@ -132,16 +132,22 @@ export const createAddProjectHandler = (
       onProjectCreated();
     }
 
-    // Отправляем уведомления только если есть дата и время съёмки
-    if (newProject.startDate && newProject.shooting_time) {
+    // Отправляем уведомления если есть дата съёмки (время по умолчанию 10:00).
+    // Раньше требовалось И дата И время — но shooting_time может быть пустой
+    // строкой если фотограф очистил поле. Теперь подставим дефолт.
+    if (newProject.startDate) {
       try {
-        // Используем созданный проект напрямую - это объект `project` который мы создали на строке 21-33
-        // Он уже содержит все необходимые данные для отправки уведомлений
-        await sendProjectNotification(updatedClient, project, photographerName);
-        console.log('[PROJECT] Notification sent for project:', project.id, project.name);
+        const projectForNotify = {
+          ...project,
+          shooting_time: project.shooting_time || newProject.shooting_time || '10:00',
+        };
+        await sendProjectNotification(updatedClient, projectForNotify, photographerName);
+        console.log('[PROJECT] Notification sent for project:', project.id, project.name, '| time:', projectForNotify.shooting_time);
       } catch (error) {
         console.error('[PROJECT] Error sending notifications:', error);
       }
+    } else {
+      console.warn('[PROJECT] Notifications skipped: no startDate set');
     }
   };
 };
