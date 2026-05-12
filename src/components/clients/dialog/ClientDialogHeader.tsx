@@ -48,8 +48,8 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
   };
 
   return (
-    <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 pr-12">
-      <div className="flex items-center justify-between gap-2 min-w-0">
+    <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 pr-10 sm:pr-14">
+      <div className="flex items-center justify-between gap-2 sm:gap-4 min-w-0">
         <DialogTitle className="flex items-center gap-2 sm:gap-3 text-lg sm:text-2xl min-w-0 flex-1">
           <Icon name="User" size={22} className="text-primary shrink-0 sm:w-7 sm:h-7" />
           <span className="truncate min-w-0">{client.name}</span>
@@ -58,11 +58,11 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
           variant="outline"
           size="sm"
           onClick={() => setTransferOpen(true)}
-          className="shrink-0 h-8 text-xs"
+          className="shrink-0 h-8 text-xs mr-3 sm:mr-8 px-2.5 sm:px-3"
         >
-          <Icon name="Send" size={14} className="mr-1.5" />
+          <Icon name="Send" size={14} className="sm:mr-1.5" />
           <span className="hidden sm:inline">Передать проект</span>
-          <span className="sm:hidden">Передать</span>
+          <span className="sm:hidden sr-only">Передать проект</span>
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2 text-xs sm:text-sm text-muted-foreground">

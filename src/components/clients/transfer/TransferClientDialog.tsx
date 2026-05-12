@@ -86,13 +86,13 @@ const TransferClientDialog = ({ open, onOpenChange, client, projects, onTransfer
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!loading) onOpenChange(v); }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon name="Send" size={20} className="text-primary" />
-            Передать другому фотографу
+      <DialogContent className="max-w-md w-[calc(100vw-1rem)] sm:w-full max-h-[90dvh] overflow-y-auto p-4 sm:p-6 rounded-xl">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Icon name="Send" size={20} className="text-primary shrink-0" />
+            <span>Передать другому фотографу</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm break-words">
             Клиент: <b>{client.name}</b>. Получатель сможет принять или отказаться.
           </DialogDescription>
         </DialogHeader>
@@ -183,11 +183,11 @@ const TransferClientDialog = ({ open, onOpenChange, client, projects, onTransfer
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading} className="w-full sm:w-auto">
             Отмена
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full sm:w-auto">
             <Icon name={loading ? 'Loader2' : 'Send'} size={16} className={`mr-2${loading ? ' animate-spin' : ''}`} />
             {loading ? 'Отправляем...' : 'Отправить передачу'}
           </Button>
