@@ -26,6 +26,7 @@ const TransferClientDialog = ({ open, onOpenChange, client, projects, onTransfer
   const [projectId, setProjectId] = useState<string>('');
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const activeProjects = useMemo(
     () => projects.filter(p => p.status !== 'cancelled'),
@@ -44,8 +45,14 @@ const TransferClientDialog = ({ open, onOpenChange, client, projects, onTransfer
     setProjectId('');
   };
 
+  const selectedProjectName = useMemo(
+    () => activeProjects.find(p => String(p.id) === projectId)?.name || '',
+    [activeProjects, projectId]
+  );
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
+    setConfirmOpen(false);
     setLoading(true);
     try {
       const result = await transferApi.create({
@@ -187,12 +194,42 @@ const TransferClientDialog = ({ open, onOpenChange, client, projects, onTransfer
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading} className="w-full sm:w-auto">
             Отмена
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full sm:w-auto">
+          <Button onClick={() => setConfirmOpen(true)} disabled={!canSubmit} className="w-full sm:w-auto">
             <Icon name={loading ? 'Loader2' : 'Send'} size={16} className={`mr-2${loading ? ' animate-spin' : ''}`} />
             {loading ? 'Отправляем...' : 'Отправить передачу'}
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <Dialog open={confirmOpen} onOpenChange={(v) => { if (!loading) setConfirmOpen(v); }}>
+        <DialogContent className="max-w-sm w-[calc(100vw-1rem)] sm:w-full p-4 sm:p-6 rounded-xl">
+          <DialogHeader className="pr-8">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Icon name="AlertTriangle" size={20} className="text-amber-500 shrink-0" />
+              Подтвердите передачу
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm break-words pt-2">
+              {scope === 'client' ? (
+                <>Вы передаёте <b>всю карточку клиента «{client.name}»</b> со всеми проектами, фото, перепиской, оплатами и документами. После принятия у вас клиент исчезнет.</>
+              ) : (
+                <>Вы передаёте проект <b>«{selectedProjectName}»</b> клиента «{client.name}» другому фотографу.</>
+              )}
+              <div className="mt-2">
+                Получатель: <b className="break-all">{lookupValue.trim()}</b>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setConfirmOpen(false)} disabled={loading} className="w-full sm:w-auto">
+              Отменить
+            </Button>
+            <Button onClick={handleSubmit} disabled={loading} className="w-full sm:w-auto">
+              <Icon name={loading ? 'Loader2' : 'Check'} size={16} className={`mr-2${loading ? ' animate-spin' : ''}`} />
+              {loading ? 'Отправляем...' : 'Да, передать'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
