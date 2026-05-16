@@ -171,21 +171,23 @@ export default function FavoriteListPhotographerView({
       <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
           <DialogHeader className="px-5 pt-5 pb-3 border-b">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <Icon name="Star" size={18} className="text-yellow-500" />
+            <div className="flex items-center gap-3 pr-10">
+              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg min-w-0">
+                <Icon name="Star" size={18} className="text-yellow-500 flex-shrink-0" />
                 <span className="truncate">{listName}</span>
-                <span className="text-xs font-normal text-muted-foreground">({photos.length} фото)</span>
+                <span className="text-xs font-normal text-muted-foreground flex-shrink-0">({photos.length} фото)</span>
               </DialogTitle>
-              <Button
-                onClick={handleDownloadAll}
-                disabled={downloading || photos.length === 0}
-                size="sm"
-                className="gap-1.5"
-              >
-                <Icon name="Download" size={14} />
-                Скачать всё архивом
-              </Button>
+              <div className="flex-1 flex justify-center">
+                <Button
+                  onClick={handleDownloadAll}
+                  disabled={downloading || photos.length === 0}
+                  size="sm"
+                  className="gap-1.5"
+                >
+                  <Icon name="Download" size={14} />
+                  Скачать всё архивом
+                </Button>
+              </div>
             </div>
             {downloading && (
               <div className="mt-3 space-y-1">
