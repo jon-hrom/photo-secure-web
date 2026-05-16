@@ -24,14 +24,12 @@ export default function CoverPhotoSelector({
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+      <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
         {title}
       </h3>
-      {subtitle && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-          {subtitle}
-        </p>
-      )}
+      <p className={`text-xs mb-2 min-h-[1rem] ${subtitle ? 'text-gray-500 dark:text-gray-400' : 'text-transparent select-none'}`}>
+        {subtitle || '\u00A0'}
+      </p>
       <div
         className="grid gap-2 max-h-56 overflow-y-auto pr-1"
         style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}

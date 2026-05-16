@@ -63,9 +63,9 @@ export default function CoverSettings({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
         <div
-          className={desktopRingClass}
+          className={`${desktopRingClass} flex flex-col`}
           onClick={() => onModeChange?.('desktop')}
           onFocusCapture={() => onModeChange?.('desktop')}
           style={{ minWidth: 0 }}
@@ -74,14 +74,16 @@ export default function CoverSettings({
             <div className="w-2 h-2 rounded-full bg-blue-500" />
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Web-обложка</h3>
           </div>
-          <CoverPreviewDesktop
-            settings={settings}
-            onSettingsChange={onSettingsChange}
-            coverPhoto={coverPhoto}
-            folderName={folderName}
-          />
+          <div className="flex-1 flex flex-col">
+            <CoverPreviewDesktop
+              settings={settings}
+              onSettingsChange={onSettingsChange}
+              coverPhoto={coverPhoto}
+              folderName={folderName}
+            />
+          </div>
 
-          <div className="mt-5">
+          <div className="mt-auto pt-5">
             <CoverPhotoSelector
               title="Фото для web-обложки"
               photos={sortedPhotos}
@@ -93,7 +95,7 @@ export default function CoverSettings({
         </div>
 
         <div
-          className={mobileRingClass}
+          className={`${mobileRingClass} flex flex-col`}
           onClick={() => onModeChange?.('mobile')}
           onFocusCapture={() => onModeChange?.('mobile')}
           style={{ minWidth: 0 }}
@@ -102,14 +104,16 @@ export default function CoverSettings({
             <div className="w-2 h-2 rounded-full bg-green-500" />
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Mobile-обложка</h3>
           </div>
-          <CoverPreviewMobile
-            settings={settings}
-            onSettingsChange={onSettingsChange}
-            mobileCoverPhoto={mobileCoverPhoto}
-            folderName={folderName}
-          />
+          <div className="flex-1 flex flex-col">
+            <CoverPreviewMobile
+              settings={settings}
+              onSettingsChange={onSettingsChange}
+              mobileCoverPhoto={mobileCoverPhoto}
+              folderName={folderName}
+            />
+          </div>
 
-          <div className="mt-5">
+          <div className="mt-auto pt-5">
             <CoverPhotoSelector
               title="Фото для mobile-обложки"
               subtitle="Если не выбрано — используется web-обложка"
