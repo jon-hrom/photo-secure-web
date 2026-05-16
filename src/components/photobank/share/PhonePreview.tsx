@@ -63,9 +63,22 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
     el?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const coverHeight = isDesktop ? 380 : 600;
+  const titleFontScale = isDesktop ? 0.42 : 0.55;
+  const minTitleFont = isDesktop ? 14 : 18;
+
+  const pos = settings.coverTextPosition || 'bottom-center';
+  const posClasses =
+    pos === 'center' ? 'inset-0 flex flex-col items-center justify-center text-center px-4'
+    : pos === 'top-center' ? 'inset-x-0 top-0 flex flex-col items-center text-center px-4 pt-10'
+    : pos === 'bottom-left' ? 'inset-x-0 bottom-0 flex flex-col items-start text-left px-4'
+    : pos === 'bottom-right' ? 'inset-x-0 bottom-0 flex flex-col items-end text-right px-4'
+    : 'inset-x-0 bottom-0 flex flex-col items-center text-center px-4';
+  const paddingBottom = pos.startsWith('bottom') ? (isDesktop ? 40 : 90) : undefined;
+
   const coverBlock = coverUrl ? (
     <div className="relative" style={{
-      height: isDesktop ? 160 : 600,
+      height: coverHeight,
       overflow: 'hidden',
       background: '#0a0a0a'
     }}>
@@ -77,27 +90,25 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
           objectPosition: `${focusX * 100}% ${focusY * 100}%`
         }}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-      <div className={`absolute inset-0 flex flex-col p-3 ${
-        settings.coverTextPosition === 'center' ? 'items-center justify-center text-center' :
-        settings.coverTextPosition === 'top-center' ? 'items-center justify-start text-center pt-6' :
-        settings.coverTextPosition === 'bottom-left' ? 'items-start justify-end' :
-        settings.coverTextPosition === 'bottom-right' ? 'items-end justify-end text-right' :
-        'items-center justify-end text-center'
-      }`}>
-        <h2 className="font-bold leading-tight" style={{
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+      <div className={`absolute ${posClasses}`} style={{ paddingBottom }}>
+        <h2 className="font-bold leading-tight drop-shadow-lg" style={{
           color: settings.textColor || '#ffffff',
-          fontSize: `${Math.max(8, settings.coverFontSize * (isDesktop ? 0.35 : 0.3))}px`
+          fontSize: `${Math.max(minTitleFont, settings.coverFontSize * titleFontScale)}px`,
+          marginBottom: 6
         }}>
           {settings.coverTitle || folderName}
         </h2>
         <button
           onClick={scrollToPhotos}
-          className="flex items-center gap-1 mt-1 text-[9px] transition-colors"
-          style={{ color: settings.textColor ? `${settings.textColor}cc` : 'rgba(255,255,255,0.8)' }}
+          className="inline-flex items-center gap-1 transition-colors"
+          style={{
+            color: settings.textColor ? `${settings.textColor}cc` : 'rgba(255,255,255,0.85)',
+            fontSize: isDesktop ? 12 : 13
+          }}
         >
-          Просмотр фото
-          <Icon name="ChevronDown" size={10} />
+          <span>Просмотр фото</span>
+          <Icon name="ChevronDown" size={isDesktop ? 14 : 16} className="animate-bounce" />
         </button>
       </div>
     </div>
@@ -107,35 +118,37 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
     </div>
   );
 
+  const gap = Math.max(2, Math.round((settings.gridGap || 8) / 2));
+
   const photoGrid = (
     <>
-      <div className="p-2">
-        <div className="flex items-center justify-between mb-2 px-1">
-          <div>
-            <p className="text-[9px] font-semibold" style={{ color: previewTextColor }}>{folderName}</p>
-            <p className="text-[8px]" style={{ color: secondaryTextColor }}>{photos.length} фото</p>
-          </div>
-        </div>
+      <div className="px-3 pt-3 pb-2">
+        <p className="font-semibold leading-tight" style={{ color: previewTextColor, fontSize: isDesktop ? 14 : 13 }}>
+          {folderName}
+        </p>
+        <p className="leading-tight mt-0.5" style={{ color: secondaryTextColor, fontSize: isDesktop ? 11 : 10 }}>
+          {photos.length} фото
+        </p>
       </div>
 
-      <div id="preview-photo-grid" className="px-2 pb-2">
+      <div id="preview-photo-grid" className="px-2 pb-3">
         <div
           className={isDesktop ? 'columns-4' : 'columns-2'}
-          style={{ gap: `${Math.max(1, settings.gridGap / 3)}px` }}
+          style={{ columnGap: `${gap}px` }}
         >
-          {photos.slice(0, isDesktop ? 16 : 8).map(photo => (
+          {photos.slice(0, isDesktop ? 20 : 10).map(photo => (
             <div
               key={photo.id}
-              className="rounded-sm overflow-hidden break-inside-avoid"
+              className="rounded-md overflow-hidden break-inside-avoid"
               style={{
-                marginBottom: `${Math.max(1, settings.gridGap / 3)}px`,
+                marginBottom: `${gap}px`,
                 background: 'rgba(128,128,128,0.2)'
               }}
             >
               <img
                 src={photo.thumbnail_url || photo.photo_url}
                 alt=""
-                className="w-full h-auto"
+                className="w-full h-auto block"
               />
             </div>
           ))}
