@@ -128,6 +128,13 @@
       "body": {"action": "remove_photo_from_list"},
       "expectedStatus": 400,
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Photographer list photos - no auth",
+      "method": "GET",
+      "path": "/?action=photographer_list_photos&list_id=1",
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
     }
   ]
 }

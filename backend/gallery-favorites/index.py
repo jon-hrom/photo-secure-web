@@ -831,6 +831,76 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'photo_ids': [r[0] for r in cur.fetchall()]})
                 }
 
+            if action == 'photographer_list_photos':
+                user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
+                list_id = params.get('list_id')
+                if not user_id:
+                    return {
+                        'statusCode': 401,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Unauthorized'})
+                    }
+                if not list_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'list_id required'})
+                    }
+                cur.execute('''
+                    SELECT fl.parent_folder_id
+                    FROM t_p28211681_photo_secure_web.favorite_lists fl
+                    WHERE fl.id = %s
+                ''', (int(list_id),))
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'List not found'})
+                    }
+                parent_folder_id = row[0]
+                cur.execute('''
+                    SELECT id FROM t_p28211681_photo_secure_web.photo_folders
+                    WHERE id = %s AND user_id = %s
+                ''', (int(parent_folder_id), int(user_id)))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                cur.execute('''
+                    SELECT pb.id, pb.file_name, pb.s3_url, pb.thumbnail_s3_url,
+                           pb.width, pb.height, pb.file_size, pb.s3_key
+                    FROM t_p28211681_photo_secure_web.favorite_list_photos flp
+                    JOIN t_p28211681_photo_secure_web.photo_bank pb ON pb.id = flp.photo_id
+                    WHERE flp.list_id = %s AND pb.is_trashed = FALSE
+                    ORDER BY flp.added_at ASC
+                ''', (int(list_id),))
+                photos_out = []
+                for r in cur.fetchall():
+                    s3_url = r[2] or ''
+                    thumbnail_s3_url = r[3] or ''
+                    if not thumbnail_s3_url or thumbnail_s3_url.endswith('.CR2'):
+                        thumbnail_s3_url = s3_url
+                    photo_url = generate_presigned_url(s3_url) if s3_url else ''
+                    thumbnail_url = generate_presigned_url(thumbnail_s3_url) if thumbnail_s3_url else photo_url
+                    photos_out.append({
+                        'id': r[0],
+                        'file_name': r[1],
+                        'photo_url': photo_url,
+                        'thumbnail_url': thumbnail_url,
+                        'width': r[4],
+                        'height': r[5],
+                        'file_size': r[6],
+                        's3_key': r[7]
+                    })
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'photos': photos_out})
+                }
+
             if action == 'photographer_lists':
                 user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
                 parent_folder_id = params.get('parent_folder_id')

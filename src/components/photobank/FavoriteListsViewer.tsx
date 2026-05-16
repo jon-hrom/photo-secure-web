@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon';
+import FavoriteListPhotographerView from './FavoriteListPhotographerView';
 
 const FAVORITES_URL = 'https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723';
 
@@ -25,6 +26,7 @@ export default function FavoriteListsViewer({ parentFolderId, userId }: Favorite
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [photoIdsMap, setPhotoIdsMap] = useState<Record<number, number[]>>({});
   const [photosLoading, setPhotosLoading] = useState<Record<number, boolean>>({});
+  const [openedList, setOpenedList] = useState<{ id: number; name: string; initialPhotoId: number | null } | null>(null);
 
   const fetchLists = useCallback(async () => {
     try {
@@ -131,7 +133,21 @@ export default function FavoriteListsViewer({ parentFolderId, userId }: Favorite
             </button>
 
             {isExpanded && (
-              <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border pt-3">
+              <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border pt-3 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setOpenedList({ id: list.id, name: list.name, initialPhotoId: null })}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-purple-500 text-white hover:bg-purple-600 active:bg-purple-700 transition-colors"
+                  >
+                    <Icon name="FolderOpen" size={13} />
+                    Открыть список
+                  </button>
+                  {photoIds.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      В списке {photoIds.length} фото
+                    </span>
+                  )}
+                </div>
                 {photosLoading[list.id] ? (
                   <div className="flex items-center justify-center py-4">
                     <Icon name="Loader2" size={18} className="animate-spin text-muted-foreground" />
@@ -139,8 +155,19 @@ export default function FavoriteListsViewer({ parentFolderId, userId }: Favorite
                 ) : photoIds.length === 0 ? (
                   <div className="text-xs text-muted-foreground py-2">Клиент ещё не добавил фото в список</div>
                 ) : (
-                  <div className="text-xs text-muted-foreground">
-                    В списке {photoIds.length} фото. ID: {photoIds.slice(0, 20).join(', ')}{photoIds.length > 20 ? '…' : ''}
+                  <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5">
+                    <span className="text-muted-foreground/80 mr-1">ID:</span>
+                    {photoIds.map((pid) => (
+                      <button
+                        key={pid}
+                        type="button"
+                        className="photo-id-chip"
+                        onClick={() => setOpenedList({ id: list.id, name: list.name, initialPhotoId: pid })}
+                        title={`Открыть фото #${pid}`}
+                      >
+                        {pid}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -148,6 +175,17 @@ export default function FavoriteListsViewer({ parentFolderId, userId }: Favorite
           </div>
         );
       })}
+
+      {openedList && (
+        <FavoriteListPhotographerView
+          open={!!openedList}
+          onClose={() => setOpenedList(null)}
+          listId={openedList.id}
+          listName={openedList.name}
+          userId={userId}
+          initialPhotoId={openedList.initialPhotoId}
+        />
+      )}
     </div>
   );
 }

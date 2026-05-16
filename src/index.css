@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes rainbow-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.photo-id-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground) / 0.8);
+  border: 1px solid hsl(var(--border));
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
+  text-decoration: none;
+}
+.photo-id-chip:hover {
+  background: linear-gradient(
+    90deg,
+    #ff6b6b,
+    #feca57,
+    #48dbfb,
+    #1dd1a1,
+    #5f27cd,
+    #ff6b6b
+  );
+  background-size: 300% 300%;
+  color: #ffffff;
+  border-color: transparent;
+  animation: rainbow-shift 2s linear infinite;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(95, 39, 205, 0.25);
+}
+
 @supports (padding: env(safe-area-inset-top)) {
   .safe-top {
     padding-top: max(1rem, env(safe-area-inset-top));
