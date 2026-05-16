@@ -35,10 +35,10 @@ export default function useGalleryTheme(gallery: GalleryData) {
 
   const bgStyles: React.CSSProperties = {};
   if (clientTheme !== null) {
-    bgStyles.background = isDarkBg ? '#1a1a2e' : '#f9fafb';
+    bgStyles.background = isDarkBg ? '#000000' : '#ffffff';
     bgStyles.transition = 'background 0.3s ease';
   } else if (bgTheme === 'dark') {
-    bgStyles.background = '#1a1a2e';
+    bgStyles.background = '#000000';
   } else if (bgTheme === 'auto' && gallery.bg_color) {
     bgStyles.background = gallery.bg_color;
   } else if (bgTheme === 'custom') {
@@ -51,15 +51,15 @@ export default function useGalleryTheme(gallery: GalleryData) {
       bgStyles.background = gallery.bg_color;
     }
   } else {
-    bgStyles.background = '#f9fafb';
+    bgStyles.background = '#ffffff';
   }
 
   useEffect(() => {
     const themeColor = clientTheme !== null
-      ? (isDarkBg ? '#1a1a2e' : '#f9fafb')
-      : bgTheme === 'dark' ? '#1a1a2e' 
+      ? (isDarkBg ? '#000000' : '#ffffff')
+      : bgTheme === 'dark' ? '#000000' 
         : (bgTheme === 'custom' || bgTheme === 'auto') && gallery.bg_color ? gallery.bg_color 
-        : '#f9fafb';
+        : '#ffffff';
     let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement;
     if (!meta) {
       meta = document.createElement('meta');
