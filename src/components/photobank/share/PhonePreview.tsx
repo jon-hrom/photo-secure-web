@@ -41,8 +41,8 @@ export default function PhonePreview({ settings, photos, folderName }: PhonePrev
     ? (photos.find(p => p.id === settings.mobileCoverPhotoId) || desktopCoverPhoto)
     : desktopCoverPhoto;
   const coverUrl = mobileCoverPhoto?.thumbnail_url || mobileCoverPhoto?.photo_url;
-  const focusX = settings.mobileCoverPhotoId ? settings.mobileCoverFocusX : settings.coverFocusX;
-  const focusY = settings.mobileCoverPhotoId ? settings.mobileCoverFocusY : settings.coverFocusY;
+  const focusX = settings.mobileCoverFocusX;
+  const focusY = settings.mobileCoverFocusY;
   const isVertical = settings.coverOrientation === 'vertical';
 
   const getPreviewBg = (): React.CSSProperties => {

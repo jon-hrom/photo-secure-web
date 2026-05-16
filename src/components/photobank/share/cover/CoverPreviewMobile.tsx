@@ -104,9 +104,15 @@ export default function CoverPreviewMobile({
               </div>
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
-            <div className="absolute bottom-3 left-0 right-0 flex justify-center pointer-events-none">
+            <div className={`absolute inset-0 flex flex-col p-2 pointer-events-none ${
+              settings.coverTextPosition === 'center' ? 'items-center justify-center text-center' :
+              settings.coverTextPosition === 'top-center' ? 'items-center justify-start text-center pt-3' :
+              settings.coverTextPosition === 'bottom-left' ? 'items-start justify-end' :
+              settings.coverTextPosition === 'bottom-right' ? 'items-end justify-end text-right' :
+              'items-center justify-end text-center'
+            }`}>
               <span
-                className="font-bold drop-shadow-lg truncate max-w-[110px] text-center"
+                className="font-bold drop-shadow-lg truncate max-w-[110px]"
                 style={{
                   color: settings.textColor || '#ffffff',
                   fontSize: `${Math.max(8, settings.coverFontSize * 0.3)}px`
