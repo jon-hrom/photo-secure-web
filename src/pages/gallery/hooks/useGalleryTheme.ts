@@ -60,38 +60,65 @@ export default function useGalleryTheme(gallery: GalleryData) {
       : bgTheme === 'dark' ? '#000000' 
         : (bgTheme === 'custom' || bgTheme === 'auto') && gallery.bg_color ? gallery.bg_color 
         : '#ffffff';
-    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement;
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.name = 'theme-color';
-      document.head.appendChild(meta);
-    }
-    meta.content = themeColor;
 
+    const head = document.head;
     const root = document.documentElement;
+    const body = document.body;
+
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove());
+    const themeMeta = document.createElement('meta');
+    themeMeta.name = 'theme-color';
+    themeMeta.content = themeColor;
+    head.appendChild(themeMeta);
+
+    const themeMetaLight = document.createElement('meta');
+    themeMetaLight.name = 'theme-color';
+    themeMetaLight.setAttribute('media', '(prefers-color-scheme: light)');
+    themeMetaLight.content = themeColor;
+    head.appendChild(themeMetaLight);
+
+    const themeMetaDark = document.createElement('meta');
+    themeMetaDark.name = 'theme-color';
+    themeMetaDark.setAttribute('media', '(prefers-color-scheme: dark)');
+    themeMetaDark.content = themeColor;
+    head.appendChild(themeMetaDark);
+
+    document.querySelectorAll('meta[name="color-scheme"]').forEach(m => m.remove());
+    const csMeta = document.createElement('meta');
+    csMeta.name = 'color-scheme';
+    csMeta.content = isDarkBg ? 'dark' : 'light';
+    head.appendChild(csMeta);
+
+    document.querySelectorAll('meta[name="apple-mobile-web-app-status-bar-style"]').forEach(m => m.remove());
+    const iosMeta = document.createElement('meta');
+    iosMeta.name = 'apple-mobile-web-app-status-bar-style';
+    iosMeta.content = isDarkBg ? 'black-translucent' : 'default';
+    head.appendChild(iosMeta);
+
     const prevHadDark = root.classList.contains('dark');
-    const prevBodyBg = document.body.style.background;
-    const prevHtmlBg = root.style.background;
-    const prevColorScheme = root.style.colorScheme;
 
     if (isDarkBg) {
       root.classList.add('dark');
-      root.style.colorScheme = 'dark';
-      root.style.background = '#000000';
-      document.body.style.background = '#000000';
     } else {
       root.classList.remove('dark');
-      root.style.colorScheme = 'light';
-      root.style.background = '#ffffff';
-      document.body.style.background = '#ffffff';
     }
 
+    root.style.setProperty('color-scheme', isDarkBg ? 'dark' : 'light');
+    root.style.setProperty('background-color', isDarkBg ? '#000000' : '#ffffff', 'important');
+    body.style.setProperty('background-color', isDarkBg ? '#000000' : '#ffffff', 'important');
+    body.style.setProperty('color', isDarkBg ? '#ffffff' : '#111827', 'important');
+
     return () => {
-      meta.content = '#ffffff';
+      themeMeta.remove();
+      themeMetaLight.remove();
+      themeMetaDark.remove();
+      csMeta.remove();
+      iosMeta.remove();
       if (prevHadDark) root.classList.add('dark'); else root.classList.remove('dark');
-      root.style.colorScheme = prevColorScheme;
-      root.style.background = prevHtmlBg;
-      document.body.style.background = prevBodyBg;
+      root.style.removeProperty('color-scheme');
+      root.style.removeProperty('background-color');
+      body.style.removeProperty('background-color');
+      body.style.removeProperty('color');
     };
   }, [bgTheme, gallery.bg_color, clientTheme, isDarkBg]);
 
