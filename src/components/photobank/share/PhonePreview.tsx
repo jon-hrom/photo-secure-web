@@ -20,7 +20,6 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
   const coverUrl = activeCoverPhoto?.thumbnail_url || activeCoverPhoto?.photo_url;
   const focusX = isDesktop ? settings.coverFocusX : settings.mobileCoverFocusX;
   const focusY = isDesktop ? settings.coverFocusY : settings.mobileCoverFocusY;
-  const isVertical = settings.coverOrientation === 'vertical';
 
   const getPreviewBg = (): React.CSSProperties => {
     if (settings.bgTheme === 'dark') return { background: '#1a1a2e' };
@@ -66,13 +65,14 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
 
   const coverBlock = coverUrl ? (
     <div className="relative" style={{
-      height: isDesktop ? 160 : (isVertical ? 380 : 180),
-      overflow: 'hidden'
+      height: isDesktop ? 160 : 600,
+      overflow: 'hidden',
+      background: '#0a0a0a'
     }}>
       <img
         src={coverUrl}
         alt="preview cover"
-        className="w-full h-full object-cover"
+        className={`w-full h-full ${isDesktop ? 'object-contain' : 'object-cover'}`}
         style={{
           objectPosition: `${focusX * 100}% ${focusY * 100}%`
         }}
