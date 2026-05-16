@@ -277,8 +277,6 @@ export default function GalleryGrid({
           focusX={focusX}
           focusY={focusY}
           scrollToGrid={scrollToGrid}
-          onToggleTheme={toggleClientTheme}
-          isDarkBg={!!isDarkBg}
         />
       )}
       <GalleryToolbar

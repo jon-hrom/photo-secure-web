@@ -22,10 +22,13 @@ export default function useGalleryTheme(gallery: GalleryData) {
   const isDarkBg = clientTheme !== null ? clientTheme === 'dark' : !!originalIsDark;
 
   const toggleClientTheme = useCallback(() => {
-    const next = isDarkBg ? 'light' : 'dark';
-    setClientTheme(next);
-    try { localStorage.setItem('gallery-client-theme', next); } catch { /* noop */ }
-  }, [isDarkBg]);
+    setClientTheme(prev => {
+      const current = prev !== null ? prev === 'dark' : !!originalIsDark;
+      const next: 'light' | 'dark' = current ? 'light' : 'dark';
+      try { localStorage.setItem('gallery-client-theme', next); } catch { /* noop */ }
+      return next;
+    });
+  }, [originalIsDark]);
 
   const textColor = isDarkBg ? '#ffffff' : '#111827';
   const secondaryText = isDarkBg ? 'rgba(255,255,255,0.6)' : 'rgba(55,65,81,1)';

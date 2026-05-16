@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
+import ThemeToggleButton from './ThemeToggleButton';
 import type { GalleryData } from '../GalleryGrid';
 
 interface ClientFolder {
@@ -108,28 +109,7 @@ export default function GalleryToolbar({
     }}>
       <div className="max-w-7xl mx-auto px-2 sm:px-4">
         <div className="flex items-center gap-2 py-2 sm:py-2.5 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => onToggleTheme?.()}
-            className="flex items-center justify-center rounded-full transition-all active:scale-90 touch-manipulation flex-shrink-0 cursor-pointer"
-            style={{
-              width: 40,
-              height: 40,
-              minWidth: 40,
-              minHeight: 40,
-              background: isDarkBg ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
-              border: isDarkBg ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.08)',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-            aria-label={isDarkBg ? 'Светлая тема' : 'Тёмная тема'}
-            title={isDarkBg ? 'Включить светлую тему' : 'Включить тёмную тему'}
-          >
-            {isDarkBg ? (
-              <Icon name="Sun" size={20} className="text-yellow-400" />
-            ) : (
-              <Icon name="Moon" size={20} className="text-blue-600" />
-            )}
-          </button>
+          <ThemeToggleButton isDarkBg={isDarkBg} onToggle={onToggleTheme} />
           <p className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0" style={{ color: secondaryText }}>
             {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
           </p>
