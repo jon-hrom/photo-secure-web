@@ -32,24 +32,21 @@ export default function CoverPhotoSelector({
           {subtitle}
         </p>
       )}
-      <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1">
+      <div
+        className="grid gap-2 max-h-56 overflow-y-auto pr-1"
+        style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}
+      >
         {photos.filter(p => !p.file_name?.toLowerCase().endsWith('.mp4')).map(photo => {
-          const w = photo.width || 1;
-          const h = photo.height || 1;
-          const ratio = w / h;
-          const thumbHeight = 80;
-          const thumbWidth = Math.round(thumbHeight * ratio);
           const isSelected = selectedPhotoId === photo.id;
           return (
             <button
               key={photo.id}
               onClick={() => onSelect(photo.id)}
-              className={`relative rounded-md overflow-hidden border-2 transition-all flex-shrink-0 ${
+              className={`relative rounded-md overflow-hidden border-2 aspect-square ${
                 isSelected
                   ? `${colorClasses.border} ring-2 ${colorClasses.ring}`
                   : 'border-transparent hover:border-gray-300'
               }`}
-              style={{ width: thumbWidth, height: thumbHeight }}
             >
               <img
                 src={photo.thumbnail_url || photo.photo_url}

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import BackgroundSettings from './BackgroundSettings';
 import CoverSettings from './CoverSettings';
 import PhonePreview from './PhonePreview';
@@ -24,25 +24,6 @@ export default function PageDesignTab({
   onSettingsChange 
 }: PageDesignTabProps) {
   const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
-  const lastModeChangeRef = useRef<number>(0);
-  const pendingModeRef = useRef<number | null>(null);
-
-  const changePreviewMode = useCallback((mode: PreviewMode) => {
-    setPreviewMode(prev => {
-      if (prev === mode) return prev;
-      const now = Date.now();
-      if (now - lastModeChangeRef.current < 250) {
-        if (pendingModeRef.current) window.clearTimeout(pendingModeRef.current);
-        pendingModeRef.current = window.setTimeout(() => {
-          lastModeChangeRef.current = Date.now();
-          setPreviewMode(mode);
-        }, 200);
-        return prev;
-      }
-      lastModeChangeRef.current = now;
-      return mode;
-    });
-  }, []);
 
   const extractDominantColor = useCallback((photo: Photo): Promise<string> => {
     return new Promise((resolve) => {
@@ -86,7 +67,7 @@ export default function PageDesignTab({
           photos={photos}
           folderName={folderName}
           extractDominantColor={extractDominantColor}
-          onModeChange={changePreviewMode}
+          onModeChange={setPreviewMode}
           previewMode={previewMode}
         />
       </div>
@@ -96,7 +77,7 @@ export default function PageDesignTab({
           photos={photos}
           folderName={folderName}
           previewMode={previewMode}
-          onModeChange={changePreviewMode}
+          onModeChange={setPreviewMode}
         />
       </div>
     </div>

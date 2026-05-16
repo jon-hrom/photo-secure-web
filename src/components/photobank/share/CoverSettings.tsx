@@ -55,19 +55,20 @@ export default function CoverSettings({
     : (settings.coverPhotoId || sortedPhotos[0]?.id || null);
 
   const desktopRingClass = previewMode === 'desktop'
-    ? 'rounded-xl p-3 border-2 border-blue-500/50 transition-colors'
-    : 'rounded-xl p-3 border-2 border-transparent transition-colors';
+    ? 'rounded-xl p-3 border-2 border-blue-500/50 cursor-pointer'
+    : 'rounded-xl p-3 border-2 border-transparent cursor-pointer';
   const mobileRingClass = previewMode === 'mobile'
-    ? 'rounded-xl p-3 border-2 border-green-500/50 transition-colors'
-    : 'rounded-xl p-3 border-2 border-transparent transition-colors';
+    ? 'rounded-xl p-3 border-2 border-green-500/50 cursor-pointer'
+    : 'rounded-xl p-3 border-2 border-transparent cursor-pointer';
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
         <div
           className={desktopRingClass}
-          onMouseEnter={() => onModeChange?.('desktop')}
+          onClick={() => onModeChange?.('desktop')}
           onFocusCapture={() => onModeChange?.('desktop')}
+          style={{ minWidth: 0 }}
         >
           <div className="flex items-center gap-2 mb-3">
             <div className="w-2 h-2 rounded-full bg-blue-500" />
@@ -93,8 +94,9 @@ export default function CoverSettings({
 
         <div
           className={mobileRingClass}
-          onMouseEnter={() => onModeChange?.('mobile')}
+          onClick={() => onModeChange?.('mobile')}
           onFocusCapture={() => onModeChange?.('mobile')}
+          style={{ minWidth: 0 }}
         >
           <div className="flex items-center gap-2 mb-3">
             <div className="w-2 h-2 rounded-full bg-green-500" />
