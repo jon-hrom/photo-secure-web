@@ -34,6 +34,8 @@ interface GalleryToolbarProps {
   onRegisterToDownload?: () => void;
   onToggleTheme?: () => void;
   onCreateFavoriteList?: () => void;
+  favoriteLists?: Array<{ id: number; name: string; photo_count: number }>;
+  onOpenFavoriteList?: (list: { id: number; name: string }) => void;
 }
 
 export default function GalleryToolbar({
@@ -59,9 +61,13 @@ export default function GalleryToolbar({
   onToggleSelectionMode,
   onRegisterToDownload,
   onToggleTheme,
-  onCreateFavoriteList
+  onCreateFavoriteList,
+  favoriteLists = [],
+  onOpenFavoriteList
 }: GalleryToolbarProps) {
   const hasFolders = showClientFolders && clientFolders.length > 0;
+  const hasLists = favoriteLists.length > 0;
+  const showSecondRow = hasFolders || hasLists;
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const createBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -248,30 +254,61 @@ export default function GalleryToolbar({
           )}
         </div>
 
-        {hasFolders && (
+        {showSecondRow && (
           <div className="flex items-center gap-2 pb-2 overflow-x-auto scrollbar-none">
-            <span className="text-xs flex-shrink-0" style={{ color: secondaryText }}>
-              <Icon name="Users" size={12} className="inline mr-1" />
-              Загружено:
-            </span>
-            {clientFolders.map(folder => (
-              <button
-                key={folder.id}
-                onClick={() => onOpenClientFolder?.(folder)}
-                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all active:scale-95"
-                style={{
-                  background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-                  color: isDarkBg ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)',
-                  border: isDarkBg ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)'
-                }}
-              >
-                <Icon name="Folder" size={12} />
-                <span>{folder.folder_name}</span>
-                {folder.photo_count > 0 && (
-                  <span className="opacity-60">{folder.photo_count}</span>
-                )}
-              </button>
-            ))}
+            {hasFolders && (
+              <>
+                <span className="text-xs flex-shrink-0" style={{ color: secondaryText }}>
+                  <Icon name="Users" size={12} className="inline mr-1" />
+                  Загружено:
+                </span>
+                {clientFolders.map(folder => (
+                  <button
+                    key={folder.id}
+                    onClick={() => onOpenClientFolder?.(folder)}
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all active:scale-95"
+                    style={{
+                      background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                      color: isDarkBg ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)',
+                      border: isDarkBg ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)'
+                    }}
+                  >
+                    <Icon name="Folder" size={12} />
+                    <span>{folder.folder_name}</span>
+                    {folder.photo_count > 0 && (
+                      <span className="opacity-60">{folder.photo_count}</span>
+                    )}
+                  </button>
+                ))}
+              </>
+            )}
+            {hasLists && (
+              <>
+                <span className="text-xs flex-shrink-0 ml-1" style={{ color: secondaryText }}>
+                  <Icon name="Star" size={12} className="inline mr-1" />
+                  Списки:
+                </span>
+                {favoriteLists.map(list => (
+                  <button
+                    key={list.id}
+                    onClick={() => onOpenFavoriteList?.({ id: list.id, name: list.name })}
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all active:scale-95"
+                    style={{
+                      background: isDarkBg ? 'rgba(168,85,247,0.18)' : 'rgba(168,85,247,0.12)',
+                      color: isDarkBg ? '#d8b4fe' : '#7e22ce',
+                      border: isDarkBg ? '1px solid rgba(168,85,247,0.3)' : '1px solid rgba(168,85,247,0.25)'
+                    }}
+                    title={list.name}
+                  >
+                    <Icon name="Star" size={12} />
+                    <span className="max-w-[140px] truncate">{list.name}</span>
+                    {list.photo_count > 0 && (
+                      <span className="opacity-70">{list.photo_count}</span>
+                    )}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>

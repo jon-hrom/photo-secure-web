@@ -639,6 +639,91 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'added': added})
                 }
 
+            elif action == 'delete_list':
+                list_id = body.get('list_id')
+                gallery_code = body.get('gallery_code')
+                client_id = body.get('client_id')
+                if not list_id or not gallery_code or not client_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'list_id, gallery_code, client_id required'})
+                    }
+                cur.execute('''
+                    SELECT gallery_code, client_id FROM t_p28211681_photo_secure_web.favorite_lists
+                    WHERE id = %s
+                ''', (int(list_id),))
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'List not found'})
+                    }
+                if row[0] != gallery_code or row[1] != int(client_id):
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                cur.execute('''
+                    DELETE FROM t_p28211681_photo_secure_web.favorite_list_photos
+                    WHERE list_id = %s
+                ''', (int(list_id),))
+                cur.execute('''
+                    DELETE FROM t_p28211681_photo_secure_web.favorite_lists
+                    WHERE id = %s
+                ''', (int(list_id),))
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'ok': True})
+                }
+
+            elif action == 'remove_photo_from_list':
+                list_id = body.get('list_id')
+                gallery_code = body.get('gallery_code')
+                client_id = body.get('client_id')
+                photo_id = body.get('photo_id')
+                if not list_id or not gallery_code or not client_id or not photo_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'list_id, gallery_code, client_id, photo_id required'})
+                    }
+                cur.execute('''
+                    SELECT gallery_code, client_id FROM t_p28211681_photo_secure_web.favorite_lists
+                    WHERE id = %s
+                ''', (int(list_id),))
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'List not found'})
+                    }
+                if row[0] != gallery_code or row[1] != int(client_id):
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                cur.execute('''
+                    DELETE FROM t_p28211681_photo_secure_web.favorite_list_photos
+                    WHERE list_id = %s AND photo_id = %s
+                ''', (int(list_id), int(photo_id)))
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.favorite_lists
+                    SET updated_at = NOW() WHERE id = %s
+                ''', (int(list_id),))
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'ok': True})
+                }
+
             elif action == 'rename_list':
                 list_id = body.get('list_id')
                 gallery_code = body.get('gallery_code')

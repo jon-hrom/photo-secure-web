@@ -6,6 +6,7 @@ import GalleryModals from './gallery/GalleryModals';
 import ClientUploadModal from '@/components/gallery/ClientUploadModal';
 import ClientFolderPage from '@/components/gallery/ClientFolderPage';
 import CreateFavoriteListModal from '@/components/gallery/CreateFavoriteListModal';
+import FavoriteListView from '@/components/gallery/FavoriteListView';
 import GalleryStatusScreens from './gallery/GalleryStatusScreens';
 import { SubfolderPasswordView, SubfolderPhotosView } from './gallery/SubfolderView';
 import { useGalleryProtection } from './gallery/hooks/useGalleryProtection';
@@ -36,6 +37,24 @@ export default function PublicGallery() {
   const state = useGalleryState();
   const [isCreateListOpen, setIsCreateListOpen] = useState(false);
   const [activeFavoriteList, setActiveFavoriteList] = useState<{ id: number; name: string } | null>(null);
+  const [favoriteLists, setFavoriteLists] = useState<Array<{ id: number; name: string; note: string | null; photo_count: number; created_at: string | null }>>([]);
+  const [viewingList, setViewingList] = useState<{ id: number; name: string } | null>(null);
+
+  const loadFavoriteLists = React.useCallback(async () => {
+    if (!code || !state.clientData?.client_id) {
+      setFavoriteLists([]);
+      return;
+    }
+    try {
+      const resp = await fetch(`${FAVORITES_URL}?action=client_lists&gallery_code=${encodeURIComponent(code)}&client_id=${state.clientData.client_id}`);
+      const data = await resp.json();
+      if (resp.ok && Array.isArray(data.lists)) setFavoriteLists(data.lists);
+    } catch (e) {
+      console.error('load favorite lists error', e);
+    }
+  }, [code, state.clientData?.client_id]);
+
+  useEffect(() => { loadFavoriteLists(); }, [loadFavoriteLists]);
 
   const handleOpenCreateList = () => {
     if (!state.clientData?.client_id) {
@@ -47,6 +66,7 @@ export default function PublicGallery() {
 
   const handleListCreated = (list: { id: number; name: string }) => {
     setActiveFavoriteList({ id: list.id, name: list.name });
+    loadFavoriteLists();
   };
 
   const handleSubmitListSelection = async (photoIds: number[]) => {
@@ -66,7 +86,15 @@ export default function PublicGallery() {
     } catch (e) {
       console.error('add to list error', e);
     }
+    const justAddedListId = activeFavoriteList.id;
+    const justAddedListName = activeFavoriteList.name;
     setActiveFavoriteList(null);
+    await loadFavoriteLists();
+    setViewingList({ id: justAddedListId, name: justAddedListName });
+  };
+
+  const handleOpenList = (list: { id: number; name: string }) => {
+    setViewingList(list);
   };
   
   const {
@@ -230,6 +258,30 @@ export default function PublicGallery() {
     );
   }
 
+  if (viewingList && state.clientData?.client_id && code) {
+    return (
+      <FavoriteListView
+        listId={viewingList.id}
+        listName={viewingList.name}
+        shortCode={code}
+        clientId={state.clientData.client_id}
+        galleryPhotos={gallery.photos}
+        onBack={() => { setViewingList(null); loadFavoriteLists(); }}
+        onAddMore={() => {
+          setActiveFavoriteList({ id: viewingList.id, name: viewingList.name });
+          setViewingList(null);
+        }}
+        onListDeleted={() => { setViewingList(null); loadFavoriteLists(); }}
+        onListRenamed={(newName) => { setViewingList({ id: viewingList.id, name: newName }); loadFavoriteLists(); }}
+        bgStyles={galleryBgStyles}
+        isDarkBg={isDarkTheme}
+        textColor={galleryTextColor}
+        downloadPhoto={downloadPhoto}
+        downloadDisabled={gallery.download_disabled}
+      />
+    );
+  }
+
   if (subfolder.viewingSubfolder && subfolder.subfolderPasswordRequired && subfolder.subfolderPhotos.length === 0) {
     return (
       <SubfolderPasswordView
@@ -313,6 +365,8 @@ export default function PublicGallery() {
         activeFavoriteList={activeFavoriteList}
         onSubmitListSelection={handleSubmitListSelection}
         onCancelListSelection={() => setActiveFavoriteList(null)}
+        favoriteLists={state.clientData?.client_id ? favoriteLists : []}
+        onOpenFavoriteList={handleOpenList}
       />
 
       <GalleryModals
