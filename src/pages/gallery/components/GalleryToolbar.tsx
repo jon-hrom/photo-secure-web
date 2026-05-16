@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import type { GalleryData } from '../GalleryGrid';
 
@@ -31,6 +32,7 @@ interface GalleryToolbarProps {
   onToggleSelectionMode?: () => void;
   onRegisterToDownload?: () => void;
   onToggleTheme?: () => void;
+  onCreateFavoriteList?: () => void;
 }
 
 export default function GalleryToolbar({
@@ -55,9 +57,21 @@ export default function GalleryToolbar({
   selectionMode = false,
   onToggleSelectionMode,
   onRegisterToDownload,
-  onToggleTheme
+  onToggleTheme,
+  onCreateFavoriteList
 }: GalleryToolbarProps) {
   const hasFolders = showClientFolders && clientFolders.length > 0;
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  const createBtnRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!createMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!createBtnRef.current?.contains(e.target as Node)) setCreateMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [createMenuOpen]);
 
   return (
     <div className="sticky top-0 z-50" style={{ 
@@ -112,6 +126,37 @@ export default function GalleryToolbar({
                 <Icon name="Star" size={16} className="flex-shrink-0" />
                 <span className="hidden sm:inline pr-0.5">Избранное</span>
               </button>
+              {onCreateFavoriteList && (
+                <div ref={createBtnRef} className="relative flex-shrink-0">
+                  <button
+                    onClick={() => setCreateMenuOpen(v => !v)}
+                    className="flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-purple-500 text-white rounded-full sm:rounded-lg active:bg-purple-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap"
+                    style={{ minWidth: 40, minHeight: 40 }}
+                  >
+                    <Icon name="Plus" size={16} className="flex-shrink-0" />
+                    <span className="hidden sm:inline pr-0.5">Создать</span>
+                  </button>
+                  {createMenuOpen && (
+                    <div
+                      className="absolute right-0 mt-2 rounded-lg shadow-lg overflow-hidden z-50"
+                      style={{
+                        minWidth: 240,
+                        background: isDarkBg ? '#1f1f3a' : '#ffffff',
+                        border: isDarkBg ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)'
+                      }}
+                    >
+                      <button
+                        onClick={() => { setCreateMenuOpen(false); onCreateFavoriteList(); }}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-black/5 dark:hover:bg-white/5"
+                        style={{ color: textColor }}
+                      >
+                        <Icon name="Star" size={16} className="text-yellow-500" />
+                        <span>Новый список избранного</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               {clientUploadEnabled && onOpenUpload && (
                 <button
                   onClick={onOpenUpload}

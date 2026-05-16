@@ -90,6 +90,28 @@
         "error": "string"
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Create list - missing fields",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "create_list"},
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Client lists - missing params",
+      "method": "GET",
+      "path": "/?action=client_lists",
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Photographer lists - no auth",
+      "method": "GET",
+      "path": "/?action=photographer_lists&parent_folder_id=1",
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
     }
   ]
 }

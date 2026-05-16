@@ -526,6 +526,166 @@ def handler(event: dict, context) -> dict:
                     })
                 }
             
+            elif action == 'create_list':
+                gallery_code = body.get('gallery_code')
+                client_id = body.get('client_id')
+                name = (body.get('name') or '').strip()
+                note = (body.get('note') or '').strip() or None
+                if not gallery_code or not client_id or not name:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'gallery_code, client_id, name required'})
+                    }
+                if len(name) > 255:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'name too long'})
+                    }
+                cur.execute('''
+                    SELECT id, folder_id FROM t_p28211681_photo_secure_web.folder_short_links
+                    WHERE short_code = %s
+                      AND COALESCE(is_blocked, FALSE) = FALSE
+                      AND (expires_at IS NULL OR expires_at > NOW())
+                ''', (gallery_code,))
+                link = cur.fetchone()
+                if not link:
+                    return {
+                        'statusCode': 404,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Gallery not found'})
+                    }
+                cur.execute('''
+                    SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE id = %s AND gallery_code = %s
+                ''', (client_id, gallery_code))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Client not allowed'})
+                    }
+                cur.execute('''
+                    INSERT INTO t_p28211681_photo_secure_web.favorite_lists
+                        (gallery_code, parent_folder_id, short_link_id, client_id, name, note)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id, created_at
+                ''', (gallery_code, link[1], link[0], int(client_id), name, note))
+                row = cur.fetchone()
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({
+                        'list': {
+                            'id': row[0],
+                            'name': name,
+                            'note': note,
+                            'created_at': row[1].isoformat() if row[1] else None,
+                            'photo_count': 0
+                        }
+                    })
+                }
+
+            elif action == 'add_photos_to_list':
+                list_id = body.get('list_id')
+                gallery_code = body.get('gallery_code')
+                client_id = body.get('client_id')
+                photo_ids = body.get('photo_ids') or []
+                if not list_id or not gallery_code or not client_id or not isinstance(photo_ids, list) or not photo_ids:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'list_id, gallery_code, client_id, photo_ids required'})
+                    }
+                cur.execute('''
+                    SELECT gallery_code, client_id FROM t_p28211681_photo_secure_web.favorite_lists
+                    WHERE id = %s
+                ''', (int(list_id),))
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'List not found'})
+                    }
+                if row[0] != gallery_code or row[1] != int(client_id):
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                added = 0
+                for pid in photo_ids:
+                    try:
+                        pid_int = int(pid)
+                    except (TypeError, ValueError):
+                        continue
+                    cur.execute('''
+                        INSERT INTO t_p28211681_photo_secure_web.favorite_list_photos (list_id, photo_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT (list_id, photo_id) DO NOTHING
+                    ''', (int(list_id), pid_int))
+                    added += cur.rowcount
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.favorite_lists
+                    SET updated_at = NOW() WHERE id = %s
+                ''', (int(list_id),))
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'added': added})
+                }
+
+            elif action == 'rename_list':
+                list_id = body.get('list_id')
+                gallery_code = body.get('gallery_code')
+                client_id = body.get('client_id')
+                name = (body.get('name') or '').strip()
+                if not list_id or not gallery_code or not client_id or not name:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'list_id, gallery_code, client_id, name required'})
+                    }
+                cur.execute('''
+                    SELECT gallery_code, client_id FROM t_p28211681_photo_secure_web.favorite_lists
+                    WHERE id = %s
+                ''', (int(list_id),))
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'List not found'})
+                    }
+                if row[0] != gallery_code or row[1] != int(client_id):
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                note = body.get('note')
+                if note is None:
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.favorite_lists
+                        SET name = %s, updated_at = NOW() WHERE id = %s
+                    ''', (name, int(list_id)))
+                else:
+                    note_val = (note or '').strip() or None
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.favorite_lists
+                        SET name = %s, note = %s, updated_at = NOW() WHERE id = %s
+                    ''', (name, note_val, int(list_id)))
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'ok': True})
+                }
+
             else:
                 return {
                     'statusCode': 400,
@@ -535,6 +695,109 @@ def handler(event: dict, context) -> dict:
         
         elif method == 'GET':
             params = event.get('queryStringParameters') or {}
+            action = params.get('action')
+
+            if action == 'client_lists':
+                gallery_code = params.get('gallery_code')
+                client_id = params.get('client_id')
+                if not gallery_code or not client_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'gallery_code and client_id required'})
+                    }
+                cur.execute('''
+                    SELECT fl.id, fl.name, fl.note, fl.created_at,
+                           (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.favorite_list_photos flp WHERE flp.list_id = fl.id) AS photo_count
+                    FROM t_p28211681_photo_secure_web.favorite_lists fl
+                    WHERE fl.gallery_code = %s AND fl.client_id = %s
+                    ORDER BY fl.created_at DESC
+                ''', (gallery_code, int(client_id)))
+                lists_out = []
+                for r in cur.fetchall():
+                    lists_out.append({
+                        'id': r[0],
+                        'name': r[1],
+                        'note': r[2],
+                        'created_at': r[3].isoformat() if r[3] else None,
+                        'photo_count': r[4]
+                    })
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'lists': lists_out})
+                }
+
+            if action == 'list_photos':
+                list_id = params.get('list_id')
+                if not list_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'list_id required'})
+                    }
+                cur.execute('''
+                    SELECT photo_id FROM t_p28211681_photo_secure_web.favorite_list_photos
+                    WHERE list_id = %s ORDER BY added_at ASC
+                ''', (int(list_id),))
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'photo_ids': [r[0] for r in cur.fetchall()]})
+                }
+
+            if action == 'photographer_lists':
+                user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
+                parent_folder_id = params.get('parent_folder_id')
+                if not user_id:
+                    return {
+                        'statusCode': 401,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Unauthorized'})
+                    }
+                if not parent_folder_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'parent_folder_id required'})
+                    }
+                cur.execute('''
+                    SELECT id FROM t_p28211681_photo_secure_web.photo_folders
+                    WHERE id = %s AND user_id = %s
+                ''', (int(parent_folder_id), int(user_id)))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                cur.execute('''
+                    SELECT fl.id, fl.name, fl.note, fl.created_at, fl.client_id,
+                           fc.full_name, fc.phone,
+                           (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.favorite_list_photos flp WHERE flp.list_id = fl.id) AS photo_count
+                    FROM t_p28211681_photo_secure_web.favorite_lists fl
+                    LEFT JOIN t_p28211681_photo_secure_web.favorite_clients fc ON fc.id = fl.client_id
+                    WHERE fl.parent_folder_id = %s
+                    ORDER BY fl.created_at DESC
+                ''', (int(parent_folder_id),))
+                lists_out = []
+                for r in cur.fetchall():
+                    lists_out.append({
+                        'id': r[0],
+                        'name': r[1],
+                        'note': r[2],
+                        'created_at': r[3].isoformat() if r[3] else None,
+                        'client_id': r[4],
+                        'client_name': r[5],
+                        'client_phone': r[6],
+                        'photo_count': r[7]
+                    })
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'lists': lists_out})
+                }
+
             client_id = params.get('client_id')
             gallery_code = params.get('gallery_code')
             folder_id = params.get('folder_id')

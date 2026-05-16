@@ -24,6 +24,7 @@ import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewin
 import { usePhotoBankEffects } from '@/pages/photobank/PhotoBankEffects';
 import { useSessionWatcher } from '@/hooks/useSessionWatcher';
 import ClientUploadViewer from '@/components/photobank/ClientUploadViewer';
+import FavoriteListsViewer from '@/components/photobank/FavoriteListsViewer';
 import RetouchDialog from '@/components/photobank/RetouchDialog';
 
 function CreateSubfolderDialog({ open, onOpenChange, subfolderName, onSetSubfolderName, onCreateSubfolder }: {
@@ -435,10 +436,16 @@ const PhotoBank = () => {
                 });
               }}
               clientUploadSlot={userId && selectedFolder ? (
-                <ClientUploadViewer
-                  parentFolderId={selectedFolder.id}
-                  userId={parseInt(userId, 10)}
-                />
+                <>
+                  <FavoriteListsViewer
+                    parentFolderId={selectedFolder.id}
+                    userId={parseInt(userId, 10)}
+                  />
+                  <ClientUploadViewer
+                    parentFolderId={selectedFolder.id}
+                    userId={parseInt(userId, 10)}
+                  />
+                </>
               ) : undefined}
             />
           </>

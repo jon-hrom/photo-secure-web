@@ -94,6 +94,10 @@ export interface GalleryGridProps {
   onOpenClientFolder?: (folder: ClientFolder) => void;
   onRegisterToDownload?: () => void;
   onOpenSubfolder?: (subfolder: GallerySubfolder) => void;
+  onCreateFavoriteList?: () => void;
+  activeFavoriteList?: { id: number; name: string } | null;
+  onSubmitListSelection?: (photoIds: number[]) => Promise<void> | void;
+  onCancelListSelection?: () => void;
 }
 
 export default function GalleryGrid({
@@ -118,7 +122,11 @@ export default function GalleryGrid({
   showClientFolders = false,
   onOpenClientFolder,
   onRegisterToDownload,
-  onOpenSubfolder
+  onOpenSubfolder,
+  onCreateFavoriteList,
+  activeFavoriteList,
+  onSubmitListSelection,
+  onCancelListSelection,
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length, 'subfolders:', gallery.subfolders?.length || 0, gallery.subfolders);
 
@@ -126,9 +134,41 @@ export default function GalleryGrid({
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [downloadingSelected, setDownloadingSelected] = useState(false);
   const [selectedProgress, setSelectedProgress] = useState(0);
+  const [savingList, setSavingList] = useState(false);
+
+  useEffect(() => {
+    if (activeFavoriteList) {
+      setSelectionMode(true);
+      setSelectedIds(new Set());
+    }
+  }, [activeFavoriteList?.id]);
 
   const toggleSelectionMode = () => {
+    if (activeFavoriteList) {
+      onCancelListSelection?.();
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+      return;
+    }
     setSelectionMode(prev => !prev);
+    setSelectedIds(new Set());
+  };
+
+  const handleSubmitList = async () => {
+    if (!onSubmitListSelection || selectedIds.size === 0) return;
+    setSavingList(true);
+    try {
+      await onSubmitListSelection(Array.from(selectedIds));
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+    } finally {
+      setSavingList(false);
+    }
+  };
+
+  const handleCancelList = () => {
+    onCancelListSelection?.();
+    setSelectionMode(false);
     setSelectedIds(new Set());
   };
 
@@ -258,6 +298,7 @@ export default function GalleryGrid({
         onToggleSelectionMode={toggleSelectionMode}
         onRegisterToDownload={onRegisterToDownload}
         onToggleTheme={toggleClientTheme}
+        onCreateFavoriteList={onCreateFavoriteList}
       />
       <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pt-2 md:pt-0"
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
@@ -297,6 +338,8 @@ export default function GalleryGrid({
           selectedProgress={selectedProgress}
           onSelectAll={selectAll}
           onDownloadSelected={downloadSelected}
+          listMode={activeFavoriteList ? { listName: activeFavoriteList.name, onAdd: handleSubmitList, saving: savingList } : null}
+          onCancel={activeFavoriteList ? handleCancelList : undefined}
         />
       )}
     </div>

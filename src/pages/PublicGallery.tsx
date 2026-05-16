@@ -5,6 +5,7 @@ import LoadingIndicators from './gallery/LoadingIndicators';
 import GalleryModals from './gallery/GalleryModals';
 import ClientUploadModal from '@/components/gallery/ClientUploadModal';
 import ClientFolderPage from '@/components/gallery/ClientFolderPage';
+import CreateFavoriteListModal from '@/components/gallery/CreateFavoriteListModal';
 import GalleryStatusScreens from './gallery/GalleryStatusScreens';
 import { SubfolderPasswordView, SubfolderPhotosView } from './gallery/SubfolderView';
 import { useGalleryProtection } from './gallery/hooks/useGalleryProtection';
@@ -27,10 +28,46 @@ interface Photo {
   content_type?: string;
 }
 
+const FAVORITES_URL = 'https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723';
+
 export default function PublicGallery() {
   const { code } = useParams<{ code: string }>();
   
   const state = useGalleryState();
+  const [isCreateListOpen, setIsCreateListOpen] = useState(false);
+  const [activeFavoriteList, setActiveFavoriteList] = useState<{ id: number; name: string } | null>(null);
+
+  const handleOpenCreateList = () => {
+    if (!state.clientData?.client_id) {
+      state.setIsLoginModalOpen(true);
+      return;
+    }
+    setIsCreateListOpen(true);
+  };
+
+  const handleListCreated = (list: { id: number; name: string }) => {
+    setActiveFavoriteList({ id: list.id, name: list.name });
+  };
+
+  const handleSubmitListSelection = async (photoIds: number[]) => {
+    if (!activeFavoriteList || !state.clientData?.client_id || !code) return;
+    try {
+      await fetch(FAVORITES_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_photos_to_list',
+          list_id: activeFavoriteList.id,
+          gallery_code: code,
+          client_id: state.clientData.client_id,
+          photo_ids: photoIds,
+        }),
+      });
+    } catch (e) {
+      console.error('add to list error', e);
+    }
+    setActiveFavoriteList(null);
+  };
   
   const {
     gallery,
@@ -272,6 +309,10 @@ export default function PublicGallery() {
         }}
         onRegisterToDownload={handlers.handleRegisterToDownload}
         onOpenSubfolder={subfolder.handleOpenSubfolder}
+        onCreateFavoriteList={state.clientData?.client_id ? handleOpenCreateList : undefined}
+        activeFavoriteList={activeFavoriteList}
+        onSubmitListSelection={handleSubmitListSelection}
+        onCancelListSelection={() => setActiveFavoriteList(null)}
       />
 
       <GalleryModals
@@ -305,6 +346,17 @@ export default function PublicGallery() {
         loadClientFavorites={handlers.loadClientFavorites}
         isDarkTheme={isDarkTheme}
       />
+
+      {code && state.clientData?.client_id && (
+        <CreateFavoriteListModal
+          isOpen={isCreateListOpen}
+          onClose={() => setIsCreateListOpen(false)}
+          shortCode={code}
+          clientId={state.clientData.client_id}
+          isDarkTheme={isDarkTheme}
+          onCreated={handleListCreated}
+        />
+      )}
 
       {state.clientData?.upload_enabled && code && state.clientData?.client_id && (
         <ClientUploadModal
