@@ -77,10 +77,9 @@ export default function CoverPreviewMobile({
         <div className="relative">
           <div
             ref={mobileCoverImageRef}
-            className="relative overflow-hidden rounded-lg cursor-crosshair select-none mx-auto"
-            style={{ 
-              maxHeight: 240,
-              width: 135,
+            className="relative overflow-hidden rounded-lg cursor-crosshair select-none mx-auto bg-black"
+            style={{
+              width: 200,
               aspectRatio: '9/16'
             }}
             onMouseDown={handleMobileMouseDown}
@@ -89,7 +88,8 @@ export default function CoverPreviewMobile({
             <img
               src={mobileCoverUrl}
               alt="mobile cover"
-              className="w-full h-full object-cover object-center pointer-events-none"
+              className="w-full h-full object-cover pointer-events-none"
+              style={{ objectPosition: `${settings.mobileCoverFocusX * 100}% ${settings.mobileCoverFocusY * 100}%` }}
               draggable={false}
             />
             <div
@@ -135,7 +135,7 @@ export default function CoverPreviewMobile({
           )}
         </div>
       ) : (
-        <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center text-gray-400 mx-auto" style={{ width: 135 }}>
+        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center text-gray-400 mx-auto" style={{ width: 200, aspectRatio: '9/16' }}>
           <span className="text-sm text-center px-2">Нет фото в папке</span>
         </div>
       )}

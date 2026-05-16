@@ -22,7 +22,6 @@ export default function CoverPreviewDesktop({
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   const coverUrl = coverPhoto?.thumbnail_url || coverPhoto?.photo_url;
-  const isVertical = settings.coverOrientation === 'vertical';
 
   const calcFocusPosition = useCallback((clientX: number, clientY: number) => {
     if (!coverImageRef.current) return;
@@ -94,10 +93,9 @@ export default function CoverPreviewDesktop({
       <div className="relative">
         <div
           ref={coverImageRef}
-          className="relative overflow-hidden rounded-lg cursor-crosshair select-none"
-          style={{ 
-            maxHeight: 200,
-            aspectRatio: isVertical ? '9/16' : '16/9'
+          className="relative overflow-hidden rounded-lg cursor-crosshair select-none bg-black w-full"
+          style={{
+            aspectRatio: '16/9'
           }}
           onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}
@@ -105,7 +103,8 @@ export default function CoverPreviewDesktop({
           <img
             src={coverUrl}
             alt="cover"
-            className="w-full h-full object-cover object-center pointer-events-none"
+            className="w-full h-full object-contain pointer-events-none"
+            style={{ objectPosition: `${settings.coverFocusX * 100}% ${settings.coverFocusY * 100}%` }}
             draggable={false}
           />
           <div
