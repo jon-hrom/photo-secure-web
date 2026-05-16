@@ -67,7 +67,32 @@ export default function useGalleryTheme(gallery: GalleryData) {
       document.head.appendChild(meta);
     }
     meta.content = themeColor;
-    return () => { meta.content = '#ffffff'; };
+
+    const root = document.documentElement;
+    const prevHadDark = root.classList.contains('dark');
+    const prevBodyBg = document.body.style.background;
+    const prevHtmlBg = root.style.background;
+    const prevColorScheme = root.style.colorScheme;
+
+    if (isDarkBg) {
+      root.classList.add('dark');
+      root.style.colorScheme = 'dark';
+      root.style.background = '#000000';
+      document.body.style.background = '#000000';
+    } else {
+      root.classList.remove('dark');
+      root.style.colorScheme = 'light';
+      root.style.background = '#ffffff';
+      document.body.style.background = '#ffffff';
+    }
+
+    return () => {
+      meta.content = '#ffffff';
+      if (prevHadDark) root.classList.add('dark'); else root.classList.remove('dark');
+      root.style.colorScheme = prevColorScheme;
+      root.style.background = prevHtmlBg;
+      document.body.style.background = prevBodyBg;
+    };
   }, [bgTheme, gallery.bg_color, clientTheme, isDarkBg]);
 
   return {

@@ -9,21 +9,21 @@ interface ThemeToggleButtonProps {
 export default function ThemeToggleButton({ isDarkBg, onToggle }: ThemeToggleButtonProps) {
   const lastFireRef = useRef(0);
 
-  const fire = (e: React.SyntheticEvent) => {
+  const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const now = Date.now();
     if (now - lastFireRef.current < 400) return;
     lastFireRef.current = now;
+    console.log('[THEME_TOGGLE] click, current isDarkBg=', isDarkBg);
     onToggle?.();
   };
 
   return (
     <button
       type="button"
-      onPointerUp={fire}
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-      className="flex items-center justify-center rounded-full transition-all active:scale-90 touch-manipulation flex-shrink-0 cursor-pointer select-none"
+      onClick={handleClick}
+      className="flex items-center justify-center rounded-full transition-all active:scale-90 flex-shrink-0 cursor-pointer select-none"
       style={{
         width: 40,
         height: 40,
@@ -33,6 +33,7 @@ export default function ThemeToggleButton({ isDarkBg, onToggle }: ThemeToggleBut
         border: isDarkBg ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(0,0,0,0.08)',
         WebkitTapHighlightColor: 'transparent',
         userSelect: 'none',
+        touchAction: 'manipulation',
       }}
       aria-label={isDarkBg ? 'Светлая тема' : 'Тёмная тема'}
       title={isDarkBg ? 'Включить светлую тему' : 'Включить тёмную тему'}
