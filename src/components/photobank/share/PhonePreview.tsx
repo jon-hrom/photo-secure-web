@@ -145,7 +145,7 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
   );
 
   return (
-    <div className={`flex-shrink-0 ${isDesktop ? 'lg:w-[420px]' : 'lg:w-[280px]'}`}>
+    <div className={`flex-shrink-0 ${isDesktop ? 'lg:w-[560px]' : 'lg:w-[340px]'}`}>
       <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 text-center">
         Предпросмотр
       </h3>
@@ -176,7 +176,7 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
       </div>
 
       {isDesktop ? (
-        <div className="mx-auto" style={{ maxWidth: 400 }}>
+        <div className="mx-auto" style={{ maxWidth: 540 }}>
           <div className="relative rounded-lg border-[3px] border-gray-800 dark:border-gray-600 bg-black overflow-hidden shadow-xl">
             <div className="bg-gray-200 dark:bg-gray-800 flex items-center gap-1 px-2 py-1.5">
               <div className="w-2 h-2 rounded-full bg-red-400" />
@@ -184,7 +184,7 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
               <div className="w-2 h-2 rounded-full bg-green-400" />
               <div className="flex-1 mx-2 h-3 bg-white dark:bg-gray-700 rounded" />
             </div>
-            <div className="overflow-y-auto" style={{ height: 440, ...getPreviewBg() }}>
+            <div className="overflow-y-auto" style={{ height: 600, ...getPreviewBg() }}>
               {coverBlock}
               {photoGrid}
             </div>
@@ -192,11 +192,11 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
           <div className="mx-auto mt-1 bg-gray-300 dark:bg-gray-700 rounded-b-lg" style={{ width: '50%', height: 6 }} />
         </div>
       ) : (
-        <div className="mx-auto" style={{ maxWidth: 260 }}>
+        <div className="mx-auto" style={{ maxWidth: 320 }}>
           <div className="relative rounded-[24px] border-[3px] border-gray-800 dark:border-gray-600 bg-black overflow-hidden shadow-xl">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-5 bg-black rounded-b-xl z-20" />
 
-            <div className="overflow-y-auto" style={{ height: 480, ...getPreviewBg() }}>
+            <div className="overflow-y-auto" style={{ height: 600, ...getPreviewBg() }}>
               {coverBlock}
               {photoGrid}
             </div>
