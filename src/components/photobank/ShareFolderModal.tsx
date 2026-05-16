@@ -56,9 +56,7 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
       <div 
-        className={`bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl w-full max-h-[95vh] sm:max-h-[95vh] overflow-y-auto shadow-2xl transition-all ${
-          activeTab === 'design' ? 'sm:max-w-[96vw] sm:w-[96vw]' : activeTab === 'features' ? 'max-w-md' : 'max-w-lg'
-        }`}
+        className="bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl w-full max-h-[95vh] sm:max-h-[95vh] overflow-y-auto shadow-2xl transition-all sm:max-w-[96vw] sm:w-[96vw]"
         onClick={(e) => e.stopPropagation()}
       >
         <ShareModalHeader
@@ -85,37 +83,41 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
               onSettingsChange={setPageDesign}
             />
           ) : activeTab === 'link' ? (
-            <ShareLinkTab
-              clients={clients}
-              selectedClient={selectedClient}
-              onClientChange={handleClientChange}
-              shareUrl={shareUrl}
-              onCopyLink={handleCopyLink}
-              onSendViaMax={() => setShowMaxModal(true)}
-              onSendViaTelegram={() => setShowTelegramModal(true)}
-              linkSettings={linkSettings}
-              setLinkSettings={setLinkSettings}
-              loading={loading}
-              error={error}
-              onGenerateLink={generateShareLink}
-              folderName={folderName}
-              userId={userId}
-            />
+            <div className="max-w-5xl mx-auto space-y-4">
+              <ShareLinkTab
+                clients={clients}
+                selectedClient={selectedClient}
+                onClientChange={handleClientChange}
+                shareUrl={shareUrl}
+                onCopyLink={handleCopyLink}
+                onSendViaMax={() => setShowMaxModal(true)}
+                onSendViaTelegram={() => setShowTelegramModal(true)}
+                linkSettings={linkSettings}
+                setLinkSettings={setLinkSettings}
+                loading={loading}
+                error={error}
+                onGenerateLink={generateShareLink}
+                folderName={folderName}
+                userId={userId}
+              />
+            </div>
           ) : activeTab === 'features' ? (
-            <FeaturesTab
-              galleryCode={shareUrl ? shareUrl.split('/').pop() || '' : ''}
-              userId={userId}
-              clientFoldersVisibility={linkSettings.clientFoldersVisibility}
-              onClientFoldersVisibilityChange={(value) => setLinkSettings(prev => ({ ...prev, clientFoldersVisibility: value }))}
-            />
+            <div className="max-w-3xl mx-auto">
+              <FeaturesTab
+                galleryCode={shareUrl ? shareUrl.split('/').pop() || '' : ''}
+                userId={userId}
+                clientFoldersVisibility={linkSettings.clientFoldersVisibility}
+                onClientFoldersVisibilityChange={(value) => setLinkSettings(prev => ({ ...prev, clientFoldersVisibility: value }))}
+              />
+            </div>
           ) : (
-            <>
+            <div className="max-w-4xl mx-auto space-y-4">
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
                 <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">Папка</p>
                 <p className="font-medium text-gray-900 dark:text-white break-words">{folderName}</p>
               </div>
               <FavoritesTab folderId={folderId} userId={userId} />
-            </>
+            </div>
           )}
         </div>
 

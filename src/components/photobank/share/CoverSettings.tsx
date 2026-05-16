@@ -55,11 +55,11 @@ export default function CoverSettings({
     : (settings.coverPhotoId || sortedPhotos[0]?.id || null);
 
   const desktopRingClass = previewMode === 'desktop'
-    ? 'ring-2 ring-blue-500/50 rounded-xl p-3 -m-3 transition-all'
-    : 'p-3 -m-3 transition-all';
+    ? 'rounded-xl p-3 border-2 border-blue-500/50 transition-colors'
+    : 'rounded-xl p-3 border-2 border-transparent transition-colors';
   const mobileRingClass = previewMode === 'mobile'
-    ? 'ring-2 ring-green-500/50 rounded-xl p-3 -m-3 transition-all'
-    : 'p-3 -m-3 transition-all';
+    ? 'rounded-xl p-3 border-2 border-green-500/50 transition-colors'
+    : 'rounded-xl p-3 border-2 border-transparent transition-colors';
 
   return (
     <div className="space-y-6">
