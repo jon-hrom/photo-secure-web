@@ -4,6 +4,7 @@ import CoverControlsPanel from './cover/CoverControlsPanel';
 import CoverPreviewMobile from './cover/CoverPreviewMobile';
 import CoverPhotoSelector from './cover/CoverPhotoSelector';
 import { Photo, PageDesignSettings } from './cover/types';
+import { PreviewMode } from './PageDesignTab';
 
 interface CoverSettingsProps {
   settings: PageDesignSettings;
@@ -11,6 +12,8 @@ interface CoverSettingsProps {
   photos: Photo[];
   folderName: string;
   extractDominantColor: (photo: Photo) => Promise<string>;
+  onModeChange?: (mode: PreviewMode) => void;
+  previewMode?: PreviewMode;
 }
 
 export default function CoverSettings({
@@ -18,7 +21,9 @@ export default function CoverSettings({
   onSettingsChange,
   photos,
   folderName,
-  extractDominantColor
+  extractDominantColor,
+  onModeChange,
+  previewMode,
 }: CoverSettingsProps) {
   const sortedPhotos = useMemo(() => {
     return [...photos].sort((a, b) =>
@@ -49,43 +54,68 @@ export default function CoverSettings({
     ? settings.mobileCoverPhotoId
     : (settings.coverPhotoId || sortedPhotos[0]?.id || null);
 
+  const desktopRingClass = previewMode === 'desktop'
+    ? 'ring-2 ring-blue-500/50 rounded-xl p-3 -m-3 transition-all'
+    : 'p-3 -m-3 transition-all';
+  const mobileRingClass = previewMode === 'mobile'
+    ? 'ring-2 ring-green-500/50 rounded-xl p-3 -m-3 transition-all'
+    : 'p-3 -m-3 transition-all';
+
   return (
     <>
-      <CoverPreviewDesktop
-        settings={settings}
-        onSettingsChange={onSettingsChange}
-        coverPhoto={coverPhoto}
-        folderName={folderName}
-      />
+      <div
+        className={desktopRingClass}
+        onMouseEnter={() => onModeChange?.('desktop')}
+        onFocusCapture={() => onModeChange?.('desktop')}
+      >
+        <CoverPreviewDesktop
+          settings={settings}
+          onSettingsChange={onSettingsChange}
+          coverPhoto={coverPhoto}
+          folderName={folderName}
+        />
 
-      <CoverControlsPanel
-        settings={settings}
-        onSettingsChange={onSettingsChange}
-      />
+        <div className="mt-4">
+          <CoverControlsPanel
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+          />
+        </div>
 
-      <CoverPreviewMobile
-        settings={settings}
-        onSettingsChange={onSettingsChange}
-        mobileCoverPhoto={mobileCoverPhoto}
-        folderName={folderName}
-      />
+        <div className="mt-4">
+          <CoverPhotoSelector
+            title="Фото для web-обложки"
+            photos={sortedPhotos}
+            selectedPhotoId={settings.coverPhotoId}
+            onSelect={handleSelectCoverPhoto}
+            accentColor="blue"
+          />
+        </div>
+      </div>
 
-      <CoverPhotoSelector
-        title="Фото для web-обложки"
-        photos={sortedPhotos}
-        selectedPhotoId={settings.coverPhotoId}
-        onSelect={handleSelectCoverPhoto}
-        accentColor="blue"
-      />
+      <div
+        className={mobileRingClass}
+        onMouseEnter={() => onModeChange?.('mobile')}
+        onFocusCapture={() => onModeChange?.('mobile')}
+      >
+        <CoverPreviewMobile
+          settings={settings}
+          onSettingsChange={onSettingsChange}
+          mobileCoverPhoto={mobileCoverPhoto}
+          folderName={folderName}
+        />
 
-      <CoverPhotoSelector
-        title="Фото для mobile-обложки"
-        subtitle="Если не выбрано — используется web-обложка"
-        photos={sortedPhotos}
-        selectedPhotoId={effectiveMobileSelectedId}
-        onSelect={handleSelectMobileCoverPhoto}
-        accentColor="green"
-      />
+        <div className="mt-4">
+          <CoverPhotoSelector
+            title="Фото для mobile-обложки"
+            subtitle="Если не выбрано — используется web-обложка"
+            photos={sortedPhotos}
+            selectedPhotoId={effectiveMobileSelectedId}
+            onSelect={handleSelectMobileCoverPhoto}
+            accentColor="green"
+          />
+        </div>
+      </div>
     </>
   );
 }
