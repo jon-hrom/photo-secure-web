@@ -19,6 +19,7 @@ interface GalleryPhoto {
 const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
 const CLIENTS_URL = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
 const FOLDER_CLIENT_URL = 'https://functions.poehali.dev/579eccc8-1cf2-4ef4-b5ad-d011a71ba393';
+const PROJECTS_URL = 'https://functions.poehali.dev/f95119e0-3c8c-49db-9c1f-de7411b59001';
 
 export default function useShareModalData(folderId: number, folderName: string, userId: number) {
   console.log('═══════════════════════════════════════════');
@@ -497,6 +498,29 @@ export default function useShareModalData(folderId: number, folderName: string, 
     }
   };
 
+  const autoCompleteProjectByFolder = async () => {
+    try {
+      const resp = await fetch(PROJECTS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString(),
+        },
+        body: JSON.stringify({
+          action: 'auto_complete_by_folder',
+          userId: userId,
+          folderId: folderId,
+        }),
+      });
+      const data = await resp.json();
+      if (data && data.updated) {
+        console.log('[SHARE_MODAL] Проект переведён в "Завершён":', data.projectName);
+      }
+    } catch (e) {
+      console.error('[SHARE_MODAL] autoCompleteProjectByFolder error', e);
+    }
+  };
+
   const handleSendViaMax = async (message: string) => {
     if (!selectedClient) {
       alert('Выберите клиента');
@@ -522,6 +546,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
       if (data.success) {
         alert('Сообщение отправлено через MAX ✅');
         setShowMaxModal(false);
+        await autoCompleteProjectByFolder();
         return true;
       } else {
         alert('Ошибка отправки: ' + (data.error || 'Неизвестная ошибка'));
@@ -565,6 +590,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
       if (data.success || data.status === 'sent') {
         alert('Сообщение отправлено в Telegram ✅');
         setShowTelegramModal(false);
+        await autoCompleteProjectByFolder();
         return true;
       } else {
         alert('Ошибка отправки: ' + (data.error || 'Неизвестная ошибка'));

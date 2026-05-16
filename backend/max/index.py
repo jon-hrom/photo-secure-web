@@ -57,6 +57,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 result = get_admin_settings(conn, user_id)
             elif action == 'save_admin_settings':
                 result = save_admin_settings(conn, user_id, body)
+            elif action == 'check_expiring_links':
+                result = check_expiring_links(conn, user_id)
             else:
                 result = {'error': 'Неизвестный action'}
             
@@ -418,3 +420,123 @@ def save_admin_settings(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, A
     return {
         'error': 'Настройки MAX теперь хранятся в секретах платформы. Используйте панель секретов для обновления MAX_INSTANCE_ID и MAX_TOKEN.'
     }
+
+
+def _format_ru_date(dt: datetime) -> str:
+    months = [
+        'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+        'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+    ]
+    return f"{dt.day} {months[dt.month - 1]} {dt.year}"
+
+
+def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
+    """Найти ссылки фотографа с истечением через 3-8 дней и отправить MAX клиенту и фотографу.
+    Идемпотентно через folder_short_links.expire_notified_at.
+    """
+    app_base_url = 'https://foto-mix.ru'
+    creds = get_admin_credentials()
+    if not creds.get('instance_id') or not creds.get('token'):
+        return {'success': False, 'error': 'MAX не настроен'}
+
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT template_text
+            FROM t_p28211681_photo_secure_web.max_service_templates
+            WHERE template_type = 'link_expiring' AND is_active = TRUE
+            LIMIT 1
+        """)
+        tpl_row = cur.fetchone()
+        if not tpl_row:
+            return {'success': False, 'error': 'Шаблон link_expiring не найден'}
+        template_text = tpl_row[0]
+
+        cur.execute(f"""
+            SELECT
+                fsl.id,
+                fsl.short_code,
+                fsl.expires_at,
+                fsl.folder_id,
+                pf.folder_name,
+                pf.client_id,
+                c.phone,
+                c.name,
+                u.full_name,
+                u.phone
+            FROM t_p28211681_photo_secure_web.folder_short_links fsl
+            JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
+            LEFT JOIN t_p28211681_photo_secure_web.clients c ON c.id = pf.client_id
+            JOIN t_p28211681_photo_secure_web.users u ON u.id = fsl.user_id
+            WHERE fsl.user_id = {int(user_id)}
+              AND fsl.expires_at IS NOT NULL
+              AND fsl.expire_notified_at IS NULL
+              AND COALESCE(fsl.is_blocked, FALSE) = FALSE
+              AND fsl.expires_at > NOW() + INTERVAL '3 days'
+              AND fsl.expires_at <= NOW() + INTERVAL '8 days'
+            ORDER BY fsl.expires_at ASC
+        """)
+        rows = cur.fetchall()
+
+    notified_items = []
+
+    for row in rows:
+        (link_id, short_code, expires_at, _folder_id, folder_name,
+         _client_id, client_phone, _client_name, photographer_name, photographer_phone) = row
+
+        try:
+            days_left = max(1, (expires_at - datetime.now()).days)
+        except Exception:
+            days_left = 1
+        link_title = folder_name or 'Ваша галерея'
+        link_url = f"{app_base_url}/g/{short_code}"
+        chat_url = f"{app_base_url}/chat/{short_code}"
+        photographer_link = f"{photographer_name or 'фотографу'} ({chat_url})"
+
+        message = template_text
+        replacements = {
+            '{link_title}': link_title,
+            '{days_left}': str(days_left),
+            '{expires_date}': _format_ru_date(expires_at),
+            '{link_url}': link_url,
+            '{photographer_link}': photographer_link,
+        }
+        for k, v in replacements.items():
+            message = message.replace(k, v)
+
+        sent_client = False
+        sent_photographer = False
+
+        if client_phone:
+            try:
+                send_via_green_api(creds['instance_id'], creds['token'], client_phone, message)
+                log_message(conn, user_id, client_phone, 'link_expiring', True)
+                sent_client = True
+            except Exception as e:
+                log_message(conn, user_id, client_phone, 'link_expiring', False, str(e))
+
+        if photographer_phone:
+            try:
+                send_via_green_api(creds['instance_id'], creds['token'], photographer_phone, message)
+                log_message(conn, user_id, photographer_phone, 'link_expiring', True)
+                sent_photographer = True
+            except Exception as e:
+                log_message(conn, user_id, photographer_phone, 'link_expiring', False, str(e))
+
+        if sent_client or sent_photographer:
+            with conn.cursor() as cur2:
+                cur2.execute(
+                    "UPDATE t_p28211681_photo_secure_web.folder_short_links SET expire_notified_at = NOW() WHERE id = %s",
+                    (link_id,),
+                )
+                conn.commit()
+
+        notified_items.append({
+            'link_id': link_id,
+            'short_code': short_code,
+            'folder_name': link_title,
+            'days_left': days_left,
+            'client_notified': sent_client,
+            'photographer_notified': sent_photographer,
+        })
+
+    return {'success': True, 'checked': len(notified_items), 'items': notified_items}

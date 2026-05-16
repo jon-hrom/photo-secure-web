@@ -25,6 +25,22 @@
         "error": "Access denied"
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Auto complete by folder - no folder",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "auto_complete_by_folder",
+        "userId": "test-user-123",
+        "folderId": 999999
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "updated": false
+      },
+      "bodyMatcher": "partial"
     }
   ]
 }

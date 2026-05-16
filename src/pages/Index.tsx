@@ -101,6 +101,25 @@ const Index = () => {
 
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
+    const key = `link_expiry_checked_${userId}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    fetch('https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': userId.toString() },
+      body: JSON.stringify({ action: 'check_expiring_links' }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.checked > 0) {
+          console.log('[LINK_EXPIRY] Уведомления отправлены:', data.items);
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated, userId]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !userId) return;
     const CRON_URL = 'https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c';
     const lastCronCall = localStorage.getItem('last_reminders_cron');
     const now = Date.now();
