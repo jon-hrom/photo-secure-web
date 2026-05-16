@@ -8,6 +8,8 @@ interface GalleryCoverProps {
   focusX: number;
   focusY: number;
   scrollToGrid: () => void;
+  onToggleTheme?: () => void;
+  isDarkBg?: boolean;
 }
 
 export default function GalleryCover({
@@ -16,7 +18,9 @@ export default function GalleryCover({
   isMobile,
   focusX,
   focusY,
-  scrollToGrid
+  scrollToGrid,
+  onToggleTheme,
+  isDarkBg
 }: GalleryCoverProps) {
   return (
     <div 
@@ -41,6 +45,32 @@ export default function GalleryCover({
       />
       {isMobile && (
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" style={{ pointerEvents: 'none' }} />
+      )}
+      {onToggleTheme && (
+        <button
+          type="button"
+          onClick={() => onToggleTheme()}
+          className="absolute flex items-center justify-center rounded-full active:scale-90 transition-all touch-manipulation"
+          style={{
+            top: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+            right: 'calc(env(safe-area-inset-right, 0px) + 12px)',
+            width: 42,
+            height: 42,
+            background: 'rgba(0,0,0,0.45)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            zIndex: 30,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+          aria-label={isDarkBg ? 'Светлая тема' : 'Тёмная тема'}
+        >
+          {isDarkBg ? (
+            <Icon name="Sun" size={20} className="text-yellow-300" />
+          ) : (
+            <Icon name="Moon" size={20} className="text-white" />
+          )}
+        </button>
       )}
       {(() => {
         const pos = gallery.cover_text_position || 'bottom-center';
