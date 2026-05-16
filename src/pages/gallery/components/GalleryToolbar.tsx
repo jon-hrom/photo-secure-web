@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from '@/components/ui/icon';
 import type { GalleryData } from '../GalleryGrid';
 
@@ -62,15 +63,34 @@ export default function GalleryToolbar({
 }: GalleryToolbarProps) {
   const hasFolders = showClientFolders && clientFolders.length > 0;
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
-  const createBtnRef = useRef<HTMLDivElement | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const createBtnRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const updateMenuPos = () => {
+    if (!createBtnRef.current) return;
+    const r = createBtnRef.current.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) });
+  };
 
   useEffect(() => {
     if (!createMenuOpen) return;
+    updateMenuPos();
     const onClick = (e: MouseEvent) => {
-      if (!createBtnRef.current?.contains(e.target as Node)) setCreateMenuOpen(false);
+      const t = e.target as Node;
+      if (createBtnRef.current?.contains(t)) return;
+      if (menuRef.current?.contains(t)) return;
+      setCreateMenuOpen(false);
     };
+    const onScrollOrResize = () => updateMenuPos();
     document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    window.addEventListener('resize', onScrollOrResize);
+    window.addEventListener('scroll', onScrollOrResize, true);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      window.removeEventListener('resize', onScrollOrResize);
+      window.removeEventListener('scroll', onScrollOrResize, true);
+    };
   }, [createMenuOpen]);
 
   return (
@@ -127,35 +147,15 @@ export default function GalleryToolbar({
                 <span className="hidden sm:inline pr-0.5">Избранное</span>
               </button>
               {onCreateFavoriteList && (
-                <div ref={createBtnRef} className="relative flex-shrink-0">
-                  <button
-                    onClick={() => setCreateMenuOpen(v => !v)}
-                    className="flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-purple-500 text-white rounded-full sm:rounded-lg active:bg-purple-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap"
-                    style={{ minWidth: 40, minHeight: 40 }}
-                  >
-                    <Icon name="Plus" size={16} className="flex-shrink-0" />
-                    <span className="hidden sm:inline pr-0.5">Создать</span>
-                  </button>
-                  {createMenuOpen && (
-                    <div
-                      className="absolute right-0 mt-2 rounded-lg shadow-lg overflow-hidden z-50"
-                      style={{
-                        minWidth: 240,
-                        background: isDarkBg ? '#1f1f3a' : '#ffffff',
-                        border: isDarkBg ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)'
-                      }}
-                    >
-                      <button
-                        onClick={() => { setCreateMenuOpen(false); onCreateFavoriteList(); }}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-black/5 dark:hover:bg-white/5"
-                        style={{ color: textColor }}
-                      >
-                        <Icon name="Star" size={16} className="text-yellow-500" />
-                        <span>Новый список избранного</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <button
+                  ref={createBtnRef}
+                  onClick={() => setCreateMenuOpen(v => !v)}
+                  className="flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-purple-500 text-white rounded-full sm:rounded-lg active:bg-purple-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  style={{ minWidth: 40, minHeight: 40 }}
+                >
+                  <Icon name="Plus" size={16} className="flex-shrink-0" />
+                  <span className="hidden sm:inline pr-0.5">Создать</span>
+                </button>
               )}
               {clientUploadEnabled && onOpenUpload && (
                 <button
@@ -275,6 +275,31 @@ export default function GalleryToolbar({
           </div>
         )}
       </div>
+      {createMenuOpen && menuPos && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={menuRef}
+          className="rounded-lg shadow-2xl overflow-hidden"
+          style={{
+            position: 'fixed',
+            top: menuPos.top,
+            right: menuPos.right,
+            minWidth: 240,
+            zIndex: 9999,
+            background: isDarkBg ? '#1f1f3a' : '#ffffff',
+            border: isDarkBg ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.08)'
+          }}
+        >
+          <button
+            onClick={() => { setCreateMenuOpen(false); onCreateFavoriteList?.(); }}
+            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-black/5 dark:hover:bg-white/5"
+            style={{ color: textColor }}
+          >
+            <Icon name="Star" size={16} className="text-yellow-500" />
+            <span>Новый список избранного</span>
+          </button>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
