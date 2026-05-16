@@ -62,60 +62,73 @@ export default function CoverSettings({
     : 'p-3 -m-3 transition-all';
 
   return (
-    <>
-      <div
-        className={desktopRingClass}
-        onMouseEnter={() => onModeChange?.('desktop')}
-        onFocusCapture={() => onModeChange?.('desktop')}
-      >
-        <CoverPreviewDesktop
-          settings={settings}
-          onSettingsChange={onSettingsChange}
-          coverPhoto={coverPhoto}
-          folderName={folderName}
-        />
-
-        <div className="mt-4">
-          <CoverControlsPanel
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div
+          className={desktopRingClass}
+          onMouseEnter={() => onModeChange?.('desktop')}
+          onFocusCapture={() => onModeChange?.('desktop')}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-full bg-blue-500" />
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Web-обложка</h3>
+          </div>
+          <CoverPreviewDesktop
             settings={settings}
             onSettingsChange={onSettingsChange}
+            coverPhoto={coverPhoto}
+            folderName={folderName}
           />
+
+          <div className="mt-5">
+            <CoverPhotoSelector
+              title="Фото для web-обложки"
+              photos={sortedPhotos}
+              selectedPhotoId={settings.coverPhotoId}
+              onSelect={handleSelectCoverPhoto}
+              accentColor="blue"
+            />
+          </div>
         </div>
 
-        <div className="mt-4">
-          <CoverPhotoSelector
-            title="Фото для web-обложки"
-            photos={sortedPhotos}
-            selectedPhotoId={settings.coverPhotoId}
-            onSelect={handleSelectCoverPhoto}
-            accentColor="blue"
+        <div
+          className={mobileRingClass}
+          onMouseEnter={() => onModeChange?.('mobile')}
+          onFocusCapture={() => onModeChange?.('mobile')}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Mobile-обложка</h3>
+          </div>
+          <CoverPreviewMobile
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+            mobileCoverPhoto={mobileCoverPhoto}
+            folderName={folderName}
           />
+
+          <div className="mt-5">
+            <CoverPhotoSelector
+              title="Фото для mobile-обложки"
+              subtitle="Если не выбрано — используется web-обложка"
+              photos={sortedPhotos}
+              selectedPhotoId={effectiveMobileSelectedId}
+              onSelect={handleSelectMobileCoverPhoto}
+              accentColor="green"
+            />
+          </div>
         </div>
       </div>
 
-      <div
-        className={mobileRingClass}
-        onMouseEnter={() => onModeChange?.('mobile')}
-        onFocusCapture={() => onModeChange?.('mobile')}
-      >
-        <CoverPreviewMobile
+      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4 mt-4">
+          Общие настройки обложки
+        </h4>
+        <CoverControlsPanel
           settings={settings}
           onSettingsChange={onSettingsChange}
-          mobileCoverPhoto={mobileCoverPhoto}
-          folderName={folderName}
         />
-
-        <div className="mt-4">
-          <CoverPhotoSelector
-            title="Фото для mobile-обложки"
-            subtitle="Если не выбрано — используется web-обложка"
-            photos={sortedPhotos}
-            selectedPhotoId={effectiveMobileSelectedId}
-            onSelect={handleSelectMobileCoverPhoto}
-            accentColor="green"
-          />
-        </div>
       </div>
-    </>
+    </div>
   );
 }

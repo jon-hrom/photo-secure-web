@@ -53,8 +53,8 @@ export default function PageDesignTab({
   }, []);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      <div className="flex-1 min-w-0 space-y-6 max-h-[65vh] overflow-y-auto pr-1">
+    <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex-1 min-w-0 space-y-8 max-h-[75vh] overflow-y-auto pr-2">
         <BackgroundSettings
           settings={settings}
           onSettingsChange={onSettingsChange}
@@ -71,13 +71,15 @@ export default function PageDesignTab({
           previewMode={previewMode}
         />
       </div>
-      <PhonePreview
-        settings={settings}
-        photos={photos}
-        folderName={folderName}
-        previewMode={previewMode}
-        onModeChange={setPreviewMode}
-      />
+      <div className="lg:sticky lg:top-0 lg:self-start">
+        <PhonePreview
+          settings={settings}
+          photos={photos}
+          folderName={folderName}
+          previewMode={previewMode}
+          onModeChange={setPreviewMode}
+        />
+      </div>
     </div>
   );
 }

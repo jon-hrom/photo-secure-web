@@ -56,8 +56,8 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
       <div 
-        className={`bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl transition-all ${
-          activeTab === 'design' ? 'max-w-4xl' : activeTab === 'features' ? 'max-w-md' : 'max-w-lg'
+        className={`bg-white dark:bg-gray-900 rounded-t-3xl sm:rounded-2xl w-full max-h-[95vh] sm:max-h-[92vh] overflow-y-auto shadow-2xl transition-all ${
+          activeTab === 'design' ? 'max-w-7xl' : activeTab === 'features' ? 'max-w-md' : 'max-w-lg'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
