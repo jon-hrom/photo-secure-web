@@ -141,7 +141,7 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
   ) : undefined;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 px-2 sm:px-4 lg:px-6">
+    <div className="w-full mx-auto space-y-6 px-2 sm:px-4 lg:px-6 xl:px-8 2xl:px-12">
       <PhotoBankStorageIndicator storageUsage={storageUsage} />
 
       <PhotoBankHeader

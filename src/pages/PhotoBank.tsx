@@ -191,7 +191,7 @@ const PhotoBank = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background py-4 sm:py-6">
       <PhotoBankAdminBanner 
         isAdminViewing={isAdminViewing}
         userId={userId}
