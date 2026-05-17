@@ -160,7 +160,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             COALESCE(sort_order, 0) as sort_order,
                             (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank 
                              WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id AND is_trashed = FALSE) as photo_count,
-                            (SELECT COALESCE(SUM(access_count), 0) FROM t_p28211681_photo_secure_web.folder_short_links
+                            (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.gallery_view_logs
                              WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id) as share_views_count
                         FROM t_p28211681_photo_secure_web.photo_folders
                         WHERE user_id = %s AND is_trashed = FALSE
