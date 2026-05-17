@@ -27,13 +27,13 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Auto complete by folder - no folder",
+      "name": "Auto complete by client - no client",
       "method": "POST",
       "path": "/",
       "body": {
         "action": "auto_complete_by_folder",
         "userId": "test-user-123",
-        "folderId": 999999
+        "clientId": 999999
       },
       "expectedStatus": 200,
       "expectedBody": {

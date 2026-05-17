@@ -103,28 +103,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         if action == 'auto_complete_by_folder':
             user_id = body_data.get('userId') or event.get('headers', {}).get('X-User-Id') or event.get('headers', {}).get('x-user-id')
-            folder_id = body_data.get('folderId') or body_data.get('folder_id')
-            if not user_id or not folder_id:
+            client_id = body_data.get('clientId') or body_data.get('client_id')
+            if not user_id or not client_id:
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'userId and folderId required'}),
+                    'body': json.dumps({'error': 'userId and clientId required'}),
                     'isBase64Encoded': False
                 }
             conn = psycopg2.connect(os.environ['DATABASE_URL'])
             try:
                 with conn.cursor() as cur:
                     cur.execute(f'''
-                        SELECT p.id, p.status, p.name, c.id as client_id, c.phone, u.full_name
-                        FROM {DB_SCHEMA}.photo_folders f
-                        JOIN {DB_SCHEMA}.clients c ON c.id = f.client_id
-                        JOIN {DB_SCHEMA}.users u ON u.id = c.user_id
-                        JOIN {DB_SCHEMA}.client_projects p ON p.client_id = c.id
-                        WHERE f.id = %s AND f.user_id = %s
+                        SELECT p.id, p.name
+                        FROM {DB_SCHEMA}.client_projects p
+                        JOIN {DB_SCHEMA}.clients c ON c.id = p.client_id
+                        WHERE c.id = %s AND c.user_id = %s
                           AND p.status NOT IN ('completed', 'cancelled')
                         ORDER BY p.start_date DESC NULLS LAST, p.created_at DESC
                         LIMIT 1
-                    ''', (folder_id, user_id))
+                    ''', (client_id, user_id))
                     row = cur.fetchone()
                     if not row:
                         return {
@@ -133,7 +131,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             'body': json.dumps({'success': True, 'updated': False, 'reason': 'no_active_project'}),
                             'isBase64Encoded': False
                         }
-                    project_id_db, _old_status, project_name, _client_id, _client_phone, _photographer_name = row
+                    project_id_db, project_name = row
                     cur.execute(
                         f"UPDATE {DB_SCHEMA}.client_projects SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = %s",
                         (project_id_db,)

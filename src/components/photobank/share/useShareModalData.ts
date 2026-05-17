@@ -501,7 +501,12 @@ export default function useShareModalData(folderId: number, folderName: string, 
     }
   };
 
-  const autoCompleteProjectByFolder = async () => {
+  const autoCompleteProjectByFolder = async (clientIdParam?: number) => {
+    const cid = clientIdParam ?? selectedClient?.id;
+    if (!cid) {
+      console.log('[SHARE_MODAL] auto_complete: clientId не определён, пропускаю');
+      return;
+    }
     try {
       const resp = await fetch(PROJECTS_URL, {
         method: 'POST',
@@ -512,12 +517,14 @@ export default function useShareModalData(folderId: number, folderName: string, 
         body: JSON.stringify({
           action: 'auto_complete_by_folder',
           userId: userId,
-          folderId: folderId,
+          clientId: cid,
         }),
       });
       const data = await resp.json();
       if (data && data.updated) {
         console.log('[SHARE_MODAL] Проект переведён в "Завершён":', data.projectName);
+      } else {
+        console.log('[SHARE_MODAL] auto_complete: проект не найден или уже завершён', data);
       }
     } catch (e) {
       console.error('[SHARE_MODAL] autoCompleteProjectByFolder error', e);
