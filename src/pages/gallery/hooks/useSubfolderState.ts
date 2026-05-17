@@ -74,7 +74,8 @@ export const useSubfolderState = ({
       if (password) params.set('password', password);
       if (enteredPassword) params.set('subfolder_password', enteredPassword);
       const url = `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?${params.toString()}`;
-      const res = await fetch(url);
+      const ownerUid = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+      const res = await fetch(url, { headers: ownerUid ? { 'X-User-Id': ownerUid } : {} });
       const data = await res.json();
       
       if (res.status === 401 && data.requires_password) {

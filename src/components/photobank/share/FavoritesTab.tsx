@@ -51,7 +51,10 @@ export default function FavoritesTab({ folderId, userId }: FavoritesTabProps) {
       
       if (galleryCode) {
         try {
-          const response = await fetch(`https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${galleryCode}`);
+          const response = await fetch(
+            `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?code=${galleryCode}`,
+            { headers: { 'X-User-Id': userId.toString() } }
+          );
           if (response.ok) {
             const data = await response.json();
             console.log('[FAVORITES_TAB] Данные загружены с сервера:', data);
