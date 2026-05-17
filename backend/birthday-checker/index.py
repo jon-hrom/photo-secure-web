@@ -411,6 +411,10 @@ def handler(event: dict, context):
                                     С наилучшими пожеланиями,<br>
                                     Ваш фотограф
                                 </p>
+                                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+                                <p style="font-size: 12px; color: #9ca3af;">
+                                    🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!
+                                </p>
                             </div>
                         </body>
                         </html>

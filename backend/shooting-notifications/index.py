@@ -226,7 +226,10 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     
     message_parts.extend([
         "",
-        "До встречи на съёмке! 📷"
+        "До встречи на съёмке! 📷",
+        "",
+        "———",
+        "🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!"
     ])
     
     message = "\n".join(message_parts)

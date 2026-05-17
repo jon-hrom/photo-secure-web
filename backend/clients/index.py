@@ -64,6 +64,7 @@ def send_booking_whatsapp_notification(client_name: str, client_phone: str, phot
                 client_message += f"\n📝 Описание: {description}"
             
             client_message += "\n\nМы с нетерпением ждём встречи с вами! 📷"
+            client_message += "\n\n———\n🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!"
             
             try:
                 response = requests.post(url, json={
@@ -92,6 +93,7 @@ def send_booking_whatsapp_notification(client_name: str, client_phone: str, phot
                 photographer_message += f"\n📝 Описание: {description}"
             
             photographer_message += "\n\nПодготовьте оборудование к съёмке! 📷"
+            photographer_message += "\n\n———\n🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!"
             
             try:
                 response = requests.post(url, json={

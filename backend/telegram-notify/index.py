@@ -113,7 +113,9 @@ def notify_photographer(conn, photographer_id: int, client_name: str,
             text = f"⚠️ Клиент {client_name} не подключил Telegram\nУведомление удалено (истекло 7 дней)"
         else:
             text = f"📢 Обновление по клиенту {client_name}"
-        
+
+        text += "\n\n———\n🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!"
+
         # Отправляем через Telegram если подключен
         if photographer['telegram_verified'] and photographer['telegram_chat_id']:
             send_telegram_message(photographer['telegram_chat_id'], text)

@@ -233,6 +233,9 @@ def send_email_code(to: str, code: str) -> bool:
                                             Если вы не регистрировались на <strong>foto-mix.ru</strong>, просто проигнорируйте это письмо.
                                         </p>
                                         <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
+                                        <p style="margin:0 0 10px 0;color:#9ca3af;font-size:12px;line-height:1.5">
+                                            🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!
+                                        </p>
                                         <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5">
                                             © 2025 foto-mix.ru — Профессиональные фотоуслуги<br>
                                             Фотокниги, печать фотографий, хранилище снимков

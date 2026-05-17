@@ -228,8 +228,8 @@ def send_reset_email(to: str, code: str) -> bool:
     </div>
     
     <div style="text-align: center; color: #999; font-size: 12px; margin-top: 30px;">
+        <p>🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!</p>
         <p>© 2024 Foto-Mix. Все права защищены.</p>
-        <p>Это автоматическое сообщение, не отвечайте на него.</p>
     </div>
 </body>
 </html>'''

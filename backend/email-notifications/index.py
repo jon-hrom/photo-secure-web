@@ -102,8 +102,9 @@ def get_storage_warning_html(user_name: str, used_gb: float, limit_gb: float, pe
                 
                 <a href="{BASE_URL}/upgrade-plan" class="button">Выбрать тариф</a>
                 
-                <p style="margin-top: 30px; color: #666; font-size: 14px;">
-                    Если у вас есть вопросы, ответьте на это письмо.
+                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+                <p style="color: #9ca3af; font-size: 12px;">
+                    🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!
                 </p>
             </div>
         </div>

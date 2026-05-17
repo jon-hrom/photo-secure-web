@@ -282,7 +282,8 @@ def build_login_alert_html(device_info: str, ip_address: str, login_method_label
             <strong>Если это были не вы</strong> — срочно смените пароль в Настройках!
         </div>
     </div>
-    <p style="text-align: center; color: #999; font-size: 12px; margin-top: 30px;">FotoMix — foto-mix.ru</p>
+    <p style="text-align: center; color: #999; font-size: 12px; margin-top: 30px;">🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!</p>
+    <p style="text-align: center; color: #999; font-size: 12px;">FotoMix — foto-mix.ru</p>
 </body>
 </html>'''
 

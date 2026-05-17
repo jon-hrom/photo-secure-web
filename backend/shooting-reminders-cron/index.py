@@ -248,6 +248,7 @@ def build_email_html(title: str, body_lines: list) -> str:
 </div>
 <div style="padding:24px;">{body_html}</div>
 <div style="padding:16px 24px;background:#f9fafb;text-align:center;color:#9ca3af;font-size:12px;">
+🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!<br>
 FotoMix — foto-mix.ru
 </div>
 </div></body></html>'''
@@ -292,6 +293,8 @@ def send_reminder(reminder_type: str, project: dict, client: dict, photographer:
     if real_time_text and reminder_type in ('5h', '1h'):
         title = f"Съёмка {real_time_text}"
 
+    auto_disclaimer = "\n\n———\n🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!"
+
     client_msg = f"""⏰ {title}!
 
 📸 Ваша фотосессия {time_text}!
@@ -302,7 +305,7 @@ def send_reminder(reminder_type: str, project: dict, client: dict, photographer:
 👤 Фотограф: {photographer_name}
 📞 Телефон: {photographer_phone}
 
-✨ {client_tip} 📷"""
+✨ {client_tip} 📷{auto_disclaimer}"""
 
     photographer_msg = f"""⏰ {title}!
 
@@ -314,7 +317,7 @@ def send_reminder(reminder_type: str, project: dict, client: dict, photographer:
 👤 Клиент: {client_name}
 📞 Телефон: {client_phone}
 
-🎯 {photographer_tip}"""
+🎯 {photographer_tip}{auto_disclaimer}"""
 
     client_email_subject = f"⏰ {title} — {time_str}"
     client_email_html = build_email_html(f"📸 {title}", [

@@ -130,6 +130,8 @@ def send_email_invite(to_email: str, sender_name: str, client_name: str, comment
           <p>Чтобы принять передачу — зарегистрируйтесь в foto-mix по ссылке ниже. После регистрации передача появится в вашем кабинете.</p>
           <p><a href="https://foto-mix.ru/register" style="background:#7c3aed;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Зарегистрироваться</a></p>
           <p style="color:#6b7280;font-size:12px;">Передача действительна 7 дней.</p>
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+          <p style="color:#9ca3af;font-size:12px;">🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!</p>
         </div>
         """
         requests.post(EMAIL_API, json={
@@ -224,6 +226,7 @@ def create_transfer(conn, user_id: str, body: dict) -> dict:
         + (f"Проект: {project_name}\n" if project_name else "")
         + (f"\nКомментарий: {comment}\n" if comment else "")
         + f"\nОткройте foto-mix, чтобы принять или отказаться."
+        + "\n\n———\n🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!"
     )
 
     invite_via = None

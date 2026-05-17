@@ -27,7 +27,10 @@ ${shareUrl}
 Ссылка действует ${expiryText}.
 
 С наилучшими пожеланиями,
-Ваш фотограф 📷`;
+Ваш фотограф 📷
+
+———
+🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!`;
 
   const [message, setMessage] = useState(defaultMessage);
   const [sending, setSending] = useState(false);
