@@ -228,7 +228,7 @@ export default function GalleryToolbar({
               {!gallery.download_disabled && (
                 <button
                   onClick={onRegisterToDownload}
-                  className="flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-lg active:bg-blue-800 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  className="hidden sm:flex items-center gap-1.5 px-3 bg-blue-600 text-white rounded-lg active:bg-blue-800 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
                   style={{ minHeight: 40 }}
                 >
                   <Icon name="Download" size={15} className="flex-shrink-0" />
@@ -238,6 +238,18 @@ export default function GalleryToolbar({
             </>
           )}
         </div>
+        {!clientName && !gallery.download_disabled && (
+          <div className="sm:hidden flex pb-2">
+            <button
+              onClick={onRegisterToDownload}
+              className="flex items-center justify-center gap-1.5 px-3 bg-blue-600 text-white rounded-lg active:bg-blue-800 transition-colors text-xs touch-manipulation whitespace-nowrap w-full"
+              style={{ minHeight: 40 }}
+            >
+              <Icon name="Download" size={15} className="flex-shrink-0" />
+              <span>Скачать</span>
+            </button>
+          </div>
+        )}
 
         {showSecondRow && (
           <div className="flex items-center gap-2 pb-2 overflow-x-auto scrollbar-none">

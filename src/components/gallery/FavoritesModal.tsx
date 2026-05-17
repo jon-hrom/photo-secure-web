@@ -150,7 +150,14 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
         </div>
 
         {isRegisterMode
-          ? <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Оставьте свои данные, чтобы скачать фотографии из галереи.</p>
+          ? (
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Чтобы скачать все фото архивом, введите данные ниже, после нажмите{' '}
+              <span className="inline-flex items-center justify-center align-middle w-6 h-6 rounded-md bg-blue-600 text-white">
+                <Icon name="Download" size={14} />
+              </span>
+            </p>
+          )
           : <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Папка: {folder.name}</p>
         }
 
@@ -206,12 +213,15 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
             </Button>
             <Button 
               type="submit" 
-              className={`flex-1 ${isRegisterMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'}`}
+              className={`flex-1 gap-2 ${isRegisterMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'}`}
               disabled={isSubmitting}
             >
+              {isRegisterMode && (
+                <Icon name={isSubmitting ? 'Loader2' : 'Download'} size={18} className={isSubmitting ? 'animate-spin' : ''} />
+              )}
               {isSubmitting
                 ? (isRegisterMode ? 'Регистрация...' : 'Добавление...')
-                : (isRegisterMode ? 'Зарегистрироваться' : 'Добавить')
+                : (isRegisterMode ? 'Скачать' : 'Добавить')
               }
             </Button>
           </div>
