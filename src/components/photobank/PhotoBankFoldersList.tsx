@@ -148,9 +148,24 @@ const PhotoBankFoldersList = ({
                               </button>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground md:hidden">
-                            {folder.photo_count || 0} фото • {formatDate(folder.created_at)}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground md:hidden mt-0.5">
+                            <span>{folder.photo_count || 0} фото</span>
+                            <span>•</span>
+                            <span>{formatDate(folder.created_at)}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onShowViewsStats?.(folder.id, folder.folder_name);
+                              }}
+                              className="inline-flex items-center gap-1 text-purple-600 font-medium hover:text-purple-700 transition-colors"
+                              title="Статистика просмотров"
+                              aria-label="Статистика просмотров"
+                            >
+                              <Icon name="Eye" size={14} />
+                              <span>{folder.share_views_count ?? 0}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </td>
