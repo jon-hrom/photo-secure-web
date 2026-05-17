@@ -159,7 +159,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             CASE WHEN password_hash IS NOT NULL THEN TRUE ELSE FALSE END as has_password,
                             COALESCE(sort_order, 0) as sort_order,
                             (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank 
-                             WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id AND is_trashed = FALSE) as photo_count
+                             WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id AND is_trashed = FALSE) as photo_count,
+                            (SELECT COALESCE(SUM(access_count), 0) FROM t_p28211681_photo_secure_web.folder_short_links
+                             WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id) as share_views_count
                         FROM t_p28211681_photo_secure_web.photo_folders
                         WHERE user_id = %s AND is_trashed = FALSE
                         ORDER BY parent_folder_id NULLS FIRST, sort_order ASC, created_at DESC

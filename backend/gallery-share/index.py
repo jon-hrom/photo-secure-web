@@ -97,6 +97,31 @@ def get_timezone_for_region(region):
         return "Europe/Moscow"
     return REGION_TIMEZONE.get(region, "Europe/Moscow")
 
+
+TZ_OFFSET_HOURS = {
+    "Europe/Kaliningrad": 2,
+    "Europe/Moscow": 3,
+    "Europe/Samara": 4,
+    "Asia/Yekaterinburg": 5,
+    "Asia/Omsk": 6,
+    "Asia/Barnaul": 7,
+    "Asia/Novosibirsk": 7,
+    "Asia/Novokuznetsk": 7,
+    "Asia/Krasnoyarsk": 7,
+    "Asia/Tomsk": 7,
+    "Asia/Irkutsk": 8,
+    "Asia/Chita": 9,
+    "Asia/Yakutsk": 9,
+    "Asia/Vladivostok": 10,
+    "Asia/Magadan": 11,
+    "Asia/Sakhalin": 11,
+    "Asia/Kamchatka": 12,
+}
+
+
+def get_offset_hours_for_tz(tz: str) -> int:
+    return TZ_OFFSET_HOURS.get(tz, 3)
+
 def generate_short_code(length=8):
     """Генерирует короткий уникальный код для ссылки"""
     chars = string.ascii_letters + string.digits
@@ -349,6 +374,7 @@ def handler(event: dict, context) -> dict:
                 region_row = cur.fetchone()
                 user_region = region_row[0] if region_row else None
                 user_tz = get_timezone_for_region(user_region)
+                tz_offset_hours = get_offset_hours_for_tz(user_tz)
                 cur.execute(
                     """
                     SELECT COUNT(*),
@@ -365,16 +391,17 @@ def handler(event: dict, context) -> dict:
                 unique_visitors = total_row[1] or 0
                 first_view = (total_row[2].isoformat() + 'Z') if total_row[2] else None
                 last_view = (total_row[3].isoformat() + 'Z') if total_row[3] else None
+                interval_expr = f"INTERVAL '{int(tz_offset_hours)} hour'"
                 cur.execute(
-                    """
-                    SELECT DATE((viewed_at AT TIME ZONE 'UTC') AT TIME ZONE %s) as day, COUNT(*) as cnt
+                    f"""
+                    SELECT DATE(viewed_at + {interval_expr}) as day, COUNT(*) as cnt
                     FROM t_p28211681_photo_secure_web.gallery_view_logs
                     WHERE folder_id = %s AND user_id = %s
-                    GROUP BY DATE((viewed_at AT TIME ZONE 'UTC') AT TIME ZONE %s)
+                    GROUP BY DATE(viewed_at + {interval_expr})
                     ORDER BY day DESC
                     LIMIT 30
                     """,
-                    (user_tz, stats_folder_id, stats_user_id, user_tz)
+                    (stats_folder_id, stats_user_id)
                 )
                 by_day = [{'day': r[0].isoformat(), 'count': r[1]} for r in cur.fetchall()]
                 cur.execute(
