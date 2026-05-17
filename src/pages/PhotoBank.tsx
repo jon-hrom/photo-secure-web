@@ -26,6 +26,7 @@ import { useSessionWatcher } from '@/hooks/useSessionWatcher';
 import ClientUploadViewer from '@/components/photobank/ClientUploadViewer';
 import FavoriteListsViewer from '@/components/photobank/FavoriteListsViewer';
 import RetouchDialog from '@/components/photobank/RetouchDialog';
+import ViewsStatsModal from '@/components/photobank/ViewsStatsModal';
 
 function CreateSubfolderDialog({ open, onOpenChange, subfolderName, onSetSubfolderName, onCreateSubfolder }: {
   open: boolean;
@@ -80,6 +81,7 @@ const PhotoBank = () => {
   const [subfolderName, setSubfolderName] = useState('');
   const [subfolderSettings, setSubfolderSettings] = useState<{ id: number; folder_name: string; has_password?: boolean; is_hidden?: boolean } | null>(null);
   const [retouchFolder, setRetouchFolder] = useState<{ id: number; name: string } | null>(null);
+  const [viewsStatsFolder, setViewsStatsFolder] = useState<{ id: number; name: string } | null>(null);
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -374,6 +376,7 @@ const PhotoBank = () => {
             onShareFolder={handleShareFolder}
             onOpenChat={(clientId, clientName) => setChatClient({ id: clientId, name: clientName })}
             onOpenFolderChats={handleOpenFolderChats}
+            onShowViewsStats={(id, name) => setViewsStatsFolder({ id, name })}
             onCreateSubfolder={(parentId) => setCreateSubfolderParentId(parentId)}
             onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
           />
@@ -480,6 +483,16 @@ const PhotoBank = () => {
           fetchStorageUsage();
         }}
       />
+
+      {viewsStatsFolder && userId && (
+        <ViewsStatsModal
+          isOpen={!!viewsStatsFolder}
+          onClose={() => setViewsStatsFolder(null)}
+          folderId={viewsStatsFolder.id}
+          folderName={viewsStatsFolder.name}
+          userId={parseInt(userId)}
+        />
+      )}
     </div>
   );
 };

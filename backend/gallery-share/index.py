@@ -313,10 +313,113 @@ def handler(event: dict, context) -> dict:
             }
         
         elif method == 'GET':
-            short_code = event.get('queryStringParameters', {}).get('code')
-            subfolder_id = event.get('queryStringParameters', {}).get('subfolder_id')
-            subfolder_password = event.get('queryStringParameters', {}).get('subfolder_password', '')
-            lookup_folder_id = event.get('queryStringParameters', {}).get('folder_id')
+            qs = event.get('queryStringParameters') or {}
+            action_param = qs.get('action')
+
+            if action_param == 'views_stats':
+                stats_user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
+                stats_folder_id = qs.get('folder_id')
+                if not stats_user_id or not stats_folder_id:
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'folder_id and X-User-Id required'})
+                    }
+                cur.execute(
+                    """
+                    SELECT 1 FROM t_p28211681_photo_secure_web.photo_folders
+                    WHERE id = %s AND user_id = %s
+                    """,
+                    (stats_folder_id, stats_user_id)
+                )
+                if not cur.fetchone():
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Folder not found or access denied'})
+                    }
+                cur.execute(
+                    """
+                    SELECT COUNT(*),
+                           COUNT(DISTINCT client_ip),
+                           MIN(viewed_at),
+                           MAX(viewed_at)
+                    FROM t_p28211681_photo_secure_web.gallery_view_logs
+                    WHERE folder_id = %s AND user_id = %s
+                    """,
+                    (stats_folder_id, stats_user_id)
+                )
+                total_row = cur.fetchone()
+                total_views = total_row[0] or 0
+                unique_visitors = total_row[1] or 0
+                first_view = total_row[2].isoformat() if total_row[2] else None
+                last_view = total_row[3].isoformat() if total_row[3] else None
+                cur.execute(
+                    """
+                    SELECT DATE(viewed_at) as day, COUNT(*) as cnt
+                    FROM t_p28211681_photo_secure_web.gallery_view_logs
+                    WHERE folder_id = %s AND user_id = %s
+                    GROUP BY DATE(viewed_at)
+                    ORDER BY day DESC
+                    LIMIT 30
+                    """,
+                    (stats_folder_id, stats_user_id)
+                )
+                by_day = [{'day': r[0].isoformat(), 'count': r[1]} for r in cur.fetchall()]
+                cur.execute(
+                    """
+                    SELECT COALESCE(device_type, 'unknown') as dt, COUNT(*) as cnt
+                    FROM t_p28211681_photo_secure_web.gallery_view_logs
+                    WHERE folder_id = %s AND user_id = %s
+                    GROUP BY COALESCE(device_type, 'unknown')
+                    ORDER BY cnt DESC
+                    """,
+                    (stats_folder_id, stats_user_id)
+                )
+                by_device = [{'device': r[0], 'count': r[1]} for r in cur.fetchall()]
+                cur.execute(
+                    """
+                    SELECT viewed_at, client_ip, user_agent, device_type, short_code
+                    FROM t_p28211681_photo_secure_web.gallery_view_logs
+                    WHERE folder_id = %s AND user_id = %s
+                    ORDER BY viewed_at DESC
+                    LIMIT 50
+                    """,
+                    (stats_folder_id, stats_user_id)
+                )
+                recent = []
+                for r in cur.fetchall():
+                    recent.append({
+                        'viewed_at': r[0].isoformat() if r[0] else None,
+                        'client_ip': r[1] or '',
+                        'user_agent': r[2] or '',
+                        'device_type': r[3] or 'unknown',
+                        'short_code': r[4] or '',
+                    })
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({
+                        'total_views': total_views,
+                        'unique_visitors': unique_visitors,
+                        'first_view': first_view,
+                        'last_view': last_view,
+                        'by_day': by_day,
+                        'by_device': by_device,
+                        'recent': recent,
+                    })
+                }
+
+            short_code = qs.get('code')
+            subfolder_id = qs.get('subfolder_id')
+            subfolder_password = qs.get('subfolder_password', '')
+            lookup_folder_id = qs.get('folder_id')
 
             is_owner_lookup = False
             if not short_code and lookup_folder_id:
@@ -464,6 +567,37 @@ def handler(event: dict, context) -> dict:
                 (short_code,)
             )
             conn.commit()
+
+            if not is_owner_lookup:
+                try:
+                    req_headers = event.get('headers') or {}
+                    user_agent = (req_headers.get('User-Agent') or req_headers.get('user-agent') or '')[:500]
+                    client_ip = (req_headers.get('X-Forwarded-For') or req_headers.get('x-forwarded-for') or '')
+                    if client_ip:
+                        client_ip = client_ip.split(',')[0].strip()
+                    else:
+                        client_ip = (event.get('requestContext') or {}).get('identity', {}).get('sourceIp', '')
+                    client_ip = client_ip[:64]
+                    ua_lower = user_agent.lower()
+                    if any(k in ua_lower for k in ('iphone', 'ipad', 'android', 'mobile')):
+                        device_type = 'mobile'
+                    elif 'tablet' in ua_lower:
+                        device_type = 'tablet'
+                    elif user_agent:
+                        device_type = 'desktop'
+                    else:
+                        device_type = 'unknown'
+                    cur.execute(
+                        """
+                        INSERT INTO t_p28211681_photo_secure_web.gallery_view_logs
+                        (short_link_id, folder_id, user_id, short_code, client_ip, user_agent, device_type)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (link_id, folder_id, photographer_id, short_code, client_ip or None, user_agent or None, device_type)
+                    )
+                    conn.commit()
+                except Exception as log_err:
+                    print(f'[GALLERY_VIEW_LOG] error: {log_err}')
             
             if subfolder_id:
                 cur.execute(

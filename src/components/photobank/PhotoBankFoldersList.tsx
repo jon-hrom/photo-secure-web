@@ -12,6 +12,7 @@ interface PhotoFolder {
   folder_type?: 'originals' | 'tech_rejects' | 'retouch';
   parent_folder_id?: number | null;
   archive_download_count?: number;
+  share_views_count?: number;
   client_id?: number | null;
   unread_messages_count?: number;
   total_messages_count?: number;
@@ -33,6 +34,7 @@ interface PhotoBankFoldersListProps {
   onShareFolder?: (folderId: number, folderName: string) => void;
   onOpenChat?: (clientId: number, clientName: string) => void;
   onOpenFolderChats?: (folderId: number) => void;
+  onShowViewsStats?: (folderId: number, folderName: string) => void;
   isAdminViewing?: boolean;
   onCreateSubfolder?: (parentFolderId: number) => void;
   onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
@@ -51,6 +53,7 @@ const PhotoBankFoldersList = ({
   onShareFolder,
   onOpenChat,
   onOpenFolderChats,
+  onShowViewsStats,
   isAdminViewing = false,
   onCreateSubfolder,
   onOpenSubfolderSettings
@@ -107,6 +110,7 @@ const PhotoBankFoldersList = ({
                   <th className="text-left px-2 py-1.5 text-sm font-medium text-muted-foreground">Название</th>
                   <th className="text-left px-2 py-1.5 text-sm font-medium text-muted-foreground hidden md:table-cell">Дата создания</th>
                   <th className="text-center px-2 py-1.5 text-sm font-medium text-muted-foreground hidden lg:table-cell">Фото</th>
+                  <th className="text-center px-2 py-1.5 text-sm font-medium text-muted-foreground hidden lg:table-cell">Кол-во просмотров</th>
                   <th className="text-left md:text-right px-2 py-1.5 text-sm font-medium text-muted-foreground">Действия</th>
                 </tr>
               </thead>
@@ -188,6 +192,20 @@ const PhotoBankFoldersList = ({
                           ) : null;
                         })()}
                       </div>
+                    </td>
+                    <td className="px-2 py-1.5 text-center hidden lg:table-cell">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShowViewsStats?.(folder.id, folder.folder_name);
+                        }}
+                        className="inline-flex items-center gap-1 text-purple-600 font-medium hover:text-purple-700 hover:underline transition-colors"
+                        title="Открыть детальную статистику просмотров"
+                      >
+                        <Icon name="Eye" size={16} />
+                        <span>{folder.share_views_count ?? 0}</span>
+                      </button>
                     </td>
                     <td className="px-2 py-1.5">
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-0.5 justify-items-start md:justify-items-end">
