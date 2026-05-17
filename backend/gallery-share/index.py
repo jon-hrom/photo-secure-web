@@ -160,6 +160,43 @@ def handler(event: dict, context) -> dict:
         
         if method == 'POST':
             data = json.loads(event.get('body', '{}'))
+
+            if data.get('action') == 'clear_views':
+                clr_user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
+                clr_folder_id = data.get('folder_id')
+                if not clr_user_id or not clr_folder_id:
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'folder_id and X-User-Id required'})
+                    }
+                cur.execute(
+                    "SELECT 1 FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s AND user_id = %s",
+                    (clr_folder_id, clr_user_id)
+                )
+                if not cur.fetchone():
+                    cur.close()
+                    conn.close()
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Folder not found or access denied'})
+                    }
+                cur.execute(
+                    "UPDATE t_p28211681_photo_secure_web.photo_folders SET views_cleared_at = NOW() WHERE id = %s AND user_id = %s",
+                    (clr_folder_id, clr_user_id)
+                )
+                conn.commit()
+                cur.close()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True})
+                }
+
             folder_id = data.get('folder_id')
             user_id = data.get('user_id') or event.get('headers', {}).get('x-user-id')
             # Получаем expires_days: null = бессрочная, число = дней до истечения
@@ -375,16 +412,28 @@ def handler(event: dict, context) -> dict:
                 user_region = region_row[0] if region_row else None
                 user_tz = get_timezone_for_region(user_region)
                 tz_offset_hours = get_offset_hours_for_tz(user_tz)
+
                 cur.execute(
-                    """
+                    "SELECT views_cleared_at FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s",
+                    (stats_folder_id,)
+                )
+                cleared_row = cur.fetchone()
+                cleared_at = cleared_row[0] if cleared_row else None
+                cleared_filter = "AND viewed_at > %s" if cleared_at else ""
+                base_params = [stats_folder_id, stats_user_id]
+                if cleared_at:
+                    base_params.append(cleared_at)
+
+                cur.execute(
+                    f"""
                     SELECT COUNT(*),
                            COUNT(DISTINCT client_ip),
                            MIN(viewed_at),
                            MAX(viewed_at)
                     FROM t_p28211681_photo_secure_web.gallery_view_logs
-                    WHERE folder_id = %s AND user_id = %s
+                    WHERE folder_id = %s AND user_id = %s {cleared_filter}
                     """,
-                    (stats_folder_id, stats_user_id)
+                    tuple(base_params)
                 )
                 total_row = cur.fetchone()
                 total_views = total_row[0] or 0
@@ -396,34 +445,34 @@ def handler(event: dict, context) -> dict:
                     f"""
                     SELECT DATE(viewed_at + {interval_expr}) as day, COUNT(*) as cnt
                     FROM t_p28211681_photo_secure_web.gallery_view_logs
-                    WHERE folder_id = %s AND user_id = %s
+                    WHERE folder_id = %s AND user_id = %s {cleared_filter}
                     GROUP BY DATE(viewed_at + {interval_expr})
                     ORDER BY day DESC
                     LIMIT 30
                     """,
-                    (stats_folder_id, stats_user_id)
+                    tuple(base_params)
                 )
                 by_day = [{'day': r[0].isoformat(), 'count': r[1]} for r in cur.fetchall()]
                 cur.execute(
-                    """
+                    f"""
                     SELECT COALESCE(device_type, 'unknown') as dt, COUNT(*) as cnt
                     FROM t_p28211681_photo_secure_web.gallery_view_logs
-                    WHERE folder_id = %s AND user_id = %s
+                    WHERE folder_id = %s AND user_id = %s {cleared_filter}
                     GROUP BY COALESCE(device_type, 'unknown')
                     ORDER BY cnt DESC
                     """,
-                    (stats_folder_id, stats_user_id)
+                    tuple(base_params)
                 )
                 by_device = [{'device': r[0], 'count': r[1]} for r in cur.fetchall()]
                 cur.execute(
-                    """
+                    f"""
                     SELECT viewed_at, client_ip, user_agent, device_type, short_code
                     FROM t_p28211681_photo_secure_web.gallery_view_logs
-                    WHERE folder_id = %s AND user_id = %s
+                    WHERE folder_id = %s AND user_id = %s {cleared_filter}
                     ORDER BY viewed_at DESC
                     LIMIT 50
                     """,
-                    (stats_folder_id, stats_user_id)
+                    tuple(base_params)
                 )
                 recent = []
                 for r in cur.fetchall():

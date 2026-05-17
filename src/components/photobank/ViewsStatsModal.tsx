@@ -103,9 +103,9 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [clearing, setClearing] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const loadStats = () => {
     setLoading(true);
     setError(null);
     fetch(`${GALLERY_SHARE_URL}?action=views_stats&folder_id=${folderId}`, {
@@ -118,7 +118,35 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
       })
       .catch((e) => setError(e?.message || 'Не удалось загрузить статистику'))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    loadStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, folderId, userId]);
+
+  const handleClearViews = async () => {
+    if (!confirm('Очистить все просмотры этой галереи? Действие нельзя отменить, новые просмотры будут считаться с нуля.')) return;
+    setClearing(true);
+    try {
+      const r = await fetch(GALLERY_SHARE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId.toString(),
+        },
+        body: JSON.stringify({ action: 'clear_views', folder_id: folderId }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      loadStats();
+    } catch (e) {
+      alert('Не удалось очистить просмотры');
+      console.error(e);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const tz = useMemo(() => {
     if (stats?.timezone) return stats.timezone;
@@ -295,7 +323,25 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
           )}
         </div>
 
-        <div className="px-4 sm:px-6 py-3 border-t flex justify-end">
+        <div className="px-4 sm:px-6 py-3 border-t flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
+          <Button
+            variant="ghost"
+            onClick={handleClearViews}
+            disabled={clearing || loading || !stats || stats.total_views === 0}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+          >
+            {clearing ? (
+              <>
+                <Icon name="Loader2" size={16} className="animate-spin mr-1.5" />
+                Очищаем…
+              </>
+            ) : (
+              <>
+                <Icon name="Trash2" size={16} className="mr-1.5" />
+                Очистить просмотры
+              </>
+            )}
+          </Button>
           <Button variant="outline" onClick={onClose}>Закрыть</Button>
         </div>
       </div>
