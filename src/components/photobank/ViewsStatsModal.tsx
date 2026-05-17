@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { getTimezoneForRegion, getUserTimezoneShort } from '@/utils/regionTimezone';
 
 interface ViewsStatsModalProps {
   isOpen: boolean;
@@ -36,6 +37,8 @@ interface StatsResponse {
   by_day: DayStat[];
   by_device: DeviceStat[];
   recent: RecentView[];
+  timezone?: string;
+  region?: string;
 }
 
 const GALLERY_SHARE_URL = 'https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab';
@@ -65,7 +68,7 @@ const browserFromUA = (ua: string): string => {
   return 'Браузер';
 };
 
-const formatDate = (iso: string) => {
+const formatDate = (iso: string, tz: string) => {
   try {
     const d = new Date(iso);
     return d.toLocaleString('ru-RU', {
@@ -74,16 +77,23 @@ const formatDate = (iso: string) => {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: tz,
     });
   } catch {
     return iso;
   }
 };
 
-const formatDay = (iso: string) => {
+const formatDay = (iso: string, tz: string) => {
   try {
+    // iso для by_day приходит как YYYY-MM-DD (уже в TZ фотографа).
+    // Если есть время — приведём к TZ. Если без времени — просто 2 части.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      const [, mm, dd] = iso.split('-');
+      return `${dd}.${mm}`;
+    }
     const d = new Date(iso);
-    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', timeZone: tz });
   } catch {
     return iso;
   }
@@ -110,6 +120,20 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
       .finally(() => setLoading(false));
   }, [isOpen, folderId, userId]);
 
+  const tz = useMemo(() => {
+    if (stats?.timezone) return stats.timezone;
+    const region = typeof window !== 'undefined' ? localStorage.getItem('user_region') || '' : '';
+    return getTimezoneForRegion(region);
+  }, [stats?.timezone]);
+
+  const tzLabel = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    const city = localStorage.getItem('user_city') || '';
+    const region = localStorage.getItem('user_region') || '';
+    const place = city || region || stats?.region || 'Москва';
+    return `${getUserTimezoneShort()}, ${place}`;
+  }, [stats?.region]);
+
   if (!isOpen) return null;
 
   const maxDayCount = Math.max(1, ...(stats?.by_day || []).map((d) => d.count));
@@ -130,7 +154,14 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
             </div>
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-semibold truncate">Просмотры галереи</h2>
-              <p className="text-xs text-muted-foreground truncate">{folderName}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {folderName}
+                {tzLabel && (
+                  <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground/80">
+                    · <Icon name="Globe" size={10} /> {tzLabel}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
@@ -172,7 +203,7 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
                     <Icon name="Clock" size={12} /> Первый
                   </div>
                   <div className="text-sm font-medium">
-                    {stats.first_view ? formatDate(stats.first_view) : '—'}
+                    {stats.first_view ? formatDate(stats.first_view, tz) : '—'}
                   </div>
                 </div>
                 <div className="rounded-lg border bg-card p-3">
@@ -180,7 +211,7 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
                     <Icon name="Clock" size={12} /> Последний
                   </div>
                   <div className="text-sm font-medium">
-                    {stats.last_view ? formatDate(stats.last_view) : '—'}
+                    {stats.last_view ? formatDate(stats.last_view, tz) : '—'}
                   </div>
                 </div>
               </div>
@@ -193,7 +224,7 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
                   <div className="space-y-1">
                     {stats.by_day.slice(0, 14).map((d) => (
                       <div key={d.day} className="flex items-center gap-2 text-xs">
-                        <span className="w-12 text-muted-foreground flex-shrink-0">{formatDay(d.day)}</span>
+                        <span className="w-12 text-muted-foreground flex-shrink-0">{formatDay(d.day, tz)}</span>
                         <div className="flex-1 h-4 bg-muted rounded relative overflow-hidden">
                           <div
                             className="absolute inset-y-0 left-0 bg-purple-500 rounded"
@@ -241,7 +272,7 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
                           <Icon name={deviceIcon(r.device_type)} size={14} className="text-muted-foreground flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-medium">{formatDate(r.viewed_at)}</span>
+                              <span className="font-medium">{formatDate(r.viewed_at, tz)}</span>
                               <span className="text-muted-foreground">·</span>
                               <span>{deviceLabel(r.device_type)}</span>
                               <span className="text-muted-foreground">·</span>

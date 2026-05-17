@@ -343,6 +343,13 @@ def handler(event: dict, context) -> dict:
                         'body': json.dumps({'error': 'Folder not found or access denied'})
                     }
                 cur.execute(
+                    "SELECT region FROM t_p28211681_photo_secure_web.users WHERE id = %s",
+                    (stats_user_id,)
+                )
+                region_row = cur.fetchone()
+                user_region = region_row[0] if region_row else None
+                user_tz = get_timezone_for_region(user_region)
+                cur.execute(
                     """
                     SELECT COUNT(*),
                            COUNT(DISTINCT client_ip),
@@ -356,18 +363,18 @@ def handler(event: dict, context) -> dict:
                 total_row = cur.fetchone()
                 total_views = total_row[0] or 0
                 unique_visitors = total_row[1] or 0
-                first_view = total_row[2].isoformat() if total_row[2] else None
-                last_view = total_row[3].isoformat() if total_row[3] else None
+                first_view = (total_row[2].isoformat() + 'Z') if total_row[2] else None
+                last_view = (total_row[3].isoformat() + 'Z') if total_row[3] else None
                 cur.execute(
                     """
-                    SELECT DATE(viewed_at) as day, COUNT(*) as cnt
+                    SELECT DATE((viewed_at AT TIME ZONE 'UTC') AT TIME ZONE %s) as day, COUNT(*) as cnt
                     FROM t_p28211681_photo_secure_web.gallery_view_logs
                     WHERE folder_id = %s AND user_id = %s
-                    GROUP BY DATE(viewed_at)
+                    GROUP BY DATE((viewed_at AT TIME ZONE 'UTC') AT TIME ZONE %s)
                     ORDER BY day DESC
                     LIMIT 30
                     """,
-                    (stats_folder_id, stats_user_id)
+                    (user_tz, stats_folder_id, stats_user_id, user_tz)
                 )
                 by_day = [{'day': r[0].isoformat(), 'count': r[1]} for r in cur.fetchall()]
                 cur.execute(
@@ -394,7 +401,7 @@ def handler(event: dict, context) -> dict:
                 recent = []
                 for r in cur.fetchall():
                     recent.append({
-                        'viewed_at': r[0].isoformat() if r[0] else None,
+                        'viewed_at': (r[0].isoformat() + 'Z') if r[0] else None,
                         'client_ip': r[1] or '',
                         'user_agent': r[2] or '',
                         'device_type': r[3] or 'unknown',
@@ -413,6 +420,8 @@ def handler(event: dict, context) -> dict:
                         'by_day': by_day,
                         'by_device': by_device,
                         'recent': recent,
+                        'timezone': user_tz,
+                        'region': user_region,
                     })
                 }
 
