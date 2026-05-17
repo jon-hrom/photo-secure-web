@@ -530,6 +530,14 @@ def handler(event: dict, context) -> dict:
             
             is_blocked = result[31]
             photographer_id_for_check = result[15]
+
+            header_user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
+            if header_user_id:
+                try:
+                    if int(header_user_id) == int(photographer_id_for_check):
+                        is_owner_lookup = True
+                except Exception:
+                    pass
             
             cur.execute(
                 "SELECT is_blocked, email FROM t_p28211681_photo_secure_web.users WHERE id = %s",
@@ -594,15 +602,16 @@ def handler(event: dict, context) -> dict:
                     })
                 }
             
-            cur.execute(
-                """
-                UPDATE t_p28211681_photo_secure_web.folder_short_links
-                SET access_count = access_count + 1
-                WHERE short_code = %s
-                """,
-                (short_code,)
-            )
-            conn.commit()
+            if not is_owner_lookup:
+                cur.execute(
+                    """
+                    UPDATE t_p28211681_photo_secure_web.folder_short_links
+                    SET access_count = access_count + 1
+                    WHERE short_code = %s
+                    """,
+                    (short_code,)
+                )
+                conn.commit()
 
             if not is_owner_lookup:
                 try:

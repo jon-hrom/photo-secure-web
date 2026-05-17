@@ -93,11 +93,20 @@ export function useGalleryLoader(code?: string, clientId?: number) {
     return `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?${params.toString()}`;
   };
 
+  const getOwnerHeaders = (): Record<string, string> => {
+    try {
+      const uid = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+      return uid ? { 'X-User-Id': uid } : {};
+    } catch {
+      return {};
+    }
+  };
+
   const reloadClientFolders = async (cid: number) => {
     if (!code || !gallery) return;
     try {
       const url = buildUrl(password, cid);
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: getOwnerHeaders() });
       if (response.ok) {
         const data = await response.json();
         setGallery(prev => prev ? { ...prev, client_upload_folders: data.client_upload_folders || [] } : prev);
@@ -113,7 +122,7 @@ export function useGalleryLoader(code?: string, clientId?: number) {
       const url = buildUrl(enteredPassword, clientId);
       
       console.log('[PUBLIC_GALLERY] Fetching URL:', url);
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: getOwnerHeaders() });
       const data = await response.json();
       
       console.log('[PUBLIC_GALLERY] Response status:', response.status, 'Data:', data);
