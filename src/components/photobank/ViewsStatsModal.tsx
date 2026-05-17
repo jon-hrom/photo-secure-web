@@ -197,7 +197,7 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
           </Button>
         </div>
 
-        <div className="overflow-y-auto px-4 sm:px-6 py-4 space-y-5">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 sm:px-6 py-4 space-y-5" style={{ WebkitOverflowScrolling: 'touch' }}>
           {loading && (
             <div className="flex flex-col items-center py-10 text-muted-foreground">
               <Icon name="Loader2" size={28} className="animate-spin mb-2" />
@@ -294,7 +294,7 @@ const ViewsStatsModal = ({ isOpen, onClose, folderId, folderName, userId }: View
                   <p className="text-xs text-muted-foreground">Пока никто не открывал ссылку.</p>
                 ) : (
                   <div className="border rounded-md overflow-hidden">
-                    <div className="max-h-[260px] overflow-y-auto divide-y">
+                    <div className="md:max-h-[260px] md:overflow-y-auto overscroll-contain divide-y">
                       {stats.recent.map((r, i) => (
                         <div key={i} className="flex items-center gap-2 px-3 py-2 text-xs">
                           <Icon name={deviceIcon(r.device_type)} size={14} className="text-muted-foreground flex-shrink-0" />
