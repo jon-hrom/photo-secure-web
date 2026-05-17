@@ -280,8 +280,8 @@ const StatisticsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 pb-20">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background py-4 sm:py-6 pb-20">
+      <div className="w-full mx-auto space-y-6 px-2 sm:px-4 lg:px-6 xl:px-8 2xl:px-12">
         <div className="hidden print:block mb-6">
           <h1 className="text-2xl font-bold mb-2">Статистика фотостудии</h1>
           <p className="text-sm">

@@ -186,7 +186,7 @@ export default function PhotographerChatsModal({
     <>
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex" onClick={onClose}>
       <div 
-        className="bg-background w-full h-full md:m-4 md:rounded-xl shadow-2xl flex flex-col overflow-hidden md:max-w-7xl md:mx-auto" 
+        className="bg-background w-full h-full md:m-4 md:rounded-xl shadow-2xl flex flex-col overflow-hidden md:mx-auto" 
         onClick={(e) => e.stopPropagation()}
       >
         {/* Заголовок */}

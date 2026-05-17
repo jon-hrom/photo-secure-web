@@ -148,8 +148,8 @@ const Tariffs = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
-        <div className="max-w-6xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-4 sm:py-6">
+        <div className="w-full mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 2xl:px-12">
           <div className="mb-8">
             <Button
               variant="ghost"

@@ -131,7 +131,7 @@ const AuthenticatedLayout = ({
         />
       )}
 
-      <main className="container mx-auto px-3 md:px-4 py-4 md:py-8">
+      <main className="w-full mx-auto px-3 md:px-4 lg:px-6 xl:px-8 2xl:px-12 py-4 md:py-8">
         {verificationChecked && !emailVerified && hasEmail && currentPage === 'dashboard' && !isAdmin && (
           <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 shadow-sm">
             <div className="flex items-start gap-3">

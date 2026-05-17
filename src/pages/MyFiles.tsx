@@ -225,7 +225,7 @@ const MyFiles = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background py-4 sm:py-6">
       <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
         <DialogContent>
           <DialogHeader>
@@ -261,7 +261,7 @@ const MyFiles = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="w-full mx-auto space-y-6 px-2 sm:px-4 lg:px-6 xl:px-8 2xl:px-12">
         {!emailVerified && (
           <Alert className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
             <Icon name="AlertCircle" className="text-amber-600" />
