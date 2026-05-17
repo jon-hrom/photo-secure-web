@@ -59,6 +59,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 result = save_admin_settings(conn, user_id, body)
             elif action == 'check_expiring_links':
                 result = check_expiring_links(conn, user_id)
+            elif action == 'trash_expired_folders':
+                result = trash_expired_folders(conn, user_id)
             else:
                 result = {'error': 'Неизвестный action'}
             
@@ -540,3 +542,151 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
         })
 
     return {'success': True, 'checked': len(notified_items), 'items': notified_items}
+
+
+def trash_expired_folders(conn, user_id: str) -> Dict[str, Any]:
+    """Найти ссылки фотографа, у которых срок истёк и папка ещё не в корзине.
+    Переместить такие папки в корзину (is_trashed=TRUE) и отправить уведомление фотографу.
+    Идемпотентно через folder_short_links.expired_trash_notified_at.
+    """
+    app_base_url = 'https://foto-mix.ru'
+    creds = get_admin_credentials()
+
+    cur_main = conn.cursor()
+    cur_main.execute(f"""
+        SELECT
+            fsl.id,
+            fsl.folder_id,
+            fsl.expires_at,
+            pf.folder_name,
+            u.full_name,
+            u.phone,
+            u.email
+        FROM t_p28211681_photo_secure_web.folder_short_links fsl
+        JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
+        JOIN t_p28211681_photo_secure_web.users u ON u.id = fsl.user_id
+        WHERE fsl.user_id = {int(user_id)}
+          AND fsl.expires_at IS NOT NULL
+          AND fsl.expires_at < NOW()
+          AND fsl.expired_trash_notified_at IS NULL
+          AND COALESCE(pf.is_trashed, FALSE) = FALSE
+    """)
+    rows = cur_main.fetchall()
+    cur_main.close()
+
+    processed = []
+    for row in rows:
+        link_id, folder_id, expires_at, folder_name, photographer_name, photographer_phone, photographer_email = row
+
+        try:
+            cur_upd = conn.cursor()
+            cur_upd.execute(
+                "UPDATE t_p28211681_photo_secure_web.photo_folders SET is_trashed = TRUE, trashed_at = NOW() WHERE id = %s",
+                (folder_id,)
+            )
+            cur_upd.close()
+            conn.commit()
+        except Exception as e:
+            print(f'[TRASH_EXPIRED] error trashing folder {folder_id}: {e}')
+            continue
+
+        try:
+            expired_date = expires_at.strftime('%d.%m.%Y')
+            from datetime import timedelta as _td
+            restore_until = (expires_at + _td(days=7)).strftime('%d.%m.%Y')
+        except Exception:
+            expired_date = str(expires_at)
+            restore_until = ''
+
+        title = folder_name or 'Ваша галерея'
+        photographer_name_safe = photographer_name or 'Фотограф'
+        trash_url = f"{app_base_url}/photobank?trash=1"
+
+        notified_max = False
+        notified_email = False
+
+        if creds.get('instance_id') and creds.get('token') and photographer_phone:
+            try:
+                cur_tpl = conn.cursor()
+                cur_tpl.execute("""
+                    SELECT template_text
+                    FROM t_p28211681_photo_secure_web.max_service_templates
+                    WHERE template_type = 'link_expired_folder_trashed' AND is_active = TRUE
+                    LIMIT 1
+                """)
+                tpl_row = cur_tpl.fetchone()
+                cur_tpl.close()
+                if tpl_row:
+                    message = tpl_row[0]
+                    for k, v in {
+                        '{photographer_name}': photographer_name_safe,
+                        '{folder_name}': title,
+                        '{expired_date}': expired_date,
+                        '{restore_until}': restore_until,
+                        '{trash_url}': trash_url,
+                    }.items():
+                        message = message.replace(k, v)
+                    send_via_green_api(creds['instance_id'], creds['token'], photographer_phone, message)
+                    log_message(conn, user_id, photographer_phone, 'link_expired_folder_trashed', True)
+                    notified_max = True
+            except Exception as e:
+                print(f'[TRASH_EXPIRED] MAX send error: {e}')
+                try:
+                    log_message(conn, user_id, photographer_phone or '', 'link_expired_folder_trashed', False, str(e))
+                except Exception:
+                    pass
+
+        if photographer_email:
+            try:
+                import requests as _req
+                html_body = f"""<!DOCTYPE html>
+<html><body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">
+<div style="background:linear-gradient(135deg,#ef4444 0%,#f97316 100%);padding:30px;border-radius:10px;text-align:center;margin-bottom:24px;">
+<h1 style="color:#fff;margin:0;font-size:24px;">🗑 Папка перемещена в корзину</h1>
+</div>
+<div style="background:#f8f9fa;padding:24px;border-radius:10px;">
+<p style="font-size:16px;">Здравствуйте, {photographer_name_safe}!</p>
+<p style="font-size:15px;">Срок действия общей ссылки на папку <b>«{title}»</b> истёк {expired_date}. Папка автоматически перемещена в корзину фото-банка.</p>
+<div style="background:#fff3cd;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:6px;margin:20px 0;">
+<strong>⏳ У вас есть 7 дней (до {restore_until})</strong>, чтобы восстановить папку. После этого все фотографии будут удалены без возможности восстановления.
+</div>
+<p style="font-size:15px;">📂 Восстановить можно в разделе «Фото-банк → Корзина»:</p>
+<p><a href="{trash_url}" style="background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;">Открыть корзину</a></p>
+</div>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+<p style="color:#9ca3af;font-size:12px;text-align:center;">🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!</p>
+</body></html>"""
+                email_api = 'https://functions.poehali.dev/26301a69-7e80-461b-bc17-2ad62cd57d4f'
+                resp = _req.post(email_api, json={
+                    'action': 'send-booking-notification',
+                    'to_email': photographer_email,
+                    'client_name': photographer_name_safe,
+                    'html_body': html_body,
+                    'subject': f'🗑 Папка «{title}» перемещена в корзину — Foto-mix.ru'
+                }, timeout=10)
+                notified_email = resp.ok
+            except Exception as e:
+                print(f'[TRASH_EXPIRED] email send error: {e}')
+
+        try:
+            cur_mark = conn.cursor()
+            cur_mark.execute(
+                "UPDATE t_p28211681_photo_secure_web.folder_short_links SET expired_trash_notified_at = NOW() WHERE id = %s",
+                (link_id,)
+            )
+            cur_mark.close()
+            conn.commit()
+        except Exception as e:
+            print(f'[TRASH_EXPIRED] notify mark error: {e}')
+
+        processed.append({
+            'link_id': link_id,
+            'folder_id': folder_id,
+            'folder_name': title,
+            'expired_date': expired_date,
+            'restore_until': restore_until,
+            'notified_max': notified_max,
+            'notified_email': notified_email,
+        })
+
+    return {'success': True, 'trashed': len(processed), 'items': processed}

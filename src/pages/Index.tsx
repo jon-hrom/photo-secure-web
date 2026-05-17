@@ -104,7 +104,8 @@ const Index = () => {
     const key = `link_expiry_checked_${userId}`;
     if (sessionStorage.getItem(key)) return;
     sessionStorage.setItem(key, '1');
-    fetch('https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d', {
+    const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
+    fetch(MAX_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-User-Id': userId.toString() },
       body: JSON.stringify({ action: 'check_expiring_links' }),
@@ -113,6 +114,18 @@ const Index = () => {
       .then(data => {
         if (data && data.checked > 0) {
           console.log('[LINK_EXPIRY] Уведомления отправлены:', data.items);
+        }
+      })
+      .catch(() => {});
+    fetch(MAX_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': userId.toString() },
+      body: JSON.stringify({ action: 'trash_expired_folders' }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.trashed > 0) {
+          console.log('[LINK_EXPIRY] Папки перемещены в корзину:', data.items);
         }
       })
       .catch(() => {});
