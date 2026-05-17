@@ -82,9 +82,6 @@ ${shareUrl}
             <div className="flex items-start gap-3">
               <Icon name="Info" size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">
-                  Отправка через WhatsApp
-                </p>
                 <p className="text-xs text-blue-700 dark:text-blue-300">
                   Сообщение будет отправлено на номер {client.phone} через MAX
                 </p>
