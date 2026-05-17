@@ -1,18 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PhotoBankStorageIndicator from '@/components/photobank/PhotoBankStorageIndicator';
-import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
-import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
-import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import PhotoBankDialogsContainer from '@/components/photobank/PhotoBankDialogsContainer';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
-import { PhotoBankModals } from '@/pages/photobank/PhotoBankModals';
-import SubfolderSettingsModal from '@/components/photobank/SubfolderSettingsModal';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import Icon from '@/components/ui/icon';
+import PhotoBankAuxDialogs from '@/pages/photobank/PhotoBankAuxDialogs';
+import PhotoBankMainContent from '@/pages/photobank/PhotoBankMainContent';
+import PhotoBankOverlayModals from '@/pages/photobank/PhotoBankOverlayModals';
 import { usePhotoBankState } from '@/hooks/usePhotoBankState';
 import { usePhotoBankApi } from '@/hooks/usePhotoBankApi';
 import { usePhotoBankHandlers } from '@/hooks/usePhotoBankHandlers';
@@ -23,43 +16,6 @@ import { usePhotoBankUnreadMessages } from '@/pages/photobank/usePhotoBankUnread
 import { getAuthUserId, usePhotoBankAuth, useEmailVerification, getIsAdminViewing, getIsAdmin } from '@/pages/photobank/PhotoBankAuth';
 import { usePhotoBankEffects } from '@/pages/photobank/PhotoBankEffects';
 import { useSessionWatcher } from '@/hooks/useSessionWatcher';
-import ClientUploadViewer from '@/components/photobank/ClientUploadViewer';
-import FavoriteListsViewer from '@/components/photobank/FavoriteListsViewer';
-import RetouchDialog from '@/components/photobank/RetouchDialog';
-import ViewsStatsModal from '@/components/photobank/ViewsStatsModal';
-
-function CreateSubfolderDialog({ open, onOpenChange, subfolderName, onSetSubfolderName, onCreateSubfolder }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  subfolderName: string;
-  onSetSubfolderName: (name: string) => void;
-  onCreateSubfolder: () => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-gradient-to-br from-purple-50/80 via-pink-50/60 to-rose-50/80 dark:from-purple-950/80 dark:via-pink-950/60 dark:to-rose-950/80 backdrop-blur-sm">
-        <DialogHeader>
-          <DialogTitle>Добавить папку</DialogTitle>
-          <DialogDescription>Введите название для новой подпапки</DialogDescription>
-        </DialogHeader>
-        <Input
-          placeholder="Например: Подготовка"
-          value={subfolderName}
-          onChange={(e) => onSetSubfolderName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && onCreateSubfolder()}
-          autoFocus
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
-          <Button onClick={onCreateSubfolder}>
-            <Icon name="FolderPlus" size={16} className="mr-2" />
-            Создать
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 const PhotoBank = () => {
   const navigate = useNavigate();
@@ -266,198 +222,79 @@ const PhotoBank = () => {
         fetchStorageUsage={fetchStorageUsage}
       />
 
-      <CreateSubfolderDialog
-        open={createSubfolderParentId !== null}
-        onOpenChange={(open) => { if (!open) { setCreateSubfolderParentId(null); setSubfolderName(''); } }}
+      <PhotoBankAuxDialogs
+        createSubfolderParentId={createSubfolderParentId}
+        setCreateSubfolderParentId={setCreateSubfolderParentId}
         subfolderName={subfolderName}
-        onSetSubfolderName={setSubfolderName}
-        onCreateSubfolder={async () => {
-          if (!subfolderName.trim() || !createSubfolderParentId) return;
-          try {
-            const res = await fetch(PHOTOBANK_FOLDERS_API, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-              body: JSON.stringify({ action: 'create', folder_name: subfolderName, parent_folder_id: createSubfolderParentId })
-            });
-            if (res.ok) {
-              setCreateSubfolderParentId(null);
-              setSubfolderName('');
-              fetchFolders();
-            }
-          } catch { /* ignore */ }
-        }}
-      />
-
-      <SubfolderSettingsModal
-        open={subfolderSettings !== null}
-        onOpenChange={(open) => { if (!open) setSubfolderSettings(null); }}
-        subfolder={subfolderSettings}
-        apiUrl={PHOTOBANK_FOLDERS_API}
+        setSubfolderName={setSubfolderName}
         userId={userId}
-        onSaved={fetchFolders}
+        photobankFoldersApi={PHOTOBANK_FOLDERS_API}
+        fetchFolders={fetchFolders}
+        subfolderSettings={subfolderSettings}
+        setSubfolderSettings={setSubfolderSettings}
+        retouchFolder={retouchFolder}
+        setRetouchFolder={setRetouchFolder}
       />
 
-      {retouchFolder && (
-        <RetouchDialog
-          open={retouchFolder !== null}
-          onOpenChange={(open) => { if (!open) setRetouchFolder(null); }}
-          folderId={retouchFolder.id}
-          folderName={retouchFolder.name}
-          userId={userId}
-          onRetouchComplete={fetchFolders}
-        />
-      )}
-
-      <div className="max-w-7xl mx-auto space-y-6 px-2 sm:px-4 lg:px-6">
-        <PhotoBankStorageIndicator storageUsage={storageUsage} />
-
-        <PhotoBankHeader
-          folders={folders}
-          selectedFolder={selectedFolder}
-          photos={photos}
-          selectionMode={selectionMode}
-          selectedPhotos={selectedPhotos}
-          isAdminViewing={isAdminViewing}
-          isAdmin={isAdmin}
-          onNavigateBack={() => {
-            if (isAdminViewing) {
-              handleExitAdminView();
-            } else if (selectedFolder?.parent_folder_id) {
-              const parentFolder = folders.find(f => f.id === selectedFolder.parent_folder_id);
-              if (parentFolder) {
-                setSelectedFolder(parentFolder);
-                fetchPhotos(parentFolder.id);
-              } else {
-                setSelectedFolder(null);
-                setPhotos([]);
-              }
-            } else if (selectedFolder) {
-              setSelectedFolder(null);
-              setPhotos([]);
-            } else {
-              navigate('/');
-            }
-          }}
-          onAddToPhotobook={handleAddToPhotobook}
-          onCancelSelection={() => {
-            setSelectionMode(false);
-            setSelectedPhotos(new Set());
-          }}
-          onStartSelection={() => setSelectionMode(true)}
-          onShowCreateFolder={() => setShowCreateFolder(true)}
-          onShowClearConfirm={() => setShowClearConfirm(true)}
-          onShowCameraUpload={() => setShowCameraUpload(true)}
-          onShowUrlUpload={() => setShowUrlUpload(true)}
-          onShowVideoUrlUpload={() => setShowVideoUrlUpload(true)}
-          onShowFavorites={() => setShowFavorites(true)}
-          canGoBack={navigation.canGoBack}
-          canGoForward={navigation.canGoForward}
-          onGoBack={handleGoBack}
-          onGoForward={handleGoForward}
-          onDeleteSelectedPhotos={handleDeleteSelectedPhotos}
-          onRestoreSelectedPhotos={handleRestoreSelectedPhotos}
-          onShowStats={() => setShowStats(true)}
-          onShowAllChats={() => setFolderChatsId(-1)}
-          totalUnreadMessages={folders.reduce((sum, f) => sum + (f.unread_messages_count || 0), 0)}
-        />
-
-        {!selectedFolder ? (
-          <PhotoBankFoldersList
-            folders={folders}
-            selectedFolder={selectedFolder}
-            loading={loading}
-            isAdminViewing={isAdminViewing}
-            onSelectFolder={setSelectedFolder}
-            onDeleteFolder={handleDeleteFolder}
-            onCreateFolder={() => setShowCreateFolder(true)}
-            onStartTechSort={handleStartTechSort}
-            onDownloadFolder={handleDownloadFolder}
-            onRetouchFolder={(id, name) => setRetouchFolder({ id, name })}
-            onShareFolder={handleShareFolder}
-            onOpenChat={(clientId, clientName) => setChatClient({ id: clientId, name: clientName })}
-            onOpenFolderChats={handleOpenFolderChats}
-            onShowViewsStats={(id, name) => setViewsStatsFolder({ id, name })}
-            onCreateSubfolder={(parentId) => setCreateSubfolderParentId(parentId)}
-            onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
-          />
-        ) : (
-          <>
-            <PhotoBankPhotoGrid
-              selectedFolder={selectedFolder}
-              photos={photos}
-              loading={loading}
-              uploading={uploading}
-              uploadProgress={uploadProgress}
-              selectionMode={selectionMode}
-              selectedPhotos={selectedPhotos}
-              emailVerified={emailVerified}
-              onUploadPhoto={handleUploadPhoto}
-              onDeletePhoto={handleDeletePhoto}
-              onTogglePhotoSelection={togglePhotoSelection}
-              onCancelUpload={handleCancelUpload}
-              onRestorePhoto={handleRestorePhoto}
-              isAdminViewing={isAdminViewing}
-              onRenameFolder={handleRenameFolder}
-              storageUsage={storageUsage}
-              subfolders={selectedFolder ? folders.filter(f => f.parent_folder_id === selectedFolder.id || (selectedFolder.parent_folder_id && f.parent_folder_id === selectedFolder.parent_folder_id)) : []}
-              onSelectSubfolder={(subfolder) => setSelectedFolder(subfolder)}
-              onCreateSubfolder={() => {
-                const parentId = selectedFolder?.parent_folder_id || selectedFolder?.id;
-                if (parentId) setCreateSubfolderParentId(parentId);
-              }}
-              onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
-              onNavigateToParent={() => {
-                if (selectedFolder?.parent_folder_id) {
-                  const parentFolder = folders.find(f => f.id === selectedFolder.parent_folder_id);
-                  if (parentFolder) {
-                    setSelectedFolder(parentFolder);
-                    fetchPhotos(parentFolder.id);
-                  }
-                }
-              }}
-              onDeleteSubfolder={(subfolder) => {
-                if (!confirm(`Удалить подпапку "${subfolder.folder_name}" со всеми фото? Файлы будут перемещены в корзину.`)) return;
-                fetch(`${PHOTOBANK_FOLDERS_API}?folder_id=${subfolder.id}`, {
-                  method: 'DELETE',
-                  headers: { 'X-User-Id': userId }
-                }).then(res => {
-                  if (res.ok) {
-                    if (selectedFolder?.id === subfolder.id) {
-                      const parentId = subfolder.parent_folder_id;
-                      const parentFolder = parentId ? folders.find(f => f.id === parentId) : null;
-                      if (parentFolder) {
-                        setSelectedFolder(parentFolder);
-                        fetchPhotos(parentFolder.id);
-                      } else {
-                        setSelectedFolder(null);
-                        setPhotos([]);
-                      }
-                    }
-                    fetchFolders();
-                    fetchStorageUsage();
-                  }
-                });
-              }}
-              clientUploadSlot={userId && selectedFolder ? (
-                <>
-                  <FavoriteListsViewer
-                    parentFolderId={selectedFolder.id}
-                    userId={parseInt(userId, 10)}
-                  />
-                  <ClientUploadViewer
-                    parentFolderId={selectedFolder.id}
-                    userId={parseInt(userId, 10)}
-                  />
-                </>
-              ) : undefined}
-            />
-          </>
-        )}
-      </div>
+      <PhotoBankMainContent
+        storageUsage={storageUsage}
+        folders={folders}
+        selectedFolder={selectedFolder}
+        photos={photos}
+        selectionMode={selectionMode}
+        selectedPhotos={selectedPhotos}
+        isAdminViewing={isAdminViewing}
+        isAdmin={isAdmin}
+        loading={loading}
+        uploading={uploading}
+        uploadProgress={uploadProgress}
+        emailVerified={emailVerified}
+        userId={userId}
+        photobankFoldersApi={PHOTOBANK_FOLDERS_API}
+        navigation={navigation}
+        handleGoBack={handleGoBack}
+        handleGoForward={handleGoForward}
+        handleExitAdminView={handleExitAdminView}
+        setSelectedFolder={setSelectedFolder}
+        setPhotos={setPhotos}
+        setSelectionMode={setSelectionMode}
+        setSelectedPhotos={setSelectedPhotos}
+        setShowCreateFolder={setShowCreateFolder}
+        setShowClearConfirm={setShowClearConfirm}
+        setShowCameraUpload={setShowCameraUpload}
+        setShowUrlUpload={setShowUrlUpload}
+        setShowVideoUrlUpload={setShowVideoUrlUpload}
+        setShowFavorites={setShowFavorites}
+        setShowStats={setShowStats}
+        setFolderChatsId={setFolderChatsId}
+        setChatClient={setChatClient}
+        setRetouchFolder={setRetouchFolder}
+        setViewsStatsFolder={setViewsStatsFolder}
+        setCreateSubfolderParentId={setCreateSubfolderParentId}
+        setSubfolderSettings={setSubfolderSettings}
+        handleAddToPhotobook={handleAddToPhotobook}
+        handleDeleteSelectedPhotos={handleDeleteSelectedPhotos}
+        handleRestoreSelectedPhotos={handleRestoreSelectedPhotos}
+        handleStartTechSort={handleStartTechSort}
+        handleDownloadFolder={handleDownloadFolder}
+        handleShareFolder={handleShareFolder}
+        handleOpenFolderChats={handleOpenFolderChats}
+        handleDeleteFolder={handleDeleteFolder}
+        handleUploadPhoto={handleUploadPhoto}
+        handleDeletePhoto={handleDeletePhoto}
+        handleCancelUpload={handleCancelUpload}
+        handleRestorePhoto={handleRestorePhoto}
+        handleRenameFolder={handleRenameFolder}
+        togglePhotoSelection={togglePhotoSelection}
+        fetchPhotos={fetchPhotos}
+        fetchFolders={fetchFolders}
+        fetchStorageUsage={fetchStorageUsage}
+        onNavigateRoot={() => navigate('/')}
+      />
 
       <MobileNavigation />
 
-      <PhotoBankModals
+      <PhotoBankOverlayModals
         shareModalFolder={shareModalFolder}
         showFavorites={showFavorites}
         selectedFolder={selectedFolder}
@@ -466,33 +303,18 @@ const PhotoBank = () => {
         chatClient={chatClient}
         folderChatsId={folderChatsId}
         userId={userId}
-        onCloseShareModal={() => setShareModalFolder(null)}
-        onCloseFavorites={() => setShowFavorites(false)}
-        onCloseStats={() => setShowStats(false)}
-        onCloseVideoUrlUpload={() => setShowVideoUrlUpload(false)}
-        onCloseChat={() => setChatClient(null)}
-        onCloseFolderChats={() => {
-          setFolderChatsId(null);
-          fetchFolders();
-        }}
-        onVideoUploadSuccess={() => {
-          if (selectedFolder) {
-            fetchPhotos(selectedFolder.id);
-          }
-          fetchFolders();
-          fetchStorageUsage();
-        }}
+        setShareModalFolder={setShareModalFolder}
+        setShowFavorites={setShowFavorites}
+        setShowStats={setShowStats}
+        setShowVideoUrlUpload={setShowVideoUrlUpload}
+        setChatClient={setChatClient}
+        setFolderChatsId={setFolderChatsId}
+        fetchPhotos={fetchPhotos}
+        fetchFolders={fetchFolders}
+        fetchStorageUsage={fetchStorageUsage}
+        viewsStatsFolder={viewsStatsFolder}
+        setViewsStatsFolder={setViewsStatsFolder}
       />
-
-      {viewsStatsFolder && userId && (
-        <ViewsStatsModal
-          isOpen={!!viewsStatsFolder}
-          onClose={() => setViewsStatsFolder(null)}
-          folderId={viewsStatsFolder.id}
-          folderName={viewsStatsFolder.name}
-          userId={parseInt(userId)}
-        />
-      )}
     </div>
   );
 };
