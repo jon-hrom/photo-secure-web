@@ -38,9 +38,11 @@ type DraftFields = {
   status: Project['status'];
 };
 
-const toDateInputValue = (value?: string) => {
-  if (!value) return '';
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+const toDateInputValue = (value?: string | null) => {
+  if (!value || value === 'None' || value === 'null') return '';
+  if (typeof value !== 'string') return '';
+  const isoMatch = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoMatch) return isoMatch[1];
   try {
     const date = new Date(value);
     if (isNaN(date.getTime())) return '';

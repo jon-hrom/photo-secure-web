@@ -71,19 +71,38 @@ export const useClientsData = (
           clientId: b.client_id,
           client_id: b.client_id
         })),
-        projects: (client.projects || []).map((p: any) => ({
+        projects: (client.projects || []).map((p: any) => {
+          const rawDate = p.start_date || p.startDate;
+          let normalizedDate: string | null = null;
+          if (rawDate && rawDate !== 'None' && rawDate !== 'null') {
+            const s = String(rawDate);
+            const match = s.match(/^(\d{4}-\d{2}-\d{2})/);
+            if (match) {
+              normalizedDate = match[1];
+            } else {
+              const d = new Date(s);
+              if (!isNaN(d.getTime())) {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                normalizedDate = `${y}-${m}-${day}`;
+              }
+            }
+          }
+          return {
           id: p.id,
           name: p.name,
           status: p.status,
           budget: parseFloat(p.budget) || 0,
-          startDate: p.start_date || p.startDate,
+          startDate: normalizedDate,
           description: p.description || '',
           shootingStyleId: p.shooting_style_id || p.shootingStyleId || undefined,
           shooting_time: p.shooting_time,
           shooting_duration: p.shooting_duration,
           shooting_address: p.shooting_address,
           add_to_calendar: p.add_to_calendar
-        })),
+          };
+        }),
         payments: (client.payments || []).map((pay: any) => ({
           id: pay.id,
           amount: parseFloat(pay.amount) || 0,
