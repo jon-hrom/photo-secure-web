@@ -10,6 +10,7 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
   const [isUnsavedProjectDialogOpen, setIsUnsavedProjectDialogOpen] = useState(false);
   const [unsavedProjectClientId, setUnsavedProjectClientId] = useState<number | null>(null);
   const [pendingClient, setPendingClient] = useState<Client | null>(null);
+  const [confirmedContinueClientIds, setConfirmedContinueClientIds] = useState<Set<number>>(new Set());
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBookingDialogOpen, setIsBookingDialogOpen] = useState(false);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
@@ -123,6 +124,11 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
   };
 
   const handleOpenClientWithProjectCheck = (client: Client) => {
+    if (confirmedContinueClientIds.has(client.id)) {
+      setSelectedClient(client);
+      setIsDetailDialogOpen(true);
+      return;
+    }
     const saved = loadProjectData(client.id);
     if (saved && (saved.name || saved.budget || saved.description)) {
       setUnsavedProjectClientId(client.id);
@@ -137,19 +143,18 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
   const handleContinueWithSavedProject = () => {
     setIsUnsavedProjectDialogOpen(false);
     setShouldOpenNewProjectForm(true);
-    if (pendingClient) {
-      setSelectedClient(pendingClient);
+    const targetClient = pendingClient || (unsavedProjectClientId && clients ? clients.find(c => c.id === unsavedProjectClientId) : null) || null;
+    if (targetClient) {
+      setConfirmedContinueClientIds(prev => {
+        const next = new Set(prev);
+        next.add(targetClient.id);
+        return next;
+      });
+      setSelectedClient(targetClient);
       setIsDetailDialogOpen(true);
-      setUnsavedProjectClientId(null);
-      setPendingClient(null);
-    } else if (unsavedProjectClientId && clients) {
-      const client = clients.find(c => c.id === unsavedProjectClientId);
-      if (client) {
-        setSelectedClient(client);
-        setIsDetailDialogOpen(true);
-      }
-      setUnsavedProjectClientId(null);
     }
+    setUnsavedProjectClientId(null);
+    setPendingClient(null);
   };
 
   const handleClearSavedProject = () => {
@@ -157,19 +162,18 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
       clearProjectData(unsavedProjectClientId);
     }
     setIsUnsavedProjectDialogOpen(false);
-    if (pendingClient) {
-      setSelectedClient(pendingClient);
+    const targetClient = pendingClient || (unsavedProjectClientId && clients ? clients.find(c => c.id === unsavedProjectClientId) : null) || null;
+    if (targetClient) {
+      setConfirmedContinueClientIds(prev => {
+        const next = new Set(prev);
+        next.add(targetClient.id);
+        return next;
+      });
+      setSelectedClient(targetClient);
       setIsDetailDialogOpen(true);
-      setUnsavedProjectClientId(null);
-      setPendingClient(null);
-    } else if (unsavedProjectClientId && clients) {
-      const client = clients.find(c => c.id === unsavedProjectClientId);
-      if (client) {
-        setSelectedClient(client);
-        setIsDetailDialogOpen(true);
-      }
-      setUnsavedProjectClientId(null);
     }
+    setUnsavedProjectClientId(null);
+    setPendingClient(null);
   };
 
   const handleContinueWithSavedData = () => {

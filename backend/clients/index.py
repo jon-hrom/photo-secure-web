@@ -314,6 +314,117 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
     try:
+        qs = event.get('queryStringParameters') or {}
+        action_qs = qs.get('action', '')
+
+        if action_qs == 'drafts':
+            allowed_draft_types = {'client', 'project', 'open_card'}
+            try:
+                photographer_id_int = int(photographer_id)
+            except (TypeError, ValueError):
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Invalid X-User-Id'}),
+                    'isBase64Encoded': False
+                }
+
+            if method == 'GET':
+                cur.execute(
+                    'SELECT draft_type, client_id, payload, updated_at FROM t_p28211681_photo_secure_web.user_drafts WHERE photographer_id = %s',
+                    (photographer_id_int,)
+                )
+                rows = cur.fetchall()
+                result = [
+                    {
+                        'draft_type': r['draft_type'],
+                        'client_id': r['client_id'] if r['client_id'] else None,
+                        'payload': r['payload'],
+                        'updated_at': str(r['updated_at'])
+                    } for r in rows
+                ]
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps(result, default=str),
+                    'isBase64Encoded': False
+                }
+
+            body_str = event.get('body') or '{}'
+            try:
+                body_data = json.loads(body_str)
+            except json.JSONDecodeError:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Invalid JSON'}),
+                    'isBase64Encoded': False
+                }
+
+            draft_type = body_data.get('draft_type')
+            if draft_type not in allowed_draft_types:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Invalid draft_type'}),
+                    'isBase64Encoded': False
+                }
+
+            client_id_raw = body_data.get('client_id')
+            try:
+                draft_client_id = int(client_id_raw) if client_id_raw not in (None, '', 0) else 0
+            except (TypeError, ValueError):
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'Invalid client_id'}),
+                    'isBase64Encoded': False
+                }
+
+            if method == 'POST':
+                payload = body_data.get('payload')
+                if payload is None:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'payload required'}),
+                        'isBase64Encoded': False
+                    }
+                cur.execute(
+                    '''INSERT INTO t_p28211681_photo_secure_web.user_drafts (photographer_id, draft_type, client_id, payload, updated_at)
+                       VALUES (%s, %s, %s, %s::jsonb, NOW())
+                       ON CONFLICT (photographer_id, draft_type, client_id)
+                       DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()''',
+                    (photographer_id_int, draft_type, draft_client_id, json.dumps(payload))
+                )
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+
+            if method == 'DELETE':
+                cur.execute(
+                    'DELETE FROM t_p28211681_photo_secure_web.user_drafts WHERE photographer_id = %s AND draft_type = %s AND client_id = %s',
+                    (photographer_id_int, draft_type, draft_client_id)
+                )
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True}),
+                    'isBase64Encoded': False
+                }
+
+            return {
+                'statusCode': 405,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({'error': 'Method not allowed'}),
+                'isBase64Encoded': False
+            }
+
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list')
             

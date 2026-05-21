@@ -12,6 +12,39 @@
       "name": "Unauthorized without user ID",
       "method": "GET",
       "expectedStatus": 401
+    },
+    {
+      "name": "Drafts GET returns list",
+      "method": "GET",
+      "path": "/?action=drafts",
+      "headers": {"X-User-Id": "99999"},
+      "expectedStatus": 200
+    },
+    {
+      "name": "Drafts POST upsert",
+      "method": "POST",
+      "path": "/?action=drafts",
+      "headers": {"X-User-Id": "99999", "Content-Type": "application/json"},
+      "body": {"draft_type": "client", "client_id": 0, "payload": {"name": "Тест"}},
+      "expectedStatus": 200,
+      "expectedBody": {"success": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Drafts DELETE",
+      "method": "DELETE",
+      "path": "/?action=drafts",
+      "headers": {"X-User-Id": "99999", "Content-Type": "application/json"},
+      "body": {"draft_type": "client", "client_id": 0},
+      "expectedStatus": 200
+    },
+    {
+      "name": "Drafts POST invalid type 400",
+      "method": "POST",
+      "path": "/?action=drafts",
+      "headers": {"X-User-Id": "99999", "Content-Type": "application/json"},
+      "body": {"draft_type": "garbage", "payload": {}},
+      "expectedStatus": 400
     }
   ]
 }
