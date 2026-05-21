@@ -1228,12 +1228,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 ('birthdate', 'birthdate'),
                 ('avatar_url', 'avatar_url'),
             ]
+            # Поля, которые НЕ затираются если пришли как None (только удаляются через отдельные action)
+            preserve_on_null = {'avatar_url'}
             set_clauses = []
             set_values = []
             for body_key, db_col in field_map:
                 if body_key in body:
+                    value = body.get(body_key)
+                    if value is None and body_key in preserve_on_null:
+                        continue
                     set_clauses.append(f'{db_col} = %s')
-                    set_values.append(body.get(body_key))
+                    set_values.append(value)
             
             if set_clauses:
                 set_clauses.append('updated_at = CURRENT_TIMESTAMP')

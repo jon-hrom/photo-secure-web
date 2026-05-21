@@ -435,6 +435,8 @@ export const useClientsHandlers = ({
     }
     
     try {
+      // Отправляем ТОЛЬКО редактируемые поля. Не шлём avatar_url, projects, payments и т.д.
+      // чтобы случайно не затереть данные, которые в этом диалоге не редактируются.
       const res = await fetch(CLIENTS_API, {
         method: 'PUT',
         headers: {
@@ -442,9 +444,15 @@ export const useClientsHandlers = ({
           'X-User-Id': userId!
         },
         body: JSON.stringify({
-          ...editingClient,
+          id: editingClient.id,
+          name: editingClient.name,
+          phone: editingClient.phone,
+          email: editingClient.email,
+          address: editingClient.address,
+          vkProfile: editingClient.vkProfile,
           vk_username: editingClient.vk_username,
-          birthdate: editingClient.birthdate
+          telegram_chat_id: editingClient.telegram_chat_id,
+          birthdate: editingClient.birthdate,
         })
       });
       
