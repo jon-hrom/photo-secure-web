@@ -1215,23 +1215,43 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            cur.execute('''
-                UPDATE t_p28211681_photo_secure_web.clients 
-                SET name = %s, phone = %s, email = %s, address = %s, vk_profile = %s, vk_username = %s, birthdate = %s, avatar_url = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s AND photographer_id = %s
-                RETURNING id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, telegram_chat_id, avatar_url, created_at, updated_at
-            ''', (
-                body.get('name'),
-                body.get('phone'),
-                body.get('email'),
-                body.get('address'),
-                body.get('vkProfile'),
-                body.get('vk_username'),
-                body.get('birthdate'),
-                body.get('avatar_url'),
-                client_id,
-                photographer_id
-            ))
+            # avatar_url обновляем ТОЛЬКО если поле явно передано в body,
+            # иначе сохраняем существующее значение (чтобы PUT с проектами не затирал аватар)
+            if 'avatar_url' in body:
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.clients 
+                    SET name = %s, phone = %s, email = %s, address = %s, vk_profile = %s, vk_username = %s, birthdate = %s, avatar_url = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s AND photographer_id = %s
+                    RETURNING id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, telegram_chat_id, avatar_url, created_at, updated_at
+                ''', (
+                    body.get('name'),
+                    body.get('phone'),
+                    body.get('email'),
+                    body.get('address'),
+                    body.get('vkProfile'),
+                    body.get('vk_username'),
+                    body.get('birthdate'),
+                    body.get('avatar_url'),
+                    client_id,
+                    photographer_id
+                ))
+            else:
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.clients 
+                    SET name = %s, phone = %s, email = %s, address = %s, vk_profile = %s, vk_username = %s, birthdate = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s AND photographer_id = %s
+                    RETURNING id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, telegram_chat_id, avatar_url, created_at, updated_at
+                ''', (
+                    body.get('name'),
+                    body.get('phone'),
+                    body.get('email'),
+                    body.get('address'),
+                    body.get('vkProfile'),
+                    body.get('vk_username'),
+                    body.get('birthdate'),
+                    client_id,
+                    photographer_id
+                ))
             client = cur.fetchone()
             
             if not client:
