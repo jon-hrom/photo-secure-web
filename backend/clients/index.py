@@ -340,7 +340,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'draft_type': r['draft_type'],
                         'client_id': r['client_id'] if r['client_id'] else None,
                         'payload': r['payload'],
-                        'updated_at': str(r['updated_at'])
+                        'updated_at': str(r['updated_at']) if r['updated_at'] else None
                     } for r in rows
                 ]
                 return {
@@ -454,7 +454,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'id': doc['id'],
                         'name': doc['name'],
                         'file_url': presigned_url,
-                        'upload_date': str(doc['upload_date'])
+                        'upload_date': str(doc['upload_date']) if doc['upload_date'] else None
                     })
                 
                 return {
@@ -614,7 +614,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'name': p['name'],
                         'status': p['status'],
                         'budget': float(p['budget']),
-                        'startDate': str(p['start_date']),
+                        'startDate': str(p['start_date']) if p['start_date'] else None,
                         'description': p['description'],
                         'shooting_style_id': p.get('shooting_style_id'),
                         'shooting_time': p.get('shooting_time'),
@@ -627,7 +627,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     payments = [{
                         'id': p['id'],
                         'amount': float(p['amount']),
-                        'date': str(p['payment_date']),
+                        'date': str(p['payment_date']) if p['payment_date'] else None,
                         'status': p['status'],
                         'method': p['method'],
                         'description': p['description'],
@@ -687,8 +687,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'bookings': [
                             {
                                 'id': b['id'],
-                                'date': str(b['booking_date']),
-                                'booking_date': str(b['booking_date']),
+                                'date': str(b['booking_date']) if b['booking_date'] else None,
+                                'booking_date': str(b['booking_date']) if b['booking_date'] else None,
                                 'time': b['booking_time'],
                                 'description': b['description'],
                                 'notificationEnabled': b['notification_enabled'],
@@ -1280,11 +1280,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Вставляем или обновляем проекты
                 for project in body.get('projects', []):
                     start_date_str = project.get('startDate')
+                    # Защита от строки "None", приходящей от старых клиентов
+                    if start_date_str in ('None', 'null', ''):
+                        start_date_str = None
                     # Парсим дату из ISO строки или YYYY-MM-DD формата
                     if start_date_str:
                         try:
                             if 'T' in start_date_str:
                                 start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+                            elif ' ' in start_date_str:
+                                start_date = datetime.strptime(start_date_str.split(' ')[0], '%Y-%m-%d')
                             else:
                                 start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
                         except (ValueError, AttributeError):
