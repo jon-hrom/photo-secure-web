@@ -25,7 +25,7 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [messageTab, setMessageTab] = useState<'vk' | 'email'>('vk');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const [newClient, setNewClient] = useState({
