@@ -103,6 +103,13 @@ export const useClientsFilters = ({
           (c.projects || []).some(p => !p.startDate && p.status !== 'cancelled' && p.status !== 'completed')
         );
       
+      case 'archived-only':
+        return clientsList.filter(c => {
+          const projects = c.projects || [];
+          if (projects.length === 0) return false;
+          return projects.every(p => p.status === 'completed' || p.status === 'cancelled');
+        });
+      
       default:
         return clientsList;
     }

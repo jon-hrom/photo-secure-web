@@ -22,6 +22,7 @@ export type FilterType =
   | 'alphabetical' 
   | 'most-projects'
   | 'no-date'
+  | 'archived-only'
   | { type: 'shooting-style', styleId: string };
 
 interface ClientsFilterSidebarProps {
@@ -59,7 +60,13 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
       (c.projects || []).some(p => !p.startDate && p.status !== 'cancelled' && p.status !== 'completed')
     ).length;
 
-    return { activeProjects, upcomingMeetings, newClients, projectsWithoutDate };
+    const archivedOnly = clients.filter(c => {
+      const projects = c.projects || [];
+      if (projects.length === 0) return false;
+      return projects.every(p => p.status === 'completed' || p.status === 'cancelled');
+    }).length;
+
+    return { activeProjects, upcomingMeetings, newClients, projectsWithoutDate, archivedOnly };
   };
 
   const counts = getFilterCounts();
@@ -125,6 +132,13 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
       label: 'Проекты без даты',
       description: 'Клиенты с проектами без даты съёмки',
       count: counts.projectsWithoutDate,
+    },
+    {
+      id: 'archived-only' as FilterType,
+      icon: 'Archive',
+      label: 'Только архив',
+      description: 'Клиенты с завершёнными проектами',
+      count: counts.archivedOnly,
     },
   ];
 
