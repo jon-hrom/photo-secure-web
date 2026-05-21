@@ -19,6 +19,7 @@ interface PhotoFolder {
   is_hidden?: boolean;
   has_password?: boolean;
   sort_order?: number;
+  share_link_expires_at?: string | null;
 }
 
 interface PhotoBankFoldersListProps {
@@ -75,6 +76,23 @@ const PhotoBankFoldersList = ({
     });
   };
 
+  const formatExpiresAt = (folder: PhotoFolder) => {
+    if (!folder.share_link_expires_at) {
+      return { text: '—', isExpired: false, isForever: true };
+    }
+    const expiresDate = new Date(folder.share_link_expires_at);
+    const isExpired = expiresDate.getTime() < Date.now();
+    return {
+      text: expiresDate.toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }),
+      isExpired,
+      isForever: false
+    };
+  };
+
   const mainFolders = folders.filter(f => !f.parent_folder_id);
 
   const canStartTechSort = (folder: PhotoFolder) => {
@@ -109,6 +127,7 @@ const PhotoBankFoldersList = ({
                 <tr className="border-b bg-muted/50">
                   <th className="text-left px-2 py-1.5 text-sm font-medium text-muted-foreground">Название</th>
                   <th className="text-left px-2 py-1.5 text-sm font-medium text-muted-foreground hidden md:table-cell">Дата создания</th>
+                  <th className="text-left px-2 py-1.5 text-sm font-medium text-muted-foreground hidden md:table-cell">Дата завершения</th>
                   <th className="text-center px-2 py-1.5 text-sm font-medium text-muted-foreground hidden lg:table-cell">Фото</th>
                   <th className="text-center px-2 py-1.5 text-sm font-medium text-muted-foreground hidden lg:table-cell">Кол-во просмотров</th>
                   <th className="text-left md:text-right px-2 py-1.5 text-sm font-medium text-muted-foreground">Действия</th>
@@ -152,6 +171,21 @@ const PhotoBankFoldersList = ({
                             <span>{folder.photo_count || 0} фото</span>
                             <span>•</span>
                             <span>{formatDate(folder.created_at)}</span>
+                            {(() => {
+                              const exp = formatExpiresAt(folder);
+                              if (exp.isForever) return null;
+                              return (
+                                <>
+                                  <span>•</span>
+                                  <span
+                                    className={exp.isExpired ? 'text-red-600 font-medium' : 'text-amber-600'}
+                                    title={exp.isExpired ? 'Срок ссылки истёк' : 'Дата завершения общей ссылки'}
+                                  >
+                                    до {exp.text}
+                                  </span>
+                                </>
+                              );
+                            })()}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -171,6 +205,22 @@ const PhotoBankFoldersList = ({
                     </td>
                     <td className="px-2 py-1.5 text-sm text-muted-foreground hidden md:table-cell">
                       {formatDate(folder.created_at)}
+                    </td>
+                    <td className="px-2 py-1.5 text-sm hidden md:table-cell">
+                      {(() => {
+                        const exp = formatExpiresAt(folder);
+                        if (exp.isForever) {
+                          return <span className="text-muted-foreground" title="Ссылка бессрочная или не создана">—</span>;
+                        }
+                        return (
+                          <span
+                            className={exp.isExpired ? 'text-red-600 font-medium' : 'text-amber-600'}
+                            title={exp.isExpired ? 'Срок ссылки истёк' : 'Дата завершения общей ссылки'}
+                          >
+                            {exp.text}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-2 py-1.5 text-center hidden lg:table-cell">
                       <div className="flex items-center justify-center gap-3">

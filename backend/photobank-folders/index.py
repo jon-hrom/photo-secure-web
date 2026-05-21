@@ -163,7 +163,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.gallery_view_logs gvl
                              WHERE gvl.folder_id = t_p28211681_photo_secure_web.photo_folders.id
                                AND (t_p28211681_photo_secure_web.photo_folders.views_cleared_at IS NULL
-                                    OR gvl.viewed_at > t_p28211681_photo_secure_web.photo_folders.views_cleared_at)) as share_views_count
+                                    OR gvl.viewed_at > t_p28211681_photo_secure_web.photo_folders.views_cleared_at)) as share_views_count,
+                            (SELECT MAX(fsl.expires_at) FROM t_p28211681_photo_secure_web.folder_short_links fsl
+                             WHERE fsl.folder_id = t_p28211681_photo_secure_web.photo_folders.id) as share_link_expires_at
                         FROM t_p28211681_photo_secure_web.photo_folders
                         WHERE user_id = %s AND is_trashed = FALSE
                         ORDER BY parent_folder_id NULLS FIRST, sort_order ASC, created_at DESC
@@ -179,6 +181,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             folder['created_at'] = folder['created_at'].isoformat()
                         if folder['updated_at']:
                             folder['updated_at'] = folder['updated_at'].isoformat()
+                        if folder.get('share_link_expires_at'):
+                            folder['share_link_expires_at'] = folder['share_link_expires_at'].isoformat()
                         
                         folders.append(folder)
                     
