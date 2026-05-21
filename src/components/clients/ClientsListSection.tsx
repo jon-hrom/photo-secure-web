@@ -83,6 +83,12 @@ const ClientsListSection = ({
     return (client.projects || []).length > 0;
   };
 
+  const isArchived = (client: Client) => {
+    const projects = client.projects || [];
+    if (projects.length === 0) return false;
+    return projects.every(p => p.status === 'completed' || p.status === 'cancelled');
+  };
+
   const getTotalPaid = (client: Client) => {
     return (client.payments || []).filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
   };
@@ -197,7 +203,15 @@ const ClientsListSection = ({
                               {getClientInitials(client.name)}
                             </div>
                             <div className="min-w-0 relative">
-                              <p className="font-medium truncate text-xs md:text-base max-w-[100px] md:max-w-none">{client.name}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-medium truncate text-xs md:text-base max-w-[100px] md:max-w-none">{client.name}</p>
+                                {isArchived(client) && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] md:text-xs font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                                    <Icon name="Archive" size={10} />
+                                    Архив
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-muted-foreground md:hidden truncate">{client.phone}</p>
                             </div>
                           </div>

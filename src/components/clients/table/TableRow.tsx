@@ -40,7 +40,19 @@ const TableRow = ({
             {getClientInitials(client.name)}
           </div>
           <div className="min-w-0">
-            <p className="font-medium truncate">{client.name}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="font-medium truncate">{client.name}</p>
+              {(() => {
+                const projects = client.projects || [];
+                const archived = projects.length > 0 && projects.every(p => p.status === 'completed' || p.status === 'cancelled');
+                return archived ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                    <Icon name="Archive" size={10} />
+                    Архив
+                  </span>
+                ) : null;
+              })()}
+            </div>
           </div>
         </div>
       </td>
