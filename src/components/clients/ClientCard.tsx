@@ -84,7 +84,20 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
       <CardHeader className="pb-3">
         <CardTitle className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1 relative">
-            <Icon name="User" className="text-primary flex-shrink-0" size={18} />
+            {client.avatar_url ? (
+              <img
+                src={client.avatar_url}
+                alt={client.name}
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-border"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Icon name="User" className="text-primary" size={16} />
+              </div>
+            )}
             <span className="truncate text-base md:text-lg">{client.name}</span>
           </div>
           <div className="flex gap-1 flex-shrink-0">
