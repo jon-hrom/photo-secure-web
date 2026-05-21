@@ -868,10 +868,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 print(f'[CREATE_CLIENT] Successfully created client: {client["id"]}')
                 
+                client_dict = dict(client)
+                
+                # Автоматически подтягиваем аватарку из ВК, если указан профиль
+                vk_input = body.get('vkProfile') or body.get('vkUsername')
+                if vk_input:
+                    try:
+                        ext, avatar_data, content_type = _fetch_vk_avatar_bytes(vk_input)
+                        avatar_url = _upload_avatar_to_s3(
+                            avatar_data, ext, content_type, str(photographer_id), client['id']
+                        )
+                        cur.execute('''
+                            UPDATE t_p28211681_photo_secure_web.clients
+                            SET avatar_url = %s, updated_at = NOW()
+                            WHERE id = %s
+                        ''', (avatar_url, client['id']))
+                        conn.commit()
+                        client_dict['avatar_url'] = avatar_url
+                        print(f'[CREATE_CLIENT] Auto-imported VK avatar for client {client["id"]}')
+                    except Exception as avatar_err:
+                        print(f'[CREATE_CLIENT] VK avatar auto-import skipped: {avatar_err}')
+                
                 return {
                     'statusCode': 201,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps(dict(client), default=str),
+                    'body': json.dumps(client_dict, default=str),
                     'isBase64Encoded': False
                 }
             
