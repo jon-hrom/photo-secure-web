@@ -64,7 +64,7 @@ def send_via_green_api(instance_id: str, token: str, phone: str, message: str) -
 
 
 def send_via_telegram(telegram_id: str, message: str) -> dict:
-    """Отправить сообщение через Telegram"""
+    """Отправить сообщение через Telegram (plain text, без HTML)."""
     bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
     if not bot_token:
         return {'error': 'Telegram bot token not configured'}
@@ -74,7 +74,6 @@ def send_via_telegram(telegram_id: str, message: str) -> dict:
         result = bot.send_message(
             chat_id=telegram_id,
             text=message,
-            parse_mode='HTML',
             disable_web_page_preview=True
         )
         return {'success': True, 'message_id': result.message_id}
