@@ -58,7 +58,15 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
     <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 pr-10 sm:pr-14">
       <div className="flex items-center justify-between gap-2 sm:gap-4 min-w-0">
         <DialogTitle className="flex items-center gap-2 sm:gap-3 text-lg sm:text-2xl min-w-0 flex-1">
-          <Icon name="User" size={22} className="text-primary shrink-0 sm:w-7 sm:h-7" />
+          {client.avatar_url ? (
+            <img
+              src={client.avatar_url}
+              alt={client.name}
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 border"
+            />
+          ) : (
+            <Icon name="User" size={22} className="text-primary shrink-0 sm:w-7 sm:h-7" />
+          )}
           <span className="truncate min-w-0">{client.name}</span>
         </DialogTitle>
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 mr-3 sm:mr-8">

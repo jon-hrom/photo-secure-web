@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,6 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { formatPhoneNumber } from '@/utils/phoneFormat';
 import { Client } from '@/components/clients/ClientsTypes';
-
 const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
 
 interface ClientDataModalProps {
@@ -21,6 +20,8 @@ interface ClientDataModalProps {
 const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataModalProps) => {
   const [form, setForm] = useState<Client>(client);
   const [saving, setSaving] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState<'upload' | 'vk' | 'remove' | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) setForm(client);
@@ -29,6 +30,100 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataMod
   const validatePhone = (phone: string) => {
     const digits = phone.replace(/\D/g, '');
     return digits.length === 11;
+  };
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1] || result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleUploadAvatar = async (file: File) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Размер файла не должен превышать 5 МБ');
+      return;
+    }
+    const userId = localStorage.getItem('userId');
+    setAvatarLoading('upload');
+    try {
+      const file_data = await fileToBase64(file);
+      const res = await fetch(CLIENTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
+        body: JSON.stringify({
+          action: 'upload_avatar',
+          client_id: form.id,
+          file_data,
+          file_name: file.name,
+          content_type: file.type || 'image/jpeg',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
+      setForm((prev) => ({ ...prev, avatar_url: data.avatar_url }));
+      onUpdate({ ...form, avatar_url: data.avatar_url });
+      toast.success('Фото загружено');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Не удалось загрузить фото');
+    } finally {
+      setAvatarLoading(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImportFromVK = async () => {
+    if (!form.vkProfile && !client.vkProfile) {
+      toast.error('Сначала укажите ссылку на профиль ВКонтакте');
+      return;
+    }
+    const userId = localStorage.getItem('userId');
+    setAvatarLoading('vk');
+    try {
+      const res = await fetch(CLIENTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
+        body: JSON.stringify({
+          action: 'import_vk_avatar',
+          client_id: form.id,
+          vk_profile: form.vkProfile || client.vkProfile,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Ошибка импорта');
+      setForm((prev) => ({ ...prev, avatar_url: data.avatar_url }));
+      onUpdate({ ...form, avatar_url: data.avatar_url });
+      toast.success('Фото подтянуто из ВКонтакте');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Не удалось получить фото из ВК');
+    } finally {
+      setAvatarLoading(null);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    const userId = localStorage.getItem('userId');
+    setAvatarLoading('remove');
+    try {
+      const res = await fetch(CLIENTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
+        body: JSON.stringify({ action: 'remove_avatar', client_id: form.id }),
+      });
+      if (!res.ok) throw new Error('Не удалось удалить');
+      setForm((prev) => ({ ...prev, avatar_url: null }));
+      onUpdate({ ...form, avatar_url: null });
+      toast.success('Фото удалено');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Ошибка');
+    } finally {
+      setAvatarLoading(null);
+    }
   };
 
   const handleSave = async () => {
@@ -54,6 +149,7 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataMod
           ...form,
           vk_username: form.vk_username,
           birthdate: form.birthdate,
+          avatar_url: form.avatar_url,
         }),
       });
       if (!res.ok) throw new Error('Failed');
@@ -67,6 +163,8 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataMod
       setSaving(false);
     }
   };
+
+  const initials = (form.name || '?').trim().split(/\s+/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,6 +188,78 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataMod
           className="space-y-3 sm:space-y-4 px-4 sm:px-6 overflow-y-auto overscroll-contain touch-pan-y flex-1 min-h-0 pb-4"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
+          <div className="flex items-center gap-3 sm:gap-4 p-3 rounded-lg border bg-muted/30">
+            <div className="relative shrink-0">
+              {form.avatar_url ? (
+                <img
+                  src={form.avatar_url}
+                  alt={form.name}
+                  className="w-20 h-20 rounded-full object-cover border-2 border-background shadow"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-semibold text-primary border-2 border-background shadow">
+                  {initials || <Icon name="User" size={28} />}
+                </div>
+              )}
+              {avatarLoading && (
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                  <Icon name="Loader2" size={22} className="text-white animate-spin" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUploadAvatar(f);
+                }}
+              />
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!!avatarLoading}
+                >
+                  <Icon name="Upload" size={14} className="mr-1" />
+                  Загрузить
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={handleImportFromVK}
+                  disabled={!!avatarLoading || (!form.vkProfile && !client.vkProfile)}
+                  title={!form.vkProfile && !client.vkProfile ? 'Сначала укажите ссылку на ВК ниже' : 'Подтянуть аватар из ВКонтакте'}
+                >
+                  <Icon name="Download" size={14} className="mr-1" />
+                  Из ВК
+                </Button>
+                {form.avatar_url && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs text-red-600 hover:text-red-700"
+                    onClick={handleRemoveAvatar}
+                    disabled={!!avatarLoading}
+                  >
+                    <Icon name="Trash2" size={14} className="mr-1" />
+                    Удалить
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">JPG/PNG до 5 МБ. «Из ВК» подтянет фото профиля автоматически.</p>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="cd-name" className="text-sm">ФИО *</Label>
             <Input
@@ -154,6 +324,7 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataMod
               placeholder="https://vk.com/username или @username"
               className="h-10 text-sm sm:text-base"
             />
+            <p className="text-[11px] text-muted-foreground">Можно подтянуть аватар отсюда кнопкой «Из ВК».</p>
           </div>
 
           <div className="space-y-1.5">

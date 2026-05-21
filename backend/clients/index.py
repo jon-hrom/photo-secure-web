@@ -2,6 +2,9 @@ import json
 import os
 import base64
 import uuid
+import re
+import urllib.request
+import urllib.parse
 from typing import Dict, Any
 from datetime import datetime
 import psycopg2
@@ -9,6 +12,68 @@ from psycopg2.extras import RealDictCursor
 import boto3
 import requests
 from reminder_checker import check_and_send_reminders
+
+
+def _extract_vk_username(value: str) -> str:
+    if not value:
+        return ''
+    value = value.strip()
+    m = re.search(r'(?:vk\.com/|^@)([A-Za-z0-9_.]+)', value)
+    if m:
+        return m.group(1)
+    return re.sub(r'[^A-Za-z0-9_.]', '', value)
+
+
+def _upload_avatar_to_s3(data: bytes, ext: str, content_type: str, photographer_id: str, client_id: int) -> str:
+    safe_ext = (ext or 'jpg').lower().lstrip('.')
+    if safe_ext not in {'jpg', 'jpeg', 'png', 'webp', 'gif'}:
+        safe_ext = 'jpg'
+    key = f"client-avatars/{photographer_id}/{client_id}/{uuid.uuid4()}.{safe_ext}"
+    s3 = boto3.client(
+        's3',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+    )
+    s3.put_object(Bucket='files', Key=key, Body=data, ContentType=content_type or 'image/jpeg')
+    return f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+
+
+def _fetch_vk_avatar_bytes(vk_input: str):
+    token = os.environ.get('VK_SERVICE_TOKEN', '')
+    if not token:
+        raise RuntimeError('VK не настроен')
+    username = _extract_vk_username(vk_input)
+    if not username:
+        raise RuntimeError('Не указан профиль ВКонтакте')
+    params = {
+        'user_ids': username,
+        'fields': 'photo_400_orig,photo_200,photo_max',
+        'access_token': token,
+        'v': '5.131',
+        'lang': 'ru',
+    }
+    url = f"https://api.vk.com/method/users.get?{urllib.parse.urlencode(params)}"
+    with urllib.request.urlopen(url, timeout=10) as resp:
+        payload = json.loads(resp.read().decode('utf-8'))
+    if 'error' in payload:
+        raise RuntimeError(payload['error'].get('error_msg', 'VK API error'))
+    response_list = payload.get('response') or []
+    if not response_list:
+        raise RuntimeError('Пользователь VK не найден')
+    user = response_list[0]
+    photo_url = user.get('photo_400_orig') or user.get('photo_max') or user.get('photo_200')
+    if not photo_url:
+        raise RuntimeError('У пользователя VK нет аватара')
+    with urllib.request.urlopen(photo_url, timeout=10) as img_resp:
+        content_type = img_resp.headers.get('Content-Type', 'image/jpeg')
+        data = img_resp.read()
+    ext = 'jpg'
+    if 'png' in content_type:
+        ext = 'png'
+    elif 'webp' in content_type:
+        ext = 'webp'
+    return ext, data, content_type
 
 # S3 configuration
 S3_BUCKET = 'foto-mix'
@@ -298,7 +363,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Оптимизированный запрос: сначала получаем всех клиентов
                 cur.execute('''
-                    SELECT id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, telegram_chat_id, created_at, updated_at
+                    SELECT id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, telegram_chat_id, avatar_url, created_at, updated_at
                     FROM t_p28211681_photo_secure_web.clients 
                     WHERE photographer_id = %s
                     ORDER BY created_at DESC
@@ -538,6 +603,88 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             body = json.loads(event.get('body', '{}'))
             action = body.get('action', 'create')
             
+            if action in ('upload_avatar', 'import_vk_avatar', 'remove_avatar'):
+                client_id = body.get('client_id') or body.get('clientId')
+                if not client_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'client_id обязателен'}),
+                        'isBase64Encoded': False,
+                    }
+                try:
+                    client_id_int = int(client_id)
+                except (TypeError, ValueError):
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Некорректный client_id'}),
+                        'isBase64Encoded': False,
+                    }
+                cur.execute(
+                    'SELECT id, vk_profile FROM t_p28211681_photo_secure_web.clients WHERE id = %s AND photographer_id = %s',
+                    (client_id_int, photographer_id),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Клиент не найден'}),
+                        'isBase64Encoded': False,
+                    }
+
+                avatar_url = None
+                try:
+                    if action == 'upload_avatar':
+                        file_data = body.get('file_data')
+                        if not file_data:
+                            return {
+                                'statusCode': 400,
+                                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                                'body': json.dumps({'error': 'file_data обязателен'}),
+                                'isBase64Encoded': False,
+                            }
+                        if ',' in file_data and file_data.startswith('data:'):
+                            file_data = file_data.split(',', 1)[1]
+                        try:
+                            raw = base64.b64decode(file_data)
+                        except Exception:
+                            return {
+                                'statusCode': 400,
+                                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                                'body': json.dumps({'error': 'Невозможно декодировать изображение'}),
+                                'isBase64Encoded': False,
+                            }
+                        ext = (body.get('file_name') or '').rsplit('.', 1)[-1] if '.' in (body.get('file_name') or '') else 'jpg'
+                        content_type = body.get('content_type') or 'image/jpeg'
+                        avatar_url = _upload_avatar_to_s3(raw, ext, content_type, str(photographer_id), client_id_int)
+                    elif action == 'import_vk_avatar':
+                        vk_input = body.get('vk_profile') or row['vk_profile'] or ''
+                        ext, data, content_type = _fetch_vk_avatar_bytes(vk_input)
+                        avatar_url = _upload_avatar_to_s3(data, ext, content_type, str(photographer_id), client_id_int)
+                    # remove_avatar — оставим avatar_url = None
+                except Exception as exc:
+                    print(f'[AVATAR_ERROR] {exc}')
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': str(exc)}),
+                        'isBase64Encoded': False,
+                    }
+
+                cur.execute(
+                    'UPDATE t_p28211681_photo_secure_web.clients SET avatar_url = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND photographer_id = %s',
+                    (avatar_url, client_id_int, photographer_id),
+                )
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'avatar_url': avatar_url}),
+                    'isBase64Encoded': False,
+                }
+
             if action == 'create':
                 # Логируем данные для отладки
                 print(f'[CREATE_CLIENT] photographer_id: {photographer_id}')
@@ -938,9 +1085,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             cur.execute('''
                 UPDATE t_p28211681_photo_secure_web.clients 
-                SET name = %s, phone = %s, email = %s, address = %s, vk_profile = %s, vk_username = %s, birthdate = %s, updated_at = CURRENT_TIMESTAMP
+                SET name = %s, phone = %s, email = %s, address = %s, vk_profile = %s, vk_username = %s, birthdate = %s, avatar_url = %s, updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s AND photographer_id = %s
-                RETURNING id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, telegram_chat_id, created_at, updated_at
+                RETURNING id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, telegram_chat_id, avatar_url, created_at, updated_at
             ''', (
                 body.get('name'),
                 body.get('phone'),
@@ -949,6 +1096,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 body.get('vkProfile'),
                 body.get('vk_username'),
                 body.get('birthdate'),
+                body.get('avatar_url'),
                 client_id,
                 photographer_id
             ))

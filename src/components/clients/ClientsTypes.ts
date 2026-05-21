@@ -118,4 +118,5 @@ export interface Client {
   telegram_chat_id?: string;
   telegram_verified?: boolean;
   telegram_verified_at?: string;
+  avatar_url?: string | null;
 }

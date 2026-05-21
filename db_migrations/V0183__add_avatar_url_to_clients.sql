@@ -1,0 +1,1 @@
+ALTER TABLE t_p28211681_photo_secure_web.clients ADD COLUMN IF NOT EXISTS avatar_url TEXT;
