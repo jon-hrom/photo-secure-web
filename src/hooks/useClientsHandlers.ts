@@ -236,6 +236,10 @@ export const useClientsHandlers = ({
                 email: existingClientRaw.email || '',
                 address: existingClientRaw.address || '',
                 vkProfile: existingClientRaw.vk_profile || '',
+                vk_username: existingClientRaw.vk_username || '',
+                birthdate: existingClientRaw.birthdate || '',
+                avatar_url: existingClientRaw.avatar_url || null,
+                telegram_chat_id: existingClientRaw.telegram_chat_id || null,
                 bookings: (existingClientRaw.bookings || []).map((b: any) => ({
                   id: b.id,
                   date: new Date(b.booking_date),
@@ -331,6 +335,7 @@ export const useClientsHandlers = ({
             email: savedClientData.email || '',
             address: savedClientData.address || '',
             vkProfile: savedClientData.vkProfile || '',
+            avatar_url: savedClientData.avatar_url || null,
             bookings: [],
             projects: [],
             payments: [],

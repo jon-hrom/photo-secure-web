@@ -89,13 +89,10 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
                 src={client.avatar_url}
                 alt={client.name}
                 className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-border"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Icon name="User" className="text-primary" size={16} />
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-primary">
+                {(client.name || '?').trim().split(/\s+/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || '?'}
               </div>
             )}
             <span className="truncate text-base md:text-lg">{client.name}</span>
