@@ -6,6 +6,7 @@ import { Client, Project } from '@/components/clients/ClientsTypes';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import TransferClientDialog from '@/components/clients/transfer/TransferClientDialog';
+import ClientDataModal from '@/components/clients/dialog/ClientDataModal';
 
 interface ClientDialogHeaderProps {
   localClient: Client;
@@ -21,7 +22,13 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
   const client = localClient;
   const [inviteLoading, setInviteLoading] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [dataOpen, setDataOpen] = useState(false);
   const hasTelegram = !!client.telegram_chat_id;
+
+  const handleClientDataUpdate = (updated: Client) => {
+    setLocalClient(updated);
+    onUpdate(updated);
+  };
 
   const handleInviteTelegram = async () => {
     setInviteLoading(true);
@@ -54,16 +61,29 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
           <Icon name="User" size={22} className="text-primary shrink-0 sm:w-7 sm:h-7" />
           <span className="truncate min-w-0">{client.name}</span>
         </DialogTitle>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setTransferOpen(true)}
-          className="shrink-0 h-8 text-xs mr-3 sm:mr-8 px-2.5 sm:px-3"
-        >
-          <Icon name="Send" size={14} className="sm:mr-1.5" />
-          <span className="hidden sm:inline">Передать проект</span>
-          <span className="sm:hidden sr-only">Передать проект</span>
-        </Button>
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 mr-3 sm:mr-8">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDataOpen(true)}
+            className="h-8 text-xs px-2.5 sm:px-3"
+            title="Данные клиента"
+          >
+            <Icon name="UserCog" size={14} className="sm:mr-1.5" />
+            <span className="hidden sm:inline">Данные клиента</span>
+            <span className="sm:hidden sr-only">Данные клиента</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTransferOpen(true)}
+            className="h-8 text-xs px-2.5 sm:px-3"
+          >
+            <Icon name="Send" size={14} className="sm:mr-1.5" />
+            <span className="hidden sm:inline">Передать проект</span>
+            <span className="sm:hidden sr-only">Передать проект</span>
+          </Button>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2 text-xs sm:text-sm text-muted-foreground">
         <div className="flex items-center gap-1 min-w-0 max-w-full">
@@ -106,6 +126,12 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
         client={client}
         projects={projects}
         onTransferred={onTransferred}
+      />
+      <ClientDataModal
+        open={dataOpen}
+        onOpenChange={setDataOpen}
+        client={client}
+        onUpdate={handleClientDataUpdate}
       />
     </DialogHeader>
   );
