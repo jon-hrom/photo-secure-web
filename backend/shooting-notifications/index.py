@@ -132,19 +132,13 @@ def format_date_ru(date_str: str) -> str:
 
 
 def send_client_notification(project_data: dict, client_data: dict, photographer_data: dict, conn=None, payment_data: dict = None) -> dict:
-    """Отправить уведомление клиенту о съёмке"""
+    """Отправить уведомление клиенту о съёмке. Пытается MAX/WhatsApp, затем Telegram."""
     instance_id = photographer_data.get('green_api_instance_id') or ''
     token = photographer_data.get('green_api_token') or ''
     if not instance_id or not token:
         creds = get_max_credentials()
     else:
         creds = {'instance_id': instance_id, 'token': token}
-    
-    if not creds.get('instance_id') or not creds.get('token'):
-        return {'error': 'MAX credentials not configured'}
-    
-    if not client_data.get('phone'):
-        return {'error': 'Client phone not found'}
     
     # Формируем сообщение для клиента
     photographer_name = photographer_data.get('display_name') or photographer_data.get('email', 'Фотограф')
@@ -238,8 +232,8 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     sent_ok = False
     sent_channel = None
     
-    # Отправляем в WhatsApp если есть телефон
-    if client_data.get('phone'):
+    # Отправляем в WhatsApp/MAX если есть телефон и подключение
+    if creds.get('instance_id') and creds.get('token') and client_data.get('phone'):
         try:
             result = send_via_green_api(
                 creds['instance_id'],
@@ -251,12 +245,15 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
             sent_ok = True
             sent_channel = 'whatsapp'
         except Exception as e:
-            print(f'[SHOOTING_NOTIF] WhatsApp error: {str(e)}')
+            print(f'[SHOOTING_NOTIF] WhatsApp error (client): {str(e)}')
             results['whatsapp'] = {'error': str(e)}
+    elif not creds.get('instance_id') or not creds.get('token'):
+        results['whatsapp'] = {'error': 'MAX/WhatsApp не подключён у фотографа'}
     
-    # Отправляем в Telegram если есть telegram_id
-    if client_data.get('telegram_id'):
-        telegram_result = send_via_telegram(client_data['telegram_id'], message)
+    # Отправляем в Telegram если есть telegram_chat_id или telegram_id
+    tg_target = client_data.get('telegram_chat_id') or client_data.get('telegram_id')
+    if tg_target:
+        telegram_result = send_via_telegram(str(tg_target), message)
         results['telegram'] = telegram_result
         if telegram_result.get('success') or telegram_result.get('ok'):
             sent_ok = True
@@ -289,19 +286,13 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
 
 
 def send_photographer_notification(project_data: dict, client_data: dict, photographer_data: dict, payment_data: dict = None) -> dict:
-    """Отправить уведомление фотографу о съёмке"""
+    """Отправить уведомление фотографу о съёмке. Использует MAX/WhatsApp если подключён, иначе Telegram."""
     instance_id = photographer_data.get('green_api_instance_id') or ''
     token = photographer_data.get('green_api_token') or ''
     if not instance_id or not token:
         creds = get_max_credentials()
     else:
         creds = {'instance_id': instance_id, 'token': token}
-    
-    if not creds.get('instance_id') or not creds.get('token'):
-        return {'error': 'MAX credentials not configured'}
-    
-    if not photographer_data.get('phone'):
-        return {'error': 'Photographer phone not found'}
     
     # Формируем сообщение для фотографа
     client_name = client_data.get('name', 'Клиент')
@@ -382,9 +373,10 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
     message = "\n".join(message_parts)
     
     results = {}
+    sent_ok = False
     
-    # Отправляем в WhatsApp если есть телефон
-    if photographer_data.get('phone'):
+    # Отправляем в WhatsApp/MAX если есть телефон и подключение
+    if creds.get('instance_id') and creds.get('token') and photographer_data.get('phone'):
         try:
             result = send_via_green_api(
                 creds['instance_id'],
@@ -393,10 +385,23 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
                 message
             )
             results['whatsapp'] = {'success': True, 'message_id': result.get('idMessage')}
+            sent_ok = True
         except Exception as e:
-            print(f'[SHOOTING_NOTIF] WhatsApp error: {str(e)}')
+            print(f'[SHOOTING_NOTIF] WhatsApp error (photographer): {str(e)}')
             results['whatsapp'] = {'error': str(e)}
+    elif not creds.get('instance_id') or not creds.get('token'):
+        results['whatsapp'] = {'error': 'MAX/WhatsApp не подключён'}
     
+    # Fallback в Telegram если у фотографа привязан Telegram
+    tg_chat = photographer_data.get('telegram_chat_id') or photographer_data.get('telegram_id')
+    if tg_chat:
+        tg_result = send_via_telegram(str(tg_chat), message)
+        results['telegram'] = tg_result
+        if tg_result.get('success') or tg_result.get('ok'):
+            sent_ok = True
+    
+    if sent_ok:
+        return results
     return results if results else {'error': 'No contact methods available'}
 
 
@@ -491,7 +496,8 @@ def handler(event: dict, context) -> dict:
             with conn.cursor() as cur:
                 cur.execute(f"""
                     SELECT id, email, phone, display_name,
-                           green_api_instance_id, green_api_token
+                           green_api_instance_id, green_api_token,
+                           telegram_chat_id, telegram_id
                     FROM {SCHEMA}.users
                     WHERE id = {escape_sql(user_id)}
                 """)

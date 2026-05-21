@@ -57,29 +57,38 @@ export const sendProjectNotification = async (
 
         if (resp.ok) {
           const data = await resp.json().catch(() => ({} as Record<string, unknown>));
-          const clientRes = (data?.client_notification || data?.client || {}) as Record<string, unknown>;
-          const photogRes = (data?.photographer_notification || data?.photographer || {}) as Record<string, unknown>;
+          const dataResults = ((data as Record<string, unknown>)?.results || data) as Record<string, unknown>;
+          const clientRes = (dataResults?.client_notification || dataResults?.client || {}) as Record<string, unknown>;
+          const photogRes = (dataResults?.photographer_notification || dataResults?.photographer || {}) as Record<string, unknown>;
 
-          if (client.phone) {
-            const wa = clientRes?.whatsapp as { success?: boolean; error?: string } | undefined;
-            if (wa?.success || (clientRes && !clientRes.error && Object.keys(clientRes).length > 0)) {
-              report.whatsappClient = 'sent';
-            } else {
-              report.whatsappClient = 'failed';
-              report.reasons.whatsappClient = String(wa?.error || clientRes?.error || 'не удалось доставить');
-            }
+          type ChannelResult = { success?: boolean; ok?: boolean; error?: string };
+          const evaluateChannels = (res: Record<string, unknown>): { status: 'sent' | 'failed' | 'skipped'; reason?: string } => {
+            const wa = res?.whatsapp as ChannelResult | undefined;
+            const tg = res?.telegram as ChannelResult | undefined;
+            const waOk = !!(wa && (wa.success || wa.ok));
+            const tgOk = !!(tg && (tg.success || tg.ok));
+            if (waOk || tgOk) return { status: 'sent' };
+            const reasons: string[] = [];
+            if (wa?.error) reasons.push(`MAX: ${wa.error}`);
+            if (tg?.error) reasons.push(`Telegram: ${tg.error}`);
+            const topError = (res?.error as string) || undefined;
+            if (!wa && !tg && topError) reasons.push(topError);
+            if (reasons.length === 0) return { status: 'skipped', reason: 'нет настроенных каналов' };
+            return { status: 'failed', reason: reasons.join('; ') };
+          };
+
+          if (client.phone || client.email) {
+            const r = evaluateChannels(clientRes);
+            report.whatsappClient = r.status;
+            if (r.reason) report.reasons.whatsappClient = r.reason;
           } else {
             report.whatsappClient = 'skipped';
             report.reasons.whatsappClient = 'нет телефона у клиента';
           }
 
-          const waP = photogRes?.whatsapp as { success?: boolean; error?: string } | undefined;
-          if (waP?.success || (photogRes && !photogRes.error && Object.keys(photogRes).length > 0)) {
-            report.whatsappPhotographer = 'sent';
-          } else {
-            report.whatsappPhotographer = 'failed';
-            report.reasons.whatsappPhotographer = String(waP?.error || photogRes?.error || 'не удалось доставить');
-          }
+          const rP = evaluateChannels(photogRes);
+          report.whatsappPhotographer = rP.status;
+          if (rP.reason) report.reasons.whatsappPhotographer = rP.reason;
         } else {
           const errText = await resp.text().catch(() => '');
           report.whatsappClient = client.phone ? 'failed' : 'skipped';
