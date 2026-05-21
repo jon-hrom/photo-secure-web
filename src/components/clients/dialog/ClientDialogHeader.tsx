@@ -69,7 +69,9 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
               className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 border"
             />
           ) : (
-            <Icon name="User" size={22} className="text-primary shrink-0 sm:w-7 sm:h-7" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm sm:text-base font-semibold text-primary shrink-0 border">
+              {(client.name || '?').trim().split(/\s+/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || '?'}
+            </div>
           )}
           <span className="truncate min-w-0">{client.name}</span>
         </DialogTitle>

@@ -157,7 +157,17 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      onUpdate(form);
+      onUpdate({
+        ...client,
+        name: form.name,
+        phone: form.phone,
+        email: form.email,
+        address: form.address,
+        vkProfile: form.vkProfile,
+        vk_username: form.vk_username,
+        birthdate: form.birthdate,
+        avatar_url: form.avatar_url,
+      });
       toast.success('Данные клиента обновлены');
       onOpenChange(false);
     } catch (e) {

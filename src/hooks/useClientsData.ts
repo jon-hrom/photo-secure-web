@@ -52,6 +52,10 @@ export const useClientsData = (
         email: client.email || '',
         address: client.address || '',
         vkProfile: client.vk_profile || '',
+        vk_username: client.vk_username || '',
+        birthdate: client.birthdate || '',
+        avatar_url: client.avatar_url || null,
+        telegram_chat_id: client.telegram_chat_id || null,
         bookings: (client.bookings || []).map((b: any) => ({
           id: b.id,
           date: new Date(b.booking_date),
