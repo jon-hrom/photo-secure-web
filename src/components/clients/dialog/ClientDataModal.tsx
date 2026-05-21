@@ -15,17 +15,21 @@ interface ClientDataModalProps {
   onOpenChange: (open: boolean) => void;
   client: Client;
   onUpdate: (client: Client) => void;
+  onLocalUpdate?: (client: Client) => void;
 }
 
-const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataModalProps) => {
+const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }: ClientDataModalProps) => {
   const [form, setForm] = useState<Client>(client);
   const [saving, setSaving] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState<'upload' | 'vk' | 'remove' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) setForm(client);
-  }, [open, client]);
+    if (open) {
+      setForm((prev) => (prev.id === client.id ? { ...prev, avatar_url: client.avatar_url } : client));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, client.id, client.avatar_url]);
 
   const validatePhone = (phone: string) => {
     const digits = phone.replace(/\D/g, '');
@@ -67,7 +71,7 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataMod
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
       setForm((prev) => ({ ...prev, avatar_url: data.avatar_url }));
-      onUpdate({ ...form, avatar_url: data.avatar_url });
+      onLocalUpdate?.({ ...client, avatar_url: data.avatar_url });
       toast.success('Фото загружено');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Не удалось загрузить фото');
@@ -97,7 +101,7 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataMod
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка импорта');
       setForm((prev) => ({ ...prev, avatar_url: data.avatar_url }));
-      onUpdate({ ...form, avatar_url: data.avatar_url });
+      onLocalUpdate?.({ ...client, avatar_url: data.avatar_url });
       toast.success('Фото подтянуто из ВКонтакте');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Не удалось получить фото из ВК');
@@ -117,7 +121,7 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate }: ClientDataMod
       });
       if (!res.ok) throw new Error('Не удалось удалить');
       setForm((prev) => ({ ...prev, avatar_url: null }));
-      onUpdate({ ...form, avatar_url: null });
+      onLocalUpdate?.({ ...client, avatar_url: null });
       toast.success('Фото удалено');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');

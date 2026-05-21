@@ -30,6 +30,10 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
     onUpdate(updated);
   };
 
+  const handleClientDataLocalUpdate = (updated: Client) => {
+    setLocalClient(updated);
+  };
+
   const handleInviteTelegram = async () => {
     setInviteLoading(true);
     try {
@@ -140,6 +144,7 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
         onOpenChange={setDataOpen}
         client={client}
         onUpdate={handleClientDataUpdate}
+        onLocalUpdate={handleClientDataLocalUpdate}
       />
     </DialogHeader>
   );
