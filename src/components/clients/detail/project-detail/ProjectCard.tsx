@@ -25,6 +25,7 @@ interface ProjectCardProps {
   onDirtyChange?: (dirty: boolean) => void;
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchEnd: (e: React.TouchEvent) => void;
+  onResendNotifications?: (projectId: number) => void | Promise<void>;
 }
 
 type DraftFields = {
@@ -76,7 +77,9 @@ const ProjectCard = ({
   onDirtyChange,
   onTouchStart,
   onTouchEnd,
+  onResendNotifications,
 }: ProjectCardProps) => {
+  const [isResending, setIsResending] = useState(false);
   const [draft, setDraft] = useState<DraftFields>(() => buildDraftFromProject(project));
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetValue, setBudgetValue] = useState(String(project.budget));
@@ -308,6 +311,28 @@ const ProjectCard = ({
                 className="h-11 w-11 sm:h-9 sm:w-9 p-0"
               >
                 <Icon name="Undo2" size={18} />
+              </Button>
+            )}
+            {onResendNotifications && draft.startDate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isResending}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (isResending) return;
+                  setIsResending(true);
+                  try {
+                    await onResendNotifications(project.id);
+                  } finally {
+                    setIsResending(false);
+                  }
+                }}
+                title="Переотправить уведомления клиенту и фотографу"
+                aria-label="Переотправить уведомления"
+                className="h-11 w-11 sm:h-9 sm:w-9 p-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+              >
+                <Icon name={isResending ? 'Loader2' : 'Send'} size={18} className={isResending ? 'animate-spin' : ''} />
               </Button>
             )}
             <Button

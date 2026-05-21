@@ -2,10 +2,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-import { Project, Payment } from '@/components/clients/ClientsTypes';
+import { Client, Project, Payment } from '@/components/clients/ClientsTypes';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import ProjectCard from './project-detail/ProjectCard';
 import NewProjectForm from './project-detail/NewProjectForm';
+import { toast } from 'sonner';
+import { sendProjectNotification } from '@/components/clients/dialog/NotificationService';
 
 interface ClientDetailProjectsProps {
   projects: Project[];
@@ -33,6 +35,8 @@ interface ClientDetailProjectsProps {
   isNewProjectOpen?: boolean;
   setIsNewProjectOpen?: (open: boolean) => void;
   onProjectDirtyChange?: (projectId: number, dirty: boolean) => void;
+  client?: Client;
+  photographerName?: string;
 }
 
 const ClientDetailProjects = ({
@@ -51,6 +55,8 @@ const ClientDetailProjects = ({
   isNewProjectOpen: externalIsNewProjectOpen,
   setIsNewProjectOpen: externalSetIsNewProjectOpen,
   onProjectDirtyChange,
+  client,
+  photographerName,
 }: ClientDetailProjectsProps) => {
   const [animateKeys, setAnimateKeys] = useState<Record<number, number>>({});
   const [selectorKeys, setSelectorKeys] = useState<Record<number, number>>({});
@@ -134,6 +140,62 @@ const ClientDetailProjects = ({
     },
     [onProjectDirtyChange]
   );
+
+  const handleResendNotifications = useCallback(async (projectId: number) => {
+    if (!client) {
+      toast.error('Не удалось определить клиента');
+      return;
+    }
+    const project = projects.find(p => p.id === projectId);
+    if (!project) {
+      toast.error('Проект не найден');
+      return;
+    }
+    if (!project.startDate) {
+      toast.error('У проекта не указана дата съёмки');
+      return;
+    }
+    const notifyToast = toast.loading('Переотправляем уведомления...');
+    try {
+      const projectForNotify = {
+        ...project,
+        shooting_time: project.shooting_time || '10:00',
+      };
+      const report = await sendProjectNotification(client, projectForNotify, photographerName || 'Фотограф');
+
+      const icon = (s: 'sent' | 'failed' | 'skipped') =>
+        s === 'sent' ? '✅' : s === 'failed' ? '❌' : '⚪️';
+      const label = (s: 'sent' | 'failed' | 'skipped', reason?: string) =>
+        s === 'sent' ? 'отправлено'
+        : s === 'failed' ? `ошибка${reason ? ` (${reason})` : ''}`
+        : reason ? `пропущено (${reason})` : 'пропущено';
+
+      const lines = [
+        `${icon(report.whatsappClient)} Клиенту в MAX: ${label(report.whatsappClient, report.reasons.whatsappClient)}`,
+        `${icon(report.whatsappPhotographer)} Фотографу в MAX/Telegram: ${label(report.whatsappPhotographer, report.reasons.whatsappPhotographer)}`,
+        `${icon(report.email)} Клиенту на email: ${label(report.email, report.reasons.email)}`,
+      ];
+      const summary = lines.join('\n');
+
+      const anySent = [report.whatsappClient, report.whatsappPhotographer, report.email].includes('sent');
+      const anyFailed = [report.whatsappClient, report.whatsappPhotographer, report.email].includes('failed');
+
+      toast.dismiss(notifyToast);
+      if (anySent && !anyFailed) {
+        toast.success('Уведомления переотправлены', { description: summary, duration: 8000 });
+      } else if (anySent && anyFailed) {
+        toast.warning('Уведомления отправлены частично', { description: summary, duration: 10000 });
+      } else if (anyFailed) {
+        toast.error('Не удалось отправить уведомления', { description: summary, duration: 10000 });
+      } else {
+        toast.info('Уведомления не отправлялись', { description: summary, duration: 8000 });
+      }
+    } catch (error) {
+      toast.dismiss(notifyToast);
+      toast.error('Ошибка отправки уведомлений');
+      console.error('[Resend Notifications] Error:', error);
+    }
+  }, [client, projects, photographerName]);
 
   const getProjectPayments = (projectId: number) => {
     const projectPayments = payments.filter(p => p.projectId === projectId && p.status === 'completed');
@@ -236,6 +298,7 @@ const ClientDetailProjects = ({
           onDirtyChange={(dirty) => handleDirtyChange(project.id, dirty)}
           onTouchStart={(e) => handleTouchStart(e, project.id)}
           onTouchEnd={(e) => handleTouchEnd(e, project.id)}
+          onResendNotifications={handleResendNotifications}
         />
       ))}
     </div>
@@ -314,6 +377,7 @@ const ClientDetailProjects = ({
                     onDirtyChange={(dirty) => handleDirtyChange(project.id, dirty)}
                     onTouchStart={(e) => handleTouchStart(e, project.id)}
                     onTouchEnd={(e) => handleTouchEnd(e, project.id)}
+                    onResendNotifications={handleResendNotifications}
                   />
                   {!expandedProjects[project.id] && (
                     <div className="flex justify-end px-3 pb-2 -mt-1">

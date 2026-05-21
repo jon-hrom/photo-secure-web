@@ -183,6 +183,8 @@ const ClientDialogContent = ({
             isNewProjectOpen={isNewProjectOpen}
             setIsNewProjectOpen={setIsNewProjectOpen}
             onProjectDirtyChange={onProjectDirtyChange}
+            client={localClient}
+            photographerName={photographerName}
           />
         </TabsContent>
 
