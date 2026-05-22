@@ -14,7 +14,7 @@ from PIL import Image, ImageFilter, ImageOps
 import numpy as np
 
 
-RETOUCH_CODE_VERSION = "v3-2026-04-25-scrfd-guards"
+RETOUCH_CODE_VERSION = "v3-2026-05-22-no-blur-no-c1-no-color-match"
 print(f"[RETOUCH] Code version: {RETOUCH_CODE_VERSION}")
 
 RAW_EXTENSIONS = ('.cr2', '.cr3', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw', '.raf')
@@ -474,11 +474,16 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
         return retouched_bytes
 
     # Маска сейчас в размере small — растягиваем до размера оригинала.
+    # NEAREST даёт чёткие края без размытия по диагонали; финальный 2px Gaussian
+    # ниже уберёт ступеньки. Раньше BILINEAR размазывал маску на 2-3px ещё ДО feather.
     if mask_gray.size != orig_img.size:
-        mask_gray = mask_gray.resize(orig_img.size, Image.BILINEAR)
+        mask_gray = mask_gray.resize(orig_img.size, Image.NEAREST)
 
-    # 3) Смягчаем края маски, чтобы не было резких границ между "кожа" и "не-кожа".
-    feather_r = max(4, min(ow, oh) // 200)
+    # 3) Смягчаем края маски — МИНИМАЛЬНО, чтобы не было ни ступенек, ни тумана.
+    # Раньше: max(4, min(ow,oh)//200) → для 3000px=15px, для 6000px=30px (СЛИШКОМ много).
+    # Это создавало широкую "мягкую" зону на границе, где RGB-каналы расходились → ореол.
+    # Теперь фиксированный 2px: edge остаётся чётким, ступенек нет.
+    feather_r = 2
     mask_gray = mask_gray.filter(ImageFilter.GaussianBlur(radius=feather_r))
 
     # 4) Композиция: где маска — берём ретушь, где нет — оригинал.
@@ -1054,13 +1059,11 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     result = np.clip(orig_u8.astype(np.int16) + diff, 0, 255).astype(np.uint8)
     del diff
 
-    # === CHROMA RESTORATION ===
-    # В зонах скопления прыщей LaMa часто «обесцвечивает» кожу (теряется
-    # розовый тон → серый матовый лоск). Решение: где result стал значительно
-    # МЕНЕЕ насыщенным чем оригинал — подмешиваем оригинал обратно. Так
-    # текстуру/удаление прыщей сохраняем, а цвет возвращаем к естественному.
-    # Работа на МАЛЕНЬКОМ масштабе для экономии памяти, потом апскейл.
-    try:
+    # === CHROMA RESTORATION ПРИНУДИТЕЛЬНО ОТКЛЮЧЁН ===
+    # Подмешивал оригинал (с прыщами) обратно через маску, посчитанную на 384px
+    # масштабе → размытые "пятна оригинала" возвращались на лицо, давая туман.
+    # Полностью выключаем до доработки на полноразмерных операциях.
+    if False:  # DISABLED
         import gc as _gc_cr
         _gc_cr.collect()
         H_, W_ = result.shape[:2]
@@ -1165,10 +1168,12 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     _gc.collect()
     _gc.collect()  # двойной collect — освобождает циклические ссылки от PIL
     try:
-        # Проверяем ТЕКУЩУЮ память (не peak!) через /proc/self/status.
-        # Раньше использовали ru_maxrss — это PEAK за весь процесс, поэтому
-        # color match всегда скипался (peak=251MB после ретуши).
-        skip_color_match = False
+        # === COLOR MATCH ПРИНУДИТЕЛЬНО ОТКЛЮЧЁН ===
+        # Использовал GaussianBlur(radius=25) на масштабе 384px = ~190px на оригинале.
+        # Это создавало "молочный туман" и mismatch цвета на щеках/подбородке.
+        # До доработки полностью выключаем.
+        skip_color_match = True
+        print("[RETOUCH] [v3] color match: FORCE DISABLED (источник тумана)")
         try:
             cur_rss_mb = 0.0
             try:
@@ -1499,16 +1504,11 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     # Создавал RGB-ореолы и пересвет на лице — снято до доработки.
     dodge_burn_strength = 0.0
 
-    # === Capture One цветокоррекция (опционально по пресету) ===
-    if preset.get("apply_c1_preset", True):
-        try:
-            from c1_preset import apply_capture_one_wedding_preset
-            out_img = apply_capture_one_wedding_preset(out_img)
-            print("[RETOUCH] [v3] C1 wedding preset applied")
-        except Exception as e:
-            print(f"[RETOUCH] C1 preset failed (non-critical): {e}")
-    else:
-        print("[RETOUCH] [v3] C1 preset skipped (preset=light)")
+    # === Capture One цветокоррекция ПРИНУДИТЕЛЬНО ОТКЛЮЧЕНА ===
+    # Внутри _denoise_luminance() применялся GaussianBlur 1.2px к каждому RGB-каналу
+    # отдельно → создавал "молочный туман" и сдвиг каналов на щеках/подбородке.
+    # Пока не починим — выключено для всех пресетов независимо от настроек.
+    print("[RETOUCH] [v3] C1 preset DISABLED (источник тумана и ореолов)")
 
     # === Финальный sharpening ТОЛЬКО ПО SKIN-МАСКЕ ===
     # Применяется только в зоне кожи (без ореолов на волосах/фоне).
