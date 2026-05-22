@@ -20,6 +20,10 @@ export interface Photo {
   data_url?: string;
 }
 
+export type RetouchPreset = 'light' | 'medium' | 'strong';
+
+export const RETOUCH_PRESET_STORAGE_KEY = 'retouch_preset';
+
 export interface RetouchContextValue {
   tasks: RetouchTask[];
   photos: Photo[];
@@ -31,6 +35,8 @@ export interface RetouchContextValue {
   session: RetouchSession | null;
   totalProgress: number;
   totalBatchSize: number;
+  preset: RetouchPreset;
+  setPreset: (p: RetouchPreset) => void;
   setMinimized: (v: boolean) => void;
   startSession: (session: RetouchSession) => void;
   fullClose: () => void;

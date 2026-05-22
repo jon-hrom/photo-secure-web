@@ -393,14 +393,21 @@ def _normalize_image_bytes(raw_bytes):
         raise RuntimeError(f"Invalid image bytes: {e}")
 
 
-def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
+def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_name="medium"):
     """Смешивает результат внешнего API с оригиналом по маске кожи:
     - внутри маски (кожа, дефекты) — пиксели ретуши,
     - снаружи (волосы, брови, одежда, фон) — пиксели оригинала.
 
     Это защищает не-кожу от сглаживания внешним API.
+
+    preset_name: light/medium/strong — управляет разрешением, шумодавом, шарпингом,
+    защитой фона, dodge&burn и пр.
     """
     from skin_mask import build_face_skin_mask
+    from presets import get_preset
+
+    preset = get_preset(preset_name)
+    print(f"[RETOUCH] [preset] Using preset: {preset_name} → {preset}")
 
     # 1) Скачиваем оригинал
     try:
@@ -418,9 +425,10 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         return retouched_bytes
 
     # ОГРАНИЧЕНИЕ ПАМЯТИ: Cloud Function имеет 256MB лимита.
-    # Фото >1800px по стороне не помещается (float32 * 3 канала * 3 копии = OOM).
+    # Фото >MAX_COMPOSE_SIDE по стороне не помещается (float32 * 3 канала * 3 копии = OOM).
     # Ресайзим ДО композиции, это же разрешение отдаём наружу.
-    MAX_COMPOSE_SIDE = 1800
+    # Пресет управляет разрешением: light/medium=2400, strong=2200 (больше памяти под обработку).
+    MAX_COMPOSE_SIDE = int(preset.get("max_compose_side", 2400))
     ow_orig, oh_orig = orig_img.size
     if max(ow_orig, oh_orig) > MAX_COMPOSE_SIDE:
         scale = MAX_COMPOSE_SIDE / max(ow_orig, oh_orig)
@@ -434,9 +442,9 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         ret_img = ret_img.resize(orig_img.size, Image.LANCZOS)
 
     # 2) Строим маску по оригиналу (тот же алгоритм, что и preview_mask).
-    #    Ограничиваем размер превью для скорости (внутри build_auto_mask
-    #    работа уже на 1024-пиксельном max-side, но снаружи мы тоже уменьшим).
-    preview_side = 1024
+    #    Ограничиваем размер превью для скорости. Поднимаем с 1024 до 1280 (preset)
+    #    — даёт более точные границы у глаз/губ и снижает RGB-ореол после ресайза маски.
+    preview_side = int(preset.get("preview_side", 1280))
     ow, oh = orig_img.size
     if max(ow, oh) > preview_side:
         ratio = preview_side / max(ow, oh)
@@ -1425,6 +1433,9 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
         if skin_type in ("mature", "mature_textured"):
             smooth_strength *= 0.7
 
+        # Множитель из пресета (light=0.5, medium=0.85, strong=1.15)
+        smooth_strength *= float(preset.get("skin_smooth_multiplier", 0.85))
+
         # Smooth маска кожи (без губ/глаз — это уже исключено через protect)
         if smooth_strength > 0.05 and skin_mask_for_post.sum() > 100:
             # Гауссово размытие применяем только в зоне маски
@@ -1466,27 +1477,106 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes):
     del result
 
     # === Шумодав ТОЛЬКО по skin-mask (без мыла на фоне/волосах) ===
-    try:
-        from c1_preset import apply_skin_denoise_with_mask
-        skin_mask_u8_for_denoise = (skin_mask_for_post.astype(np.uint8) * 255)
-        out_img = apply_skin_denoise_with_mask(
-            out_img, skin_mask_u8_for_denoise, strength=0.45
-        )
-        del skin_mask_u8_for_denoise
-        print("[RETOUCH] [v3] Skin-only denoise applied (strength=0.45)")
-    except Exception as e:
-        print(f"[RETOUCH] Skin denoise failed (non-critical): {e}")
+    # Сила управляется пресетом. light=0.0 (выключен — макс. деталей),
+    # medium=0.15, strong=0.30. Раньше всегда было 0.45 — отсюда туманка.
+    denoise_strength = float(preset.get("denoise_strength", 0.15))
+    if denoise_strength > 0.001:
+        try:
+            from c1_preset import apply_skin_denoise_with_mask
+            skin_mask_u8_for_denoise = (skin_mask_for_post.astype(np.uint8) * 255)
+            out_img = apply_skin_denoise_with_mask(
+                out_img, skin_mask_u8_for_denoise, strength=denoise_strength
+            )
+            del skin_mask_u8_for_denoise
+            print(f"[RETOUCH] [v3] Skin-only denoise applied (strength={denoise_strength:.2f})")
+        except Exception as e:
+            print(f"[RETOUCH] Skin denoise failed (non-critical): {e}")
+    else:
+        print("[RETOUCH] [v3] Skin denoise skipped (preset=light)")
 
-    try:
-        from c1_preset import apply_capture_one_wedding_preset
-        out_img = apply_capture_one_wedding_preset(out_img)
-        print("[RETOUCH] [v3] C1 wedding preset applied")
-    except Exception as e:
-        print(f"[RETOUCH] C1 preset failed (non-critical): {e}")
+    # === Dodge & Burn (микроконтраст на скулах/носу/подбородке) ===
+    # Усиливает объём лица: тёмное темнее, светлое светлее по skin-маске.
+    dodge_burn_strength = float(preset.get("dodge_burn_strength", 0.18))
+    if dodge_burn_strength > 0.001:
+        try:
+            arr = np.array(out_img, dtype=np.float32)
+            sk = (skin_mask_for_post.astype(np.float32))
+            if sk.max() > 1.5:
+                sk = sk / 255.0
+            # Гладкая (низкочастотная) версия — основа для определения тёмных/светлых зон
+            base = np.array(out_img.filter(ImageFilter.GaussianBlur(radius=18)), dtype=np.float32)
+            luma = 0.299 * base[:, :, 0] + 0.587 * base[:, :, 1] + 0.114 * base[:, :, 2]
+            # Знак: <128 → "burn" (темнее), >128 → "dodge" (светлее)
+            delta = (luma - 128.0) / 128.0  # [-1..1]
+            # Только мягкая часть, не на бликах и не на самых тёмных тенях
+            delta = np.clip(delta, -0.7, 0.7)
+            shift = (delta * dodge_burn_strength * 28.0)  # ±20 уровней максимум
+            shift = shift * sk  # только по коже
+            for ch in range(3):
+                arr[:, :, ch] = np.clip(arr[:, :, ch] + shift, 0, 255)
+            out_img = Image.fromarray(arr.astype(np.uint8), 'RGB')
+            del arr, base, luma, delta, shift, sk
+            print(f"[RETOUCH] [v3] Dodge&Burn applied (strength={dodge_burn_strength:.2f})")
+        except Exception as e:
+            print(f"[RETOUCH] Dodge&Burn failed (non-critical): {e}")
 
+    # === Capture One цветокоррекция (опционально по пресету) ===
+    if preset.get("apply_c1_preset", True):
+        try:
+            from c1_preset import apply_capture_one_wedding_preset
+            out_img = apply_capture_one_wedding_preset(out_img)
+            print("[RETOUCH] [v3] C1 wedding preset applied")
+        except Exception as e:
+            print(f"[RETOUCH] C1 preset failed (non-critical): {e}")
+    else:
+        print("[RETOUCH] [v3] C1 preset skipped (preset=light)")
+
+    # === Финальный sharpening (Unsharp Mask) ===
+    # Возвращает микро-резкость, которая теряется на ресайзе/JPEG/денойзе.
+    # Это убирает "туманку" — было главной жалобой.
+    sharpen_amount = float(preset.get("sharpen_amount", 0.75))
+    sharpen_radius = float(preset.get("sharpen_radius", 1.0))
+    if sharpen_amount > 0.001:
+        try:
+            percent = int(round(sharpen_amount * 150))  # 0.75 → 112%
+            out_img = out_img.filter(ImageFilter.UnsharpMask(
+                radius=sharpen_radius, percent=percent, threshold=2
+            ))
+            print(f"[RETOUCH] [v3] Final sharpening (amount={sharpen_amount:.2f}, radius={sharpen_radius:.2f}, percent={percent})")
+        except Exception as e:
+            print(f"[RETOUCH] Sharpening failed (non-critical): {e}")
+
+    # === Защита фона: возвращаем оригинальные пиксели вне skin+hair+clothes ===
+    # LaMa перерисовывает фон → белый становится серым. Берём skin_mask_for_post
+    # как "точно объект", расширяем его и оставляем фон как в оригинале.
+    if preset.get("background_protect", True):
+        try:
+            arr_out = np.array(out_img, dtype=np.float32)
+            arr_orig = np.array(orig_img, dtype=np.float32)
+            # Берём текущую skin-маску и расширяем чтобы охватить волосы/одежду
+            # рядом с лицом — фон останется только реальный фон.
+            sk_u8 = skin_mask_for_post.astype(np.uint8)
+            if sk_u8.max() <= 1:
+                sk_u8 = sk_u8 * 255
+            sk_img = Image.fromarray(sk_u8, 'L')
+            # Большое расширение, потом сильный feather — мягкая граница без ореола
+            expand_r = max(40, min(arr_out.shape[0], arr_out.shape[1]) // 25)
+            sk_expanded = sk_img.filter(ImageFilter.MaxFilter(size=min(expand_r * 2 + 1, 99)))
+            sk_expanded = sk_expanded.filter(ImageFilter.GaussianBlur(radius=expand_r))
+            obj_mask = np.array(sk_expanded, dtype=np.float32) / 255.0
+            obj_mask = np.clip(obj_mask, 0.0, 1.0)
+            obj_mask_3 = obj_mask[:, :, None]
+            arr_out = arr_out * obj_mask_3 + arr_orig * (1.0 - obj_mask_3)
+            out_img = Image.fromarray(np.clip(arr_out, 0, 255).astype(np.uint8), 'RGB')
+            del arr_out, arr_orig, sk_u8, sk_img, sk_expanded, obj_mask, obj_mask_3
+            print(f"[RETOUCH] [v3] Background protected (expand_r={expand_r}px)")
+        except Exception as e:
+            print(f"[RETOUCH] Background protect failed (non-critical): {e}")
+
+    jpeg_quality = int(preset.get("jpeg_quality", 95))
     out_buf = io.BytesIO()
-    out_img.save(out_buf, format='JPEG', quality=95)
-    print(f"[RETOUCH] Composed: coverage={coverage*100:.1f}% skin={skin_type} alpha={alpha:.2f}")
+    out_img.save(out_buf, format='JPEG', quality=jpeg_quality, subsampling=0)
+    print(f"[RETOUCH] Composed: coverage={coverage*100:.1f}% skin={skin_type} alpha={alpha:.2f} preset={preset_name} q={jpeg_quality}")
     return out_buf.getvalue()
 
 
@@ -1496,6 +1586,7 @@ def _save_result_bytes(conn, user_id, task, result_bytes):
     db_task_id = task['task_id']
     photo_id = task.get('photo_id')
     in_key = task.get('in_key', '')
+    preset_name = task.get('preset') or 'medium'
     out_key = _build_out_key(in_key)
 
     if not out_key.endswith('.jpg'):
@@ -1508,7 +1599,7 @@ def _save_result_bytes(conn, user_id, task, result_bytes):
     # по нашей маске кожи — вне маски возвращаем пиксели оригинала.
     try:
         if in_key:
-            result_bytes = _compose_with_original_by_mask(s3_client, in_key, result_bytes)
+            result_bytes = _compose_with_original_by_mask(s3_client, in_key, result_bytes, preset_name=preset_name)
     except Exception as e:
         print(f"[RETOUCH] Skin-mask compose failed (using raw result): {e}")
 
@@ -1745,7 +1836,15 @@ def _handle_create(event, conn, user_id):
         if enhance_face is None:
             enhance_face = db_enhance_face
 
-    print(f"[RETOUCH] Starting: photo_id={photo_id}, in_key={in_key}, strength={strength}")
+    # Пресет управляет всем pipeline (разрешение, sharpening, denoise, фон, dodge&burn).
+    # Если передан — он переопределяет strength значением из конфига пресета.
+    from presets import get_preset, normalize_preset_name
+    preset_name = normalize_preset_name(body.get('preset'))
+    preset_cfg = get_preset(preset_name)
+    if body.get('preset'):
+        strength = float(preset_cfg.get('strength', strength))
+
+    print(f"[RETOUCH] Starting: photo_id={photo_id}, in_key={in_key}, strength={strength}, preset={preset_name}")
 
     try:
         s3_client = _get_s3_client()
@@ -1786,9 +1885,9 @@ def _handle_create(event, conn, user_id):
 
         with conn.cursor() as cur:
             cur.execute(
-                '''INSERT INTO retouch_tasks (user_id, photo_id, task_id, status, in_bucket, in_key, out_bucket, out_prefix)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)''',
-                (user_id, photo_id, api_task_id, 'started', S3_BUCKET, in_key, S3_BUCKET, out_prefix)
+                '''INSERT INTO retouch_tasks (user_id, photo_id, task_id, status, in_bucket, in_key, out_bucket, out_prefix, preset)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                (user_id, photo_id, api_task_id, 'started', S3_BUCKET, in_key, S3_BUCKET, out_prefix, preset_name)
             )
             conn.commit()
 
@@ -1817,7 +1916,7 @@ def _handle_status(event, conn, user_id):
         placeholders = ','.join(['%s'] * len(ids))
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                f'SELECT task_id, photo_id, status, result_key, result_url, in_key, error_message, retry_count, created_at, updated_at FROM retouch_tasks WHERE task_id IN ({placeholders}) AND user_id = %s',
+                f'SELECT task_id, photo_id, status, result_key, result_url, in_key, error_message, retry_count, preset, created_at, updated_at FROM retouch_tasks WHERE task_id IN ({placeholders}) AND user_id = %s',
                 (*ids, user_id)
             )
             tasks = cur.fetchall()
@@ -1836,7 +1935,7 @@ def _handle_status(event, conn, user_id):
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            'SELECT task_id, photo_id, status, result_key, result_url, in_key, error_message, retry_count, created_at, updated_at FROM retouch_tasks WHERE task_id = %s AND user_id = %s',
+            'SELECT task_id, photo_id, status, result_key, result_url, in_key, error_message, retry_count, preset, created_at, updated_at FROM retouch_tasks WHERE task_id = %s AND user_id = %s',
             (task_id, user_id)
         )
         task = cur.fetchone()

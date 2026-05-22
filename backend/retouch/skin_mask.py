@@ -566,12 +566,19 @@ def build_face_skin_mask(image_bytes):
         protect = _call_ai_face_parse(image_bytes, mode="protect")
         if protect is not None:
             h_arr, w_arr = ai_mask.shape
-            expand_r = max(3, int(min(h_arr, w_arr) * 0.004))
+            # Расширили radius (было 0.004 → стало 0.012, т.е. в 3 раза).
+            # Это устраняет RGB-ореол у губ/глаз и защищает зубы.
+            expand_r = max(6, int(min(h_arr, w_arr) * 0.012))
             pp = Image.fromarray(protect, mode='L').filter(
-                ImageFilter.MaxFilter(min(expand_r * 2 + 1, 15))
+                ImageFilter.MaxFilter(min(expand_r * 2 + 1, 31))
             )
+            # Дополнительный feather (Гаусс) — мягкая граница без артефактов.
+            pp = pp.filter(ImageFilter.GaussianBlur(radius=max(2, expand_r // 2)))
             protect_exp = np.array(pp)
-            ai_mask = np.where(protect_exp > 128, 0, ai_mask).astype(np.uint8)
+            # Мягкое вычитание: где protect>128 → полное обнуление,
+            # где 64..128 → пропорциональное ослабление маски кожи.
+            soft = np.clip((protect_exp.astype(np.float32) - 64.0) / 64.0, 0.0, 1.0)
+            ai_mask = (ai_mask.astype(np.float32) * (1.0 - soft)).astype(np.uint8)
         # Лёгкое сглаживание краёв, чтобы не было ступенек.
         m = Image.fromarray(ai_mask, mode='L').filter(ImageFilter.GaussianBlur(radius=1.5))
         ai_mask = np.where(np.array(m) > 128, 255, 0).astype(np.uint8)
@@ -1114,11 +1121,14 @@ def build_focus_mask_via_server(image_bytes, orig_img_arr):
                 continue
         # === АТЕННУАЦИЯ ВТОРОСТЕПЕННЫХ ЛИЦ ===
         # Главное лицо (is_largest) ретушируется на полную силу.
-        # Второстепенные — на 40% (mask × 0.4), чтобы LaMa не "красил" их
-        # серостью (классический артефакт на мелких лицах с малой
-        # информацией о текстуре кожи).
+        # Второстепенные ослабляются с gamma=2.2 (gamma-correct fade) —
+        # это убирает RGB-ореолы на красных оттенках кожи/губ, которые
+        # появлялись при линейном ×0.4 (фиолетовый "обод").
         if not f.get('is_largest', False):
-            face_skin = (face_skin.astype(np.float32) * 0.4).astype(np.uint8)
+            fs = face_skin.astype(np.float32) / 255.0
+            fs = np.power(fs, 2.2) * 0.40
+            fs = np.power(np.clip(fs, 0.0, 1.0), 1.0 / 2.2)
+            face_skin = (fs * 255.0).astype(np.uint8)
         combined = np.maximum(combined, face_skin)
         succeed += 1
 

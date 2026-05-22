@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
 import { playSuccessSound } from '@/utils/notificationSound';
 import type { RetouchTask } from '@/components/photobank/RetouchTaskList';
-import type { RetouchSession, Photo, RetouchContextValue } from './retouch-context/types';
+import type { RetouchSession, Photo, RetouchContextValue, RetouchPreset } from './retouch-context/types';
+import { RETOUCH_PRESET_STORAGE_KEY } from './retouch-context/types';
 import { useRetouchPolling } from './retouch-context/useRetouchPolling';
 import { useRetouchApi } from './retouch-context/useRetouchApi';
 
@@ -41,6 +42,19 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   const serverStartedRef = useRef(false);
   const sessionRef = useRef<RetouchSession | null>(null);
 
+  const [preset, setPresetState] = useState<RetouchPreset>(() => {
+    if (typeof window === 'undefined') return 'medium';
+    const saved = localStorage.getItem(RETOUCH_PRESET_STORAGE_KEY) as RetouchPreset | null;
+    return saved === 'light' || saved === 'medium' || saved === 'strong' ? saved : 'medium';
+  });
+  const presetRef = useRef<RetouchPreset>(preset);
+  useEffect(() => { presetRef.current = preset; }, [preset]);
+  const setPreset = useCallback((p: RetouchPreset) => {
+    setPresetState(p);
+    presetRef.current = p;
+    try { localStorage.setItem(RETOUCH_PRESET_STORAGE_KEY, p); } catch { /* ignore */ }
+  }, []);
+
   const tasksRef = useRef<RetouchTask[]>([]);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
 
@@ -68,6 +82,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
     setWaking,
     setWakeStatus,
     serverStartedRef,
+    presetRef,
   });
 
   const isProcessing = tasks.some(t => t.status === 'queued' || t.status === 'started' || t.status === 'processing') || submitting || waking || batchPending;
@@ -259,7 +274,7 @@ export const RetouchProvider = ({ children }: { children: ReactNode }) => {
   return (
     <RetouchContext.Provider value={{
       tasks, photos, isProcessing, waking, wakeStatus, submitting, minimized, session,
-      totalProgress, totalBatchSize, setMinimized, startSession, fullClose,
+      totalProgress, totalBatchSize, preset, setPreset, setMinimized, startSession, fullClose,
       handleRetouchSingle, handleRetouchAll, retryTask, retryAllFailed,
       lightboxData, lightboxDataRef, openRetouchLightbox, closeRetouchLightbox
     }}>

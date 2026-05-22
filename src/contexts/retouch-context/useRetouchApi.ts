@@ -13,6 +13,7 @@ interface UseRetouchApiArgs {
   setWaking: React.Dispatch<React.SetStateAction<boolean>>;
   setWakeStatus: React.Dispatch<React.SetStateAction<string | null>>;
   serverStartedRef: React.MutableRefObject<boolean>;
+  presetRef?: React.MutableRefObject<'light' | 'medium' | 'strong'>;
 }
 
 export const useRetouchApi = ({
@@ -25,6 +26,7 @@ export const useRetouchApi = ({
   setWaking,
   setWakeStatus,
   serverStartedRef,
+  presetRef,
 }: UseRetouchApiArgs) => {
   const batchQueueRef = useRef<Photo[]>([]);
   const activeSubmitsRef = useRef(0);
@@ -152,7 +154,7 @@ export const useRetouchApi = ({
           'Content-Type': 'application/json',
           'X-User-Id': sessionRef.current.userId
         },
-        body: JSON.stringify({ photo_id: photoId, preset: 'preview' })
+        body: JSON.stringify({ photo_id: photoId, preset: presetRef?.current || 'medium' })
       });
       if (res.status === 429 && retriesLeft > 0) {
         console.log(`[RETOUCH] Queue full for photo ${photoId}, waiting 10s before retry...`);

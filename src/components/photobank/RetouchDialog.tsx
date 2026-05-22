@@ -7,6 +7,7 @@ import { useRetouch } from '@/contexts/RetouchContext';
 import RetouchWakeStatus from './RetouchWakeStatus';
 import RetouchTaskList from './RetouchTaskList';
 import RetouchPhotoSelector from './RetouchPhotoSelector';
+import RetouchPresetSelector from './RetouchPresetSelector';
 import RetouchSettings from './RetouchSettings';
 import { getPhotoPreviewUrl, Photo as RetouchPhoto } from './retouchTypes';
 
@@ -251,18 +252,21 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
             )}
 
             {!hasTasks && (
-              <RetouchPhotoSelector
-                photos={photos}
-                loadingPhotos={loadingPhotos}
-                selectedPhotoId={selectedPhotoId}
-                onSelectPhoto={setSelectedPhotoId}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                submitting={submitting}
-                waking={waking}
-                onRetouchSingle={onRetouchSingle}
-                onRetouchAll={onRetouchAll}
-              />
+              <div className="space-y-3">
+                <RetouchPresetSelector />
+                <RetouchPhotoSelector
+                  photos={photos}
+                  loadingPhotos={loadingPhotos}
+                  selectedPhotoId={selectedPhotoId}
+                  onSelectPhoto={setSelectedPhotoId}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  submitting={submitting}
+                  waking={waking}
+                  onRetouchSingle={onRetouchSingle}
+                  onRetouchAll={onRetouchAll}
+                />
+              </div>
             )}
           </>
         )}
