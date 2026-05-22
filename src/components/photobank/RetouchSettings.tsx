@@ -103,8 +103,10 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
               src={previewSrc}
               filterStr={filterStr}
               retouchedSrc={testing.retouchedUrl || undefined}
-              maskOverlaySrc={maskPreview.showMaskPreview ? maskPreview.maskPreviewUrl : null}
+              maskOverlaySrc={maskPreview.maskPreviewUrl}
               maskLoading={maskPreview.showMaskPreview && maskPreview.maskPreviewLoading}
+              showMask={maskPreview.showMaskPreview}
+              onToggleMask={() => maskPreview.setShowMaskPreview(!maskPreview.showMaskPreview)}
             />
             {previewSrc && (
               <label className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/60 bg-muted/30 cursor-pointer select-none hover:bg-muted/50 transition-colors">

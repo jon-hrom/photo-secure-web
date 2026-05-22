@@ -8,9 +8,10 @@ interface BeforeAfterPreviewProps {
   maskOverlaySrc?: string | null;
   maskLoading?: boolean;
   showMask?: boolean;
+  onToggleMask?: () => void;
 }
 
-const BeforeAfterPreview = ({ src, filterStr: _filterStr, retouchedSrc, maskOverlaySrc, maskLoading, showMask = false }: BeforeAfterPreviewProps) => {
+const BeforeAfterPreview = ({ src, filterStr: _filterStr, retouchedSrc, maskOverlaySrc, maskLoading, showMask = false, onToggleMask }: BeforeAfterPreviewProps) => {
   console.log('[BEFORE_AFTER] src:', src?.substring(0, 80), 'retouchedSrc:', retouchedSrc?.substring(0, 80));
   const containerRef = useRef<HTMLDivElement>(null);
   const [sliderPos, setSliderPos] = useState(50);
@@ -171,14 +172,31 @@ const BeforeAfterPreview = ({ src, filterStr: _filterStr, retouchedSrc, maskOver
           <div className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none z-20">
             До
           </div>
-          <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none z-20">
-            После
-            {hasRetouched && afterLoaded && (
-              <Icon name="Sparkles" size={10} className="text-amber-400" />
+          <div className="absolute top-1.5 right-1.5 flex items-center gap-1.5 z-20">
+            {onToggleMask && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onToggleMask(); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                title={showMask ? 'Скрыть зону ретуши' : 'Показать зону ретуши'}
+                className={`flex items-center justify-center w-6 h-6 rounded-full backdrop-blur-sm transition-colors ${
+                  showMask
+                    ? 'bg-red-500/90 text-white hover:bg-red-500'
+                    : 'bg-black/60 text-white/80 hover:bg-black/80 hover:text-white'
+                }`}
+              >
+                <Icon name={showMask ? 'Eye' : 'EyeOff'} size={12} />
+              </button>
             )}
-            {hasRetouched && afterState === 'loading' && (
-              <Icon name="Loader2" size={10} className="animate-spin" />
-            )}
+            <div className="flex items-center gap-1 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
+              После
+              {hasRetouched && afterLoaded && (
+                <Icon name="Sparkles" size={10} className="text-amber-400" />
+              )}
+              {hasRetouched && afterState === 'loading' && (
+                <Icon name="Loader2" size={10} className="animate-spin" />
+              )}
+            </div>
           </div>
         </>
       )}
