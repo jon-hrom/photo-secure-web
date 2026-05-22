@@ -1,6 +1,7 @@
 import json
 import os
 import io
+import time
 import base64
 import uuid
 from typing import Dict, Any
@@ -1615,15 +1616,36 @@ def _download_result_and_save(conn, user_id, task, result_url_from_api):
         download_headers = {}
         if 'io.foto-mix.ru' in result_url_from_api:
             download_headers['Authorization'] = _auth_header()
-        resp = requests.get(result_url_from_api, headers=download_headers, timeout=(10, 120))
-        if resp.status_code == 403:
-            resp = requests.get(
-                result_url_from_api,
-                headers={'Authorization': _auth_header()},
-                timeout=(10, 120)
-            )
-        if resp.status_code != 200:
-            raise RuntimeError(f"Failed to download result: HTTP {resp.status_code}")
+        # Ретраи на сетевые проблемы (connect timeout до storage.yandexcloud.net).
+        # 3 попытки: connect_timeout 30/60/90, read_timeout 180. Между — короткая пауза.
+        last_err = None
+        resp = None
+        for attempt in range(3):
+            connect_to = 30 + attempt * 30
+            try:
+                resp = requests.get(
+                    result_url_from_api,
+                    headers=download_headers,
+                    timeout=(connect_to, 180),
+                )
+                if resp.status_code == 403:
+                    resp = requests.get(
+                        result_url_from_api,
+                        headers={'Authorization': _auth_header()},
+                        timeout=(connect_to, 180),
+                    )
+                if resp.status_code == 200:
+                    break
+                last_err = f"HTTP {resp.status_code}"
+            except (requests.exceptions.ConnectTimeout,
+                    requests.exceptions.ReadTimeout,
+                    requests.exceptions.ConnectionError) as e:
+                last_err = str(e)
+                print(f"[RETOUCH] Download attempt {attempt+1}/3 failed: {e}")
+                time.sleep(1.5 * (attempt + 1))
+                resp = None
+        if resp is None or resp.status_code != 200:
+            raise RuntimeError(f"Failed to download result after 3 attempts: {last_err}")
         result_bytes = resp.content
 
     print(f"[RETOUCH] Downloaded {len(result_bytes)} bytes")
