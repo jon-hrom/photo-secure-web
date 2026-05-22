@@ -1563,6 +1563,10 @@ def _save_result_bytes(conn, user_id, task, result_bytes):
     if not out_key.endswith('.jpg'):
         out_key = out_key.rsplit('.', 1)[0] + '.jpg' if '.' in out_key else out_key + '.jpg'
 
+    unique_suffix = (db_task_id or uuid.uuid4().hex)[:12]
+    if out_key.endswith('.jpg'):
+        out_key = f"{out_key[:-4]}__{unique_suffix}.jpg"
+
     result_bytes = _normalize_image_bytes(result_bytes)
 
     # ПОСТ-ОБРАБОТКА: внешний API ретушит ВСЁ изображение (включая волосы, брови,
