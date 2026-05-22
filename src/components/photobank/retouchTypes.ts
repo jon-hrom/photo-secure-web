@@ -174,22 +174,13 @@ const getParamValue = (ops: OpConfig[], opName: string, paramKey: string): numbe
   return param ? param.value : 0;
 };
 
-export const buildPreviewFilter = (ops: OpConfig[]): string => {
-  const shadows = getParamValue(ops, 'shadows', 'strength');
-  const highlights = getParamValue(ops, 'highlights', 'strength');
-  const skinStrength = getParamValue(ops, 'skin_fs', 'strength');
-  const deshineStrength = getParamValue(ops, 'deshine', 'strength');
-  const skinSmooth = getParamValue(ops, 'skin_smooth', 'strength');
-  const sharpen = getParamValue(ops, 'sharpen', 'strength');
-
-  const brightness = 1.0 + shadows * 0.2 - highlights * 0.1;
-  const blurVal = Math.max(0, skinStrength * 0.3 + skinSmooth * 0.25 + deshineStrength * 0.08);
-  const contrastVal = 1.0 + sharpen * 0.15;
-
-  let filter = `brightness(${brightness.toFixed(3)}) contrast(${contrastVal.toFixed(3)})`;
-  if (blurVal > 0.01) filter += ` blur(${blurVal.toFixed(2)}px)`;
-
-  return filter;
+export const buildPreviewFilter = (_ops: OpConfig[]): string => {
+  // ОТКЛЮЧЕНО: раньше тут применялся CSS-фильтр blur+brightness+contrast
+  // к фото на слайдере "до/после", симулируя эффект ретуши прямо в браузере.
+  // Это давало "туман", нечёткое лицо и RGB-ореолы на границе слайдера —
+  // пользователь видел не реальный результат ретуши, а CSS-симуляцию.
+  // Теперь слайдер показывает чистое изображение без обработки.
+  return 'none';
 };
 
 const isRawFile = (name: string): boolean => {
