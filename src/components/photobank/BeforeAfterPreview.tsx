@@ -7,9 +7,10 @@ interface BeforeAfterPreviewProps {
   retouchedSrc?: string;
   maskOverlaySrc?: string | null;
   maskLoading?: boolean;
+  showMask?: boolean;
 }
 
-const BeforeAfterPreview = ({ src, filterStr, retouchedSrc, maskOverlaySrc, maskLoading }: BeforeAfterPreviewProps) => {
+const BeforeAfterPreview = ({ src, filterStr: _filterStr, retouchedSrc, maskOverlaySrc, maskLoading, showMask = false }: BeforeAfterPreviewProps) => {
   console.log('[BEFORE_AFTER] src:', src?.substring(0, 80), 'retouchedSrc:', retouchedSrc?.substring(0, 80));
   const containerRef = useRef<HTMLDivElement>(null);
   const [sliderPos, setSliderPos] = useState(50);
@@ -102,30 +103,25 @@ const BeforeAfterPreview = ({ src, filterStr, retouchedSrc, maskOverlaySrc, mask
       />
 
       {imgLoaded && hasRetouched && (
-        <>
-          <img
-            src={retouchedSrc}
-            alt=""
-            className={`absolute inset-0 ${imgClass} ${afterLoaded ? '' : 'hidden'}`}
-            style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }}
-            draggable={false}
-            onLoad={() => { console.log('[BEFORE_AFTER] After image LOADED'); setAfterState('loaded'); }}
-            onError={() => { console.error('[BEFORE_AFTER] After image ERROR, url:', retouchedSrc); setAfterState('error'); }}
-          />
-          {!afterLoaded && afterState === 'loading' && (
-            <img
-              src={src}
-              alt=""
-              className={`absolute inset-0 ${imgClass}`}
-              style={{
-                filter: filterStr,
-                transition: 'filter 0.1s ease',
-                clipPath: `inset(0 0 0 ${sliderPos}%)`,
-              }}
-              draggable={false}
-            />
-          )}
-        </>
+        <img
+          src={retouchedSrc}
+          alt=""
+          className={`absolute inset-0 ${imgClass} ${afterLoaded ? '' : 'hidden'}`}
+          style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }}
+          draggable={false}
+          onLoad={() => { console.log('[BEFORE_AFTER] After image LOADED'); setAfterState('loaded'); }}
+          onError={() => { console.error('[BEFORE_AFTER] After image ERROR, url:', retouchedSrc); setAfterState('error'); }}
+        />
+      )}
+
+      {imgLoaded && hasRetouched && !afterLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[3]"
+             style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }}>
+          <div className="bg-black/70 text-white text-[10px] font-medium px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5">
+            <Icon name="Loader2" size={11} className="animate-spin" />
+            Загружаем результат…
+          </div>
+        </div>
       )}
 
       {imgLoaded && !hasRetouched && (
@@ -133,16 +129,12 @@ const BeforeAfterPreview = ({ src, filterStr, retouchedSrc, maskOverlaySrc, mask
           src={src}
           alt=""
           className={`absolute inset-0 ${imgClass}`}
-          style={{
-            filter: filterStr,
-            transition: 'filter 0.1s ease',
-            clipPath: `inset(0 0 0 ${sliderPos}%)`,
-          }}
+          style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }}
           draggable={false}
         />
       )}
 
-      {imgLoaded && maskOverlaySrc && (
+      {imgLoaded && showMask && maskOverlaySrc && (
         <img
           src={maskOverlaySrc}
           alt=""
