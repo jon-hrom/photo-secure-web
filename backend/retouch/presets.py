@@ -48,7 +48,7 @@ PRESETS: Dict[str, Dict[str, Any]] = {
         "background_protect": False,
         "dodge_burn_strength": 0.0,
         "jpeg_quality": 95,
-        "apply_c1_preset": True,
+        "apply_c1_preset": False,
     },
     "strong": {
         "strength": 0.80,
@@ -61,7 +61,7 @@ PRESETS: Dict[str, Dict[str, Any]] = {
         "background_protect": False,
         "dodge_burn_strength": 0.0,
         "jpeg_quality": 95,
-        "apply_c1_preset": True,
+        "apply_c1_preset": False,
     },
 }
 
