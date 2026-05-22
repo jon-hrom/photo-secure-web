@@ -524,7 +524,7 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
                 if scrfd_norm.shape != mask_arr.shape:
                     scrfd_norm = np.array(
                         Image.fromarray(scrfd_mask, mode='L').resize(
-                            (mask_arr.shape[1], mask_arr.shape[0]), Image.BILINEAR
+                            (mask_arr.shape[1], mask_arr.shape[0]), Image.NEAREST
                         )
                     ).astype(np.float32) / 255.0
                 # Растушёвываем focus-маску, чтобы границы фокусной зоны были мягкими
@@ -811,7 +811,7 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
         # Дополнительный штраф для не-крупных планов в темноте:
         # на medium/wide артефакты LaMa особенно заметны.
         if mean_face_y < 100 and shot_type in ("medium", "wide"):
-            dark_factor *= 0.5
+            dark_factor *= 0.8
             print(f"[RETOUCH] [v3] Dark + non-closeup penalty applied")
 
         if dark_factor < 1.0:
@@ -841,21 +841,20 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
             # Защита от ПОТЕМНЕНИЯ (артефакт «чёрное пятно»).
             # Пороги ослаблены: лёгкое выравнивание тонов (ΔY ~ -5..-10) — норма,
             # это не артефакт, и резать alpha из-за этого нельзя.
-            if d_y < -20:
-                print(f"[RETOUCH] [v3] LaMa darkening guard: ΔY={d_y:+.1f} → alpha=0 (revert)")
-                alpha = 0.0
-            elif d_y < -12:
-                # ΔY=-12 → 1.0, ΔY=-20 → 0.3 (минимум 0.3, чтобы не убивать ретушь)
-                attenuate = 1.0 - (abs(d_y) - 12) / 8.0 * 0.7
-                attenuate = max(0.3, min(1.0, attenuate))
+            if d_y < -30:
+                print(f"[RETOUCH] [v3] LaMa darkening guard: ΔY={d_y:+.1f} → alpha×0.5 (soft)")
+                alpha *= 0.5
+            elif d_y < -20:
+                attenuate = 1.0 - (abs(d_y) - 20) / 10.0 * 0.3
+                attenuate = max(0.7, min(1.0, attenuate))
                 print(f"[RETOUCH] [v3] LaMa darkening partial: ΔY={d_y:+.1f} → alpha×{attenuate:.2f}")
                 alpha *= attenuate
-            elif max_drift > 30:
-                print(f"[RETOUCH] [v3] Color drift heavy: ΔRGB=({d_r:+.1f},{d_g:+.1f},{d_b:+.1f}) → alpha×0.1")
-                alpha *= 0.1
-            elif max_drift > 18:
-                attenuate = 1.0 - (max_drift - 18) / 12.0
-                attenuate = max(0.1, min(1.0, attenuate))
+            elif max_drift > 45:
+                print(f"[RETOUCH] [v3] Color drift heavy: ΔRGB=({d_r:+.1f},{d_g:+.1f},{d_b:+.1f}) → alpha×0.5")
+                alpha *= 0.5
+            elif max_drift > 28:
+                attenuate = 1.0 - (max_drift - 28) / 17.0 * 0.4
+                attenuate = max(0.6, min(1.0, attenuate))
                 print(f"[RETOUCH] [v3] Color drift partial: max={max_drift:.1f} → alpha×{attenuate:.2f}")
                 alpha *= attenuate
 

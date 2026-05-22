@@ -41,7 +41,7 @@ def apply_skin_denoise_with_mask(
 
     # Приводим маску к размеру кадра, если нужно
     if skin_mask_u8.shape != (h, w):
-        mask_pil = Image.fromarray(skin_mask_u8, 'L').resize((w, h), Image.BILINEAR)
+        mask_pil = Image.fromarray(skin_mask_u8, 'L').resize((w, h), Image.NEAREST)
         skin_mask_u8 = np.array(mask_pil, dtype=np.uint8)
         del mask_pil
 
