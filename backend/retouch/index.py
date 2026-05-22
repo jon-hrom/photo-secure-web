@@ -1494,31 +1494,9 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     else:
         print("[RETOUCH] [v3] Skin denoise skipped (preset=light)")
 
-    # === Dodge & Burn (микроконтраст на скулах/носу/подбородке) ===
-    # Усиливает объём лица: тёмное темнее, светлое светлее по skin-маске.
-    dodge_burn_strength = float(preset.get("dodge_burn_strength", 0.18))
-    if dodge_burn_strength > 0.001:
-        try:
-            arr = np.array(out_img, dtype=np.float32)
-            sk = (skin_mask_for_post.astype(np.float32))
-            if sk.max() > 1.5:
-                sk = sk / 255.0
-            # Гладкая (низкочастотная) версия — основа для определения тёмных/светлых зон
-            base = np.array(out_img.filter(ImageFilter.GaussianBlur(radius=18)), dtype=np.float32)
-            luma = 0.299 * base[:, :, 0] + 0.587 * base[:, :, 1] + 0.114 * base[:, :, 2]
-            # Знак: <128 → "burn" (темнее), >128 → "dodge" (светлее)
-            delta = (luma - 128.0) / 128.0  # [-1..1]
-            # Только мягкая часть, не на бликах и не на самых тёмных тенях
-            delta = np.clip(delta, -0.7, 0.7)
-            shift = (delta * dodge_burn_strength * 28.0)  # ±20 уровней максимум
-            shift = shift * sk  # только по коже
-            for ch in range(3):
-                arr[:, :, ch] = np.clip(arr[:, :, ch] + shift, 0, 255)
-            out_img = Image.fromarray(arr.astype(np.uint8), 'RGB')
-            del arr, base, luma, delta, shift, sk
-            print(f"[RETOUCH] [v3] Dodge&Burn applied (strength={dodge_burn_strength:.2f})")
-        except Exception as e:
-            print(f"[RETOUCH] Dodge&Burn failed (non-critical): {e}")
+    # === Dodge & Burn ОТКЛЮЧЁН ===
+    # Создавал RGB-ореолы и пересвет на лице — снято до доработки.
+    dodge_burn_strength = 0.0
 
     # === Capture One цветокоррекция (опционально по пресету) ===
     if preset.get("apply_c1_preset", True):
@@ -1531,47 +1509,39 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     else:
         print("[RETOUCH] [v3] C1 preset skipped (preset=light)")
 
-    # === Финальный sharpening (Unsharp Mask) ===
-    # Возвращает микро-резкость, которая теряется на ресайзе/JPEG/денойзе.
-    # Это убирает "туманку" — было главной жалобой.
-    sharpen_amount = float(preset.get("sharpen_amount", 0.75))
-    sharpen_radius = float(preset.get("sharpen_radius", 1.0))
-    if sharpen_amount > 0.001:
+    # === Финальный sharpening ТОЛЬКО ПО SKIN-МАСКЕ ===
+    # Применяется только в зоне кожи (без ореолов на волосах/фоне).
+    # Возвращает микро-резкость пор и черт лица, которые теряются на JPEG/денойзе.
+    sharpen_amount = float(preset.get("sharpen_amount", 0.45))
+    sharpen_radius = float(preset.get("sharpen_radius", 0.8))
+    if sharpen_amount > 0.001 and skin_mask_for_post.sum() > 100:
         try:
-            percent = int(round(sharpen_amount * 150))  # 0.75 → 112%
-            out_img = out_img.filter(ImageFilter.UnsharpMask(
-                radius=sharpen_radius, percent=percent, threshold=2
+            percent = int(round(sharpen_amount * 110))  # 0.45 → 50%
+            sharp_img = out_img.filter(ImageFilter.UnsharpMask(
+                radius=sharpen_radius, percent=percent, threshold=3
             ))
-            print(f"[RETOUCH] [v3] Final sharpening (amount={sharpen_amount:.2f}, radius={sharpen_radius:.2f}, percent={percent})")
-        except Exception as e:
-            print(f"[RETOUCH] Sharpening failed (non-critical): {e}")
-
-    # === Защита фона: возвращаем оригинальные пиксели вне skin+hair+clothes ===
-    # LaMa перерисовывает фон → белый становится серым. Берём skin_mask_for_post
-    # как "точно объект", расширяем его и оставляем фон как в оригинале.
-    if preset.get("background_protect", True):
-        try:
-            arr_out = np.array(out_img, dtype=np.float32)
-            arr_orig = np.array(orig_img, dtype=np.float32)
-            # Берём текущую skin-маску и расширяем чтобы охватить волосы/одежду
-            # рядом с лицом — фон останется только реальный фон.
+            base_arr = np.array(out_img, dtype=np.int16)
+            sharp_arr = np.array(sharp_img, dtype=np.int16)
             sk_u8 = skin_mask_for_post.astype(np.uint8)
             if sk_u8.max() <= 1:
                 sk_u8 = sk_u8 * 255
-            sk_img = Image.fromarray(sk_u8, 'L')
-            # Большое расширение, потом сильный feather — мягкая граница без ореола
-            expand_r = max(40, min(arr_out.shape[0], arr_out.shape[1]) // 25)
-            sk_expanded = sk_img.filter(ImageFilter.MaxFilter(size=min(expand_r * 2 + 1, 99)))
-            sk_expanded = sk_expanded.filter(ImageFilter.GaussianBlur(radius=expand_r))
-            obj_mask = np.array(sk_expanded, dtype=np.float32) / 255.0
-            obj_mask = np.clip(obj_mask, 0.0, 1.0)
-            obj_mask_3 = obj_mask[:, :, None]
-            arr_out = arr_out * obj_mask_3 + arr_orig * (1.0 - obj_mask_3)
-            out_img = Image.fromarray(np.clip(arr_out, 0, 255).astype(np.uint8), 'RGB')
-            del arr_out, arr_orig, sk_u8, sk_img, sk_expanded, obj_mask, obj_mask_3
-            print(f"[RETOUCH] [v3] Background protected (expand_r={expand_r}px)")
+            mask_smooth = np.array(
+                Image.fromarray(sk_u8, 'L').filter(ImageFilter.GaussianBlur(radius=4)),
+                dtype=np.uint16,
+            )
+            for c in range(3):
+                diff_c = sharp_arr[..., c] - base_arr[..., c]
+                contrib = (diff_c * mask_smooth.astype(np.int16)) >> 8
+                base_arr[..., c] = np.clip(base_arr[..., c] + contrib, 0, 255)
+                del diff_c, contrib
+            out_img = Image.fromarray(base_arr.astype(np.uint8), 'RGB')
+            del base_arr, sharp_arr, sharp_img, sk_u8, mask_smooth
+            print(f"[RETOUCH] [v3] Skin-only sharpening (amount={sharpen_amount:.2f}, percent={percent})")
         except Exception as e:
-            print(f"[RETOUCH] Background protect failed (non-critical): {e}")
+            print(f"[RETOUCH] Sharpening failed (non-critical): {e}")
+
+    # background_protect полностью убран — давал двойные контуры/ореолы.
+    # Если фон становится серым — это лечится на стороне LaMa-API, не post-compose.
 
     jpeg_quality = int(preset.get("jpeg_quality", 95))
     out_buf = io.BytesIO()
