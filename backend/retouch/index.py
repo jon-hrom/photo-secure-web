@@ -438,6 +438,20 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     print(f"[RETOUCH] [SIZE] orig={ow_in}x{oh_in} (AR={orig_ar:.4f}) "
           f"ret={rw_in}x{rh_in} (AR={ret_ar:.4f})")
 
+    # === DEBUG: сохраняем СЫРОЙ ret_img от сервера в S3 для визуальной проверки ===
+    try:
+        debug_key = in_key.rsplit('.', 1)[0] + '_raw_ret_debug.jpg'
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=debug_key,
+            Body=retouched_bytes,
+            ContentType='image/jpeg',
+        )
+        print(f"[RETOUCH] [DEBUG] Saved raw ret_img to s3://{S3_BUCKET}/{debug_key}")
+        print(f"[RETOUCH] [DEBUG] CDN: https://cdn.poehali.dev/projects/{os.environ.get('AWS_ACCESS_KEY_ID','')}/bucket/{debug_key}")
+    except Exception as e:
+        print(f"[RETOUCH] [DEBUG] Failed to save raw ret_img: {e}")
+
     # === ASPECT RATIO GUARD ===
     # Если ret_img пришёл с другим соотношением сторон — любой resize его РАСТЯНЕТ,
     # и при композиции по маске лицо «съедет» и увеличится. Лучше вернуть оригинал.
