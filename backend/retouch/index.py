@@ -14,7 +14,7 @@ from PIL import Image, ImageFilter, ImageOps
 import numpy as np
 
 
-RETOUCH_CODE_VERSION = "v4-2026-05-22-clean-pipeline-force-redeploy"
+RETOUCH_CODE_VERSION = "v5-2026-05-23-NO-SMOOTH-NO-SHARP-NO-DENOISE"
 print(f"[RETOUCH] Code version: {RETOUCH_CODE_VERSION}")
 
 RAW_EXTENSIONS = ('.cr2', '.cr3', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw', '.raf')
