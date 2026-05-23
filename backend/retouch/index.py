@@ -1488,36 +1488,13 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
         # Множитель из пресета (light=0.5, medium=0.85, strong=1.15)
         smooth_strength *= float(preset.get("skin_smooth_multiplier", 0.85))
 
-        # Smooth маска кожи (без губ/глаз — это уже исключено через protect)
-        if smooth_strength > 0.05 and skin_mask_for_post.sum() > 100:
-            # Гауссово размытие применяем только в зоне маски
-            res_pil = Image.fromarray(result, 'RGB').filter(
-                ImageFilter.GaussianBlur(radius=smooth_radius)
-            )
-            blurred_u8 = np.array(res_pil, dtype=np.uint8)
-            del res_pil
-            # Маска с feathering — сразу в uint8 (0..255 * smooth_strength)
-            mask_smooth_u8 = np.array(
-                Image.fromarray(
-                    (skin_mask_for_post.astype(np.uint8) * 255), 'L'
-                ).filter(ImageFilter.GaussianBlur(radius=6)),
-                dtype=np.uint8,
-            )
-            # Применяем поканально через int16 — экономим память вдвое vs float32:
-            # out = orig + (blurred - orig) * (mask * strength) / 255
-            for c in range(3):
-                diff_c = blurred_u8[..., c].astype(np.int16) - result[..., c].astype(np.int16)
-                # weight = mask_smooth_u8 * smooth_strength → uint16 для precision
-                w = (mask_smooth_u8.astype(np.uint16) * int(smooth_strength * 256)) >> 8
-                # diff_c * w / 255 (через >>8 ≈ /256 для скорости)
-                contrib = (diff_c * w.astype(np.int16)) >> 8
-                result[..., c] = np.clip(
-                    result[..., c].astype(np.int16) + contrib, 0, 255
-                ).astype(np.uint8)
-                del diff_c, w, contrib
-            del blurred_u8, mask_smooth_u8
-            print(f"[RETOUCH] [v3] Skin smoothing: shot={shot_type} skin={skin_type} "
-                  f"strength={smooth_strength:.2f} radius={smooth_radius}")
+        # === SKIN SMOOTHING ПРИНУДИТЕЛЬНО ОТКЛЮЧЁН ===
+        # Сервер ретуши уже выдаёт чистую и сглаженную кожу. Наше доп. размытие
+        # GaussianBlur по всему кадру + подмешивание через feather=6 маску давало
+        # видимую «дымку/туман» поверх лица и могло смещать границы тон-в-тон.
+        # Полностью выключаем (smooth_strength игнорируется).
+        print(f"[RETOUCH] [v3] Skin smoothing: FORCE DISABLED "
+              f"(planned strength={smooth_strength:.2f} radius={smooth_radius})")
     except Exception as e:
         print(f"[RETOUCH] Skin smoothing failed (non-critical): {e}")
 
@@ -1528,23 +1505,15 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     out_img = Image.fromarray(result, 'RGB')
     del result
 
-    # === Шумодав ТОЛЬКО по skin-mask (без мыла на фоне/волосах) ===
-    # Сила управляется пресетом. light=0.0 (выключен — макс. деталей),
-    # medium=0.15, strong=0.30. Раньше всегда было 0.45 — отсюда туманка.
+    # === Skin denoise ПРИНУДИТЕЛЬНО ОТКЛЮЧЁН ===
+    # _denoise_luminance() в c1_preset.py размывает КАЖДЫЙ канал R/G/B отдельно
+    # GaussianBlur'ом radius=1.2 и блендит через общий edge_mask. На границе
+    # кожа/волосы из-за feather=4 в маске это даёт хроматический сдвиг — ту
+    # самую RGB-радугу, которую мы видим на щеке и шее.
+    # Сервер ретуши уже отдаёт денойзенную кожу — наш доп. шумодав излишен.
     denoise_strength = float(preset.get("denoise_strength", 0.15))
-    if denoise_strength > 0.001:
-        try:
-            from c1_preset import apply_skin_denoise_with_mask
-            skin_mask_u8_for_denoise = (skin_mask_for_post.astype(np.uint8) * 255)
-            out_img = apply_skin_denoise_with_mask(
-                out_img, skin_mask_u8_for_denoise, strength=denoise_strength
-            )
-            del skin_mask_u8_for_denoise
-            print(f"[RETOUCH] [v3] Skin-only denoise applied (strength={denoise_strength:.2f})")
-        except Exception as e:
-            print(f"[RETOUCH] Skin denoise failed (non-critical): {e}")
-    else:
-        print("[RETOUCH] [v3] Skin denoise skipped (preset=light)")
+    print(f"[RETOUCH] [v3] Skin denoise: FORCE DISABLED "
+          f"(planned strength={denoise_strength:.2f}) — источник RGB-радуги")
 
     # === Dodge & Burn ОТКЛЮЧЁН ===
     # Создавал RGB-ореолы и пересвет на лице — снято до доработки.
@@ -1556,36 +1525,14 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     # Пока не починим — выключено для всех пресетов независимо от настроек.
     print("[RETOUCH] [v3] C1 preset DISABLED (источник тумана и ореолов)")
 
-    # === Финальный sharpening ТОЛЬКО ПО SKIN-МАСКЕ ===
-    # Применяется только в зоне кожи (без ореолов на волосах/фоне).
-    # Возвращает микро-резкость пор и черт лица, которые теряются на JPEG/денойзе.
+    # === Финальный sharpening ПРИНУДИТЕЛЬНО ОТКЛЮЧЁН ===
+    # UnsharpMask по skin-маске с feather=4 на границе волосы/кожа давал
+    # цветные RGB-ореолы (хроматическая аберрация). Сервер ретуши уже сохраняет
+    # достаточную резкость черт лица — наш доп. шарпинг создавал больше
+    # артефактов чем пользы. Выключено до доработки.
     sharpen_amount = float(preset.get("sharpen_amount", 0.45))
-    sharpen_radius = float(preset.get("sharpen_radius", 0.8))
-    if sharpen_amount > 0.001 and skin_mask_for_post.sum() > 100:
-        try:
-            percent = int(round(sharpen_amount * 110))  # 0.45 → 50%
-            sharp_img = out_img.filter(ImageFilter.UnsharpMask(
-                radius=sharpen_radius, percent=percent, threshold=3
-            ))
-            base_arr = np.array(out_img, dtype=np.int16)
-            sharp_arr = np.array(sharp_img, dtype=np.int16)
-            sk_u8 = skin_mask_for_post.astype(np.uint8)
-            if sk_u8.max() <= 1:
-                sk_u8 = sk_u8 * 255
-            mask_smooth = np.array(
-                Image.fromarray(sk_u8, 'L').filter(ImageFilter.GaussianBlur(radius=4)),
-                dtype=np.uint16,
-            )
-            for c in range(3):
-                diff_c = sharp_arr[..., c] - base_arr[..., c]
-                contrib = (diff_c * mask_smooth.astype(np.int16)) >> 8
-                base_arr[..., c] = np.clip(base_arr[..., c] + contrib, 0, 255)
-                del diff_c, contrib
-            out_img = Image.fromarray(base_arr.astype(np.uint8), 'RGB')
-            del base_arr, sharp_arr, sharp_img, sk_u8, mask_smooth
-            print(f"[RETOUCH] [v3] Skin-only sharpening (amount={sharpen_amount:.2f}, percent={percent})")
-        except Exception as e:
-            print(f"[RETOUCH] Sharpening failed (non-critical): {e}")
+    print(f"[RETOUCH] [v3] Skin sharpening: FORCE DISABLED "
+          f"(planned amount={sharpen_amount:.2f}) — источник RGB-ореола на границе щека/волосы")
 
     # background_protect полностью убран — давал двойные контуры/ореолы.
     # Если фон становится серым — это лечится на стороне LaMa-API, не post-compose.
