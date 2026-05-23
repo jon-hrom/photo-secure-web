@@ -425,6 +425,23 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
         print(f"[RETOUCH] Cannot open images for compose: {e}")
         return retouched_bytes
 
+    # === ДИАГНОСТИКА РАЗМЕРОВ ===
+    ow_in, oh_in = orig_img.size
+    rw_in, rh_in = ret_img.size
+    orig_ar = ow_in / max(1, oh_in)
+    ret_ar = rw_in / max(1, rh_in)
+    print(f"[RETOUCH] [SIZE] orig={ow_in}x{oh_in} (AR={orig_ar:.4f}) "
+          f"ret={rw_in}x{rh_in} (AR={ret_ar:.4f})")
+
+    # === ASPECT RATIO GUARD ===
+    # Если ret_img пришёл с другим соотношением сторон — любой resize его РАСТЯНЕТ,
+    # и при композиции по маске лицо «съедет» и увеличится. Лучше вернуть оригинал.
+    ar_diff = abs(orig_ar - ret_ar) / max(orig_ar, ret_ar)
+    if ar_diff > 0.02:
+        print(f"[RETOUCH] [SIZE] !!! Aspect ratio mismatch {ar_diff*100:.1f}% — "
+              f"возвращаем оригинал, чтобы не калечить геометрию лица")
+        return orig_bytes
+
     # ОГРАНИЧЕНИЕ ПАМЯТИ: Cloud Function имеет 256MB лимита.
     # Фото >MAX_COMPOSE_SIDE по стороне не помещается (float32 * 3 канала * 3 копии = OOM).
     # Ресайзим ДО композиции, это же разрешение отдаём наружу.
@@ -440,6 +457,7 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
 
     # Приводим результат к размеру оригинала (после возможного ресайза).
     if ret_img.size != orig_img.size:
+        print(f"[RETOUCH] [SIZE] Resize ret {ret_img.size} -> orig {orig_img.size}")
         ret_img = ret_img.resize(orig_img.size, Image.LANCZOS)
 
     # 2) Строим маску по оригиналу (тот же алгоритм, что и preview_mask).
