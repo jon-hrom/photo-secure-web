@@ -516,12 +516,19 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     if mask_gray.size != orig_img.size:
         mask_gray = mask_gray.resize(orig_img.size, Image.NEAREST)
 
-    # 3) Смягчаем края маски — МИНИМАЛЬНО, чтобы не было ни ступенек, ни тумана.
-    # Раньше: max(4, min(ow,oh)//200) → для 3000px=15px, для 6000px=30px (СЛИШКОМ много).
-    # Это создавало широкую "мягкую" зону на границе, где RGB-каналы расходились → ореол.
-    # Теперь фиксированный 2px: edge остаётся чётким, ступенек нет.
+    # 3) EROSION + feather: убираем «дымку по контуру головы».
+    # Маска кожи может слегка выходить за реальный контур лица (захватывает
+    # тонкую полоску волос/фона), и сервер ретуши там слегка изменяет цвет —
+    # после композиции это видно как светлый «нимб» вокруг головы.
+    # Решение: сжать маску на 4px ВНУТРЬ (erosion через MinFilter), и только
+    # потом feather=2px чтобы переход остался плавным.
+    erode_r = 4  # пикселей внутрь от исходного края маски
+    erode_size = erode_r * 2 + 1  # MinFilter ожидает нечётный размер окна
+    mask_gray = mask_gray.filter(ImageFilter.MinFilter(size=erode_size))
     feather_r = 2
     mask_gray = mask_gray.filter(ImageFilter.GaussianBlur(radius=feather_r))
+    print(f"[RETOUCH] [mask] Erosion={erode_r}px + feather={feather_r}px applied "
+          f"(защита от «нимба» по контуру головы)")
 
     # 4) Композиция: где маска — берём ретушь, где нет — оригинал.
     mask_arr = np.array(mask_gray, dtype=np.float32) / 255.0
