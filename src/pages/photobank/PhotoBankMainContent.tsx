@@ -239,6 +239,7 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
               if (parentId) setCreateSubfolderParentId(parentId);
             }}
             onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
+            onRetouchFolder={(id, name) => setRetouchFolder({ id, name })}
             onNavigateToParent={() => {
               if (selectedFolder?.parent_folder_id) {
                 const parentFolder = folders.find(f => f.id === selectedFolder.parent_folder_id);

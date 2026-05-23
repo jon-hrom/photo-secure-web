@@ -33,6 +33,7 @@ interface PhotoGridCardProps {
   onDownload: (s3Key: string, fileName: string, userId: number) => Promise<void>;
   onDeletePhoto: (photoId: number, fileName: string) => void;
   onShowExif?: (photo: Photo) => void;
+  onRetouch?: () => void;
   isAdminViewing?: boolean;
   frameMode?: FrameMode;
   getFrameStyle?: (dominantColor?: string) => CSSProperties;
@@ -47,6 +48,7 @@ const PhotoGridCard = ({
   onDownload,
   onDeletePhoto,
   onShowExif,
+  onRetouch,
   isAdminViewing = false,
   frameMode = 'none',
   getFrameStyle
@@ -228,6 +230,18 @@ const PhotoGridCard = ({
             >
               <Icon name="Trash2" size={10} className="text-white" />
             </button>
+            {onRetouch && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetouch();
+                }}
+                title="Ретушь фото"
+                className="absolute top-0.5 left-1/2 -translate-x-1/2 z-10 w-5 h-5 rounded-full bg-rose-500/80 hover:bg-rose-600 backdrop-blur-sm flex items-center justify-center transition-all touch-manipulation"
+              >
+                <Icon name="Sparkles" size={10} className="text-white" />
+              </button>
+            )}
             {emailVerified && photo.s3_key && (
               <button
                 onClick={(e) => {
