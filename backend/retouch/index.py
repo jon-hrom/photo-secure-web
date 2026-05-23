@@ -783,6 +783,7 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
 
     # Эффективная сила смешивания: тип кожи × тип плана.
     alpha = lf_strength * plan_multiplier
+    print(f"[RETOUCH] [ALPHA] Start: lf={lf_strength:.2f} × plan={plan_multiplier:.2f} = {alpha:.3f}")
 
     # === DARK SCENE GUARD ===
     # На тёмных сценах LaMa склонен делать тёмные/цветные артефакты.
@@ -817,7 +818,9 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
         if dark_factor < 1.0:
             print(f"[RETOUCH] [v3] Dark scene guard: face_Y={mean_face_y:.0f} "
                   f"shot={shot_type} → factor={dark_factor:.2f}")
+        alpha_before = alpha
         alpha *= dark_factor
+        print(f"[RETOUCH] [ALPHA] After DARK guard: {alpha_before:.3f} × {dark_factor:.2f} = {alpha:.3f}")
     except Exception as e:
         print(f"[RETOUCH] Dark scene guard failed (non-critical): {e}")
 
@@ -841,22 +844,24 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
             # Защита от ПОТЕМНЕНИЯ (артефакт «чёрное пятно»).
             # Пороги ослаблены: лёгкое выравнивание тонов (ΔY ~ -5..-10) — норма,
             # это не артефакт, и резать alpha из-за этого нельзя.
+            alpha_before_drift = alpha
+            drift_factor = 1.0
             if d_y < -30:
                 print(f"[RETOUCH] [v3] LaMa darkening guard: ΔY={d_y:+.1f} → alpha×0.5 (soft)")
-                alpha *= 0.5
+                drift_factor = 0.5
             elif d_y < -20:
-                attenuate = 1.0 - (abs(d_y) - 20) / 10.0 * 0.3
-                attenuate = max(0.7, min(1.0, attenuate))
-                print(f"[RETOUCH] [v3] LaMa darkening partial: ΔY={d_y:+.1f} → alpha×{attenuate:.2f}")
-                alpha *= attenuate
+                drift_factor = 1.0 - (abs(d_y) - 20) / 10.0 * 0.3
+                drift_factor = max(0.7, min(1.0, drift_factor))
+                print(f"[RETOUCH] [v3] LaMa darkening partial: ΔY={d_y:+.1f} → alpha×{drift_factor:.2f}")
             elif max_drift > 45:
                 print(f"[RETOUCH] [v3] Color drift heavy: ΔRGB=({d_r:+.1f},{d_g:+.1f},{d_b:+.1f}) → alpha×0.5")
-                alpha *= 0.5
+                drift_factor = 0.5
             elif max_drift > 28:
-                attenuate = 1.0 - (max_drift - 28) / 17.0 * 0.4
-                attenuate = max(0.6, min(1.0, attenuate))
-                print(f"[RETOUCH] [v3] Color drift partial: max={max_drift:.1f} → alpha×{attenuate:.2f}")
-                alpha *= attenuate
+                drift_factor = 1.0 - (max_drift - 28) / 17.0 * 0.4
+                drift_factor = max(0.6, min(1.0, drift_factor))
+                print(f"[RETOUCH] [v3] Color drift partial: max={max_drift:.1f} → alpha×{drift_factor:.2f}")
+            alpha *= drift_factor
+            print(f"[RETOUCH] [ALPHA] After COLOR_DRIFT guard: {alpha_before_drift:.3f} × {drift_factor:.2f} = {alpha:.3f}")
 
             # === CHROMA DRIFT GUARD ===
             # Артефакт «серое пятно»: LaMa не темнит, но ОБЕСЦВЕЧИВАЕТ кожу
@@ -879,18 +884,23 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
             chroma_orig = float(np.mean(orig_max - orig_min))
             if chroma_orig > 5:  # имеет смысл проверять только если кожа цветная
                 chroma_ratio = chroma_ret / chroma_orig
+                alpha_before_chroma = alpha
+                chroma_factor = 1.0
                 if chroma_ratio < 0.55:
                     print(f"[RETOUCH] [v3] Chroma drift heavy: "
                           f"{chroma_orig:.1f}→{chroma_ret:.1f} "
                           f"(ratio={chroma_ratio:.2f}) → alpha=0 (revert)")
+                    chroma_factor = 0.0
                     alpha = 0.0
                 elif chroma_ratio < 0.75:
                     # ratio=0.75 → 1.0, ratio=0.55 → 0.2
-                    attenuate = (chroma_ratio - 0.55) / 0.20 * 0.8 + 0.2
-                    attenuate = max(0.2, min(1.0, attenuate))
+                    chroma_factor = (chroma_ratio - 0.55) / 0.20 * 0.8 + 0.2
+                    chroma_factor = max(0.2, min(1.0, chroma_factor))
                     print(f"[RETOUCH] [v3] Chroma drift partial: "
-                          f"ratio={chroma_ratio:.2f} → alpha×{attenuate:.2f}")
-                    alpha *= attenuate
+                          f"ratio={chroma_ratio:.2f} → alpha×{chroma_factor:.2f}")
+                    alpha *= chroma_factor
+                if chroma_factor < 1.0:
+                    print(f"[RETOUCH] [ALPHA] After CHROMA guard: {alpha_before_chroma:.3f} × {chroma_factor:.2f} = {alpha:.3f}")
             del ret_max, ret_min, orig_max, orig_min
         del ret_arr_check, orig_arr_check
     except Exception as e:
