@@ -193,6 +193,11 @@ def _load_retouch_settings(conn):
 
 def _submit_async_task(image_base64, strength=0.6, enhance_face=False):
     """POST /api/v2/submit — поставить задачу в очередь, получить task_id."""
+    # HARD OFF: face-restore смещает черты лица и при композиции по маске
+    # даёт «увеличенное / съехавшее» лицо и RGB-радугу по краю.
+    # Принудительно отключаем независимо от пресета / request body.
+    enhance_face = False
+    print(f"[RETOUCH] Submit: strength={strength} enhance_face={enhance_face} (forced OFF)")
     resp = requests.post(
         f"{API_BASE}/submit",
         headers={
