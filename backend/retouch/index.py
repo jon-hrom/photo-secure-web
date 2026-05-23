@@ -999,31 +999,31 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     except Exception as e:
         print(f"[RETOUCH] Local darkening guard failed (non-critical): {e}")
 
-    # NOSE BOOST: усиливаем alpha до 0.90 на носу для крупных планов.
-    # Применяется ДЛЯ ВСЕХ типов кожи (раньше только mature) — у молодых
-    # с акне на носу скопление чёрных точек, базовая alpha их пропускает.
-    # На средних/дальних планах усиление не нужно — лицо и так маленькое.
-    if shot_type == "closeup":
-        try:
-            from skin_mask import _call_ai_face_parse
-            buf_nose = io.BytesIO()
-            orig_img.save(buf_nose, format='JPEG', quality=85)
-            nose_mask_np = _call_ai_face_parse(buf_nose.getvalue(), mode="nose")
-            if nose_mask_np is not None and nose_mask_np.size > 0:
-                nose_pil = Image.fromarray(nose_mask_np, mode='L').filter(
-                    ImageFilter.GaussianBlur(radius=4)
-                )
-                nose_u8 = np.array(nose_pil)
-                # Для acne-кожи ставим 0.95 (агрессивнее), для остальных 0.90
-                nose_target = 0.95 if skin_type == "young_acne" else 0.90
-                nose_alpha = int(nose_target * 255)
-                nose_component = ((nose_u8.astype(np.float32) / 255.0) * nose_alpha).astype(np.uint8)
-                m_u8 = np.maximum(m_u8, nose_component)
-                nose_cov = float(np.count_nonzero(nose_u8 > 128)) * 100 / max(1, nose_u8.size)
-                print(f"[RETOUCH] Nose boost: coverage={nose_cov:.1f}% alpha_on_nose={nose_target:.2f} (skin={skin_type})")
-                del nose_u8, nose_component, nose_mask_np
-        except Exception as e:
-            print(f"[RETOUCH] Nose boost failed (non-critical): {e}")
+    # NOSE BOOST: усиливаем alpha до 0.95 на носу для ВСЕХ типов планов.
+    # У подростков прыщи на крыльях носа — самое частое место, и базовая
+    # alpha (0.55-0.7) их часто не вытягивает полностью. Раньше boost работал
+    # только на closeup — но на medium/wide нос тоже видно, и прыщи там тоже
+    # надо чистить. Теперь работает всегда, для всех планов.
+    try:
+        from skin_mask import _call_ai_face_parse
+        buf_nose = io.BytesIO()
+        orig_img.save(buf_nose, format='JPEG', quality=85)
+        nose_mask_np = _call_ai_face_parse(buf_nose.getvalue(), mode="nose")
+        if nose_mask_np is not None and nose_mask_np.size > 0:
+            nose_pil = Image.fromarray(nose_mask_np, mode='L').filter(
+                ImageFilter.GaussianBlur(radius=4)
+            )
+            nose_u8 = np.array(nose_pil)
+            # Для acne-кожи 0.98 (максимум), для остальных 0.92
+            nose_target = 0.98 if skin_type == "young_acne" else 0.92
+            nose_alpha = int(nose_target * 255)
+            nose_component = ((nose_u8.astype(np.float32) / 255.0) * nose_alpha).astype(np.uint8)
+            m_u8 = np.maximum(m_u8, nose_component)
+            nose_cov = float(np.count_nonzero(nose_u8 > 128)) * 100 / max(1, nose_u8.size)
+            print(f"[RETOUCH] Nose boost: coverage={nose_cov:.1f}% alpha_on_nose={nose_target:.2f} (skin={skin_type} shot={shot_type})")
+            del nose_u8, nose_component, nose_mask_np
+    except Exception as e:
+        print(f"[RETOUCH] Nose boost failed (non-critical): {e}")
 
     # CHIN/MOUTH AREA BOOST: подбородок и зона вокруг рта.
     # Прыщи на подбородке часто не чистятся, потому что:
