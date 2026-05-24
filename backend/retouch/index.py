@@ -521,19 +521,19 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     if mask_gray.size != orig_img.size:
         mask_gray = mask_gray.resize(orig_img.size, Image.NEAREST)
 
-    # 3) EROSION + feather: убираем «дымку по контуру головы».
-    # Маска кожи может слегка выходить за реальный контур лица (захватывает
-    # тонкую полоску волос/фона), и сервер ретуши там слегка изменяет цвет —
-    # после композиции это видно как светлый «нимб» вокруг головы.
-    # Решение: сжать маску на 4px ВНУТРЬ (erosion через MinFilter), и только
-    # потом feather=2px чтобы переход остался плавным.
-    erode_r = 4  # пикселей внутрь от исходного края маски
-    erode_size = erode_r * 2 + 1  # MinFilter ожидает нечётный размер окна
+    # 3) EROSION + feather: убираем и «дымку по контуру головы», и «волну
+    # маски» на границе кожа/волосы.
+    # - erosion=6px сжимает маску внутрь, чтобы она точно не выходила за
+    #   лицо (раньше было 4 — местами всё ещё цепляло волосы).
+    # - feather=7px даёт плавный переход вместо «волнообразной» границы,
+    #   которая видна как зигзаг на лбу под волосами.
+    erode_r = 6   # было 4 — недостаточно на сложных причёсках
+    feather_r = 7  # было 2 — давало видимую границу маски
+    erode_size = erode_r * 2 + 1
     mask_gray = mask_gray.filter(ImageFilter.MinFilter(size=erode_size))
-    feather_r = 2
     mask_gray = mask_gray.filter(ImageFilter.GaussianBlur(radius=feather_r))
     print(f"[RETOUCH] [mask] Erosion={erode_r}px + feather={feather_r}px applied "
-          f"(защита от «нимба» по контуру головы)")
+          f"(плавная граница, без «волны» на лбу)")
 
     # 4) Композиция: где маска — берём ретушь, где нет — оригинал.
     mask_arr = np.array(mask_gray, dtype=np.float32) / 255.0
@@ -1544,6 +1544,52 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
             print(f"[RETOUCH] [v3] Skin smoothing skipped: strength={smooth_strength:.2f}")
     except Exception as e:
         print(f"[RETOUCH] Skin smoothing failed (non-critical): {e}")
+
+    # === RED-CAST REMOVAL: выравниваем «следы прыщей» по тону кожи ===
+    # Сервер ретуши убирает выпуклость прыща, но часто оставляет красное
+    # пятно на том же месте. Мы находим пиксели с избытком красного
+    # (R > среднего R окружающей кожи), и подтягиваем их R-канал к среднему
+    # тону кожи в радиусе 30px. G/B каналы не трогаем — иначе пятно станет
+    # серым (тоже плохо). Применяется ТОЛЬКО внутри маски кожи.
+    try:
+        if skin_mask_for_post.sum() > 200:
+            mask_bool = skin_mask_for_post
+            r_ch = result[:, :, 0].astype(np.float32)
+            g_ch = result[:, :, 1].astype(np.float32)
+            b_ch = result[:, :, 2].astype(np.float32)
+
+            # «Средний R соседей»: blur R-канала с большим радиусом
+            # (берём цвет издалека, минуя само пятно)
+            blur_r_pil = Image.fromarray(result[:, :, 0], 'L').filter(
+                ImageFilter.GaussianBlur(radius=30)
+            )
+            r_local_avg = np.asarray(blur_r_pil, dtype=np.float32)
+            del blur_r_pil
+
+            # Избыток красного в пикселе: насколько R выше среднего R вокруг
+            r_excess = r_ch - r_local_avg
+
+            # «Краснота» пикселя: R заметно выше G и B одновременно.
+            redness = r_ch - (g_ch + b_ch) / 2.0
+
+            # Пятно = и красноватый цвет, и локально выше среднего R.
+            # Порог 8 — обычные веснушки/тени не задеваем.
+            spot = np.clip((r_excess - 4.0) / 12.0, 0.0, 1.0) \
+                 * np.clip((redness - 8.0) / 10.0, 0.0, 1.0)
+
+            # Только внутри маски кожи (с тем же feather что у основной)
+            spot *= mask_bool.astype(np.float32)
+
+            # Сила коррекции: до 60% подтяжки к локальному среднему
+            pull = 0.6
+            r_new = r_ch * (1.0 - spot * pull) + r_local_avg * (spot * pull)
+            result[:, :, 0] = np.clip(r_new, 0, 255).astype(np.uint8)
+
+            affected = float(np.count_nonzero(spot > 0.1)) * 100 / spot.size
+            print(f"[RETOUCH] [v3] Red-cast removal: affected={affected:.2f}% pull={pull:.2f}")
+            del r_ch, g_ch, b_ch, r_local_avg, r_excess, redness, spot, r_new
+    except Exception as e:
+        print(f"[RETOUCH] Red-cast removal failed (non-critical): {e}")
 
     # === Capture One свадебный пресет (финальная цветокоррекция) ===
     # WB Kelvin 5390 / Tint -5.4, Exposure -0.39, Contrast -9, Brightness +22,
