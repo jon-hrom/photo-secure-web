@@ -1483,19 +1483,25 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     # поэтому добавляем СВОЁ разглаживание через локальное усреднение
     # (псевдо-bilateral на numpy). Сила зависит от плана и типа кожи.
     try:
-        # Базовая сила smoothing
+        # Базовая сила smoothing. Подняты значения: мелкие красно-коричневые
+        # точки (на носу, щеках) требуют radius >= 4 и strength >= 0.5,
+        # иначе они просто проходят сквозь размытие.
         if shot_type == "closeup":
-            smooth_strength = 0.25     # сильнее на крупных
-            smooth_radius = 3
+            smooth_strength = 0.55     # было 0.25 — мало
+            smooth_radius = 5          # было 3 — слишком мелко для пятен
         elif shot_type == "medium":
-            smooth_strength = 0.45     # умеренно
-            smooth_radius = 4
+            smooth_strength = 0.65     # было 0.45
+            smooth_radius = 5
         elif shot_type == "wide":
-            smooth_strength = 0.30     # лёгкое
-            smooth_radius = 3
+            smooth_strength = 0.45     # было 0.30
+            smooth_radius = 4
         else:
             smooth_strength = 0.0
             smooth_radius = 0
+
+        # Для акне-кожи дополнительный буст +30%
+        if skin_type == "young_acne":
+            smooth_strength *= 1.30
 
         # На mature кожах (морщины) — снижаем чтобы не превратить в пластик
         if skin_type in ("mature", "mature_textured"):
