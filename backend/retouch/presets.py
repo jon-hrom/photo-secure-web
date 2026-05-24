@@ -26,6 +26,7 @@ from typing import Dict, Any
 PRESETS: Dict[str, Dict[str, Any]] = {
     "light": {
         "strength": 0.35,
+        "alpha_multiplier": 0.65,
         "max_compose_side": 1800,
         "preview_side": 1024,
         "denoise_strength": 0.0,
@@ -39,6 +40,7 @@ PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "medium": {
         "strength": 0.55,
+        "alpha_multiplier": 1.00,
         "max_compose_side": 1800,
         "preview_side": 1024,
         "denoise_strength": 0.15,
@@ -51,7 +53,8 @@ PRESETS: Dict[str, Dict[str, Any]] = {
         "apply_c1_preset": False,
     },
     "strong": {
-        "strength": 0.80,
+        "strength": 0.85,
+        "alpha_multiplier": 1.35,
         "max_compose_side": 1800,
         "preview_side": 1024,
         "denoise_strength": 0.30,

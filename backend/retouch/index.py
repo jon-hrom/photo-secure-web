@@ -825,9 +825,13 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
     # Смесь = orig * (1 - m * alpha) + ret * (m * alpha)
     # где m = маска кожи, alpha = сила под тип кожи.
 
-    # Эффективная сила смешивания: тип кожи × тип плана.
-    alpha = lf_strength * plan_multiplier
-    print(f"[RETOUCH] [ALPHA] Start: lf={lf_strength:.2f} × plan={plan_multiplier:.2f} = {alpha:.3f}")
+    # Эффективная сила смешивания: тип кожи × тип плана × множитель пресета.
+    # alpha_multiplier даёт реальную разницу между light/medium/strong:
+    # light=0.65, medium=1.00, strong=1.35. Финальная alpha клиппится в [0..1].
+    alpha_mult = float(preset.get("alpha_multiplier", 1.0))
+    alpha = lf_strength * plan_multiplier * alpha_mult
+    alpha = max(0.0, min(1.0, alpha))
+    print(f"[RETOUCH] [ALPHA] Start: lf={lf_strength:.2f} × plan={plan_multiplier:.2f} × preset_mult={alpha_mult:.2f} = {alpha:.3f}")
 
     # === DARK SCENE GUARD ===
     # На тёмных сценах LaMa склонен делать тёмные/цветные артефакты.
