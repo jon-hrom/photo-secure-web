@@ -65,7 +65,7 @@ interface PhotoBankPhotoGridProps {
   onDeleteSubfolder?: (subfolder: PhotoFolder) => void;
   onNavigateToParent?: () => void;
   clientUploadSlot?: React.ReactNode;
-  onRetouchFolder?: (folderId: number, folderName: string) => void;
+  onRetouchFolder?: (folderId: number, folderName: string, photoId?: number) => void;
 }
 
 const handleDownload = async (s3Key: string, fileName: string, userId: number) => {
@@ -346,7 +346,7 @@ const PhotoBankPhotoGrid = ({
                     onShowExif={(photo) => setExifPhoto(photo)}
                     onRetouch={
                       onRetouchFolder && selectedFolder
-                        ? () => onRetouchFolder(selectedFolder.id, selectedFolder.folder_name)
+                        ? () => onRetouchFolder(selectedFolder.id, selectedFolder.folder_name, photo.id)
                         : undefined
                     }
                     frameMode={frameMode}

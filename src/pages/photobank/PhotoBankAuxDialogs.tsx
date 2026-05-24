@@ -55,8 +55,8 @@ interface PhotoBankAuxDialogsProps {
   fetchFolders: () => void;
   subfolderSettings: SubfolderSettings | null;
   setSubfolderSettings: (s: SubfolderSettings | null) => void;
-  retouchFolder: { id: number; name: string } | null;
-  setRetouchFolder: (f: { id: number; name: string } | null) => void;
+  retouchFolder: { id: number; name: string; photoId?: number } | null;
+  setRetouchFolder: (f: { id: number; name: string; photoId?: number } | null) => void;
 }
 
 const PhotoBankAuxDialogs = ({
@@ -112,6 +112,7 @@ const PhotoBankAuxDialogs = ({
           folderId={retouchFolder.id}
           folderName={retouchFolder.name}
           userId={userId}
+          preselectedPhotoId={retouchFolder.photoId}
           onRetouchComplete={fetchFolders}
         />
       )}

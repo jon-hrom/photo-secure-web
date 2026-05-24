@@ -46,7 +46,7 @@ interface PhotoBankMainContentProps {
   setShowStats: (v: boolean) => void;
   setFolderChatsId: (v: number | null) => void;
   setChatClient: (c: { id: number; name: string } | null) => void;
-  setRetouchFolder: (f: { id: number; name: string } | null) => void;
+  setRetouchFolder: (f: { id: number; name: string; photoId?: number } | null) => void;
   setViewsStatsFolder: (f: { id: number; name: string } | null) => void;
   setCreateSubfolderParentId: (id: number | null) => void;
   setSubfolderSettings: (s: { id: number; folder_name: string; has_password?: boolean; is_hidden?: boolean } | null) => void;
@@ -239,7 +239,7 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
               if (parentId) setCreateSubfolderParentId(parentId);
             }}
             onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
-            onRetouchFolder={(id, name) => setRetouchFolder({ id, name })}
+            onRetouchFolder={(id, name, photoId) => setRetouchFolder({ id, name, photoId })}
             onNavigateToParent={() => {
               if (selectedFolder?.parent_folder_id) {
                 const parentFolder = folders.find(f => f.id === selectedFolder.parent_folder_id);

@@ -36,7 +36,7 @@ const PhotoBank = () => {
   const [createSubfolderParentId, setCreateSubfolderParentId] = useState<number | null>(null);
   const [subfolderName, setSubfolderName] = useState('');
   const [subfolderSettings, setSubfolderSettings] = useState<{ id: number; folder_name: string; has_password?: boolean; is_hidden?: boolean } | null>(null);
-  const [retouchFolder, setRetouchFolder] = useState<{ id: number; name: string } | null>(null);
+  const [retouchFolder, setRetouchFolder] = useState<{ id: number; name: string; photoId?: number } | null>(null);
   const [viewsStatsFolder, setViewsStatsFolder] = useState<{ id: number; name: string } | null>(null);
 
   const navigation = usePhotoBankNavigationHistory();

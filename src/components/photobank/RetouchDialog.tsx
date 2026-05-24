@@ -28,10 +28,11 @@ interface RetouchDialogProps {
   folderId: number;
   folderName: string;
   userId: string;
+  preselectedPhotoId?: number;
   onRetouchComplete?: () => void;
 }
 
-const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRetouchComplete }: RetouchDialogProps) => {
+const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, preselectedPhotoId, onRetouchComplete }: RetouchDialogProps) => {
   const {
     tasks, isProcessing, waking, wakeStatus, submitting, minimized,
     startSession, fullClose, handleRetouchSingle, handleRetouchAll,
@@ -64,6 +65,14 @@ const RetouchDialog = ({ open, onOpenChange, folderId, folderName, userId, onRet
       loadPhotos();
     }
   }, [open, folderId]);
+
+  // Автоматический выбор фото при открытии диалога с конкретного фото
+  useEffect(() => {
+    if (open && preselectedPhotoId) {
+      setSelectedPhotoId(preselectedPhotoId);
+      setActiveTab('single');
+    }
+  }, [open, preselectedPhotoId]);
 
   const loadPhotos = async () => {
     setLoadingPhotos(true);
