@@ -14,9 +14,8 @@ from PIL import Image, ImageFilter, ImageOps
 import numpy as np
 
 
-RETOUCH_CODE_VERSION = "v6-2026-05-24-RED-CAST-REMOVAL-FORCE-DEPLOY"
+RETOUCH_CODE_VERSION = "v7-2026-05-24-NO-COMPOSE-RAW-RET-ONLY"
 print(f"[RETOUCH] Code version: {RETOUCH_CODE_VERSION}")
-print(f"[RETOUCH] FORCE DEPLOY MARKER 2026-05-24-attempt-1")
 
 RAW_EXTENSIONS = ('.cr2', '.cr3', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw', '.raf')
 
@@ -405,8 +404,11 @@ def _normalize_image_bytes(raw_bytes):
         raise RuntimeError(f"Invalid image bytes: {e}")
 
 
-def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_name="medium"):
-    """Смешивает результат внешнего API с оригиналом по маске кожи:
+def _compose_with_original_by_mask_DEAD(s3_client, in_key, retouched_bytes, preset_name="medium"):
+    """DEAD CODE — больше не вызывается (см. _save_result_bytes).
+    Оставлен для возможного возврата в будущем после рефакторинга.
+    Старая документация:
+    Смешивает результат внешнего API с оригиналом по маске кожи:
     - внутри маски (кожа, дефекты) — пиксели ретуши,
     - снаружи (волосы, брови, одежда, фон) — пиксели оригинала.
 
@@ -1656,14 +1658,14 @@ def _save_result_bytes(conn, user_id, task, result_bytes):
 
     result_bytes = _normalize_image_bytes(result_bytes)
 
-    # ПОСТ-ОБРАБОТКА: внешний API ретушит ВСЁ изображение (включая волосы, брови,
-    # одежду), что делает их "мультяшными". Смешиваем результат с оригиналом
-    # по нашей маске кожи — вне маски возвращаем пиксели оригинала.
-    try:
-        if in_key:
-            result_bytes = _compose_with_original_by_mask(s3_client, in_key, result_bytes, preset_name=preset_name)
-    except Exception as e:
-        print(f"[RETOUCH] Skin-mask compose failed (using raw result): {e}")
+    # ПОСТ-ОБРАБОТКА ОТКЛЮЧЕНА:
+    # Раньше здесь вызывался _compose_with_original_by_mask, который смешивал
+    # ret от сервера с оригиналом по маске кожи. Эта функция в сумме с deps
+    # делала пакет retouch слишком большим для 60-секундного деплоя платформы,
+    # из-за чего ВСЕ правки последних итераций не доезжали до прода.
+    # Теперь отдаём ret от сервера as-is — сервер уже даёт хороший результат.
+    print(f"[RETOUCH] [v7] Skipping compose — using ret from server as-is "
+          f"(preset={preset_name})")
 
     s3_client.put_object(
         Bucket=S3_BUCKET,
