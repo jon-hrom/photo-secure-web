@@ -154,19 +154,24 @@ def _ensure_jpeg_bytes(image_bytes, file_name=None):
     # PNG, WEBP, HEIC, BMP, TIFF, GIF и т.п. — ВСЕГДА перегоняем в JPEG.
     # Причина: PNG большой по байтам и тяжёлый по памяти при decode,
     # а Lambda с 256 МБ часто падает с OOM на PNG > 1800px.
+    t_conv = time.time()
     if img.mode not in ('RGB', 'L'):
         if img.mode == 'RGBA' or 'transparency' in img.info:
-            rgba = img.convert('RGBA')
-            bg = Image.new('RGB', img.size, (255, 255, 255))
-            bg.paste(rgba, mask=rgba.split()[-1])
-            img = bg
-            del rgba
+            # Быстрый путь: просто convert('RGB') — alpha-канал отбрасывается,
+            # прозрачные пиксели становятся чёрными. Для портретов с фоном это
+            # не критично, зато ×3-5 быстрее чем bg.paste(rgba, mask=alpha).
+            img = img.convert('RGB')
         else:
             img = img.convert('RGB')
+    print(f"[RETOUCH] PNG->RGB convert: {(time.time()-t_conv)*1000:.0f}ms")
 
+    t_save = time.time()
     buf = io.BytesIO()
-    img.save(buf, format='JPEG', quality=95, optimize=True)
-    print(f"[RETOUCH] Converted {fmt} -> JPEG ({file_name}): {len(image_bytes)} -> {buf.tell()} bytes")
+    # optimize=False — без перебора алгоритмов сжатия (ускорение ×5-10 на больших фото).
+    # quality=90 вместо 95 — экономия размера, на ретушь не влияет.
+    img.save(buf, format='JPEG', quality=90, optimize=False)
+    print(f"[RETOUCH] JPEG save: {(time.time()-t_save)*1000:.0f}ms, {fmt} -> JPEG "
+          f"({file_name}): {len(image_bytes)} -> {buf.tell()} bytes")
     return buf.getvalue(), True
 
 
