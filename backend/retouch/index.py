@@ -1504,13 +1504,38 @@ def _compose_with_original_by_mask(s3_client, in_key, retouched_bytes, preset_na
         # Множитель из пресета (light=0.5, medium=0.85, strong=1.15)
         smooth_strength *= float(preset.get("skin_smooth_multiplier", 0.85))
 
-        # === SKIN SMOOTHING ПРИНУДИТЕЛЬНО ОТКЛЮЧЁН ===
-        # Сервер ретуши уже выдаёт чистую и сглаженную кожу. Наше доп. размытие
-        # GaussianBlur по всему кадру + подмешивание через feather=6 маску давало
-        # видимую «дымку/туман» поверх лица и могло смещать границы тон-в-тон.
-        # Полностью выключаем (smooth_strength игнорируется).
-        print(f"[RETOUCH] [v3] Skin smoothing: FORCE DISABLED "
-              f"(planned strength={smooth_strength:.2f} radius={smooth_radius})")
+        # === SKIN SMOOTHING с жёсткой маской ===
+        # Возвращён, но с feather=2 (вместо 6) — это убирает мелкие красные точки
+        # на коже, которые сервер ретуши пропускает, и НЕ создаёт «дымку» по краю
+        # лица (раньше feather=6 давал нимб + размывал границу с волосами).
+        # Дополнительно: erosion маски на 4px уже сделан выше, так что
+        # сглаживание физически не выходит за лицо.
+        if smooth_strength > 0.05 and skin_mask_for_post.sum() > 100:
+            res_pil = Image.fromarray(result, 'RGB').filter(
+                ImageFilter.GaussianBlur(radius=smooth_radius)
+            )
+            blurred_u8 = np.array(res_pil, dtype=np.uint8)
+            del res_pil
+            # feather=2 (минимальный, чтобы не было ступенек). Раньше было 6.
+            mask_smooth_u8 = np.array(
+                Image.fromarray(
+                    (skin_mask_for_post.astype(np.uint8) * 255), 'L'
+                ).filter(ImageFilter.GaussianBlur(radius=2)),
+                dtype=np.uint8,
+            )
+            for c in range(3):
+                diff_c = blurred_u8[..., c].astype(np.int16) - result[..., c].astype(np.int16)
+                w = (mask_smooth_u8.astype(np.uint16) * int(smooth_strength * 256)) >> 8
+                contrib = (diff_c * w.astype(np.int16)) >> 8
+                result[..., c] = np.clip(
+                    result[..., c].astype(np.int16) + contrib, 0, 255
+                ).astype(np.uint8)
+                del diff_c, w, contrib
+            del blurred_u8, mask_smooth_u8
+            print(f"[RETOUCH] [v3] Skin smoothing applied: shot={shot_type} skin={skin_type} "
+                  f"strength={smooth_strength:.2f} radius={smooth_radius} feather=2")
+        else:
+            print(f"[RETOUCH] [v3] Skin smoothing skipped: strength={smooth_strength:.2f}")
     except Exception as e:
         print(f"[RETOUCH] Skin smoothing failed (non-critical): {e}")
 
