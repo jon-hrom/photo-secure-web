@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
@@ -39,6 +40,22 @@ const RetouchPhotoSelector = ({
   onRetouchSingle,
   onRetouchAll,
 }: RetouchPhotoSelectorProps) => {
+  const selectedThumbRef = useRef<HTMLButtonElement | null>(null);
+
+  // Автопрокрутка сетки к выбранному фото (если оно вне видимой области)
+  useEffect(() => {
+    if (selectedPhotoId && activeTab === 'single' && !loadingPhotos && selectedThumbRef.current) {
+      // Небольшая задержка, чтобы DOM успел отрендериться после открытия диалога
+      const t = setTimeout(() => {
+        selectedThumbRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [selectedPhotoId, activeTab, loadingPhotos, photos.length]);
+
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
       <TabsList className="grid w-full grid-cols-2 h-10 sm:h-9">
@@ -72,6 +89,7 @@ const RetouchPhotoSelector = ({
               {photos.map((photo) => (
                 <button
                   key={photo.id}
+                  ref={selectedPhotoId === photo.id ? selectedThumbRef : undefined}
                   onClick={() => onSelectPhoto(photo.id)}
                   className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 active:scale-95 sm:hover:scale-105 ${
                     selectedPhotoId === photo.id
