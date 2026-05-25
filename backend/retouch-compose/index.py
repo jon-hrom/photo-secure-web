@@ -82,10 +82,18 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         return _cors_response(405, {'error': 'Method not allowed'})
 
     try:
-        body_raw = event.get('body', '{}') or '{}'
+        body_raw = event.get('body') or '{}'
+        if not body_raw or body_raw == '':
+            body_raw = '{}'
         if event.get('isBase64Encoded'):
             body_raw = base64.b64decode(body_raw).decode('utf-8')
-        body = json.loads(body_raw) if isinstance(body_raw, str) else body_raw
+        try:
+            body = json.loads(body_raw) if isinstance(body_raw, str) else body_raw
+        except json.JSONDecodeError:
+            return _cors_response(400, {'error': 'invalid JSON body'})
+
+        if not isinstance(body, dict):
+            return _cors_response(400, {'error': 'body must be a JSON object'})
 
         in_key = body.get('in_key') or ''
         retouched_b64 = body.get('retouched_b64') or ''

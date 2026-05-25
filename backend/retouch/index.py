@@ -10,11 +10,10 @@ from psycopg2.extras import RealDictCursor
 import requests
 import boto3
 from botocore.client import Config
-from PIL import Image, ImageFilter, ImageOps
-import numpy as np
+from PIL import Image, ImageOps  # ImageFilter и numpy вынесены в retouch-compose
 
 
-RETOUCH_CODE_VERSION = "v7-2026-05-24-NO-COMPOSE-RAW-RET-ONLY"
+RETOUCH_CODE_VERSION = "v8-2026-05-25-COMPOSE-EXTRACTED-TO-SEPARATE-FN"
 print(f"[RETOUCH] Code version: {RETOUCH_CODE_VERSION}")
 
 RAW_EXTENSIONS = ('.cr2', '.cr3', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw', '.raf')
@@ -404,9 +403,48 @@ def _normalize_image_bytes(raw_bytes):
         raise RuntimeError(f"Invalid image bytes: {e}")
 
 
-def _compose_with_original_by_mask_DEAD(s3_client, in_key, retouched_bytes, preset_name="medium"):
-    """DEAD CODE — больше не вызывается (см. _save_result_bytes).
-    Оставлен для возможного возврата в будущем после рефакторинга.
+def _compose_via_retouch_compose(in_key, retouched_bytes, preset_name="medium"):
+    """Вызывает функцию retouch-compose через HTTP для тяжёлой обработки.
+    Передаёт base64 байты retouched_bytes, получает обратно композированные.
+    Если функция недоступна или вернула ошибку — возвращает retouched_bytes
+    без изменений (fallback к pass-through).
+    """
+    compose_url = os.environ.get(
+        "RETOUCH_COMPOSE_URL",
+        "https://functions.poehali.dev/52c57076-75a7-48a0-8f6c-a1e31c46cd8b",
+    )
+    try:
+        b64 = base64.b64encode(retouched_bytes).decode('ascii')
+        r = requests.post(
+            compose_url,
+            json={
+                'in_key': in_key,
+                'retouched_b64': b64,
+                'preset': preset_name,
+            },
+            timeout=120,
+        )
+        if r.status_code != 200:
+            print(f"[RETOUCH] compose returned {r.status_code}: {r.text[:200]}")
+            return retouched_bytes
+        data = r.json()
+        out_b64 = data.get('result_b64')
+        if not out_b64:
+            print(f"[RETOUCH] compose returned empty result_b64")
+            return retouched_bytes
+        out_bytes = base64.b64decode(out_b64)
+        print(f"[RETOUCH] compose ok: composed={data.get('composed')} "
+              f"size={data.get('size_bytes')} elapsed={data.get('elapsed_ms')}ms")
+        return out_bytes
+    except Exception as e:
+        print(f"[RETOUCH] compose call failed: {e}")
+        return retouched_bytes
+
+
+def _DEAD_compose_with_original_by_mask_LEGACY_BLOB(*args, **kwargs):
+    """LEGACY — старая функция, удалена ради уменьшения размера деплой-пакета.
+    Логика перенесена в отдельную функцию retouch-compose (Cloud Function).
+    Вызывайте _compose_via_retouch_compose(...) вместо неё.
     Старая документация:
     Смешивает результат внешнего API с оригиналом по маске кожи:
     - внутри маски (кожа, дефекты) — пиксели ретуши,
@@ -417,12 +455,33 @@ def _compose_with_original_by_mask_DEAD(s3_client, in_key, retouched_bytes, pres
     preset_name: light/medium/strong — управляет разрешением, шумодавом, шарпингом,
     защитой фона, dodge&burn и пр.
     """
-    from skin_mask import build_face_skin_mask
-    from presets import get_preset
+    raise NotImplementedError(
+        "Эта функция удалена из retouch для уменьшения размера деплой-пакета. "
+        "Используйте _compose_via_retouch_compose() — она вызывает функцию "
+        "retouch-compose по HTTP."
+    )
 
-    preset = get_preset(preset_name)
-    print(f"[RETOUCH] [preset] Using preset: {preset_name} → {preset}")
 
+# ===== СТАРОЕ ТЕЛО ФУНКЦИИ УДАЛЕНО (1230+ строк) =====
+# Вся логика SegFormer/SCRFD-масок, alpha-блендинга, smoothing, sharpening,
+# red-cast removal перенесена в Cloud Function retouch-compose
+# (backend/retouch-compose/). Это уменьшило размер пакета retouch в 3 раза
+# и решило проблему timeout 60 сек при деплое.
+# ====================================================
+
+
+def _DEAD_old_body_remnants_keep_for_grep():
+    """Заглушка, чтобы старый код помечен явно. НЕ ВЫЗЫВАТЬ."""
+    return None
+
+
+def _LEGACY_BLOB_START_marker():
+    """LEGACY: висячий код снизу — был телом удалённой функции. Сейчас будет
+    схлопнут в один блок. НЕ ВЫЗЫВАТЬ.
+    """
+    pass
+
+_LEGACY_BLOB_DEAD_CODE_BLOB_START = '''
     # 1) Скачиваем оригинал
     try:
         orig_obj = s3_client.get_object(Bucket=S3_BUCKET, Key=in_key)
@@ -1638,6 +1697,7 @@ def _compose_with_original_by_mask_DEAD(s3_client, in_key, retouched_bytes, pres
     out_img.save(out_buf, format='JPEG', quality=jpeg_quality, subsampling=0)
     print(f"[RETOUCH] Composed: coverage={coverage*100:.1f}% skin={skin_type} alpha={alpha:.2f} preset={preset_name} q={jpeg_quality}")
     return out_buf.getvalue()
+'''  # END of _LEGACY_BLOB_DEAD_CODE_BLOB_START — мёртвый код упакован в строку
 
 
 def _save_result_bytes(conn, user_id, task, result_bytes):
