@@ -1670,10 +1670,37 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     except Exception as e:
                         print(f'[REFUND_NOTIF] Error: {e}')
             
+            # Подгружаем свежие refunds, чтобы фронт сразу увидел корректные DB-id
+            client_response = dict(client)
+            try:
+                cur.execute('''
+                    SELECT id, payment_id, project_id, amount, reason, type, status, method, refund_date, payment_system_id
+                    FROM t_p28211681_photo_secure_web.client_refunds
+                    WHERE client_id = %s
+                    ORDER BY refund_date DESC
+                ''', (client_id,))
+                fresh_refunds = []
+                for r in cur.fetchall():
+                    fresh_refunds.append({
+                        'id': r['id'],
+                        'paymentId': r['payment_id'],
+                        'projectId': r['project_id'],
+                        'amount': float(r['amount']) if r['amount'] is not None else 0,
+                        'reason': r['reason'],
+                        'type': r['type'],
+                        'status': r['status'],
+                        'method': r['method'],
+                        'date': str(r['refund_date']) if r['refund_date'] else None,
+                        'paymentSystemId': r.get('payment_system_id'),
+                    })
+                client_response['refunds'] = fresh_refunds
+            except Exception as e:
+                print(f'[CLIENT_PUT_RESPONSE] Error loading fresh refunds: {e}')
+            
             return {
                 'statusCode': 200,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps(dict(client), default=str),
+                'body': json.dumps(client_response, default=str),
                 'isBase64Encoded': False
             }
         

@@ -649,7 +649,17 @@ export const useClientsHandlers = ({
         throw new Error('Failed to update client');
       }
       
-      setSelectedClient(updatedClient);
+      // Используем свежие refunds из ответа сервера (заменяет временные id на DB-id)
+      let mergedClient = updatedClient;
+      try {
+        const serverData = await res.json();
+        if (serverData && Array.isArray(serverData.refunds)) {
+          mergedClient = { ...updatedClient, refunds: serverData.refunds };
+        }
+      } catch (parseErr) {
+        console.warn('[CLIENT_UPDATE] Failed to parse server response:', parseErr);
+      }
+      setSelectedClient(mergedClient);
       
       await loadClients().catch(console.error);
       

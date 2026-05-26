@@ -326,7 +326,7 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
         send_email_notification(photographer_email, photographer_subject, photographer_html)
 
 
-def build_refund_email_html(photographer_name: str, project_name: str, refund_amount: float, total_paid: float, total_budget: float, remaining: float) -> str:
+def build_refund_email_html(photographer_name: str, project_name: str, refund_amount: float, total_paid: float, total_budget: float, remaining: float, total_paid_gross: float = 0, total_refunded: float = 0) -> str:
     """HTML шаблон письма о возврате средств"""
     return f"""<!DOCTYPE html>
 <html>
@@ -382,8 +382,16 @@ def build_refund_email_html(photographer_name: str, project_name: str, refund_am
         <span class="summary-value">{total_budget:,.0f} ₽</span>
       </div>
       <div class="summary-row">
-        <span class="summary-label">✅ Оплачено после возврата</span>
-        <span class="summary-value refund-highlight">{total_paid:,.0f} ₽</span>
+        <span class="summary-label">💳 Оплачено всего</span>
+        <span class="summary-value">{total_paid_gross:,.0f} ₽</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">↩️ Возвращено всего</span>
+        <span class="summary-value refund-highlight">{total_refunded:,.0f} ₽</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">✅ Оплачено фактически</span>
+        <span class="summary-value">{total_paid:,.0f} ₽</span>
       </div>
       <div class="summary-row">
         <span class="summary-label">⏳ Остаток к оплате</span>
@@ -429,8 +437,18 @@ def send_refund_notifications(cur, user_id: str, client_id: int, project_id: int
         WHERE project_id = %s AND client_id = %s
     ''', (project_id, client_id))
 
-    total_paid = float(cur.fetchone()[0])
-    remaining = max(0, total_budget - total_paid)
+    total_paid_gross = float(cur.fetchone()[0])
+    
+    # Сумма всех возвратов по проекту (статус completed)
+    cur.execute(f'''
+        SELECT COALESCE(SUM(amount), 0)
+        FROM {DB_SCHEMA}.client_refunds
+        WHERE project_id = %s AND client_id = %s AND status = 'completed'
+    ''', (project_id, client_id))
+    total_refunded = float(cur.fetchone()[0])
+    
+    net_paid = total_paid_gross - total_refunded
+    remaining = max(0, total_budget - net_paid)
 
     whatsapp_message = f"""🔄 Возврат средств
 
@@ -442,7 +460,9 @@ def send_refund_notifications(cur, user_id: str, client_id: int, project_id: int
 📊 Итого по оплате:
 ━━━━━━━━━━━━━━━━
 💰 Общая стоимость: {total_budget:,.0f} ₽
-✅ Оплачено после возврата: {total_paid:,.0f} ₽
+💳 Оплачено всего: {total_paid_gross:,.0f} ₽
+↩️ Возвращено всего: {total_refunded:,.0f} ₽
+✅ Оплачено фактически: {net_paid:,.0f} ₽
 ⏳ Остаток к оплате: {remaining:,.0f} ₽
 ━━━━━━━━━━━━━━━━
 
@@ -465,7 +485,9 @@ def send_refund_notifications(cur, user_id: str, client_id: int, project_id: int
 
 📊 <b>Итого по оплате:</b>
 💰 Общая стоимость: {total_budget:,.0f} ₽
-✅ Оплачено после возврата: <b>{total_paid:,.0f} ₽</b>
+💳 Оплачено всего: {total_paid_gross:,.0f} ₽
+↩️ Возвращено всего: <b>{total_refunded:,.0f} ₽</b>
+✅ Оплачено фактически: <b>{net_paid:,.0f} ₽</b>
 ⏳ Остаток к оплате: <b>{remaining:,.0f} ₽</b>
 
 Будем рады видеть вас на наших съёмках! 📸"""
@@ -475,9 +497,50 @@ def send_refund_notifications(cur, user_id: str, client_id: int, project_id: int
         subject = f"🔄 Возврат средств — {project_name}"
         html = build_refund_email_html(
             photographer_name, project_name, refund_amount,
-            total_paid, total_budget, remaining
+            net_paid, total_budget, remaining, total_paid_gross, total_refunded
         )
         send_email_notification(client_email, subject, html)
+    
+    # Уведомление фотографу
+    photographer_email = row[10] if len(row) > 10 else ''
+    photographer_telegram_chat_id = row[11] if len(row) > 11 else ''
+    
+    if photographer_phone:
+        ph_wa_message = f"""📸 Оформлен возврат
+
+👤 Клиент: {client_name}
+📋 Услуга: {project_name}
+
+🔄 Сумма возврата: {refund_amount:,.0f} ₽
+
+📊 Итого по проекту:
+━━━━━━━━━━━━━━━━
+💰 Общая стоимость: {total_budget:,.0f} ₽
+💳 Оплачено всего: {total_paid_gross:,.0f} ₽
+↩️ Возвращено всего: {total_refunded:,.0f} ₽
+✅ Оплачено фактически: {net_paid:,.0f} ₽
+⏳ Остаток к оплате: {remaining:,.0f} ₽
+━━━━━━━━━━━━━━━━
+
+—
+Сообщение сформировано автоматически системой учёта клиентов для фотографов foto-mix.ru"""
+        send_whatsapp_notification(user_id, photographer_phone, ph_wa_message, green_api_instance_id, green_api_token)
+    
+    if photographer_telegram_chat_id:
+        ph_tg_message = f"""📸 <b>Оформлен возврат</b>
+
+👤 Клиент: {client_name}
+📋 Услуга: {project_name}
+
+🔄 Сумма возврата: <b>{refund_amount:,.0f} ₽</b>
+
+📊 <b>Итого по проекту:</b>
+💰 Общая стоимость: {total_budget:,.0f} ₽
+💳 Оплачено всего: {total_paid_gross:,.0f} ₽
+↩️ Возвращено всего: <b>{total_refunded:,.0f} ₽</b>
+✅ Оплачено фактически: <b>{net_paid:,.0f} ₽</b>
+⏳ Остаток к оплате: <b>{remaining:,.0f} ₽</b>"""
+        send_telegram_notification(photographer_telegram_chat_id, ph_tg_message)
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
