@@ -34,7 +34,7 @@ export const createAddRefundHandler = (
     const refundDate = newRefund.date ? new Date(newRefund.date) : new Date();
 
     const refund: Refund = {
-      id: Date.now() + Math.random(),
+      id: Date.now() + Math.floor(Math.random() * 1000),
       paymentId: newRefund.paymentId ? parseInt(newRefund.paymentId) : undefined,
       projectId: newRefund.projectId ? parseInt(newRefund.projectId) : undefined,
       amount,

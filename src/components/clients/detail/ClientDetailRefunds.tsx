@@ -41,13 +41,6 @@ const ClientDetailRefunds = ({
   formatDate,
 }: ClientDetailRefundsProps) => {
   const [refundOpen, setRefundOpen] = useState(false);
-  const completedPayments = payments.filter(p => p.status === 'completed');
-
-  const getPaymentLabel = (payment: Payment) => {
-    const project = projects.find(p => p.id === payment.projectId);
-    const projectName = project ? project.name : '';
-    return `${payment.amount.toLocaleString('ru-RU')} ₽ — ${projectName || 'Без проекта'} (${formatDate(payment.date)})`;
-  };
 
   const getMaxRefundForPayment = (paymentId: number) => {
     const payment = payments.find(p => p.id === paymentId);
@@ -56,6 +49,22 @@ const ClientDetailRefunds = ({
       .filter(r => r.paymentId === paymentId && r.status === 'completed')
       .reduce((sum, r) => sum + r.amount, 0);
     return payment.amount - refunded;
+  };
+
+  // Только платежи, по которым ещё можно сделать возврат (остаток > 0)
+  const completedPayments = payments
+    .filter(p => p.status === 'completed')
+    .filter(p => getMaxRefundForPayment(p.id) > 0);
+
+  const getPaymentLabel = (payment: Payment) => {
+    const project = projects.find(p => p.id === payment.projectId);
+    const projectName = project ? project.name : '';
+    const remaining = getMaxRefundForPayment(payment.id);
+    const fullAmount = payment.amount;
+    const amountLabel = remaining < fullAmount
+      ? `${remaining.toLocaleString('ru-RU')} ₽ (из ${fullAmount.toLocaleString('ru-RU')} ₽)`
+      : `${fullAmount.toLocaleString('ru-RU')} ₽`;
+    return `${amountLabel} — ${projectName || 'Без проекта'} (${formatDate(payment.date)})`;
   };
 
   const selectedPaymentId = newRefund.paymentId ? parseInt(newRefund.paymentId) : null;

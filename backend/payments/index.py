@@ -544,6 +544,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         skip_insert = body_data.get('skipInsert', False)
         reserve_amount = float(body_data.get('reserveAmount') or 0)
 
+        # Отдельное действие: отправить уведомления о возврате средств
+        if action == 'notify_refund':
+            client_id_in = body_data.get('clientId')
+            project_id_in = body_data.get('projectId')
+            refund_amount = float(body_data.get('amount') or 0)
+            if not user_id or not client_id_in or not project_id_in or refund_amount <= 0:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'userId, clientId, projectId, amount required'}),
+                    'isBase64Encoded': False
+                }
+            conn = psycopg2.connect(os.environ['DATABASE_URL'])
+            try:
+                with conn.cursor() as cur:
+                    try:
+                        send_refund_notifications(cur, str(user_id), int(client_id_in), int(project_id_in), refund_amount)
+                    except Exception as e:
+                        print(f'[REFUND_NOTIF] Error: {e}')
+                    return {
+                        'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'success': True}),
+                        'isBase64Encoded': False
+                    }
+            finally:
+                conn.close()
+
         # Отдельное действие: использовать резерв клиента как оплату проекта
         if action == 'use_reserve':
             client_id_in = body_data.get('clientId')

@@ -1479,15 +1479,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     except Exception as e:
                         print(f'[PAYMENT_NOTIF] Error triggering notifications: {e}')
             
-            # Обновляем возвраты (upsert)
+            # Обновляем возвраты (upsert) — временные ID от фронта (> 10^12 — это Date.now()) заменяем автогенерацией
             if 'refunds' in body:
                 cur.execute('SELECT id FROM t_p28211681_photo_secure_web.client_refunds WHERE client_id = %s', (client_id,))
                 existing_ids = {row['id'] for row in cur.fetchall()}
-                incoming_ids = {r.get('id') for r in body.get('refunds', []) if r.get('id')}
+                # Только реальные DB-id (< 10^12) считаем "пришедшими"
+                incoming_real_ids = {int(r.get('id')) for r in body.get('refunds', []) 
+                                     if r.get('id') is not None and int(r.get('id')) < 1000000000000}
                 
-                ids_to_delete = existing_ids - incoming_ids
+                ids_to_delete = existing_ids - incoming_real_ids
                 if ids_to_delete:
                     cur.execute('DELETE FROM t_p28211681_photo_secure_web.client_refunds WHERE id = ANY(%s)', (list(ids_to_delete),))
+                
+                # Собираем новые возвраты (для уведомлений и истории)
+                new_refunds_created: list = []
                 
                 for refund in body.get('refunds', []):
                     refund_date_str = refund.get('date')
@@ -1502,32 +1507,80 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     else:
                         refund_date = datetime.now()
                     
-                    cur.execute('''
-                        INSERT INTO t_p28211681_photo_secure_web.client_refunds (id, client_id, payment_id, project_id, amount, reason, type, status, method, refund_date, payment_system_id)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (id) DO UPDATE SET
-                            payment_id = EXCLUDED.payment_id,
-                            project_id = EXCLUDED.project_id,
-                            amount = EXCLUDED.amount,
-                            reason = EXCLUDED.reason,
-                            type = EXCLUDED.type,
-                            status = EXCLUDED.status,
-                            method = EXCLUDED.method,
-                            refund_date = EXCLUDED.refund_date,
-                            payment_system_id = EXCLUDED.payment_system_id
-                    ''', (
-                        refund.get('id'),
-                        client_id,
-                        refund.get('paymentId'),
-                        refund.get('projectId'),
-                        refund.get('amount'),
-                        refund.get('reason', ''),
-                        refund.get('type', 'refund'),
-                        refund.get('status', 'completed'),
-                        refund.get('method'),
-                        refund_date,
-                        refund.get('paymentSystemId')
-                    ))
+                    refund_id_raw = refund.get('id')
+                    try:
+                        refund_id_int = int(refund_id_raw) if refund_id_raw is not None else None
+                    except (ValueError, TypeError):
+                        refund_id_int = None
+                    
+                    is_new = refund_id_int is None or refund_id_int >= 1000000000000 or refund_id_int not in existing_ids
+                    
+                    if is_new:
+                        # Новый возврат — INSERT с автогенерацией id
+                        cur.execute('''
+                            INSERT INTO t_p28211681_photo_secure_web.client_refunds 
+                                (client_id, payment_id, project_id, amount, reason, type, status, method, refund_date, payment_system_id)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            RETURNING id
+                        ''', (
+                            client_id,
+                            refund.get('paymentId'),
+                            refund.get('projectId'),
+                            refund.get('amount'),
+                            refund.get('reason', ''),
+                            refund.get('type', 'refund'),
+                            refund.get('status', 'completed'),
+                            refund.get('method'),
+                            refund_date,
+                            refund.get('paymentSystemId')
+                        ))
+                        created_id = cur.fetchone()['id']
+                        new_refunds_created.append({
+                            'id': created_id,
+                            'amount': float(refund.get('amount') or 0),
+                            'projectId': refund.get('projectId'),
+                            'paymentId': refund.get('paymentId'),
+                            'reason': refund.get('reason', ''),
+                            'type': refund.get('type', 'refund'),
+                            'date': refund_date,
+                        })
+                    else:
+                        # Существующий — UPDATE
+                        cur.execute('''
+                            UPDATE t_p28211681_photo_secure_web.client_refunds SET
+                                payment_id = %s, project_id = %s, amount = %s, reason = %s,
+                                type = %s, status = %s, method = %s, refund_date = %s, payment_system_id = %s
+                            WHERE id = %s AND client_id = %s
+                        ''', (
+                            refund.get('paymentId'),
+                            refund.get('projectId'),
+                            refund.get('amount'),
+                            refund.get('reason', ''),
+                            refund.get('type', 'refund'),
+                            refund.get('status', 'completed'),
+                            refund.get('method'),
+                            refund_date,
+                            refund.get('paymentSystemId'),
+                            refund_id_int,
+                            client_id,
+                        ))
+                
+                # Сохраняем для последующих уведомлений / истории (после commit)
+                if new_refunds_created:
+                    body['_created_refunds'] = new_refunds_created
+                    # Запись в Историю (client_messages) — системное сообщение
+                    for nr in new_refunds_created:
+                        try:
+                            history_text = f"Оформлен возврат: {nr['amount']:,.0f} ₽".replace(',', ' ')
+                            if nr.get('reason'):
+                                history_text += f". Причина: {nr['reason']}"
+                            cur.execute('''
+                                INSERT INTO t_p28211681_photo_secure_web.client_messages 
+                                    (client_id, type, author, content, message_date)
+                                VALUES (%s, %s, %s, %s, %s)
+                            ''', (client_id, 'system', 'Система', history_text, nr['date']))
+                        except Exception as e:
+                            print(f'[REFUND_HISTORY] Error writing history: {e}')
             
             # Обновляем комментарии (upsert)
             if 'comments' in body:
@@ -1597,6 +1650,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         ''', (msg_id, client_id, msg_type, msg_author, msg_content, msg_date))
             
             conn.commit()
+            
+            # Отправка уведомлений о возвратах (после commit, чтобы транзакция не зависела от внешних запросов)
+            created_refunds = body.get('_created_refunds', [])
+            for nr in created_refunds:
+                pay_project_id = nr.get('projectId')
+                amount = float(nr.get('amount') or 0)
+                if pay_project_id and amount > 0:
+                    try:
+                        payments_url = 'https://functions.poehali.dev/dfa7acb6-e4ef-43d5-a1be-47ffcb09760f'
+                        requests.post(payments_url, json={
+                            'action': 'notify_refund',
+                            'userId': photographer_id,
+                            'clientId': client_id,
+                            'projectId': pay_project_id,
+                            'amount': amount,
+                        }, headers={'Content-Type': 'application/json'}, timeout=15)
+                        print(f'[REFUND_NOTIF] Triggered: amount={amount}, project={pay_project_id}')
+                    except Exception as e:
+                        print(f'[REFUND_NOTIF] Error: {e}')
             
             return {
                 'statusCode': 200,

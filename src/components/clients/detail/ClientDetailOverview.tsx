@@ -40,6 +40,9 @@ const ClientDetailOverview = ({
   const totalRefunded = completedRefunds.reduce((sum, r) => sum + r.amount, 0);
   const netPaid = totalPaid - totalRefunded;
   const totalRemaining = totalBudget - netPaid;
+  const lastRefund = completedRefunds.length > 0
+    ? completedRefunds.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+    : null;
 
   const [animateKey, setAnimateKey] = useState(0);
 
@@ -63,7 +66,7 @@ const ClientDetailOverview = ({
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${totalRefunded > 0 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-3 sm:gap-4`}>
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">Общий бюджет</CardTitle>
@@ -108,6 +111,27 @@ const ClientDetailOverview = ({
             </p>
           </CardContent>
         </Card>
+
+        {totalRefunded > 0 && (
+          <Card className="border-orange-500/50 bg-gradient-to-br from-orange-500/10 to-orange-500/5 shadow-[0_0_20px_-5px_rgba(249,115,22,0.4)]">
+            <CardHeader className="pb-2 sm:pb-3">
+              <CardTitle className="text-xs sm:text-sm font-medium text-foreground flex items-center gap-2">
+                <Icon name="RotateCcw" size={14} className="text-orange-500" />
+                Возвращено
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold text-orange-500">
+                <span key={`refunded-${animateKey}`} className="inline-block animate-in fade-in zoom-in-50 duration-500">
+                  {totalRefunded.toLocaleString('ru-RU')} ₽
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {lastRefund ? `Последний: ${formatDateTime(lastRefund.date).split(' ')[0]}` : `Возвратов: ${completedRefunds.length}`}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className={reserveBalance > 0 ? 'border-emerald-500/50 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]' : ''}>
           <CardHeader className="pb-2 sm:pb-3">
