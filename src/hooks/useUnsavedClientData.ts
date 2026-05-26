@@ -149,6 +149,10 @@ export const useUnsavedClientData = (userId: string | null) => {
 
   const clearClientData = useCallback(() => {
     if (!userId) return;
+    if (saveTimers.current['client_0']) {
+      clearTimeout(saveTimers.current['client_0']);
+      delete saveTimers.current['client_0'];
+    }
     setCache(prev => ({ ...prev, client: {} }));
     apiRequest('DELETE', { draft_type: 'client', client_id: 0 });
   }, [userId, apiRequest]);
@@ -179,6 +183,11 @@ export const useUnsavedClientData = (userId: string | null) => {
 
   const clearProjectData = useCallback((clientId: number) => {
     if (!userId) return;
+    const key = `project_${clientId}`;
+    if (saveTimers.current[key]) {
+      clearTimeout(saveTimers.current[key]);
+      delete saveTimers.current[key];
+    }
     setCache(prev => {
       const nextProject = { ...prev.project };
       delete nextProject[String(clientId)];
@@ -215,6 +224,11 @@ export const useUnsavedClientData = (userId: string | null) => {
 
   const clearOpenCardData = useCallback((clientId: number) => {
     if (!userId) return;
+    const key = `open_${clientId}`;
+    if (saveTimers.current[key]) {
+      clearTimeout(saveTimers.current[key]);
+      delete saveTimers.current[key];
+    }
     setCache(prev => {
       const next = { ...prev.open_card };
       delete next[String(clientId)];
