@@ -183,7 +183,7 @@ def get_client_project_data(cur, client_id: int, project_id: int):
     return cur.fetchone()
 
 
-def send_payment_notifications(cur, user_id: str, client_id: int, project_id: int, payment_amount: float, method: str):
+def send_payment_notifications(cur, user_id: str, client_id: int, project_id: int, payment_amount: float, method: str, reserve_amount: float = 0):
     """Отправить уведомления о платеже по всем каналам (WhatsApp, Telegram, Email)"""
     row = get_client_project_data(cur, client_id, project_id)
     if not row:
@@ -212,7 +212,22 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
     total_paid = float(cur.fetchone()[0])
     remaining = max(0, total_budget - total_paid)
 
+    # Получаем актуальный баланс резерва клиента
+    cur.execute(f'''
+        SELECT COALESCE(reserve_balance, 0) FROM {DB_SCHEMA}.clients WHERE id = %s
+    ''', (client_id,))
+    reserve_row = cur.fetchone()
+    reserve_balance = float(reserve_row[0]) if reserve_row else 0.0
+
+    # Засчитанная в проект сумма = платёж минус то, что ушло в резерв
+    project_credited = payment_amount - (reserve_amount or 0)
+
     is_fully_paid = remaining == 0
+    
+    reserve_line_wa = f"\n💼 В финансовый резерв: +{reserve_amount:,.0f} ₽ (баланс резерва: {reserve_balance:,.0f} ₽)" if reserve_amount and reserve_amount > 0 else ""
+    reserve_line_tg = f"\n💼 В финансовый резерв: <b>+{reserve_amount:,.0f} ₽</b> (баланс резерва: <b>{reserve_balance:,.0f} ₽</b>)" if reserve_amount and reserve_amount > 0 else ""
+    credited_line_wa = f"\n✅ Засчитано в счёт услуги: {project_credited:,.0f} ₽" if reserve_amount and reserve_amount > 0 else ""
+    credited_line_tg = f"\n✅ Засчитано в счёт услуги: <b>{project_credited:,.0f} ₽</b>" if reserve_amount and reserve_amount > 0 else ""
 
     if is_fully_paid:
         wa_header = "✅ Оплата полностью внесена!"
@@ -224,7 +239,7 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
 📋 Услуга: {project_name}
 👤 Фотограф: {photographer_name}
 
-💳 Внесено сейчас: {payment_amount:,.0f} ₽ ({format_method_name(method)})
+💳 Внесено сейчас: {payment_amount:,.0f} ₽ ({format_method_name(method)}){credited_line_wa}{reserve_line_wa}
 
 📊 Итого по оплате:
 ━━━━━━━━━━━━━━━━
@@ -247,7 +262,7 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
 📋 Услуга: {project_name}
 👤 Фотограф: {photographer_name}
 
-💳 Внесено сейчас: <b>{payment_amount:,.0f} ₽</b> ({format_method_name(method)})
+💳 Внесено сейчас: <b>{payment_amount:,.0f} ₽</b> ({format_method_name(method)}){credited_line_tg}{reserve_line_tg}
 
 📊 <b>Итого по оплате:</b>
 💰 Общая стоимость: {total_budget:,.0f} ₽
@@ -273,7 +288,7 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
 👤 Клиент: {client_name}
 📋 Услуга: {project_name}
 
-💳 Внесено: {payment_amount:,.0f} ₽ ({format_method_name(method)})
+💳 Внесено: {payment_amount:,.0f} ₽ ({format_method_name(method)}){credited_line_wa}{reserve_line_wa}
 
 📊 Итого по оплате:
 ━━━━━━━━━━━━━━━━
@@ -294,7 +309,7 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
 👤 Клиент: {client_name}
 📋 Услуга: {project_name}
 
-💳 Внесено: <b>{payment_amount:,.0f} ₽</b> ({format_method_name(method)})
+💳 Внесено: <b>{payment_amount:,.0f} ₽</b> ({format_method_name(method)}){credited_line_tg}{reserve_line_tg}
 
 📊 <b>Итого по оплате:</b>
 💰 Общая стоимость: {total_budget:,.0f} ₽
@@ -654,9 +669,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     conn.commit()
 
-                print(f'[PAYMENT_NOTIF] Sending notifications: user={user_id}, client={client_id}, project={project_id}, amount={amount}, method={method_type}, skipInsert={skip_insert}')
+                print(f'[PAYMENT_NOTIF] Sending notifications: user={user_id}, client={client_id}, project={project_id}, amount={amount}, method={method_type}, skipInsert={skip_insert}, reserveAmount={reserve_amount}')
                 try:
-                    send_payment_notifications(cur, str(user_id), client_id, int(project_id), float(amount), method_type)
+                    send_payment_notifications(cur, str(user_id), client_id, int(project_id), float(amount), method_type, float(reserve_amount or 0))
                 except Exception as e:
                     print(f'[PAYMENT_NOTIF] Notification error (non-critical): {e}')
 

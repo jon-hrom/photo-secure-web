@@ -63,6 +63,18 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   
   // Хук для управления диалогами и состоянием
   const dialogsState = useClientsDialogs(userId, clients);
+
+  // Синхронизация selectedClient с актуальным списком клиентов (важно для резерва после оплаты)
+  useEffect(() => {
+    const selId = dialogsState.selectedClient?.id;
+    if (!selId) return;
+    const fresh = clients.find(c => c.id === selId);
+    if (!fresh) return;
+    if (fresh !== dialogsState.selectedClient) {
+      dialogsState.setSelectedClient(fresh);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients]);
   
   // Хук для обработчиков событий
   const handlers = useClientsHandlers({
