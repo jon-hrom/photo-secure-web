@@ -9,9 +9,14 @@ import ClientDialogContent from '@/components/clients/dialog/ClientDialogContent
 import { useClientDetailState } from '@/components/clients/dialog/ClientDetailDialogState';
 import { useClientDetailHandlers } from '@/components/clients/dialog/ClientDetailDialogHandlers';
 import UnsavedProjectDialog from '@/components/clients/UnsavedProjectDialog';
+import OverpaymentDialog from '@/components/clients/dialog/OverpaymentDialog';
+import UseReserveDialog from '@/components/clients/dialog/UseReserveDialog';
+import { OverpaymentRequest } from '@/components/clients/dialog/PaymentHandlers';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { todayLocalDate } from '@/utils/dateFormat';
 import { toast } from 'sonner';
+
+const PAYMENTS_API = 'https://functions.poehali.dev/dfa7acb6-e4ef-43d5-a1be-47ffcb09760f';
 
 interface ClientDetailDialogProps {
   open: boolean;
@@ -31,6 +36,8 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
     | { kind: 'tab'; target: string }
     | null
   >(null);
+  const [overpayment, setOverpayment] = useState<OverpaymentRequest | null>(null);
+  const [reservePrompt, setReservePrompt] = useState<{ projectId: number; projectName: string; budget: number } | null>(null);
 
   const hasUnsavedProjectChanges = useMemo(
     () => Object.values(dirtyProjects).some(Boolean),
@@ -161,14 +168,114 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
     setNewMessage,
     onUpdate,
     photographerName,
-    () => {
+    (created) => {
       clearProjectData(localClient.id);
       clearOpenCardData(localClient.id);
+      const balance = localClient.reserveBalance ?? 0;
+      if (created && balance > 0) {
+        setReservePrompt({ projectId: created.id, projectName: created.name, budget: created.budget });
+      }
     },
     refunds,
     newRefund,
     setNewRefund,
+    (req: OverpaymentRequest) => setOverpayment(req),
   );
+
+  const handleUseReserve = async (amount: number) => {
+    if (!reservePrompt) return;
+    const userId = localStorage.getItem('userId') || '';
+    try {
+      const res = await fetch(PAYMENTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({
+          action: 'use_reserve',
+          userId,
+          clientId: localClient.id,
+          projectId: reservePrompt.projectId,
+          amount,
+          date: new Date().toISOString(),
+        }),
+      });
+      if (res.ok) {
+        toast.success(`${amount.toLocaleString('ru-RU')} ₽ списано из резерва на проект «${reservePrompt.projectName}»`);
+        window.dispatchEvent(new Event('clients:refresh'));
+      } else {
+        toast.error('Не удалось списать резерв');
+      }
+    } catch (e) {
+      console.error('[Reserve] use error', e);
+      toast.error('Ошибка списания резерва');
+    }
+    setReservePrompt(null);
+  };
+
+  const persistPaymentToBackend = async (
+    projectId: number,
+    amount: number,
+    method: string,
+    date: string,
+    reserveAmount: number,
+  ) => {
+    const userId = localStorage.getItem('userId') || '';
+    try {
+      const res = await fetch(PAYMENTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({
+          userId,
+          projectId,
+          amount,
+          method,
+          date,
+          reserveAmount,
+        }),
+      });
+      if (!res.ok) {
+        toast.error('Не удалось сохранить платёж');
+        return false;
+      }
+      window.dispatchEvent(new Event('clients:refresh'));
+      return true;
+    } catch (e) {
+      console.error('[Payment] save error', e);
+      toast.error('Ошибка сохранения платежа');
+      return false;
+    }
+  };
+
+  const handleReturnChange = async () => {
+    if (!overpayment) return;
+    const ok = await persistPaymentToBackend(
+      overpayment.projectId,
+      overpayment.projectRemaining,
+      overpayment.method,
+      overpayment.paymentDate,
+      0,
+    );
+    if (ok) {
+      toast.success(`Зачтено ${overpayment.projectRemaining.toLocaleString('ru-RU')} ₽ · сдача ${overpayment.overpayAmount.toLocaleString('ru-RU')} ₽ возвращена клиенту`);
+      setNewPayment({ projectId: '', amount: '', method: 'cash', date: todayLocalDate(), splitAcrossProjects: false });
+    }
+    setOverpayment(null);
+  };
+
+  const handleAddToReserve = async () => {
+    if (!overpayment) return;
+    const ok = await persistPaymentToBackend(
+      overpayment.projectId,
+      overpayment.paymentAmount,
+      overpayment.method,
+      overpayment.paymentDate,
+      overpayment.overpayAmount,
+    );
+    if (ok) {
+      toast.success(`${overpayment.overpayAmount.toLocaleString('ru-RU')} ₽ зачислено в финансовый резерв клиента`);
+      setNewPayment({ projectId: '', amount: '', method: 'cash', date: todayLocalDate(), splitAcrossProjects: false });
+    }
+    setOverpayment(null);
+  };
 
   const guardedOnOpenChange = (next: boolean) => {
     if (!next && hasUnsavedProjectChanges) {
@@ -342,6 +449,26 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
           setIsUnsavedProjectDialogOpen(false);
         }}
         projectData={client?.id ? loadProjectData(client.id) : null}
+      />
+
+      <OverpaymentDialog
+        open={overpayment !== null}
+        onOpenChange={(o) => { if (!o) setOverpayment(null); }}
+        paymentAmount={overpayment?.paymentAmount ?? 0}
+        projectRemaining={overpayment?.projectRemaining ?? 0}
+        overpayAmount={overpayment?.overpayAmount ?? 0}
+        onReturnChange={handleReturnChange}
+        onAddToReserve={handleAddToReserve}
+      />
+
+      <UseReserveDialog
+        open={reservePrompt !== null}
+        onOpenChange={(o) => { if (!o) setReservePrompt(null); }}
+        reserveBalance={localClient.reserveBalance ?? 0}
+        projectBudget={reservePrompt?.budget ?? 0}
+        projectName={reservePrompt?.projectName ?? ''}
+        onSkip={() => setReservePrompt(null)}
+        onUse={handleUseReserve}
       />
     </Dialog>
   );

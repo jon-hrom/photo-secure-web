@@ -474,7 +474,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Оптимизированный запрос: сначала получаем всех клиентов
                 cur.execute('''
-                    SELECT id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, telegram_chat_id, avatar_url, created_at, updated_at
+                    SELECT id, user_id, name, phone, email, address, vk_profile, vk_username, birthdate, telegram_chat_id, avatar_url, reserve_balance, created_at, updated_at
                     FROM t_p28211681_photo_secure_web.clients 
                     WHERE photographer_id = %s
                     ORDER BY created_at DESC
@@ -597,6 +597,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         documents_by_client[cid] = []
                     documents_by_client[cid].append(d)
                 
+                # Массовый запрос движений финансового резерва
+                cur.execute('''
+                    SELECT client_id, id, amount, type, source_payment_id, target_project_id, description, created_at
+                    FROM t_p28211681_photo_secure_web.reserve_transactions
+                    WHERE client_id = ANY(%s)
+                    ORDER BY created_at DESC
+                ''', (list(client_ids),))
+                all_reserve_tx = cur.fetchall()
+                reserve_tx_by_client = {}
+                for rt in all_reserve_tx:
+                    cid = rt['client_id']
+                    if cid not in reserve_tx_by_client:
+                        reserve_tx_by_client[cid] = []
+                    reserve_tx_by_client[cid].append(rt)
+                
                 # Собираем результат
                 result = []
                 for client in clients:
@@ -677,6 +692,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             'upload_date': str(d['upload_date']) if d['upload_date'] else None
                         })
                     
+                    raw_reserve_tx = reserve_tx_by_client.get(cid, [])
+                    reserve_transactions = [{
+                        'id': rt['id'],
+                        'amount': float(rt['amount']),
+                        'type': rt['type'],
+                        'sourcePaymentId': rt.get('source_payment_id'),
+                        'targetProjectId': rt.get('target_project_id'),
+                        'description': rt.get('description'),
+                        'date': str(rt['created_at']) if rt['created_at'] else None
+                    } for rt in raw_reserve_tx]
+                    
                     result.append({
                         **dict(client),
                         'vkProfile': client['vk_profile'],
@@ -684,6 +710,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'birthdate': str(client['birthdate']) if client.get('birthdate') else None,
                         'created_at': str(client['created_at']) if client['created_at'] else None,
                         'updated_at': str(client['updated_at']) if client['updated_at'] else None,
+                        'reserveBalance': float(client.get('reserve_balance') or 0),
+                        'reserveTransactions': reserve_transactions,
                         'bookings': [
                             {
                                 'id': b['id'],

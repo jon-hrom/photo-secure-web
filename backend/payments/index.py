@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -519,12 +520,73 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     if method == 'POST':
         body_data = json.loads(event.get('body', '{}'))
+        action = body_data.get('action')
         user_id = body_data.get('userId')
         project_id = body_data.get('projectId')
         amount = body_data.get('amount')
         method_type = body_data.get('method', 'cash')
         date = body_data.get('date')
         skip_insert = body_data.get('skipInsert', False)
+        reserve_amount = float(body_data.get('reserveAmount') or 0)
+
+        # Отдельное действие: использовать резерв клиента как оплату проекта
+        if action == 'use_reserve':
+            client_id_in = body_data.get('clientId')
+            target_project_id = body_data.get('projectId')
+            use_amount = float(body_data.get('amount') or 0)
+            if not user_id or not client_id_in or not target_project_id or use_amount <= 0:
+                return {
+                    'statusCode': 400,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'error': 'userId, clientId, projectId, amount required'}),
+                    'isBase64Encoded': False
+                }
+            conn = psycopg2.connect(os.environ['DATABASE_URL'])
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(f'''
+                        SELECT reserve_balance FROM {DB_SCHEMA}.clients
+                        WHERE id = %s AND user_id = %s
+                    ''', (client_id_in, user_id))
+                    row = cur.fetchone()
+                    if not row:
+                        return {
+                            'statusCode': 403,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Access denied'}),
+                            'isBase64Encoded': False
+                        }
+                    current_reserve = float(row[0] or 0)
+                    if use_amount > current_reserve:
+                        return {
+                            'statusCode': 400,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Insufficient reserve balance'}),
+                            'isBase64Encoded': False
+                        }
+                    cur.execute(f'''
+                        INSERT INTO {DB_SCHEMA}.client_payments (project_id, client_id, amount, method, payment_date, description)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    ''', (target_project_id, client_id_in, use_amount, 'reserve', date or datetime.utcnow().isoformat(), 'Списание из финансового резерва'))
+                    pay_id = cur.fetchone()[0]
+                    cur.execute(f'''
+                        UPDATE {DB_SCHEMA}.clients SET reserve_balance = reserve_balance - %s
+                        WHERE id = %s
+                    ''', (use_amount, client_id_in))
+                    cur.execute(f'''
+                        INSERT INTO {DB_SCHEMA}.reserve_transactions (client_id, user_id, amount, type, source_payment_id, target_project_id, description)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ''', (client_id_in, user_id, -use_amount, 'used', pay_id, target_project_id, 'Списано на оплату проекта'))
+                    conn.commit()
+                    return {
+                        'statusCode': 200,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'success': True, 'paymentId': pay_id}),
+                        'isBase64Encoded': False
+                    }
+            finally:
+                conn.close()
 
         if not user_id or not project_id or not amount:
             return {
@@ -578,6 +640,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     ''', (project_id, client_id, amount, method_type, date))
 
                     payment_id = cur.fetchone()[0]
+                    
+                    # Если часть платежа уходит в финансовый резерв (переплата)
+                    if reserve_amount > 0:
+                        cur.execute(f'''
+                            UPDATE {DB_SCHEMA}.clients SET reserve_balance = reserve_balance + %s
+                            WHERE id = %s
+                        ''', (reserve_amount, client_id))
+                        cur.execute(f'''
+                            INSERT INTO {DB_SCHEMA}.reserve_transactions (client_id, user_id, amount, type, source_payment_id, description)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        ''', (client_id, str(user_id), reserve_amount, 'added', payment_id, 'Сдача с переплаты — учтена в резерв'))
+                    
                     conn.commit()
 
                 print(f'[PAYMENT_NOTIF] Sending notifications: user={user_id}, client={client_id}, project={project_id}, amount={amount}, method={method_type}, skipInsert={skip_insert}')
@@ -628,6 +702,23 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
 
+                # Откатываем связанные движения резерва (если этот платёж пополнял или списывал резерв)
+                cur.execute(f'''
+                    SELECT COALESCE(SUM(amount), 0)
+                    FROM {DB_SCHEMA}.reserve_transactions
+                    WHERE source_payment_id = %s
+                ''', (payment_id,))
+                reserve_delta = float(cur.fetchone()[0] or 0)
+                if reserve_delta != 0:
+                    cur.execute(f'''
+                        UPDATE {DB_SCHEMA}.clients SET reserve_balance = reserve_balance - %s
+                        WHERE id = %s
+                    ''', (reserve_delta, payment_row[2]))
+                    cur.execute(f'''
+                        INSERT INTO {DB_SCHEMA}.reserve_transactions (client_id, user_id, amount, type, source_payment_id, description)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    ''', (payment_row[2], str(user_id), -reserve_delta, 'rollback', payment_id, 'Откат при удалении платежа'))
+                
                 cur.execute(f'DELETE FROM {DB_SCHEMA}.client_payments WHERE id = %s', (payment_id,))
                 conn.commit()
 

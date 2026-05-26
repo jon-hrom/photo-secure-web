@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Icon from '@/components/ui/icon';
-import { Project, Payment, Comment, Refund } from '@/components/clients/ClientsTypes';
+import { Project, Payment, Comment, Refund, ReserveTransaction } from '@/components/clients/ClientsTypes';
 import { useEffect, useState } from 'react';
 
 interface ClientDetailOverviewProps {
@@ -15,6 +16,8 @@ interface ClientDetailOverviewProps {
   handleAddComment: () => void;
   handleDeleteComment: (commentId: number) => void;
   formatDateTime: (dateString: string) => string;
+  reserveBalance?: number;
+  reserveTransactions?: ReserveTransaction[];
 }
 
 const ClientDetailOverview = ({
@@ -27,6 +30,8 @@ const ClientDetailOverview = ({
   handleAddComment,
   handleDeleteComment,
   formatDateTime,
+  reserveBalance = 0,
+  reserveTransactions = [],
 }: ClientDetailOverviewProps) => {
   const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
   const completedPayments = payments.filter(p => p.status === 'completed');
@@ -58,7 +63,7 @@ const ClientDetailOverview = ({
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">Общий бюджет</CardTitle>
@@ -90,7 +95,7 @@ const ClientDetailOverview = ({
           </CardContent>
         </Card>
 
-        <Card className="sm:col-span-2 lg:col-span-1">
+        <Card>
           <CardHeader className="pb-2 sm:pb-3">
             <CardTitle className="text-xs sm:text-sm font-medium text-foreground flex items-center gap-2">Остаток суммы за все услуги</CardTitle>
           </CardHeader>
@@ -100,6 +105,66 @@ const ClientDetailOverview = ({
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               К оплате от общего бюджета
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={reserveBalance > 0 ? 'border-emerald-500/50 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)]' : ''}>
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-xs sm:text-sm font-medium text-foreground flex items-center gap-2">
+              <Icon name="PiggyBank" size={14} className={reserveBalance > 0 ? 'text-emerald-500' : 'text-muted-foreground'} />
+              Финансовый резерв
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={`text-left w-full cursor-help text-xl sm:text-2xl font-bold ${reserveBalance > 0 ? 'text-emerald-500 hover:text-emerald-400' : 'text-muted-foreground'} transition-colors`}
+                  aria-label="Подробнее о финансовом резерве"
+                >
+                  <span key={`reserve-${animateKey}`} className="inline-block animate-in fade-in zoom-in-50 duration-500">
+                    {reserveBalance.toLocaleString('ru-RU')} ₽
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 font-semibold text-sm">
+                    <Icon name="Info" size={14} className="text-emerald-500" />
+                    Что это за сумма?
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Это переплата клиента, которую вы оставили в счёт следующих съёмок вместо выдачи сдачи. Резерв можно списать в счёт нового проекта при его создании или вручную через вкладку «Оплаты».
+                  </p>
+                  {reserveTransactions.length > 0 && (
+                    <div className="pt-2 border-t">
+                      <div className="text-xs font-semibold mb-1.5">История движений</div>
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {reserveTransactions.slice(0, 10).map((tx) => (
+                          <div key={tx.id} className="flex items-start justify-between gap-2 text-xs">
+                            <div className="flex-1 min-w-0">
+                              <div className={tx.amount >= 0 ? 'text-emerald-500 font-medium' : 'text-orange-500 font-medium'}>
+                                {tx.amount >= 0 ? '+' : ''}{tx.amount.toLocaleString('ru-RU')} ₽
+                              </div>
+                              {tx.description && (
+                                <div className="text-muted-foreground truncate">{tx.description}</div>
+                              )}
+                            </div>
+                            <div className="text-muted-foreground whitespace-nowrap">
+                              {formatDateTime(tx.date).split(' ')[0]}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <p className="text-xs text-muted-foreground mt-1">
+              {reserveBalance > 0 ? 'Доступно для нового проекта' : 'Нет накоплений'}
             </p>
           </CardContent>
         </Card>

@@ -119,4 +119,17 @@ export interface Client {
   telegram_verified?: boolean;
   telegram_verified_at?: string;
   avatar_url?: string | null;
+  
+  reserveBalance?: number;
+  reserveTransactions?: ReserveTransaction[];
+}
+
+export interface ReserveTransaction {
+  id: number;
+  amount: number;
+  type: 'added' | 'used' | 'rollback';
+  sourcePaymentId?: number | null;
+  targetProjectId?: number | null;
+  description?: string | null;
+  date: string;
 }

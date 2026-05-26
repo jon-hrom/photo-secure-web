@@ -1,5 +1,6 @@
 import { Client, Project, Payment, Comment, Message, Refund } from '@/components/clients/ClientsTypes';
 import { createAddRefundHandler, createDeleteRefundHandler } from './RefundHandlers';
+import { OverpaymentRequest } from './PaymentHandlers';
 import {
   createAddProjectHandler,
   createAddPaymentHandler,
@@ -38,10 +39,11 @@ export const useClientDetailHandlers = (
   setNewMessage: (message: any) => void,
   onUpdate: (client: Client) => void,
   photographerName: string,
-  onProjectCreated?: () => void,
+  onProjectCreated?: (createdProject?: { id: number; name: string; budget: number }) => void,
   refunds?: Refund[],
   newRefund?: { paymentId: string; projectId: string; amount: string; reason: string; type: string; method: string; date: string },
   setNewRefund?: (refund: { paymentId: string; projectId: string; amount: string; reason: string; type: string; method: string; date: string }) => void,
+  onOverpayment?: (req: OverpaymentRequest) => void,
 ) => {
   const handleAddProject = createAddProjectHandler(
     localClient,
@@ -59,7 +61,8 @@ export const useClientDetailHandlers = (
     payments,
     newPayment,
     setNewPayment,
-    onUpdate
+    onUpdate,
+    onOverpayment,
   );
 
   const handleAddComment = createAddCommentHandler(

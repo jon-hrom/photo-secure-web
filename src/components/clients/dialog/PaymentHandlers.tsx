@@ -2,13 +2,23 @@ import { toast } from 'sonner';
 import { Client, Project, Payment } from '@/components/clients/ClientsTypes';
 import { todayLocalDate } from '@/utils/dateFormat';
 
+export interface OverpaymentRequest {
+  projectId: number;
+  paymentAmount: number;
+  projectRemaining: number;
+  overpayAmount: number;
+  paymentDate: string;
+  method: string;
+}
+
 export const createAddPaymentHandler = (
   localClient: Client,
   projects: Project[],
   payments: Payment[],
   newPayment: any,
   setNewPayment: (payment: any) => void,
-  onUpdate: (client: Client) => void
+  onUpdate: (client: Client) => void,
+  onOverpayment?: (request: OverpaymentRequest) => void
 ) => {
   return () => {
     if (!newPayment.amount) {
@@ -73,6 +83,18 @@ export const createAddPaymentHandler = (
       const remainingAmount = selectedProject.budget - paidAmount;
 
       if (totalAmount > remainingAmount) {
+        const overpay = totalAmount - remainingAmount;
+        if (onOverpayment) {
+          onOverpayment({
+            projectId: selectedProject.id,
+            paymentAmount: totalAmount,
+            projectRemaining: remainingAmount,
+            overpayAmount: overpay,
+            paymentDate: paymentDate.toISOString(),
+            method: newPayment.method || 'cash',
+          });
+          return;
+        }
         toast.error(`Сумма платежа (${totalAmount.toLocaleString('ru-RU')} ₽) превышает остаток по услуге (${remainingAmount.toLocaleString('ru-RU')} ₽)`);
         return;
       }

@@ -162,6 +162,8 @@ const ClientDialogContent = ({
             handleAddComment={handleAddComment}
             handleDeleteComment={handleDeleteComment}
             formatDateTime={formatDateTime}
+            reserveBalance={localClient.reserveBalance ?? 0}
+            reserveTransactions={localClient.reserveTransactions ?? []}
           />
         </TabsContent>
 

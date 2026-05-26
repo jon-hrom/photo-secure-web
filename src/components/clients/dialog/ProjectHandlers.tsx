@@ -10,7 +10,7 @@ export const createAddProjectHandler = (
   setNewProject: (project: any) => void,
   onUpdate: (client: Client) => void,
   photographerName: string,
-  onProjectCreated?: () => void
+  onProjectCreated?: (createdProject?: { id: number; name: string; budget: number }) => void
 ) => {
   return async () => {
     if (!newProject.name || !newProject.budget) {
@@ -136,7 +136,10 @@ export const createAddProjectHandler = (
     toast.success('Проект сохранён' + (newProject.startDate ? ' и создана запись' : ''));
 
     if (onProjectCreated) {
-      onProjectCreated();
+      const createdInfo = realProject
+        ? { id: realProject.id, name: realProject.name, budget: Number(realProject.budget) || project.budget }
+        : { id: project.id, name: project.name, budget: project.budget };
+      onProjectCreated(createdInfo);
     }
 
     // Отправляем уведомления если есть дата съёмки (время по умолчанию 10:00).
