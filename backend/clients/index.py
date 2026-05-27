@@ -1296,6 +1296,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            # Автоподтяжка аватара из ВК если avatar_url пустой, но vk_profile/vk_username указан.
+            # Срабатывает при любом PUT, чтобы старые клиенты тоже получили аватарку автоматически.
+            try:
+                current_avatar = client.get('avatar_url') if isinstance(client, dict) else client['avatar_url']
+                current_vk = client.get('vk_profile') if isinstance(client, dict) else client['vk_profile']
+                current_vk_username = client.get('vk_username') if isinstance(client, dict) else None
+                vk_for_fetch = current_vk or current_vk_username
+                if not current_avatar and vk_for_fetch:
+                    try:
+                        ext, avatar_data, content_type = _fetch_vk_avatar_bytes(vk_for_fetch)
+                        new_avatar_url = _upload_avatar_to_s3(
+                            avatar_data, ext, content_type, str(photographer_id), client_id
+                        )
+                        cur.execute(
+                            'UPDATE t_p28211681_photo_secure_web.clients SET avatar_url = %s, updated_at = NOW() WHERE id = %s',
+                            (new_avatar_url, client_id)
+                        )
+                        if isinstance(client, dict):
+                            client['avatar_url'] = new_avatar_url
+                        print(f'[PUT_CLIENT] Auto-imported VK avatar for client {client_id}')
+                    except Exception as avatar_err:
+                        print(f'[PUT_CLIENT] VK avatar auto-import skipped: {avatar_err}')
+            except Exception as outer_err:
+                print(f'[PUT_CLIENT] Avatar autocheck failed: {outer_err}')
+            
             # Обновляем проекты (upsert - вставляем новые или обновляем существующие)
             if 'projects' in body:
                 # Получаем текущие ID проектов

@@ -649,12 +649,19 @@ export const useClientsHandlers = ({
         throw new Error('Failed to update client');
       }
       
-      // Используем ответ сервера для обновления (заменяет временные id на DB-id)
+      // Используем ответ сервера для обновления (заменяет временные id на DB-id,
+      // подхватывает свежий avatar_url если бэк автоматически подтянул его из ВК)
       let mergedClient = updatedClient;
       try {
         const serverData = await res.json();
-        if (serverData && Array.isArray(serverData.refunds)) {
-          mergedClient = { ...updatedClient, refunds: serverData.refunds };
+        if (serverData) {
+          mergedClient = { ...updatedClient };
+          if (Array.isArray(serverData.refunds)) {
+            mergedClient.refunds = serverData.refunds;
+          }
+          if (serverData.avatar_url) {
+            mergedClient.avatar_url = serverData.avatar_url;
+          }
         }
       } catch (parseErr) {
         console.warn('[CLIENT_UPDATE] Failed to parse server response:', parseErr);
