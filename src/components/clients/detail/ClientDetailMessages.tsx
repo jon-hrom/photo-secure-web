@@ -24,6 +24,7 @@ interface ClientDetailMessagesProps {
   clientName?: string;
   clientId?: number;
   photographerName?: string;
+  clientAvatarUrl?: string | null;
 }
 
 const messageTypeLabels: Record<string, string> = {
@@ -49,7 +50,8 @@ const ClientDetailMessages = ({
   onDeleteAllMessages,
   clientName = 'Клиент',
   clientId,
-  photographerName = 'Фотограф'
+  photographerName = 'Фотограф',
+  clientAvatarUrl = null,
 }: ClientDetailMessagesProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sendingViaMax, setSendingViaMax] = useState(false);
@@ -212,9 +214,17 @@ const ClientDetailMessages = ({
                 className={`flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 ${isClient ? 'justify-start' : 'justify-end'}`}
               >
                 {isClient && (
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
-                    {clientName.charAt(0).toUpperCase()}
-                  </div>
+                  clientAvatarUrl ? (
+                    <img
+                      src={clientAvatarUrl}
+                      alt={clientName}
+                      className="flex-shrink-0 w-10 h-10 rounded-full object-cover shadow-lg border border-border"
+                    />
+                  ) : (
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
+                      {clientName.charAt(0).toUpperCase()}
+                    </div>
+                  )
                 )}
                 
                 <div className={`flex flex-col max-w-[70%] ${isClient ? 'items-start' : 'items-end'}`}>

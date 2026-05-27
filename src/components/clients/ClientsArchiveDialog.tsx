@@ -111,9 +111,17 @@ const ClientsArchiveDialog = ({ open, onOpenChange, clients, onSelectClient, onR
                       className="flex items-center gap-3 p-3 cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => setExpandedClientId(isExpanded ? null : client.id)}
                     >
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-500/30 flex items-center justify-center text-sm font-bold shrink-0">
-                        {getClientInitials(client.name)}
-                      </div>
+                      {client.avatar_url ? (
+                        <img
+                          src={client.avatar_url}
+                          alt={client.name}
+                          className="w-10 h-10 rounded-full object-cover shrink-0 border border-border"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-500/30 flex items-center justify-center text-sm font-bold shrink-0">
+                          {getClientInitials(client.name)}
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{client.name}</p>
                         <p className="text-xs text-muted-foreground">

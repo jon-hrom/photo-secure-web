@@ -239,6 +239,7 @@ const ClientDialogContent = ({
             clientName={localClient.name}
             clientId={localClient.id}
             photographerName={photographerName || 'Фотограф'}
+            clientAvatarUrl={localClient.avatar_url}
           />
         </TabsContent>
 

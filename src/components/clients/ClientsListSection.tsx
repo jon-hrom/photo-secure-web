@@ -199,9 +199,17 @@ const ClientsListSection = ({
                             </div>
                           )}
                           <div className="flex items-center gap-2 md:gap-3">
-                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0 text-xs md:text-base shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
-                              {getClientInitials(client.name)}
-                            </div>
+                            {client.avatar_url ? (
+                              <img
+                                src={client.avatar_url}
+                                alt={client.name}
+                                className="w-8 h-8 md:w-10 md:h-10 rounded-lg object-cover flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200 border border-border"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0 text-xs md:text-base shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
+                                {getClientInitials(client.name)}
+                              </div>
+                            )}
                             <div className="min-w-0 relative">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <p className="font-medium truncate text-xs md:text-base max-w-[100px] md:max-w-none">{client.name}</p>

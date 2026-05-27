@@ -36,9 +36,17 @@ const TableRow = ({
       </td>
       <td className="p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
-            {getClientInitials(client.name)}
-          </div>
+          {client.avatar_url ? (
+            <img
+              src={client.avatar_url}
+              alt={client.name}
+              className="w-10 h-10 rounded-lg object-cover flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200 border border-border"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-semibold flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200">
+              {getClientInitials(client.name)}
+            </div>
+          )}
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <p className="font-medium truncate">{client.name}</p>
