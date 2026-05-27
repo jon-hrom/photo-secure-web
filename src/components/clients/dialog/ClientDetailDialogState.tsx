@@ -76,13 +76,56 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
   }, []);
 
   useEffect(() => {
-    if (client) {
-      console.log('[ClientDetailDialog] Client updated:', client);
-      console.log('[ClientDetailDialog] Payments:', client.payments?.length);
-      console.log('[ClientDetailDialog] Projects:', client.projects?.length);
-      console.log('[ClientDetailDialog] Messages:', client.messages?.length);
-      setLocalClient(client);
-    }
+    if (!client) return;
+    
+    // Защитный merge: если у нас локально есть данные, которых нет в новом props
+    // (т.к. loadClients мог отдать устаревший снапшот), сохраняем локальные.
+    // Это лечит ситуацию, когда после успешного PUT (refund / avatar) фоновый 
+    // loadClients затирает свежие данные старым снапшотом.
+    setLocalClient(prev => {
+      if (!prev || prev.id !== client.id) {
+        // Другой клиент или первая загрузка — берём props как есть
+        return client;
+      }
+      
+      const merged: Client = { ...client };
+      
+      // refunds: если в props меньше возвратов, чем локально — оставляем локальные
+      const prevRefunds = prev.refunds || [];
+      const newRefunds = client.refunds || [];
+      if (prevRefunds.length > newRefunds.length) {
+        merged.refunds = prevRefunds;
+      }
+      
+      // payments: аналогично
+      const prevPayments = prev.payments || [];
+      const newPayments = client.payments || [];
+      if (prevPayments.length > newPayments.length) {
+        merged.payments = prevPayments;
+      }
+      
+      // projects: аналогично
+      const prevProjects = prev.projects || [];
+      const newProjects = client.projects || [];
+      if (prevProjects.length > newProjects.length) {
+        merged.projects = prevProjects;
+      }
+      
+      // avatar_url: если локально есть, а в props пусто — оставляем локальный
+      if (prev.avatar_url && !client.avatar_url) {
+        merged.avatar_url = prev.avatar_url;
+      }
+      
+      // vk_username / vkProfile — аналогично, чтобы не терять связь с ВК
+      if (prev.vk_username && !client.vk_username) {
+        merged.vk_username = prev.vk_username;
+      }
+      if (prev.vkProfile && !client.vkProfile) {
+        merged.vkProfile = prev.vkProfile;
+      }
+      
+      return merged;
+    });
   }, [client]);
 
   useEffect(() => {

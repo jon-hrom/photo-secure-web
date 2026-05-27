@@ -649,7 +649,7 @@ export const useClientsHandlers = ({
         throw new Error('Failed to update client');
       }
       
-      // Используем свежие refunds из ответа сервера (заменяет временные id на DB-id)
+      // Используем ответ сервера для обновления (заменяет временные id на DB-id)
       let mergedClient = updatedClient;
       try {
         const serverData = await res.json();
@@ -659,9 +659,19 @@ export const useClientsHandlers = ({
       } catch (parseErr) {
         console.warn('[CLIENT_UPDATE] Failed to parse server response:', parseErr);
       }
+      
+      // Оптимистично обновляем выбранного клиента
       setSelectedClient(mergedClient);
       
-      await loadClients().catch(console.error);
+      // Локально обновляем список клиентов (без запроса к серверу),
+      // чтобы избежать race condition: GET может вернуть устаревший снапшот
+      // (replica lag), который перетрёт свежие refunds/avatar.
+      setClients(clients.map(c => c.id === mergedClient.id ? mergedClient : c));
+      
+      // Фоновая полная перезагрузка с задержкой — даём БД время на репликацию
+      setTimeout(() => {
+        loadClients().catch(console.error);
+      }, 2000);
       
       toast.success('Данные клиента обновлены');
     } catch (error) {

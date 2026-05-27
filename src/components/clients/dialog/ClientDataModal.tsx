@@ -143,6 +143,8 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
     const userId = localStorage.getItem('userId');
     setSaving(true);
     try {
+      // Шлём ТОЛЬКО редактируемые поля профиля — не трогаем refunds/payments/projects/messages.
+      // Иначе они могут быть затёрты устаревшим снапшотом form.
       const res = await fetch(CLIENTS_API, {
         method: 'PUT',
         headers: {
@@ -150,14 +152,24 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
           'X-User-Id': userId || '',
         },
         body: JSON.stringify({
-          ...form,
+          id: form.id,
+          name: form.name,
+          phone: form.phone,
+          email: form.email,
+          address: form.address,
+          vkProfile: form.vkProfile,
           vk_username: form.vk_username,
           birthdate: form.birthdate,
           avatar_url: form.avatar_url,
+          telegram_chat_id: form.telegram_chat_id,
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      onUpdate({
+      
+      // Локально обновляем ТОЛЬКО изменённые поля профиля,
+      // сохраняя refunds/payments/projects/messages из текущего client.
+      // Используем onLocalUpdate (без повторного PUT) — серверу мы уже сохранили выше.
+      const merged: Client = {
         ...client,
         name: form.name,
         phone: form.phone,
@@ -167,7 +179,13 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
         vk_username: form.vk_username,
         birthdate: form.birthdate,
         avatar_url: form.avatar_url,
-      });
+        telegram_chat_id: form.telegram_chat_id,
+      };
+      if (onLocalUpdate) {
+        onLocalUpdate(merged);
+      } else {
+        onUpdate(merged);
+      }
       toast.success('Данные клиента обновлены');
       onOpenChange(false);
     } catch (e) {
