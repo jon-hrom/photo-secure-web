@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
+const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
 
 interface Template {
   template_type: string;
@@ -111,6 +112,47 @@ const ClientDetailMessages = ({
   const [sendingViaMax, setSendingViaMax] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [resendingIds, setResendingIds] = useState<Set<number>>(new Set());
+  const [localStatuses, setLocalStatuses] = useState<Record<number, { status: DeliveryStatus; error?: string | null }>>({});
+
+  const handleResendMessage = async (messageId: number) => {
+    setResendingIds((prev) => {
+      const next = new Set(prev);
+      next.add(messageId);
+      return next;
+    });
+    try {
+      const userId = localStorage.getItem('userId');
+      const res = await fetch(CLIENTS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
+        body: JSON.stringify({ action: 'resend_message', message_id: messageId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('Сообщение отправлено повторно');
+      } else {
+        toast.error(data.delivery_error || data.error || 'Не удалось отправить');
+      }
+      setLocalStatuses((prev) => ({
+        ...prev,
+        [messageId]: { status: data.delivery_status || 'failed', error: data.delivery_error },
+      }));
+    } catch (e) {
+      console.error('[Resend] error', e);
+      toast.error('Ошибка повторной отправки');
+      setLocalStatuses((prev) => ({
+        ...prev,
+        [messageId]: { status: 'failed', error: 'Ошибка сети' },
+      }));
+    } finally {
+      setResendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -332,11 +374,36 @@ const ClientDetailMessages = ({
                     }`}>
                       {message.content}
                     </p>
-                    {!isClient && message.delivery_status && (
-                      <div className="flex items-center justify-end gap-1 mt-2 -mb-1">
-                        {renderDeliveryBadge(message.delivery_status, message.delivery_error)}
-                      </div>
-                    )}
+                    {!isClient && (message.delivery_status || localStatuses[message.id]) && (() => {
+                      const effective = localStatuses[message.id] || {
+                        status: message.delivery_status,
+                        error: message.delivery_error,
+                      };
+                      const canRetry = effective.status === 'failed' || effective.status === 'unknown';
+                      const isResending = resendingIds.has(message.id);
+                      return (
+                        <div className="flex items-center justify-end gap-2 mt-2 -mb-1">
+                          {renderDeliveryBadge(effective.status, effective.error)}
+                          {canRetry && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isResending}
+                              onClick={() => handleResendMessage(message.id)}
+                              className="h-6 px-2 py-0 text-[10px] text-white bg-white/15 hover:bg-white/25"
+                              title={effective.error || 'Отправить повторно'}
+                            >
+                              <Icon
+                                name={isResending ? 'Loader2' : 'RefreshCw'}
+                                size={11}
+                                className={isResending ? 'animate-spin' : ''}
+                              />
+                              <span className="ml-1">{isResending ? 'Отправляю...' : 'Повторить'}</span>
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

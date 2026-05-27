@@ -828,6 +828,165 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False,
                 }
 
+            if action == 'resend_message':
+                # Повторная отправка ранее не доставленного автоматического сообщения клиенту
+                message_id = body.get('message_id') or body.get('messageId')
+                if not message_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'message_id обязателен'}),
+                        'isBase64Encoded': False,
+                    }
+                try:
+                    message_id_int = int(message_id)
+                except (TypeError, ValueError):
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Некорректный message_id'}),
+                        'isBase64Encoded': False,
+                    }
+
+                # Загружаем сообщение и проверяем что оно принадлежит клиенту этого фотографа
+                cur.execute('''
+                    SELECT m.id, m.client_id, m.type, m.content, m.photographer_id,
+                           c.phone AS client_phone, c.email AS client_email,
+                           c.telegram_chat_id AS client_tg, c.name AS client_name,
+                           u.green_api_instance_id, u.green_api_token
+                    FROM t_p28211681_photo_secure_web.client_messages m
+                    JOIN t_p28211681_photo_secure_web.clients c ON c.id = m.client_id
+                    LEFT JOIN t_p28211681_photo_secure_web.users u ON u.id = m.photographer_id
+                    WHERE m.id = %s AND m.photographer_id = %s
+                ''', (message_id_int, photographer_id))
+                msg_row = cur.fetchone()
+                if not msg_row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'Сообщение не найдено'}),
+                        'isBase64Encoded': False,
+                    }
+
+                channel = (msg_row['type'] or '').lower()
+                content = msg_row['content'] or ''
+                new_status = 'failed'
+                new_error = None
+                new_external_id = None
+
+                try:
+                    if channel == 'whatsapp':
+                        client_phone = msg_row['client_phone']
+                        if not client_phone:
+                            new_status = 'failed'
+                            new_error = 'У клиента не указан телефон'
+                        else:
+                            instance_id = (msg_row['green_api_instance_id'] or os.environ.get('MAX_INSTANCE_ID', ''))
+                            token = (msg_row['green_api_token'] or os.environ.get('MAX_TOKEN', ''))
+                            if not instance_id or not token:
+                                new_status = 'failed'
+                                new_error = 'GREEN-API/MAX не настроен'
+                            else:
+                                clean_phone = ''.join(filter(str.isdigit, client_phone))
+                                if not clean_phone.startswith('7'):
+                                    clean_phone = '7' + clean_phone.lstrip('8')
+                                media_server = instance_id[:4] if len(instance_id) >= 4 else '7103'
+                                url = f"https://{media_server}.api.green-api.com/v3/waInstance{instance_id}/sendMessage/{token}"
+                                resp = requests.post(url, json={'chatId': f"{clean_phone}@c.us", 'message': content}, timeout=10)
+                                if resp.status_code >= 400:
+                                    new_status = 'failed'
+                                    new_error = f'HTTP {resp.status_code}: {resp.text[:200]}'
+                                else:
+                                    try:
+                                        data = resp.json() or {}
+                                    except Exception:
+                                        data = {}
+                                    new_external_id = data.get('idMessage') or data.get('id')
+                                    new_status = 'sent'
+                    elif channel == 'telegram':
+                        tg_target = msg_row['client_tg']
+                        bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+                        if not tg_target:
+                            new_status = 'failed'
+                            new_error = 'У клиента не привязан Telegram'
+                        elif not bot_token:
+                            new_status = 'failed'
+                            new_error = 'TELEGRAM_BOT_TOKEN не настроен'
+                        else:
+                            try:
+                                import telebot
+                                bot = telebot.TeleBot(bot_token)
+                                # Контент может быть с HTML-тегами или без — пробуем сначала plain, чтобы не падать на разметке
+                                sent_msg = bot.send_message(chat_id=tg_target, text=content, disable_web_page_preview=True)
+                                new_external_id = str(getattr(sent_msg, 'message_id', '')) or None
+                                new_status = 'delivered'
+                            except Exception as tg_e:
+                                new_status = 'failed'
+                                new_error = str(tg_e)[:300]
+                    elif channel == 'email':
+                        client_email = msg_row['client_email']
+                        if not client_email:
+                            new_status = 'failed'
+                            new_error = 'У клиента не указан email'
+                        else:
+                            # Email-канал: content у нас короткий заголовок вида "[Email] ...".
+                            # Для повторной отправки используем сам content как тело текстом.
+                            try:
+                                email_api = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0'
+                                subj = content.replace('[Email] ', '').strip() or 'Уведомление от фотографа'
+                                resp = requests.post(email_api, json={
+                                    'action': 'send-booking-notification',
+                                    'to_email': client_email,
+                                    'client_name': msg_row['client_name'] or '',
+                                    'subject': subj,
+                                    'html_body': f'<p>{content}</p>'
+                                }, headers={'Content-Type': 'application/json'}, timeout=15)
+                                if resp.status_code == 200:
+                                    new_status = 'sent'
+                                else:
+                                    new_status = 'failed'
+                                    new_error = f'HTTP {resp.status_code}: {resp.text[:200]}'
+                            except Exception as em_e:
+                                new_status = 'failed'
+                                new_error = str(em_e)[:300]
+                    else:
+                        new_status = 'failed'
+                        new_error = f'Канал не поддерживает повторную отправку: {channel}'
+                except Exception as send_err:
+                    new_status = 'failed'
+                    new_error = str(send_err)[:300]
+
+                # Обновляем существующую запись с новым статусом
+                cur.execute('''
+                    UPDATE t_p28211681_photo_secure_web.client_messages
+                    SET delivery_status = %s,
+                        delivery_error = %s,
+                        external_message_id = COALESCE(%s, external_message_id),
+                        is_delivered = %s,
+                        message_date = NOW()
+                    WHERE id = %s AND photographer_id = %s
+                ''', (
+                    new_status,
+                    new_error,
+                    new_external_id,
+                    new_status in ('delivered', 'read'),
+                    message_id_int,
+                    photographer_id,
+                ))
+                conn.commit()
+
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({
+                        'success': new_status in ('sent', 'delivered', 'read'),
+                        'delivery_status': new_status,
+                        'delivery_error': new_error,
+                        'external_message_id': new_external_id,
+                    }),
+                    'isBase64Encoded': False,
+                }
+
             if action == 'create':
                 # Логируем данные для отладки
                 print(f'[CREATE_CLIENT] photographer_id: {photographer_id}')
