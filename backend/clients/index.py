@@ -554,7 +554,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Массовый запрос всех messages
                 cur.execute('''
-                    SELECT client_id, id, type, author, content, message_date
+                    SELECT client_id, id, type, author, content, message_date,
+                           delivery_status, delivery_error, external_message_id
                     FROM t_p28211681_photo_secure_web.client_messages 
                     WHERE client_id = ANY(%s)
                     ORDER BY message_date ASC
@@ -670,7 +671,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'type': m['type'],
                         'author': m['author'],
                         'content': m['content'],
-                        'date': str(m['message_date']) if m['message_date'] else None
+                        'date': str(m['message_date']) if m['message_date'] else None,
+                        'delivery_status': m.get('delivery_status'),
+                        'delivery_error': m.get('delivery_error'),
+                        'external_message_id': m.get('external_message_id'),
                     } for m in raw_messages]
                     
                     # Конвертируем comments

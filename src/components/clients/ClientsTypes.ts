@@ -61,9 +61,12 @@ export interface Payment {
 export interface Message {
   id: number;
   date: string;
-  type: 'email' | 'vk' | 'phone' | 'meeting';
+  type: 'email' | 'vk' | 'phone' | 'meeting' | 'whatsapp' | 'telegram';
   content: string;
   author: string;
+  delivery_status?: 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'unknown' | null;
+  delivery_error?: string | null;
+  external_message_id?: string | null;
 }
 
 export interface Comment {

@@ -31,14 +31,68 @@ const messageTypeLabels: Record<string, string> = {
   email: 'Email',
   vk: 'ВКонтакте',
   phone: 'Телефон',
-  meeting: 'Встреча'
+  meeting: 'Встреча',
+  whatsapp: 'WhatsApp/MAX',
+  telegram: 'Telegram',
 };
 
 const messageTypeIcons: Record<string, string> = {
   email: 'Mail',
   vk: 'MessageCircle',
   phone: 'Phone',
-  meeting: 'Calendar'
+  meeting: 'Calendar',
+  whatsapp: 'MessageCircle',
+  telegram: 'Send',
+};
+
+type DeliveryStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'unknown' | null | undefined;
+
+const renderDeliveryBadge = (status: DeliveryStatus, error?: string | null) => {
+  if (!status) return null;
+  if (status === 'read') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-blue-100" title="Клиент прочитал">
+        <Icon name="CheckCheck" size={11} />
+        <span>Прочитано</span>
+      </span>
+    );
+  }
+  if (status === 'delivered') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-white/85" title="Доставлено">
+        <Icon name="CheckCheck" size={11} />
+        <span>Доставлено</span>
+      </span>
+    );
+  }
+  if (status === 'sent') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-white/70" title="Отправлено, доставка не подтверждена">
+        <Icon name="Check" size={11} />
+        <span>Отправлено</span>
+      </span>
+    );
+  }
+  if (status === 'failed') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-[10px] text-red-200 bg-red-500/30 px-1.5 py-0.5 rounded"
+        title={error || 'Не доставлено'}
+      >
+        <Icon name="AlertTriangle" size={11} />
+        <span>Не доставлено</span>
+      </span>
+    );
+  }
+  if (status === 'pending') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-white/70" title="В очереди на отправку">
+        <Icon name="Clock" size={11} />
+        <span>В очереди</span>
+      </span>
+    );
+  }
+  return null;
 };
 
 const ClientDetailMessages = ({ 
@@ -278,6 +332,11 @@ const ClientDetailMessages = ({
                     }`}>
                       {message.content}
                     </p>
+                    {!isClient && message.delivery_status && (
+                      <div className="flex items-center justify-end gap-1 mt-2 -mb-1">
+                        {renderDeliveryBadge(message.delivery_status, message.delivery_error)}
+                      </div>
+                    )}
                   </div>
                 </div>
 

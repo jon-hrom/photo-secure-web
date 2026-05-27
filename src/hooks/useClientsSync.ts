@@ -111,7 +111,10 @@ export const useClientsSync = ({ isAuthenticated, userId }: UseClientsSyncProps)
             type: m.type,
             author: m.author,
             content: m.content,
-            date: m.message_date || m.date
+            date: m.message_date || m.date,
+            delivery_status: m.delivery_status || null,
+            delivery_error: m.delivery_error || null,
+            external_message_id: m.external_message_id || null,
           }))
         }));
         

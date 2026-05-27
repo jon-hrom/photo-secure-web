@@ -18,14 +18,14 @@ def format_method_name(method: str) -> str:
     return methods.get(method, method)
 
 
-def send_whatsapp_notification(user_id: str, client_phone: str, message: str, green_api_instance_id: str = '', green_api_token: str = '') -> bool:
-    """Отправить WhatsApp через GREEN-API (используя credentials фотографа или дефолтные)"""
+def send_whatsapp_notification(user_id: str, client_phone: str, message: str, green_api_instance_id: str = '', green_api_token: str = '') -> Dict[str, Any]:
+    """Отправить WhatsApp через GREEN-API. Возвращает dict со статусом, ошибкой, idMessage и креды для проверки доставки."""
     instance_id = green_api_instance_id or os.environ.get('MAX_INSTANCE_ID', '')
     token = green_api_token or os.environ.get('MAX_TOKEN', '')
 
     if not instance_id or not token:
         print('[PAYMENT_NOTIF] No GREEN-API credentials')
-        return False
+        return {'success': False, 'error': 'Нет настроек GREEN-API (MAX)', 'id_message': None, 'instance_id': '', 'token': ''}
 
     clean_phone = ''.join(filter(str.isdigit, client_phone))
     if not clean_phone.startswith('7'):
@@ -40,37 +40,88 @@ def send_whatsapp_notification(user_id: str, client_phone: str, message: str, gr
             "message": message
         }, timeout=10)
         response.raise_for_status()
-        print(f'[PAYMENT_NOTIF] WhatsApp sent to {clean_phone}')
-        return True
+        try:
+            data = response.json() or {}
+        except Exception:
+            data = {}
+        id_message = data.get('idMessage') or data.get('id') or None
+        print(f'[PAYMENT_NOTIF] WhatsApp sent to {clean_phone} idMessage={id_message}')
+        return {'success': True, 'error': None, 'id_message': id_message, 'instance_id': instance_id, 'token': token}
+    except requests.HTTPError as e:
+        err_text = f'HTTP {e.response.status_code}: {e.response.text[:200] if e.response is not None else str(e)}'
+        print(f'[PAYMENT_NOTIF] WhatsApp HTTP error: {err_text}')
+        return {'success': False, 'error': err_text, 'id_message': None, 'instance_id': instance_id, 'token': token}
     except Exception as e:
         print(f'[PAYMENT_NOTIF] WhatsApp error: {e}')
-        return False
+        return {'success': False, 'error': str(e)[:300], 'id_message': None, 'instance_id': instance_id, 'token': token}
 
 
-def send_telegram_notification(telegram_chat_id: str, message: str) -> bool:
-    """Отправить Telegram уведомление"""
+def check_whatsapp_delivery_status(instance_id: str, token: str, id_message: str, max_attempts: int = 3) -> Dict[str, Any]:
+    """Проверить реальный статус доставки сообщения GREEN-API по idMessage.
+
+    Возвращает {'status': 'sent|delivered|read|failed|unknown', 'raw': '...'}.
+    GREEN-API возвращает statusMessage: sent, delivered, read, failed, noAccount, notInGroup, yellowCard.
+    """
+    import time
+    if not instance_id or not token or not id_message:
+        return {'status': 'unknown', 'raw': 'no_id'}
+    media_server = instance_id[:4] if len(instance_id) >= 4 else '7103'
+    url = f"https://{media_server}.api.green-api.com/v3/waInstance{instance_id}/getMessage/{token}/{id_message}"
+    last_status = 'unknown'
+    last_raw = ''
+    for attempt in range(max_attempts):
+        try:
+            # Небольшая задержка чтобы GREEN-API успел обработать
+            time.sleep(0.7 if attempt == 0 else 1.2)
+            resp = requests.get(url, timeout=8)
+            if resp.status_code != 200:
+                last_raw = f'HTTP {resp.status_code}'
+                continue
+            data = resp.json() or {}
+            raw_status = (data.get('statusMessage') or data.get('status') or '').strip()
+            last_raw = raw_status or 'empty'
+            if raw_status in ('read',):
+                return {'status': 'read', 'raw': raw_status}
+            if raw_status in ('delivered',):
+                return {'status': 'delivered', 'raw': raw_status}
+            if raw_status in ('sent',):
+                last_status = 'sent'
+                continue
+            if raw_status in ('failed', 'noAccount', 'notInGroup', 'yellowCard'):
+                return {'status': 'failed', 'raw': raw_status}
+        except Exception as e:
+            last_raw = str(e)[:120]
+            continue
+    return {'status': last_status, 'raw': last_raw}
+
+
+def send_telegram_notification(telegram_chat_id: str, message: str) -> Dict[str, Any]:
+    """Отправить Telegram уведомление. Возвращает dict с success/error/message_id."""
     bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
-    if not bot_token or not telegram_chat_id:
-        return False
+    if not bot_token:
+        return {'success': False, 'error': 'Нет TELEGRAM_BOT_TOKEN', 'id_message': None}
+    if not telegram_chat_id:
+        return {'success': False, 'error': 'Нет telegram_chat_id у клиента', 'id_message': None}
 
     try:
         import telebot
         bot = telebot.TeleBot(bot_token)
-        bot.send_message(
+        msg = bot.send_message(
             chat_id=telegram_chat_id,
             text=message,
             parse_mode='HTML',
             disable_web_page_preview=True
         )
         print(f'[PAYMENT_NOTIF] Telegram sent to {telegram_chat_id}')
-        return True
+        return {'success': True, 'error': None, 'id_message': str(getattr(msg, 'message_id', '')) or None}
     except Exception as e:
-        print(f'[PAYMENT_NOTIF] Telegram error: {e}')
-        return False
+        err = str(e)[:300]
+        print(f'[PAYMENT_NOTIF] Telegram error: {err}')
+        return {'success': False, 'error': err, 'id_message': None}
 
 
-def send_email_notification(to_email: str, subject: str, html_body: str) -> bool:
-    """Отправить email через settings API"""
+def send_email_notification(to_email: str, subject: str, html_body: str) -> Dict[str, Any]:
+    """Отправить email через settings API."""
     try:
         email_api = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0'
         response = requests.post(email_api, json={
@@ -81,10 +132,12 @@ def send_email_notification(to_email: str, subject: str, html_body: str) -> bool
             'subject': subject
         }, headers={'Content-Type': 'application/json'}, timeout=15)
         print(f'[PAYMENT_NOTIF] Email sent to {to_email}: {response.status_code}')
-        return response.status_code == 200
+        if response.status_code == 200:
+            return {'success': True, 'error': None}
+        return {'success': False, 'error': f'HTTP {response.status_code}: {response.text[:200]}'}
     except Exception as e:
         print(f'[PAYMENT_NOTIF] Email error: {e}')
-        return False
+        return {'success': False, 'error': str(e)[:300]}
 
 
 def build_payment_email_html(photographer_name: str, project_name: str, payment_amount: float, total_paid: float, total_budget: float, remaining: float, method: str) -> str:
@@ -157,6 +210,30 @@ def build_payment_email_html(photographer_name: str, project_name: str, payment_
   </div>
 </body>
 </html>"""
+
+
+def log_client_message(cur, client_id: int, photographer_id: int, channel: str, content: str,
+                       delivery_status: str, delivery_error: str = None, external_message_id: str = None):
+    """Сохранить запись о автоматической отправке клиенту в client_messages с реальным статусом доставки."""
+    try:
+        cur.execute(f'''
+            INSERT INTO {DB_SCHEMA}.client_messages
+            (client_id, photographer_id, sender_type, author, type, content,
+             message_date, is_delivered, delivery_status, delivery_error, external_message_id)
+            VALUES (%s, %s, 'photographer', 'Система', %s, %s,
+                    NOW(), %s, %s, %s, %s)
+        ''', (
+            int(client_id),
+            int(photographer_id),
+            channel,
+            content,
+            delivery_status in ('delivered', 'read'),
+            delivery_status,
+            (delivery_error or None),
+            (external_message_id or None),
+        ))
+    except Exception as e:
+        print(f'[PAYMENT_NOTIF] log_client_message error: {e}')
 
 
 def get_client_project_data(cur, client_id: int, project_id: int):
@@ -253,8 +330,40 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
 —
 Сообщение сформировано автоматически системой учёта клиентов для фотографов foto-mix.ru"""
 
+    # Отправляем клиенту во все доступные каналы и сохраняем результаты в client_messages
+    photographer_id_int = 0
+    try:
+        photographer_id_int = int(user_id)
+    except Exception:
+        photographer_id_int = 0
+
     if client_phone:
-        send_whatsapp_notification(user_id, client_phone, whatsapp_message, green_api_instance_id, green_api_token)
+        wa_result = send_whatsapp_notification(user_id, client_phone, whatsapp_message, green_api_instance_id, green_api_token)
+        delivery_status = 'failed'
+        delivery_error = wa_result.get('error')
+        if wa_result.get('success'):
+            # Проверяем реальный статус доставки у GREEN-API
+            check_res = check_whatsapp_delivery_status(
+                wa_result.get('instance_id', ''),
+                wa_result.get('token', ''),
+                wa_result.get('id_message', ''),
+            )
+            mapped = check_res.get('status', 'unknown')
+            if mapped in ('delivered', 'read', 'sent'):
+                delivery_status = mapped
+            elif mapped == 'failed':
+                delivery_status = 'failed'
+                delivery_error = f"GREEN-API status: {check_res.get('raw', '')}"
+            else:
+                # Не получили статус — считаем sent (запрос принят GREEN-API)
+                delivery_status = 'sent'
+        if photographer_id_int:
+            log_client_message(cur, client_id, photographer_id_int, 'whatsapp', whatsapp_message,
+                               delivery_status, delivery_error, wa_result.get('id_message'))
+    else:
+        if photographer_id_int:
+            log_client_message(cur, client_id, photographer_id_int, 'whatsapp', whatsapp_message,
+                               'failed', 'У клиента не указан телефон', None)
 
     if telegram_chat_id:
         tg_message = f"""{"✅ <b>Оплата полностью внесена!</b>" if is_fully_paid else "💳 <b>Предоплата получена</b>"}
@@ -270,7 +379,11 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
 {"✅ Полностью оплачено!" if is_fully_paid else f"⏳ Остаток к оплате: <b>{remaining:,.0f} ₽</b>"}
 
 {"Спасибо за полную оплату! " if is_fully_paid else ""}До встречи на съёмке! 📷"""
-        send_telegram_notification(telegram_chat_id, tg_message)
+        tg_result = send_telegram_notification(telegram_chat_id, tg_message)
+        status_tg = 'delivered' if tg_result.get('success') else 'failed'
+        if photographer_id_int:
+            log_client_message(cur, client_id, photographer_id_int, 'telegram', tg_message,
+                               status_tg, tg_result.get('error'), tg_result.get('id_message'))
 
     if client_email:
         subject = "✅ Оплата полностью внесена!" if is_fully_paid else f"💳 Предоплата получена — {project_name}"
@@ -278,7 +391,12 @@ def send_payment_notifications(cur, user_id: str, client_id: int, project_id: in
             photographer_name, project_name, payment_amount,
             total_paid, total_budget, remaining, method
         )
-        send_email_notification(client_email, subject, html)
+        email_result = send_email_notification(client_email, subject, html)
+        status_em = 'sent' if email_result.get('success') else 'failed'
+        if photographer_id_int:
+            # В content храним краткий заголовок (HTML письма слишком длинный для чата)
+            log_client_message(cur, client_id, photographer_id_int, 'email',
+                               f"[Email] {subject}", status_em, email_result.get('error'), None)
 
     print(f'[PAYMENT_NOTIF] Photographer data: phone={photographer_phone}, email={photographer_email}, tg={photographer_telegram_chat_id}, green_api={bool(green_api_instance_id)}, green_token={bool(green_api_token)}')
     print(f'[PAYMENT_NOTIF] Client data: phone={client_phone}, email={client_email}, tg={telegram_chat_id}')

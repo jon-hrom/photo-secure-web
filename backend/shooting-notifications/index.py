@@ -230,6 +230,12 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     results = {}
     sent_ok = False
     sent_channel = None
+    wa_status = None       # 'sent' | 'delivered' | 'read' | 'failed'
+    wa_error = None
+    wa_id = None
+    tg_status = None
+    tg_error = None
+    tg_id = None
     
     # Отправляем в WhatsApp/MAX если есть телефон и подключение
     if creds.get('instance_id') and creds.get('token') and client_data.get('phone'):
@@ -240,14 +246,32 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
                 client_data['phone'],
                 message
             )
-            results['whatsapp'] = {'success': True, 'message_id': result.get('idMessage')}
+            wa_id = result.get('idMessage')
+            results['whatsapp'] = {'success': True, 'message_id': wa_id}
             sent_ok = True
             sent_channel = 'whatsapp'
+            # Проверяем реальный статус доставки
+            try:
+                check_res = check_green_delivery_status(creds['instance_id'], creds['token'], wa_id)
+                wa_status = check_res.get('status', 'sent')
+                if wa_status == 'failed':
+                    wa_error = f"GREEN-API status: {check_res.get('raw', '')}"
+            except Exception as ce:
+                print(f'[SHOOTING_NOTIF] WhatsApp status check error: {ce}')
+                wa_status = 'sent'
         except Exception as e:
-            print(f'[SHOOTING_NOTIF] WhatsApp error (client): {str(e)}')
-            results['whatsapp'] = {'error': str(e)}
+            err = str(e)[:300]
+            print(f'[SHOOTING_NOTIF] WhatsApp error (client): {err}')
+            results['whatsapp'] = {'error': err}
+            wa_status = 'failed'
+            wa_error = err
     elif not creds.get('instance_id') or not creds.get('token'):
         results['whatsapp'] = {'error': 'MAX/WhatsApp не подключён у фотографа'}
+        wa_status = 'failed'
+        wa_error = 'MAX/WhatsApp не подключён у фотографа'
+    elif not client_data.get('phone'):
+        wa_status = 'failed'
+        wa_error = 'У клиента не указан телефон'
     
     # Отправляем в Telegram если есть telegram_chat_id или telegram_id
     tg_target = client_data.get('telegram_chat_id') or client_data.get('telegram_id')
@@ -257,23 +281,50 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
         if telegram_result.get('success') or telegram_result.get('ok'):
             sent_ok = True
             sent_channel = sent_channel or 'telegram'
+            tg_status = 'delivered'
+            tg_id = str(telegram_result.get('message_id') or '') or None
+        else:
+            tg_status = 'failed'
+            tg_error = str(telegram_result.get('error') or 'Не удалось отправить в Telegram')[:300]
     
-    # Дублируем отправленное сообщение во вкладку "Переписка" карточки клиента
-    if sent_ok and conn and client_data.get('id') and photographer_data.get('id'):
+    # Логируем ВСЕ попытки отправки в client_messages (даже неудачные), чтобы было видно историю
+    if conn and client_data.get('id') and photographer_data.get('id'):
         try:
             with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO t_p28211681_photo_secure_web.client_messages
-                    (client_id, photographer_id, sender_type, content, type, author, message_date, is_delivered)
-                    VALUES (%s, %s, 'photographer', %s, %s, 'Система', NOW(), TRUE)
-                """, (
-                    client_data['id'],
-                    photographer_data['id'],
-                    message,
-                    sent_channel or 'whatsapp',
-                ))
+                if wa_status is not None:
+                    cur.execute("""
+                        INSERT INTO t_p28211681_photo_secure_web.client_messages
+                        (client_id, photographer_id, sender_type, content, type, author, message_date,
+                         is_delivered, delivery_status, delivery_error, external_message_id)
+                        VALUES (%s, %s, 'photographer', %s, 'whatsapp', 'Система', NOW(),
+                                %s, %s, %s, %s)
+                    """, (
+                        int(client_data['id']),
+                        int(photographer_data['id']),
+                        message,
+                        wa_status in ('delivered', 'read'),
+                        wa_status,
+                        wa_error,
+                        wa_id,
+                    ))
+                if tg_status is not None:
+                    cur.execute("""
+                        INSERT INTO t_p28211681_photo_secure_web.client_messages
+                        (client_id, photographer_id, sender_type, content, type, author, message_date,
+                         is_delivered, delivery_status, delivery_error, external_message_id)
+                        VALUES (%s, %s, 'photographer', %s, 'telegram', 'Система', NOW(),
+                                %s, %s, %s, %s)
+                    """, (
+                        int(client_data['id']),
+                        int(photographer_data['id']),
+                        message,
+                        tg_status in ('delivered', 'read'),
+                        tg_status,
+                        tg_error,
+                        tg_id,
+                    ))
                 conn.commit()
-                print(f'[SHOOTING_NOTIF] Saved to client_messages (client_id={client_data["id"]}, channel={sent_channel})')
+                print(f'[SHOOTING_NOTIF] Saved to client_messages (client_id={client_data["id"]}, wa={wa_status}, tg={tg_status})')
         except Exception as e:
             print(f'[SHOOTING_NOTIF] Failed to save to client_messages: {e}')
             try:
@@ -282,6 +333,40 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
                 pass
     
     return results if results else {'error': 'No contact methods available'}
+
+
+def check_green_delivery_status(instance_id: str, token: str, id_message: str, max_attempts: int = 3) -> dict:
+    """Проверить реальный статус доставки сообщения GREEN-API по idMessage."""
+    import time
+    if not instance_id or not token or not id_message:
+        return {'status': 'unknown', 'raw': 'no_id'}
+    media_server = instance_id[:4] if len(instance_id) >= 4 else '7103'
+    url = f"https://{media_server}.api.green-api.com/v3/waInstance{instance_id}/getMessage/{token}/{id_message}"
+    last_status = 'unknown'
+    last_raw = ''
+    for attempt in range(max_attempts):
+        try:
+            time.sleep(0.7 if attempt == 0 else 1.2)
+            resp = requests.get(url, timeout=8)
+            if resp.status_code != 200:
+                last_raw = f'HTTP {resp.status_code}'
+                continue
+            data = resp.json() or {}
+            raw_status = (data.get('statusMessage') or data.get('status') or '').strip()
+            last_raw = raw_status or 'empty'
+            if raw_status == 'read':
+                return {'status': 'read', 'raw': raw_status}
+            if raw_status == 'delivered':
+                return {'status': 'delivered', 'raw': raw_status}
+            if raw_status == 'sent':
+                last_status = 'sent'
+                continue
+            if raw_status in ('failed', 'noAccount', 'notInGroup', 'yellowCard'):
+                return {'status': 'failed', 'raw': raw_status}
+        except Exception as e:
+            last_raw = str(e)[:120]
+            continue
+    return {'status': last_status, 'raw': last_raw}
 
 
 def send_photographer_notification(project_data: dict, client_data: dict, photographer_data: dict, payment_data: dict = None) -> dict:
