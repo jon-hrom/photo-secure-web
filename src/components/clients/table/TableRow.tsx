@@ -40,6 +40,7 @@ const TableRow = ({
             <img
               src={client.avatar_url}
               alt={client.name}
+              onError={(e) => console.warn('[Avatar load error] TableRow client', client.id, client.avatar_url, e)}
               className="w-10 h-10 rounded-lg object-cover flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200 border border-border"
             />
           ) : (

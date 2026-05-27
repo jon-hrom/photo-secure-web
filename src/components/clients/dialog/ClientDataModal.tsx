@@ -71,7 +71,10 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
       setForm((prev) => ({ ...prev, avatar_url: data.avatar_url }));
-      onLocalUpdate?.({ ...client, avatar_url: data.avatar_url });
+      const updatedClient = { ...client, avatar_url: data.avatar_url };
+      // Локально + глобально обновляем, чтобы аватар в списке и шапке диалога обновился сразу
+      onLocalUpdate?.(updatedClient);
+      onUpdate?.(updatedClient);
       toast.success('Фото загружено');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Не удалось загрузить фото');
@@ -101,7 +104,9 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Ошибка импорта');
       setForm((prev) => ({ ...prev, avatar_url: data.avatar_url }));
-      onLocalUpdate?.({ ...client, avatar_url: data.avatar_url });
+      const updatedClient = { ...client, avatar_url: data.avatar_url };
+      onLocalUpdate?.(updatedClient);
+      onUpdate?.(updatedClient);
       toast.success('Фото подтянуто из ВКонтакте');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Не удалось получить фото из ВК');
@@ -121,7 +126,9 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
       });
       if (!res.ok) throw new Error('Не удалось удалить');
       setForm((prev) => ({ ...prev, avatar_url: null }));
-      onLocalUpdate?.({ ...client, avatar_url: null });
+      const updatedClient = { ...client, avatar_url: null };
+      onLocalUpdate?.(updatedClient);
+      onUpdate?.(updatedClient);
       toast.success('Фото удалено');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Ошибка');
@@ -181,6 +188,8 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
         avatar_url: form.avatar_url,
         telegram_chat_id: form.telegram_chat_id,
       };
+      // Используем onLocalUpdate (без повторного PUT) — серверу мы уже сохранили выше.
+      // Если onLocalUpdate не передан — fallback на onUpdate (он сделает PUT, что нежелательно но безопасно).
       if (onLocalUpdate) {
         onLocalUpdate(merged);
       } else {

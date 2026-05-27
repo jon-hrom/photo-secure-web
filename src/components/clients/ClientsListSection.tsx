@@ -203,6 +203,7 @@ const ClientsListSection = ({
                               <img
                                 src={client.avatar_url}
                                 alt={client.name}
+                                onError={() => console.warn('[Avatar load error] List client', client.id, client.avatar_url)}
                                 className="w-8 h-8 md:w-10 md:h-10 rounded-lg object-cover flex-shrink-0 shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-200 border border-border"
                               />
                             ) : (

@@ -145,6 +145,12 @@ export const useClientsData = (
         }))
       }));
       
+      const avatarsCount = parsed.filter((c: { avatar_url: string | null }) => !!c.avatar_url).length;
+      console.log(`[loadClients] Loaded ${parsed.length} clients, ${avatarsCount} with avatars`);
+      if (avatarsCount > 0) {
+        const sample = parsed.find((c: { avatar_url: string | null }) => !!c.avatar_url);
+        console.log('[loadClients] Sample avatar URL:', sample?.avatar_url);
+      }
       setClients(parsed);
     } catch (error) {
       console.error('Failed to load clients:', error);
