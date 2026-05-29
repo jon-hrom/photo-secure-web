@@ -802,6 +802,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         INSERT INTO {DB_SCHEMA}.reserve_transactions (client_id, user_id, amount, type, source_payment_id, target_project_id, description)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ''', (client_id_in, user_id, -use_amount, 'used', pay_id, target_project_id, 'Списано на оплату проекта'))
+                    # Автоматически переводим проект из "Новый" в "В работе" при оплате из резерва
+                    cur.execute(f'''
+                        UPDATE {DB_SCHEMA}.client_projects
+                        SET status = 'in_progress'
+                        WHERE id = %s AND status = 'new'
+                    ''', (target_project_id,))
                     conn.commit()
                     return {
                         'statusCode': 200,
@@ -875,6 +881,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             INSERT INTO {DB_SCHEMA}.reserve_transactions (client_id, user_id, amount, type, source_payment_id, description)
                             VALUES (%s, %s, %s, %s, %s, %s)
                         ''', (client_id, str(user_id), reserve_amount, 'added', payment_id, 'Сдача с переплаты — учтена в резерв'))
+                    
+                    # Автоматически переводим проект из "Новый" в "В работе" при первой оплате
+                    cur.execute(f'''
+                        UPDATE {DB_SCHEMA}.client_projects
+                        SET status = 'in_progress'
+                        WHERE id = %s AND status = 'new'
+                    ''', (project_id,))
                     
                     conn.commit()
 
