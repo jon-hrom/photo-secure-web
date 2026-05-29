@@ -7,6 +7,7 @@ import os
 import requests
 from datetime import datetime, timedelta
 from typing import Dict, List
+from psycopg2.extras import RealDictCursor
 
 
 def escape_sql(value):
@@ -224,7 +225,7 @@ def check_and_send_reminders(conn, schema: str, user_id: int):
         
         now = datetime.now()
         
-        with conn.cursor() as cur:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
             # Находим проекты требующие напоминаний
             cur.execute(f"""
                 SELECT 

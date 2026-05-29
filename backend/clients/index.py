@@ -1421,6 +1421,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             ]
             # Поля, которые НЕ затираются если пришли как None (только удаляются через отдельные action)
             preserve_on_null = {'avatar_url'}
+            # Поля типа date/timestamp: пустую строку нужно превращать в NULL,
+            # иначе PostgreSQL падает с "invalid input syntax for type date".
+            nullable_date_fields = {'birthdate'}
             set_clauses = []
             set_values = []
             for body_key, db_col in field_map:
@@ -1428,6 +1431,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     value = body.get(body_key)
                     if value is None and body_key in preserve_on_null:
                         continue
+                    # Нормализуем пустые строки для date-полей в NULL
+                    if body_key in nullable_date_fields and (value == '' or value is None):
+                        value = None
                     set_clauses.append(f'{db_col} = %s')
                     set_values.append(value)
             
