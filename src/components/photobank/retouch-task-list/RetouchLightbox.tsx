@@ -36,6 +36,7 @@ export const RetouchLightbox = ({
   const task = tasks[index];
   const originalPhoto = originalPhotos.find(p => p.id === task?.photo_id);
   const originalUrl = originalPhoto?.thumbnail_s3_url || originalPhoto?.s3_url || originalPhoto?.data_url || '';
+  const originalFullUrl = originalPhoto?.s3_url || originalPhoto?.data_url || originalUrl;
 
   const resetView = useCallback(() => {
     setZoom(0);
@@ -333,7 +334,7 @@ export const RetouchLightbox = ({
             onClick={handleContainerClick}
           >
             <img
-              src={showBefore ? originalUrl : task.result_url}
+              src={showBefore ? (zoom > 0 ? originalFullUrl : originalUrl) : task.result_url}
               alt={task.file_name || ''}
               className="select-none touch-manipulation"
               style={{
