@@ -177,7 +177,7 @@ def build_payment_email_html(photographer_name: str, project_name: str, payment_
       <h1>{"Оплата полностью внесена!" if remaining == 0 else "Предоплата получена"}</h1>
     </div>
     <div class="info-block green">
-      <div class="info-label">👤 Фотограф</div>
+      <div class="info-label">👤 Клиент</div>
       <div class="info-value">{photographer_name or 'foto-mix'}</div>
     </div>
     <div class="info-block purple">
