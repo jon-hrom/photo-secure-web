@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import {
   Photo,
-  buildPreviewFilter, getPhotoPreviewUrl,
+  buildPreviewFilter, getPhotoFullUrl,
 } from './retouchTypes';
 import BeforeAfterPreview from './BeforeAfterPreview';
 import PhotoPickerModal from './PhotoPickerModal';
@@ -66,7 +66,7 @@ const RetouchSettings = ({ userId, onBack, previewPhoto, photos = [] }: RetouchS
 
   const filterStr = useMemo(() => buildPreviewFilter(preset.ops), [preset.ops]);
 
-  const previewSrc = currentPreviewPhoto ? getPhotoPreviewUrl(currentPreviewPhoto) : '';
+  const previewSrc = currentPreviewPhoto ? getPhotoFullUrl(currentPreviewPhoto) : '';
 
   if (preset.loading) {
     return (

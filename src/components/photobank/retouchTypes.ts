@@ -201,3 +201,10 @@ export const getPhotoPreviewUrl = (photo: Photo): string => {
   if (photo.data_url) return photo.data_url;
   return '';
 };
+
+export const getPhotoFullUrl = (photo: Photo): string => {
+  if (photo.s3_url && !isRawFile(photo.file_name)) return photo.s3_url;
+  if (photo.data_url) return photo.data_url;
+  if (photo.thumbnail_s3_url) return photo.thumbnail_s3_url;
+  return '';
+};
