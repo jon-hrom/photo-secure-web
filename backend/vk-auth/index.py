@@ -58,6 +58,23 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
+def is_registration_enabled() -> bool:
+    """Проверка: разрешена ли регистрация новых пользователей (app_settings.registration_enabled)"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT setting_value FROM {SCHEMA}.app_settings WHERE setting_key = 'registration_enabled' LIMIT 1")
+            row = cur.fetchone()
+            if not row:
+                return True
+            return str(row['setting_value']).strip().lower() in ('true', '1', 'yes', 'on')
+    except Exception as e:
+        print(f"[REGISTRATION] check error: {e}")
+        return True
+    finally:
+        conn.close()
+
+
 def save_session(state: str, code_verifier: str, device_id: str) -> None:
     """Сохранение OAuth сессии в БД"""
     conn = get_db_connection()
@@ -257,6 +274,9 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 conn.commit()
                 print(f'[VK_AUTH] Merged VK account with existing user: user_id={user_id}')
                 return user_id
+            
+            if not is_registration_enabled():
+                raise Exception("REGISTRATION_DISABLED")
             
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.users (vk_id, email, phone, display_name, avatar_url, role, is_active, source, registered_at, created_at, updated_at, last_login, ip_address, user_agent)
@@ -479,6 +499,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 )
             except Exception as e:
                 error_msg = str(e)
+                if error_msg == 'REGISTRATION_DISABLED':
+                    return {
+                        'statusCode': 403,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({
+                            'error': 'registration_disabled',
+                            'registration_disabled': True,
+                            'message': 'Регистрация сейчас временно недоступна, попробуйте позже.'
+                        }),
+                        'isBase64Encoded': False
+                    }
                 if error_msg.startswith('USER_BLOCKED:'):
                     reason = error_msg.split(':', 1)[1]
                     return {

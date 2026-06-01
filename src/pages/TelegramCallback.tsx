@@ -31,6 +31,17 @@ const TelegramCallback = () => {
 
         const data = await response.json();
 
+        if (response.status === 403 && data.registration_disabled) {
+          setStatus('error');
+          setMessage('Регистрация сейчас временно недоступна, попробуйте позже.');
+          toast.error('Регистрация сейчас временно недоступна, попробуйте позже.', {
+            description: 'Создание новых аккаунтов приостановлено администратором.',
+            duration: 6000,
+          });
+          setTimeout(() => navigate('/'), 3000);
+          return;
+        }
+
         if (!response.ok) {
           throw new Error(data.error || 'Ошибка авторизации');
         }

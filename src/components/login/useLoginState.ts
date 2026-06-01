@@ -368,7 +368,10 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
       const settings = await settingsResponse.json();
       
       if (!settings.registration_enabled) {
-        toast.error('Регистрация новых пользователей временно отключена');
+        toast.error('Регистрация сейчас временно недоступна, попробуйте позже.', {
+          description: 'Создание новых аккаунтов приостановлено администратором.',
+          duration: 6000,
+        });
         return;
       }
 
@@ -384,6 +387,11 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
         toast.success('Регистрация успешна! Подтвердите email');
         onLoginSuccess(data.userId, email);
       
+      } else if (response.status === 403 && data.registration_disabled) {
+        toast.error('Регистрация сейчас временно недоступна, попробуйте позже.', {
+          description: 'Создание новых аккаунтов приостановлено администратором.',
+          duration: 6000,
+        });
       } else {
         toast.error(data.error || 'Ошибка регистрации');
       }

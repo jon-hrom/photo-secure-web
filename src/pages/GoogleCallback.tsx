@@ -45,6 +45,16 @@ const GoogleCallback = () => {
 
         console.log('GoogleCallback: Backend response:', data);
 
+        if (response.status === 403 && data.registration_disabled) {
+          toast.error('Регистрация сейчас временно недоступна, попробуйте позже.', {
+            description: 'Создание новых аккаунтов приостановлено администратором.',
+            duration: 6000,
+          });
+          setProcessing(false);
+          navigate('/');
+          return;
+        }
+
         if (response.status === 403 && data.blocked) {
           console.log('GoogleCallback: User is blocked');
           toast.error(data.message || 'Ваш аккаунт заблокирован администратором');

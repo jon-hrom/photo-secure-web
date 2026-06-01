@@ -57,6 +57,23 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
+def is_registration_enabled() -> bool:
+    """Проверка: разрешена ли регистрация новых пользователей (app_settings.registration_enabled)"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT setting_value FROM {SCHEMA}.app_settings WHERE setting_key = 'registration_enabled' LIMIT 1")
+            row = cur.fetchone()
+            if not row:
+                return True
+            return str(row['setting_value']).strip().lower() in ('true', '1', 'yes', 'on')
+    except Exception as e:
+        print(f"[REGISTRATION] check error: {e}")
+        return True
+    finally:
+        conn.close()
+
+
 def save_session(state: str, code_verifier: str) -> None:
     """Сохранение OAuth сессии в БД"""
     conn = get_db_connection()
@@ -232,6 +249,10 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
                     'phone': existing_user.get('phone'),
                     'user_email': existing_user.get('email')
                 }
+            
+            # Регистрация нового пользователя — проверяем разрешена ли
+            if not is_registration_enabled():
+                raise Exception("REGISTRATION_DISABLED")
             
             # Создаём нового пользователя (ни по email не найден)
             cur.execute(f"""
@@ -538,6 +559,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         print(f"[GOOGLE_AUTH] ERROR: {error_msg}")
         print(f"[GOOGLE_AUTH] TRACEBACK: {error_trace}")
+        
+        # Регистрация отключена администратором
+        if error_msg == 'REGISTRATION_DISABLED':
+            return {
+                'statusCode': 403,
+                'headers': cors_headers,
+                'body': json.dumps({
+                    'success': False,
+                    'registration_disabled': True,
+                    'message': 'Регистрация сейчас временно недоступна, попробуйте позже.'
+                }),
+                'isBase64Encoded': False
+            }
         
         # Проверка на блокировку пользователя
         if error_msg.startswith('USER_BLOCKED:'):

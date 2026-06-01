@@ -164,6 +164,22 @@ def get_db_connection():
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
+def is_registration_enabled(conn) -> bool:
+    """Проверка: разрешена ли регистрация новых пользователей (app_settings.registration_enabled)"""
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"SELECT setting_value FROM {SCHEMA}.app_settings WHERE setting_key = 'registration_enabled' LIMIT 1"
+        )
+        row = cursor.fetchone()
+        if not row:
+            return True
+        val = row['setting_value'] if isinstance(row, dict) else row[0]
+        return str(val).strip().lower() in ('true', '1', 'yes', 'on')
+    except Exception as e:
+        print(f"[REGISTRATION] check error: {e}")
+        return True
+
 def escape_sql(value):
     """Escape values for Simple Query Protocol (no parameterized queries)"""
     if value is None:
@@ -441,6 +457,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 email = body.get('email')
                 password = body.get('password')
                 phone = body.get('phone', '')
+                
+                if not is_registration_enabled(conn):
+                    return {
+                        'statusCode': 403,
+                        'headers': headers,
+                        'body': json.dumps({
+                            'error': 'Регистрация сейчас временно недоступна, попробуйте позже.',
+                            'registration_disabled': True
+                        }),
+                        'isBase64Encoded': False
+                    }
                 
                 if not email or not password or not phone:
                     return {

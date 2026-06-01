@@ -45,6 +45,20 @@ def get_db_connection():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
+def is_registration_enabled(conn) -> bool:
+    """Проверка: разрешена ли регистрация новых пользователей (app_settings.registration_enabled)"""
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"SELECT setting_value FROM {SCHEMA}.app_settings WHERE setting_key = 'registration_enabled' LIMIT 1")
+            row = cur.fetchone()
+            if not row:
+                return True
+            return str(row['setting_value']).strip().lower() in ('true', '1', 'yes', 'on')
+    except Exception as e:
+        print(f"[REGISTRATION] check error: {e}")
+        return True
+
+
 def create_session_token(user_id: int, ip_address: str = None, user_agent: str = None) -> tuple:
     """Создание токена и сессии в active_sessions (совместимо с validate-session)"""
     import uuid
@@ -153,6 +167,9 @@ def create_or_update_user(
             conn.commit()
             return user_id
         else:
+            if not is_registration_enabled(conn):
+                raise Exception("REGISTRATION_DISABLED")
+            
             print(f"[TG_AUTH] Creating new user")
             
             # Создаём нового пользователя
@@ -258,6 +275,12 @@ def handle_callback(conn, body: dict, ip_address: str = None, user_agent: str = 
         )
         print(f"[TG_AUTH] User ID: {user_id}")
     except Exception as e:
+        if str(e) == 'REGISTRATION_DISABLED':
+            return cors_response(403, {
+                "error": "registration_disabled",
+                "registration_disabled": True,
+                "message": "Регистрация сейчас временно недоступна, попробуйте позже."
+            })
         print(f"[TG_AUTH] Error creating user: {e}")
         import traceback
         print(traceback.format_exc())
