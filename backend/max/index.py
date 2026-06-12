@@ -463,7 +463,7 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
                 pf.client_id,
                 c.phone,
                 c.name,
-                u.full_name,
+                u.name,
                 u.phone
             FROM t_p28211681_photo_secure_web.folder_short_links fsl
             JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
@@ -559,7 +559,7 @@ def trash_expired_folders(conn, user_id: str) -> Dict[str, Any]:
             fsl.folder_id,
             fsl.expires_at,
             pf.folder_name,
-            u.full_name,
+            u.name,
             u.phone,
             u.email
         FROM t_p28211681_photo_secure_web.folder_short_links fsl
