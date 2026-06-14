@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogOverlay, DialogPortal } from '@/components/ui/dialog';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
@@ -110,7 +111,15 @@ export default function CreateTicketDialog({ open, onClose, userId, userName, us
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="max-w-[calc(100%-1.5rem)] sm:max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto p-5 sm:p-6">
+      <DialogPortal>
+        <DialogOverlay className="z-[80] bg-black/80" />
+        <DialogPrimitive.Content
+          className="fixed left-[50%] top-[50%] z-[80] grid w-full max-w-[calc(100%-1.5rem)] sm:max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-5 sm:p-6 shadow-lg sm:rounded-lg max-h-[calc(100dvh-2rem)] overflow-y-auto"
+        >
+          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none">
+            <Icon name="X" size={18} />
+            <span className="sr-only">Закрыть</span>
+          </DialogPrimitive.Close>
         {/* Тип запроса */}
         <div className="space-y-2">
           <label className="text-sm text-muted-foreground">Тип запроса</label>
@@ -223,7 +232,8 @@ export default function CreateTicketDialog({ open, onClose, userId, userName, us
             </Button>
           </div>
         </div>
-      </DialogContent>
+        </DialogPrimitive.Content>
+      </DialogPortal>
     </Dialog>
   );
 }
