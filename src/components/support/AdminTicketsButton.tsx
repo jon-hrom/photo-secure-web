@@ -60,9 +60,27 @@ export default function AdminTicketsButton({ userId, open: openProp, onOpenChang
     }
   }, [userId, filter]);
 
+  const hasLoadedOnce = useRef(false);
+
+  const playNotificationSound = () => {
+    try {
+      const soundUrl = localStorage.getItem('admin_notification_sound')
+        || 'data:audio/wav;base64,UklGRmQEAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAEAACAP4CAf4B/gICAgH+AgIB/gH+AgICAgICAf4CAgH+Af4CAgICAgICAgH+AgICAgH+Af4B/gICAgICAf4CAgICAf4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+AgICAgICAgH+AgICAgH+Af4B/gH+Af4CAgICAgICAgH+AgICAgH+Af4B/gH+Af4CAgICAgICAgH+AgICAgH+Af4B/gH+Af4CAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+AgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+AgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4CAgICAgICAgICAgH+AgICAgH+Af4B/gH+Af4B/gH+Af4B/gICAgICAgICAgICAgH+AgICAgA==';
+      const audio = new Audio(soundUrl);
+      audio.volume = 0.5;
+      audio.play().catch(() => {});
+    } catch {
+      // ignore
+    }
+  };
+
   const loadUnread = useCallback(async () => {
     try {
       const cnt = await adminFetchUnread(userId);
+      if (hasLoadedOnce.current && cnt > prevUnread.current) {
+        playNotificationSound();
+      }
+      hasLoadedOnce.current = true;
       setUnread(cnt);
       prevUnread.current = cnt;
       onUnreadChange?.(cnt);

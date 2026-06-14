@@ -12,7 +12,23 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
 
+try:
+    import notifications as notify
+except Exception as _e:
+    notify = None
+    print(f'[support-tickets] notifications import failed: {_e}')
+
 SCHEMA = 't_p28211681_photo_secure_web'
+
+
+def _safe_notify(fn_name, *args):
+    """Безопасный вызов уведомлений — не должен ломать основной поток."""
+    if notify is None:
+        return
+    try:
+        getattr(notify, fn_name)(*args)
+    except Exception as e:
+        print(f'[support-tickets] notify {fn_name} failed: {e}')
 
 REQUEST_TYPES = {'question', 'problem', 'suggestion'}
 PRIORITIES = {'low', 'normal', 'high', 'urgent'}
@@ -225,6 +241,8 @@ def handler(event: dict, context) -> dict:
                 (ticket['id'], user_name, message_body, json.dumps(attachments)),
             )
             conn.commit()
+            _safe_notify('notify_new_ticket', cur, ticket_number, subject, user_name)
+            conn.commit()
             return resp(200, {'success': True, 'ticket': ticket_to_dict(ticket)})
 
         # ---------- USER: отправить сообщение в тикет ----------
@@ -255,6 +273,8 @@ def handler(event: dict, context) -> dict:
                 f"last_message_preview = %s, admin_unread_count = admin_unread_count + 1 WHERE id = %s",
                 ((message_body or 'Вложение')[:200], ticket_id),
             )
+            conn.commit()
+            _safe_notify('notify_user_reply', cur, user_identifier, ticket['ticket_number'], ticket['subject'])
             conn.commit()
             return resp(200, {'success': True, 'message': {
                 'id': msg['id'], 'sender': 'user', 'sender_name': user_name,
@@ -365,6 +385,15 @@ def handler(event: dict, context) -> dict:
                 ((message_body or 'Вложение')[:200], new_status, ticket_id),
             )
             conn.commit()
+            cur.execute(
+                f"SELECT user_identifier, ticket_number, subject FROM {SCHEMA}.support_tickets WHERE id = %s",
+                (ticket_id,),
+            )
+            trow = cur.fetchone()
+            if trow:
+                _safe_notify('notify_admin_reply', cur, trow['user_identifier'],
+                             trow['ticket_number'], trow['subject'], message_body)
+                conn.commit()
             return resp(200, {'success': True, 'message': {
                 'id': msg['id'], 'sender': 'admin', 'sender_name': 'Поддержка',
                 'body': msg.get('body') or '', 'attachments': msg.get('attachments') or [],

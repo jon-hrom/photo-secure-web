@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "Отдаёт публичный VAPID ключ",
+      "method": "GET",
+      "path": "/?action=vapid",
+      "expectedStatus": 200,
+      "expectedBody": {"public_key": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Без авторизации возвращает 401",
+      "method": "POST",
+      "path": "/",
+      "body": {"subscription": {}},
+      "expectedStatus": 401
+    }
+  ]
+}
