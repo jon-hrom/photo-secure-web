@@ -273,6 +273,7 @@ const AppNavigation = ({
           onClose={() => setTopupOpen(false)}
           userId={userId}
           currentBalance={energyBalance}
+          onSuccess={loadEnergy}
         />
       )}
     </nav>

@@ -77,9 +77,14 @@ def payment_stats(event: Dict[str, Any]) -> Dict[str, Any]:
                     po.paid_at,
                     po.created_at,
                     po.user_id,
+                    po.order_type,
+                    po.energy_amount,
                     COALESCE(u.name, u.email, 'Без имени') AS user_name,
                     u.email AS user_email,
-                    COALESCE(sp.name, '—') AS plan_name
+                    CASE
+                        WHEN po.order_type = 'energy' THEN '⚡ Энергия (' || COALESCE(po.energy_amount, 0) || ' ед.)'
+                        ELSE COALESCE(sp.name, '—')
+                    END AS plan_name
                 FROM {SCHEMA}.payment_orders po
                 LEFT JOIN {SCHEMA}.users u ON u.id = po.user_id
                 LEFT JOIN {SCHEMA}.storage_plans sp ON sp.id = po.plan_id
@@ -92,6 +97,8 @@ def payment_stats(event: Dict[str, Any]) -> Dict[str, Any]:
             cur.execute(f"""
                 SELECT
                     COALESCE(SUM(po.amount), 0) AS total_revenue,
+                    COALESCE(SUM(CASE WHEN po.order_type = 'energy' THEN po.amount ELSE 0 END), 0) AS energy_revenue,
+                    COALESCE(SUM(CASE WHEN po.order_type != 'energy' THEN po.amount ELSE 0 END), 0) AS tariff_revenue,
                     COUNT(*) AS total_payments,
                     COUNT(DISTINCT po.user_id) AS paying_users
                 FROM {SCHEMA}.payment_orders po
@@ -101,13 +108,16 @@ def payment_stats(event: Dict[str, Any]) -> Dict[str, Any]:
 
             cur.execute(f"""
                 SELECT
-                    COALESCE(sp.name, '—') AS plan_name,
+                    CASE
+                        WHEN po.order_type = 'energy' THEN '⚡ Энергия'
+                        ELSE COALESCE(sp.name, '—')
+                    END AS plan_name,
                     COUNT(*) AS payments_count,
                     COALESCE(SUM(po.amount), 0) AS revenue
                 FROM {SCHEMA}.payment_orders po
                 LEFT JOIN {SCHEMA}.storage_plans sp ON sp.id = po.plan_id
                 WHERE po.status = 'paid'{where_period}
-                GROUP BY sp.name
+                GROUP BY 1
                 ORDER BY revenue DESC
             """)
             by_plan = [dict(r) for r in cur.fetchall()]
@@ -119,6 +129,8 @@ def payment_stats(event: Dict[str, Any]) -> Dict[str, Any]:
                 'payments': payments,
                 'summary': {
                     'total_revenue': float(summary['total_revenue']),
+                    'tariff_revenue': float(summary['tariff_revenue']),
+                    'energy_revenue': float(summary['energy_revenue']),
                     'total_payments': int(summary['total_payments']),
                     'paying_users': int(summary['paying_users']),
                 },

@@ -56,7 +56,7 @@ def activate_subscription(cur, order):
 
 def add_energy(cur, order):
     """Начислить энергию пользователю после успешной оплаты пополнения."""
-    order_id, user_id, amount, energy_amount = order
+    order_id, user_id, amount, energy_amount, promo_id = order
     energy_amount = int(energy_amount or 0)
     if energy_amount <= 0:
         return
@@ -70,6 +70,9 @@ def add_energy(cur, order):
         (user_id, amount, type, rub_amount, order_id, description)
         VALUES (%s, %s, 'topup', %s, %s, %s)
     """, (user_id, energy_amount, amount, order_id, f'Пополнение энергии: +{energy_amount} ед.'))
+    if promo_id:
+        cur.execute(f"UPDATE {SCHEMA}.energy_promo_codes SET used_count = used_count + 1 WHERE id = %s", (promo_id,))
+        cur.execute(f"INSERT INTO {SCHEMA}.energy_promo_usages (promo_code_id, user_id) VALUES (%s, %s)", (promo_id, user_id))
 
 
 def handler(event: dict, context) -> dict:
@@ -115,7 +118,7 @@ def handler(event: dict, context) -> dict:
         UPDATE {SCHEMA}.payment_orders
         SET status = 'paid', paid_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
         WHERE robokassa_inv_id = %s AND status = 'pending'
-        RETURNING id, user_id, plan_id, duration_months, amount, order_type, energy_amount
+        RETURNING id, user_id, plan_id, duration_months, amount, order_type, energy_amount, energy_promo_code_id
     """, (int(inv_id),))
     result = cur.fetchone()
 
@@ -128,9 +131,9 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 404, 'headers': HEADERS, 'body': 'Order not found', 'isBase64Encoded': False}
 
     try:
-        order_id, user_id, plan_id, duration_months, amount, order_type, energy_amount = result
+        order_id, user_id, plan_id, duration_months, amount, order_type, energy_amount, energy_promo_id = result
         if order_type == 'energy':
-            add_energy(cur, (order_id, user_id, amount, energy_amount))
+            add_energy(cur, (order_id, user_id, amount, energy_amount, energy_promo_id))
         else:
             activate_subscription(cur, (order_id, user_id, plan_id, duration_months, amount))
         conn.commit()

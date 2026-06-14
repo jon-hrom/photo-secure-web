@@ -78,13 +78,49 @@ def handler(event: dict, context) -> dict:
         plan_id = 0
         duration_months = 1
         energy_amount = None
+        energy_promo_id = None
 
         if order_type == 'energy':
-            final_amount = round(amount, 2)
-            if final_amount < ENERGY_RATE_RUB:
+            base_amount = round(amount, 2)
+            if base_amount < ENERGY_RATE_RUB:
                 conn.close()
                 return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': f'Минимальная сумма пополнения — {ENERGY_RATE_RUB} ₽'}), 'isBase64Encoded': False}
-            energy_amount = int(final_amount // ENERGY_RATE_RUB)
+
+            final_amount = base_amount
+            bonus_energy = 0
+            code = str(payload.get('code', '')).strip()
+            if code:
+                cur.execute(f"""
+                    SELECT id, discount_type, discount_value, bonus_energy, max_uses, used_count, is_active, valid_until
+                    FROM {SCHEMA}.energy_promo_codes WHERE UPPER(code) = UPPER(%s)
+                """, (code,))
+                pr = cur.fetchone()
+                if pr:
+                    pr_id, d_type, d_val, b_energy, max_uses, used_count, is_active, valid_until = pr
+                    cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.energy_promo_usages WHERE promo_code_id = %s AND user_id = %s", (pr_id, user_id))
+                    already_used = cur.fetchone()[0] > 0
+                    valid = is_active and not already_used
+                    if valid and max_uses and used_count >= max_uses:
+                        valid = False
+                    if valid and valid_until and datetime.now() > valid_until:
+                        valid = False
+                    if valid:
+                        d_val = float(d_val)
+                        discount = base_amount * (d_val / 100) if d_type == 'percent' else d_val
+                        discount = min(discount, base_amount)
+                        final_amount = round(max(0, base_amount - discount), 2)
+                        bonus_energy = int(b_energy or 0)
+                        energy_promo_id = pr_id
+
+            if final_amount < ENERGY_RATE_RUB and final_amount > 0:
+                # после скидки сумма слишком мала для онлайн-оплаты Робокассы
+                conn.close()
+                return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': f'Сумма к оплате после скидки меньше минимальной ({ENERGY_RATE_RUB} ₽)'}), 'isBase64Encoded': False}
+            if final_amount <= 0:
+                conn.close()
+                return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'Промокод даёт 100% скидку — оплата не нужна, начисление без Робокассы'}), 'isBase64Encoded': False}
+
+            energy_amount = int(final_amount // ENERGY_RATE_RUB) + bonus_energy
             description = f'Пополнение энергии: {energy_amount} ед.'
         else:
             plan_id = int(payload.get('plan_id', 0))
@@ -117,10 +153,10 @@ def handler(event: dict, context) -> dict:
 
         cur.execute(f"""
             INSERT INTO {SCHEMA}.payment_orders
-            (order_number, user_id, plan_id, duration_months, user_email, amount, robokassa_inv_id, status, order_type, energy_amount)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s)
+            (order_number, user_id, plan_id, duration_months, user_email, amount, robokassa_inv_id, status, order_type, energy_amount, energy_promo_code_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s)
             RETURNING id
-        """, (order_number, user_id, plan_id, duration_months, user_email, final_amount, robokassa_inv_id, order_type, energy_amount))
+        """, (order_number, user_id, plan_id, duration_months, user_email, final_amount, robokassa_inv_id, order_type, energy_amount, energy_promo_id))
         order_id = cur.fetchone()[0]
 
         amount_str = f"{final_amount:.2f}"

@@ -11,22 +11,79 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
 const ROBOKASSA_CREATE_URL = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
+const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
 const ENERGY_RATE_RUB = 25;
 
 const PRESETS = [500, 1000, 2500, 5000];
+
+interface PromoResult {
+  final_price: number;
+  discount_amount: number;
+  bonus_energy: number;
+  energy_total: number;
+}
 
 interface Props {
   open: boolean;
   onClose: () => void;
   userId: number | string;
   currentBalance: number;
+  onSuccess?: () => void;
 }
 
-export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Props) => {
+export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuccess }: Props) => {
   const [amount, setAmount] = useState<string>('2500');
   const [loading, setLoading] = useState(false);
+  const [showPromo, setShowPromo] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promo, setPromo] = useState<PromoResult | null>(null);
 
   const numericAmount = parseInt(amount, 10) || 0;
+  const payAmount = promo ? promo.final_price : numericAmount;
+
+  const resetPromo = () => { setPromo(null); };
+
+  const handleSetAmount = (val: string) => {
+    setAmount(val);
+    resetPromo();
+  };
+
+  const applyPromo = async () => {
+    if (!promoCode.trim()) {
+      toast.error('Введите промокод');
+      return;
+    }
+    if (numericAmount < ENERGY_RATE_RUB) {
+      toast.error(`Минимальная сумма — ${ENERGY_RATE_RUB} ₽`);
+      return;
+    }
+    setPromoLoading(true);
+    try {
+      const res = await fetch(`${ENERGY_URL}?action=validate-promo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
+        body: JSON.stringify({ code: promoCode.trim(), amount: numericAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        toast.error(data.error || 'Промокод не применён');
+        setPromo(null);
+        return;
+      }
+      setPromo({
+        final_price: data.final_price,
+        discount_amount: data.discount_amount,
+        bonus_energy: data.bonus_energy,
+        energy_total: data.energy_total,
+      });
+      toast.success('Промокод применён!');
+    } catch {
+      toast.error('Ошибка проверки промокода');
+    } finally {
+      setPromoLoading(false);
+    }
+  };
 
   const handleTopup = async () => {
     if (numericAmount < ENERGY_RATE_RUB) {
@@ -35,6 +92,24 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
     }
     setLoading(true);
     try {
+      // 100% скидка — начисляем без Робокассы
+      if (promo && promo.final_price <= 0) {
+        const res = await fetch(`${ENERGY_URL}?action=apply-free`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
+          body: JSON.stringify({ code: promoCode.trim(), amount: numericAmount }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          toast.error(data.error || 'Не удалось применить промокод');
+          return;
+        }
+        toast.success(data.message || 'Энергия зачислена!');
+        onSuccess?.();
+        onClose();
+        return;
+      }
+
       const res = await fetch(ROBOKASSA_CREATE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,6 +117,7 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
           order_type: 'energy',
           user_id: Number(userId),
           amount: numericAmount,
+          code: promo ? promoCode.trim() : '',
           success_url: `${window.location.origin}/?energy=success`,
           fail_url: `${window.location.origin}/?energy=fail`,
         }),
@@ -59,6 +135,8 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
       setLoading(false);
     }
   };
+
+  const isFree = promo && promo.final_price <= 0;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -85,7 +163,7 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
               type="number"
               min={ENERGY_RATE_RUB}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => handleSetAmount(e.target.value)}
               className="text-2xl font-bold h-14"
               placeholder="2500"
             />
@@ -98,7 +176,7 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
                 <button
                   key={rub}
                   type="button"
-                  onClick={() => setAmount(String(rub))}
+                  onClick={() => handleSetAmount(String(rub))}
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
                     active
                       ? 'border-primary bg-primary/10 ring-1 ring-primary'
@@ -114,6 +192,52 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
             })}
           </div>
 
+          {!showPromo ? (
+            <button
+              type="button"
+              onClick={() => setShowPromo(true)}
+              className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+            >
+              <Icon name="Ticket" size={16} />
+              Ввести промокод
+            </button>
+          ) : (
+            <div className="space-y-2 animate-fade-in">
+              <label className="text-sm text-muted-foreground">Промокод</label>
+              <div className="flex gap-2">
+                <Input
+                  value={promoCode}
+                  onChange={(e) => { setPromoCode(e.target.value); resetPromo(); }}
+                  placeholder="Введите промокод"
+                  className="uppercase"
+                />
+                <Button variant="outline" onClick={applyPromo} disabled={promoLoading}>
+                  {promoLoading ? <Icon name="Loader2" className="h-4 w-4 animate-spin" /> : 'Применить'}
+                </Button>
+              </div>
+              {promo && (
+                <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 p-3 text-sm space-y-1">
+                  {promo.discount_amount > 0 && (
+                    <div className="flex justify-between text-green-700 dark:text-green-400">
+                      <span>Скидка</span>
+                      <span>−{promo.discount_amount} ₽</span>
+                    </div>
+                  )}
+                  {promo.bonus_energy > 0 && (
+                    <div className="flex justify-between text-green-700 dark:text-green-400">
+                      <span>Бонус энергии</span>
+                      <span>+{promo.bonus_energy} ⚡</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-semibold">
+                    <span>Итого к оплате</span>
+                    <span>{promo.final_price} ₽</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <Button
             className="w-full h-12 text-base"
             size="lg"
@@ -123,9 +247,13 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
             {loading ? (
               <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
             ) : (
-              <Icon name="CreditCard" className="mr-2 h-5 w-5" />
+              <Icon name={isFree ? 'Gift' : 'CreditCard'} className="mr-2 h-5 w-5" />
             )}
-            {loading ? 'Обработка...' : `Пополнить на ${numericAmount} ₽`}
+            {loading
+              ? 'Обработка...'
+              : isFree
+                ? 'Получить энергию бесплатно'
+                : `Пополнить на ${payAmount} ₽`}
           </Button>
         </div>
       </DialogContent>

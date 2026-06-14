@@ -24,6 +24,8 @@ interface ByPlan {
 
 interface Summary {
   total_revenue: number;
+  tariff_revenue: number;
+  energy_revenue: number;
   total_payments: number;
   paying_users: number;
 }
@@ -106,6 +108,11 @@ export const PaymentsTab = ({ adminKey }: { adminKey: string }) => {
             <div>
               <p className="text-sm text-muted-foreground">Общий доход</p>
               <p className="text-2xl font-bold">{summary ? formatRub(summary.total_revenue) : '—'}</p>
+              {summary && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Тарифы: {formatRub(summary.tariff_revenue)} · Энергия: {formatRub(summary.energy_revenue)}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -136,7 +143,7 @@ export const PaymentsTab = ({ adminKey }: { adminKey: string }) => {
       {byPlan.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Доход по тарифам</CardTitle>
+            <CardTitle className="text-base">Доход по тарифам и энергии</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {byPlan.map((p) => (
