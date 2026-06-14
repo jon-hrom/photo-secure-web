@@ -140,9 +140,9 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-[calc(100%-1.5rem)] sm:max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Icon name="Zap" size={22} className="text-primary" />
             Пополнение энергии
           </DialogTitle>
@@ -164,12 +164,12 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
               min={ENERGY_RATE_RUB}
               value={amount}
               onChange={(e) => handleSetAmount(e.target.value)}
-              className="text-2xl font-bold h-14"
+              className="text-lg sm:text-2xl font-bold h-12 sm:h-14"
               placeholder="2500"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             {PRESETS.map((rub) => {
               const active = numericAmount === rub;
               return (
@@ -177,7 +177,7 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
                   key={rub}
                   type="button"
                   onClick={() => handleSetAmount(String(rub))}
-                  className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                  className={`flex items-center gap-2 sm:gap-3 rounded-xl border p-2.5 sm:p-3 text-left transition-all ${
                     active
                       ? 'border-primary bg-primary/10 ring-1 ring-primary'
                       : 'border-border hover:border-primary/50 hover:bg-muted/50'
@@ -204,14 +204,14 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
           ) : (
             <div className="space-y-2 animate-fade-in">
               <label className="text-sm text-muted-foreground">Промокод</label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   value={promoCode}
                   onChange={(e) => { setPromoCode(e.target.value); resetPromo(); }}
                   placeholder="Введите промокод"
                   className="uppercase"
                 />
-                <Button variant="outline" onClick={applyPromo} disabled={promoLoading}>
+                <Button variant="outline" onClick={applyPromo} disabled={promoLoading} className="shrink-0">
                   {promoLoading ? <Icon name="Loader2" className="h-4 w-4 animate-spin" /> : 'Применить'}
                 </Button>
               </div>

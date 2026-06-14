@@ -99,15 +99,15 @@ export const PaymentsTab = ({ adminKey }: { adminKey: string }) => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-green-100 dark:bg-green-900/30">
+          <CardContent className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-green-100 dark:bg-green-900/30 shrink-0">
               <Icon name="Wallet" className="h-6 w-6 text-green-600" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-muted-foreground">Общий доход</p>
-              <p className="text-2xl font-bold">{summary ? formatRub(summary.total_revenue) : '—'}</p>
+              <p className="text-xl sm:text-2xl font-bold truncate">{summary ? formatRub(summary.total_revenue) : '—'}</p>
               {summary && (
                 <p className="text-xs text-muted-foreground mt-1">
                   Тарифы: {formatRub(summary.tariff_revenue)} · Энергия: {formatRub(summary.energy_revenue)}
@@ -117,24 +117,24 @@ export const PaymentsTab = ({ adminKey }: { adminKey: string }) => {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-blue-100 dark:bg-blue-900/30">
+          <CardContent className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-blue-100 dark:bg-blue-900/30 shrink-0">
               <Icon name="CreditCard" className="h-6 w-6 text-blue-600" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-muted-foreground">Оплат всего</p>
-              <p className="text-2xl font-bold">{summary ? summary.total_payments : '—'}</p>
+              <p className="text-xl sm:text-2xl font-bold">{summary ? summary.total_payments : '—'}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-purple-100 dark:bg-purple-900/30">
+          <CardContent className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
+            <div className="p-2.5 sm:p-3 rounded-xl bg-purple-100 dark:bg-purple-900/30 shrink-0">
               <Icon name="Users" className="h-6 w-6 text-purple-600" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-muted-foreground">Платящих фотографов</p>
-              <p className="text-2xl font-bold">{summary ? summary.paying_users : '—'}</p>
+              <p className="text-xl sm:text-2xl font-bold">{summary ? summary.paying_users : '—'}</p>
             </div>
           </CardContent>
         </Card>
@@ -168,8 +168,8 @@ export const PaymentsTab = ({ adminKey }: { adminKey: string }) => {
           ) : payments.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">Оплат пока нет</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <table className="w-full min-w-[520px] text-sm">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="py-2 pr-4 font-medium">Дата</th>

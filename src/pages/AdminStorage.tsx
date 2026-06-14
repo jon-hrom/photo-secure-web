@@ -228,8 +228,8 @@ const AdminStorage = () => {
         />
 
         <Tabs defaultValue="plans" className="space-y-4">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-9 w-full">
-            <TabsTrigger value="plans" className="text-xs sm:text-sm">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-9 h-auto w-full gap-1 sm:gap-0">
+            <TabsTrigger value="plans" className="text-xs sm:text-sm px-1 sm:px-3 py-1.5">
               <Icon name="Package" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Тарифы</span>
               <span className="sm:hidden">План</span>

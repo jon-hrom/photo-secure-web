@@ -138,16 +138,16 @@ export const EnergyPromoCodesTab = ({ adminKey }: { adminKey: string }) => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2">
-          <Icon name="Zap" className="h-5 w-5 text-yellow-500" />
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <Icon name="Zap" className="h-5 w-5 text-yellow-500 shrink-0" />
           Промокоды на энергию ({codes.length})
         </CardTitle>
-        <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={load} disabled={loading}>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" size="icon" onClick={load} disabled={loading} className="shrink-0">
             <Icon name="RefreshCw" className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button onClick={() => setIsCreating(true)}>
+          <Button onClick={() => setIsCreating(true)} className="flex-1 sm:flex-none">
             <Icon name="Plus" className="mr-2 h-4 w-4" />
             Создать промокод
           </Button>
@@ -219,7 +219,7 @@ export const EnergyPromoCodesTab = ({ adminKey }: { adminKey: string }) => {
         </div>
 
         <Dialog open={isCreating} onOpenChange={setIsCreating}>
-          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[calc(100%-1.5rem)] sm:max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Создать промокод на энергию</DialogTitle>
             </DialogHeader>
