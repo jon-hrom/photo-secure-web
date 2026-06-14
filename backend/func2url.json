@@ -1,4 +1,5 @@
 {
+  "account-notify": "https://functions.poehali.dev/144eb550-4428-40c4-bc1a-acd169042a99",
   "energy": "https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6",
   "robokassa-robokassa-webhook": "https://functions.poehali.dev/e4c1370d-ffda-49ec-b7d4-0d23c41a46fd",
   "robokassa-robokassa": "https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d",

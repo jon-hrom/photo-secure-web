@@ -11,6 +11,18 @@ from datetime import datetime
 
 SCHEMA = 't_p28211681_photo_secure_web'
 ENERGY_RATE_RUB = 25  # рублей за 1 единицу энергии
+ACCOUNT_NOTIFY_URL = 'https://functions.poehali.dev/144eb550-4428-40c4-bc1a-acd169042a99'
+
+
+def notify(event_type, user_id, extra):
+    """Шлёт красивое уведомление фотографу (не критично при ошибке)."""
+    try:
+        import requests
+        payload = {'event_type': event_type, 'user_id': int(user_id)}
+        payload.update(extra)
+        requests.post(ACCOUNT_NOTIFY_URL, json=payload, timeout=8)
+    except Exception as e:
+        print(f"[NOTIFY] error: {e}")
 
 CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -145,8 +157,12 @@ def handler(event: dict, context) -> dict:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.energy_promo_usages (promo_code_id, user_id) VALUES (%s, %s)
                     """, (promo['id'], user_id))
+                    cur.execute(f"SELECT energy_balance FROM {SCHEMA}.users WHERE id = %s", (user_id,))
+                    brow = cur.fetchone()
+                    new_balance = int(brow['energy_balance']) if brow else energy
                     conn.commit()
-                    return resp(200, {'success': True, 'energy_added': energy, 'message': f'Начислено {energy} энергии по промокоду!'})
+                    notify('energy_topup', user_id, {'energy_added': energy, 'energy_balance': new_balance})
+                    return resp(200, {'success': True, 'energy_added': energy, 'energy_balance': new_balance, 'message': f'Начислено {energy} энергии по промокоду!'})
 
                 return resp(400, {'error': f'Unknown action: {action}'})
 

@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { EnergyTopupDialog } from '@/components/EnergyTopupDialog';
+import { CelebrationDialog } from '@/components/CelebrationDialog';
 import { toast } from 'sonner';
 
 const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
@@ -45,12 +46,28 @@ const AppNavigation = ({
   const [planName, setPlanName] = useState<string>('');
   const [energyBalance, setEnergyBalance] = useState<number>(0);
   const [topupOpen, setTopupOpen] = useState(false);
+  const [celebration, setCelebration] = useState<null | 'energy' | 'tariff'>(null);
 
-  const loadEnergy = () => {
+  const loadEnergy = (cb?: (balance: number) => void) => {
     if (!userId) return;
     fetch(ENERGY_URL, { headers: { 'X-User-Id': String(userId) } })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (data && typeof data.energy_balance === 'number') setEnergyBalance(data.energy_balance); })
+      .then((data) => {
+        if (data && typeof data.energy_balance === 'number') {
+          setEnergyBalance(data.energy_balance);
+          cb?.(data.energy_balance);
+        }
+      })
+      .catch(() => {});
+  };
+
+  const loadPlan = () => {
+    if (!userId) return;
+    fetch('https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985?action=usage', {
+      headers: { 'X-User-Id': String(userId) },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (data?.plan_name) setPlanName(data.plan_name); })
       .catch(() => {});
   };
 
@@ -74,12 +91,21 @@ const AppNavigation = ({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const energy = params.get('energy');
+    const payment = params.get('payment');
+
     if (energy === 'success') {
-      toast.success('Энергия успешно зачислена!');
       window.history.replaceState({}, '', window.location.pathname);
-      setTimeout(loadEnergy, 500);
+      setTimeout(() => loadEnergy(() => setCelebration('energy')), 800);
     } else if (energy === 'fail') {
       toast.error('Пополнение не завершено. Попробуйте ещё раз.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    if (payment === 'success') {
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => { loadPlan(); setCelebration('tariff'); }, 800);
+    } else if (payment === 'fail') {
+      toast.error('Оплата не завершена. Попробуйте ещё раз.');
       window.history.replaceState({}, '', window.location.pathname);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,9 +299,17 @@ const AppNavigation = ({
           onClose={() => setTopupOpen(false)}
           userId={userId}
           currentBalance={energyBalance}
-          onSuccess={loadEnergy}
+          onSuccess={() => loadEnergy(() => setCelebration('energy'))}
         />
       )}
+
+      <CelebrationDialog
+        open={celebration !== null}
+        onClose={() => setCelebration(null)}
+        kind={celebration === 'tariff' ? 'tariff' : 'energy'}
+        energyBalance={energyBalance}
+        planName={planName}
+      />
     </nav>
   );
 };

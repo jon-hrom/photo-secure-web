@@ -6,6 +6,18 @@ from urllib.parse import parse_qs
 from datetime import datetime, timedelta
 
 SCHEMA = 't_p28211681_photo_secure_web'
+ACCOUNT_NOTIFY_URL = 'https://functions.poehali.dev/144eb550-4428-40c4-bc1a-acd169042a99'
+
+
+def notify(event_type, user_id, extra):
+    """Шлёт красивое уведомление фотографу (не критично при ошибке)."""
+    try:
+        import requests
+        payload = {'event_type': event_type, 'user_id': int(user_id)}
+        payload.update(extra)
+        requests.post(ACCOUNT_NOTIFY_URL, json=payload, timeout=8)
+    except Exception as e:
+        print(f"[NOTIFY] error: {e}")
 
 
 def calculate_signature(*args) -> str:
@@ -130,12 +142,22 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 200, 'headers': HEADERS, 'body': f'OK{inv_id}', 'isBase64Encoded': False}
         return {'statusCode': 404, 'headers': HEADERS, 'body': 'Order not found', 'isBase64Encoded': False}
 
+    notify_event = None
+    notify_extra = {}
     try:
         order_id, user_id, plan_id, duration_months, amount, order_type, energy_amount, energy_promo_id = result
         if order_type == 'energy':
             add_energy(cur, (order_id, user_id, amount, energy_amount, energy_promo_id))
+            cur.execute(f"SELECT energy_balance FROM {SCHEMA}.users WHERE id = %s", (user_id,))
+            brow = cur.fetchone()
+            notify_event = 'energy_topup'
+            notify_extra = {'energy_added': int(energy_amount or 0), 'energy_balance': int(brow[0]) if brow else 0}
         else:
             activate_subscription(cur, (order_id, user_id, plan_id, duration_months, amount))
+            cur.execute(f"SELECT name FROM {SCHEMA}.storage_plans WHERE id = %s", (plan_id,))
+            prow = cur.fetchone()
+            notify_event = 'tariff_changed'
+            notify_extra = {'plan_name': prow[0] if prow else 'новый', 'duration_months': int(duration_months or 1)}
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -146,5 +168,8 @@ def handler(event: dict, context) -> dict:
 
     cur.close()
     conn.close()
+
+    if notify_event:
+        notify(notify_event, user_id, notify_extra)
 
     return {'statusCode': 200, 'headers': HEADERS, 'body': f'OK{inv_id}', 'isBase64Encoded': False}
