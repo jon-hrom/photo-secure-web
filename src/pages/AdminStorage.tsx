@@ -9,6 +9,7 @@ import { PromoCodesTab } from '@/components/admin/PromoCodesTab';
 import { AdminStorageAuth } from '@/components/admin/AdminStorageAuth';
 import { AdminStorageStats } from '@/components/admin/AdminStorageStats';
 import { StorageBillingTab } from '@/components/admin/StorageBillingTab';
+import { PaymentsTab } from '@/components/admin/PaymentsTab';
 import { StorageTrashTab } from '@/components/admin/StorageTrashTab';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import {
@@ -215,7 +216,7 @@ const AdminStorage = () => {
         />
 
         <Tabs defaultValue="plans" className="space-y-4">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-7 w-full">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-8 w-full">
             <TabsTrigger value="plans" className="text-xs sm:text-sm">
               <Icon name="Package" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Тарифы</span>
@@ -245,6 +246,11 @@ const AdminStorage = () => {
               <Icon name="Receipt" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Биллинг</span>
               <span className="sm:hidden">Счёт</span>
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="text-xs sm:text-sm">
+              <Icon name="Wallet" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Оплаты</span>
+              <span className="sm:hidden">💳</span>
             </TabsTrigger>
             <TabsTrigger value="trash" className="text-xs sm:text-sm">
               <Icon name="Trash2" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -301,6 +307,10 @@ const AdminStorage = () => {
 
           <TabsContent value="billing" className="space-y-4">
             <StorageBillingTab adminKey={adminKey} users={users} />
+          </TabsContent>
+
+          <TabsContent value="payments" className="space-y-4">
+            <PaymentsTab adminKey={adminKey} />
           </TabsContent>
 
           <TabsContent value="trash" className="space-y-4">

@@ -50,6 +50,92 @@ CORS_HEADERS = {
     'Content-Type': 'application/json'
 }
 
+def payment_stats(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Статистика оплат тарифов: список платежей, общий доход, разбивка по тарифам."""
+    params = event.get('queryStringParameters', {}) or {}
+    period = params.get('period', 'all')
+
+    intervals = {
+        'day': "1 day",
+        'week': "7 days",
+        'month': "30 days",
+        'year': "365 days",
+    }
+    where_period = ''
+    if period in intervals:
+        where_period = f" AND po.paid_at >= NOW() - INTERVAL '{intervals[period]}'"
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f"""
+                SELECT
+                    po.id,
+                    po.order_number,
+                    po.amount,
+                    po.duration_months,
+                    po.paid_at,
+                    po.created_at,
+                    po.user_id,
+                    COALESCE(u.name, u.email, 'Без имени') AS user_name,
+                    u.email AS user_email,
+                    COALESCE(sp.name, '—') AS plan_name
+                FROM {SCHEMA}.payment_orders po
+                LEFT JOIN {SCHEMA}.users u ON u.id = po.user_id
+                LEFT JOIN {SCHEMA}.storage_plans sp ON sp.id = po.plan_id
+                WHERE po.status = 'paid'{where_period}
+                ORDER BY po.paid_at DESC
+                LIMIT 500
+            """)
+            payments = [dict(r) for r in cur.fetchall()]
+
+            cur.execute(f"""
+                SELECT
+                    COALESCE(SUM(po.amount), 0) AS total_revenue,
+                    COUNT(*) AS total_payments,
+                    COUNT(DISTINCT po.user_id) AS paying_users
+                FROM {SCHEMA}.payment_orders po
+                WHERE po.status = 'paid'{where_period}
+            """)
+            summary = dict(cur.fetchone())
+
+            cur.execute(f"""
+                SELECT
+                    COALESCE(sp.name, '—') AS plan_name,
+                    COUNT(*) AS payments_count,
+                    COALESCE(SUM(po.amount), 0) AS revenue
+                FROM {SCHEMA}.payment_orders po
+                LEFT JOIN {SCHEMA}.storage_plans sp ON sp.id = po.plan_id
+                WHERE po.status = 'paid'{where_period}
+                GROUP BY sp.name
+                ORDER BY revenue DESC
+            """)
+            by_plan = [dict(r) for r in cur.fetchall()]
+
+        return {
+            'statusCode': 200,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({
+                'payments': payments,
+                'summary': {
+                    'total_revenue': float(summary['total_revenue']),
+                    'total_payments': int(summary['total_payments']),
+                    'paying_users': int(summary['paying_users']),
+                },
+                'by_plan': [
+                    {
+                        'plan_name': p['plan_name'],
+                        'payments_count': int(p['payments_count']),
+                        'revenue': float(p['revenue']),
+                    } for p in by_plan
+                ],
+            }, default=str),
+            'isBase64Encoded': False
+        }
+    finally:
+        conn.close()
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
     print(f'[HANDLER] Received {method} request')
@@ -99,6 +185,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'update-promo-code': update_promo_code,
         'delete-promo-code': delete_promo_code,
         'cloud-storage-stats': cloud_storage_stats,
+        'payment-stats': payment_stats,
     }
     
     handler_func = handlers.get(action)
