@@ -32,12 +32,14 @@ HEADERS = {
 }
 
 ROBOKASSA_URL = 'https://auth.robokassa.ru/Merchant/Index.aspx'
+ENERGY_RATE_RUB = 25  # рублей за 1 единицу энергии (500₽=20, 1000₽=40, 2500₽=100, 5000₽=200)
 
 
 def handler(event: dict, context) -> dict:
     '''
-    Создание заказа на оплату тарифа и генерация ссылки Robokassa.
-    POST body: user_id, plan_id, duration_months, success_url, fail_url
+    Создание заказа на оплату тарифа ИЛИ пополнение энергии и генерация ссылки Robokassa.
+    POST body (tariff): order_type='tariff', user_id, plan_id, duration_months, amount, success_url, fail_url
+    POST body (energy): order_type='energy', user_id, amount, success_url, fail_url
     Returns: payment_url, order_id, order_number
     '''
     method = event.get('httpMethod', 'GET').upper()
@@ -57,37 +59,51 @@ def handler(event: dict, context) -> dict:
 
         payload = json.loads(event.get('body', '{}'))
 
+        order_type = str(payload.get('order_type', 'tariff'))
         user_id = int(payload.get('user_id', 0))
-        plan_id = int(payload.get('plan_id', 0))
-        duration_months = max(1, int(payload.get('duration_months', 1)))
         amount = float(payload.get('amount', 0))
         success_url = str(payload.get('success_url', ''))
         fail_url = str(payload.get('fail_url', ''))
 
-        if not user_id or not plan_id:
-            return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'user_id and plan_id required'}), 'isBase64Encoded': False}
+        if not user_id:
+            return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'user_id required'}), 'isBase64Encoded': False}
 
         conn = get_db_connection()
         cur = conn.cursor()
-
-        # Получаем тариф и email пользователя из нашей БД (цену не доверяем клиенту)
-        cur.execute(f"SELECT name, monthly_price_rub FROM {SCHEMA}.storage_plans WHERE id = %s AND is_active = TRUE", (plan_id,))
-        plan = cur.fetchone()
-        if not plan:
-            conn.close()
-            return {'statusCode': 404, 'headers': HEADERS, 'body': json.dumps({'error': 'Тариф не найден'}), 'isBase64Encoded': False}
-        plan_name, plan_price = plan[0], float(plan[1])
 
         cur.execute(f"SELECT email FROM {SCHEMA}.users WHERE id = %s", (user_id,))
         urow = cur.fetchone()
         user_email = (urow[0] if urow and urow[0] else 'noemail@foto-mix.ru')
 
-        # Сумма: если передана со скидкой по промокоду — берём минимальную из переданной и базовой*срок
-        base_total = plan_price * duration_months
-        final_amount = round(amount if 0 < amount <= base_total else base_total, 2)
-        if final_amount <= 0:
-            conn.close()
-            return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'Этот тариф бесплатный, оплата не требуется'}), 'isBase64Encoded': False}
+        plan_id = 0
+        duration_months = 1
+        energy_amount = None
+
+        if order_type == 'energy':
+            final_amount = round(amount, 2)
+            if final_amount < ENERGY_RATE_RUB:
+                conn.close()
+                return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': f'Минимальная сумма пополнения — {ENERGY_RATE_RUB} ₽'}), 'isBase64Encoded': False}
+            energy_amount = int(final_amount // ENERGY_RATE_RUB)
+            description = f'Пополнение энергии: {energy_amount} ед.'
+        else:
+            plan_id = int(payload.get('plan_id', 0))
+            duration_months = max(1, int(payload.get('duration_months', 1)))
+            if not plan_id:
+                conn.close()
+                return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'plan_id required'}), 'isBase64Encoded': False}
+            cur.execute(f"SELECT name, monthly_price_rub FROM {SCHEMA}.storage_plans WHERE id = %s AND is_active = TRUE", (plan_id,))
+            plan = cur.fetchone()
+            if not plan:
+                conn.close()
+                return {'statusCode': 404, 'headers': HEADERS, 'body': json.dumps({'error': 'Тариф не найден'}), 'isBase64Encoded': False}
+            plan_name, plan_price = plan[0], float(plan[1])
+            base_total = plan_price * duration_months
+            final_amount = round(amount if 0 < amount <= base_total else base_total, 2)
+            if final_amount <= 0:
+                conn.close()
+                return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'Этот тариф бесплатный, оплата не требуется'}), 'isBase64Encoded': False}
+            description = f'Тариф "{plan_name}" на {duration_months} мес.'
 
         # Генерация уникального InvoiceID
         robokassa_inv_id = random.randint(100000, 2147483647)
@@ -101,14 +117,13 @@ def handler(event: dict, context) -> dict:
 
         cur.execute(f"""
             INSERT INTO {SCHEMA}.payment_orders
-            (order_number, user_id, plan_id, duration_months, user_email, amount, robokassa_inv_id, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending')
+            (order_number, user_id, plan_id, duration_months, user_email, amount, robokassa_inv_id, status, order_type, energy_amount)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s)
             RETURNING id
-        """, (order_number, user_id, plan_id, duration_months, user_email, final_amount, robokassa_inv_id))
+        """, (order_number, user_id, plan_id, duration_months, user_email, final_amount, robokassa_inv_id, order_type, energy_amount))
         order_id = cur.fetchone()[0]
 
         amount_str = f"{final_amount:.2f}"
-        description = f'Тариф "{plan_name}" на {duration_months} мес.'
 
         if success_url or fail_url:
             signature = calculate_signature(

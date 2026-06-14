@@ -54,6 +54,24 @@ def activate_subscription(cur, order):
     """, (plan_id, quota_gb, user_id))
 
 
+def add_energy(cur, order):
+    """Начислить энергию пользователю после успешной оплаты пополнения."""
+    order_id, user_id, amount, energy_amount = order
+    energy_amount = int(energy_amount or 0)
+    if energy_amount <= 0:
+        return
+    cur.execute(f"""
+        UPDATE {SCHEMA}.users
+        SET energy_balance = COALESCE(energy_balance, 0) + %s
+        WHERE id = %s
+    """, (energy_amount, user_id))
+    cur.execute(f"""
+        INSERT INTO {SCHEMA}.energy_transactions
+        (user_id, amount, type, rub_amount, order_id, description)
+        VALUES (%s, %s, 'topup', %s, %s, %s)
+    """, (user_id, energy_amount, amount, order_id, f'Пополнение энергии: +{energy_amount} ед.'))
+
+
 def handler(event: dict, context) -> dict:
     '''
     Result URL вебхук от Robokassa. Подтверждает оплату и активирует тариф.
@@ -97,7 +115,7 @@ def handler(event: dict, context) -> dict:
         UPDATE {SCHEMA}.payment_orders
         SET status = 'paid', paid_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
         WHERE robokassa_inv_id = %s AND status = 'pending'
-        RETURNING id, user_id, plan_id, duration_months, amount
+        RETURNING id, user_id, plan_id, duration_months, amount, order_type, energy_amount
     """, (int(inv_id),))
     result = cur.fetchone()
 
@@ -110,11 +128,15 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 404, 'headers': HEADERS, 'body': 'Order not found', 'isBase64Encoded': False}
 
     try:
-        activate_subscription(cur, result)
+        order_id, user_id, plan_id, duration_months, amount, order_type, energy_amount = result
+        if order_type == 'energy':
+            add_energy(cur, (order_id, user_id, amount, energy_amount))
+        else:
+            activate_subscription(cur, (order_id, user_id, plan_id, duration_months, amount))
         conn.commit()
     except Exception as e:
         conn.rollback()
-        print(f"Activate subscription error: {e}")
+        print(f"Order activation error: {e}")
         cur.close()
         conn.close()
         return {'statusCode': 500, 'headers': HEADERS, 'body': 'Activation error', 'isBase64Encoded': False}

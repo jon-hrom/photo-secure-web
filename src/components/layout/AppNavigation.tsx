@@ -10,6 +10,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { EnergyTopupDialog } from '@/components/EnergyTopupDialog';
+import { toast } from 'sonner';
+
+const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
 
 interface AppNavigationProps {
   currentPage: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs' | 'help';
@@ -39,6 +43,16 @@ const AppNavigation = ({
 }: AppNavigationProps) => {
   const navigate = useNavigate();
   const [planName, setPlanName] = useState<string>('');
+  const [energyBalance, setEnergyBalance] = useState<number>(0);
+  const [topupOpen, setTopupOpen] = useState(false);
+
+  const loadEnergy = () => {
+    if (!userId) return;
+    fetch(ENERGY_URL, { headers: { 'X-User-Id': String(userId) } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (data && typeof data.energy_balance === 'number') setEnergyBalance(data.energy_balance); })
+      .catch(() => {});
+  };
 
   useEffect(() => {
     if (!userId) return;
@@ -52,8 +66,24 @@ const AppNavigation = ({
         if (data?.plan_name) setPlanName(data.plan_name);
       })
       .catch(() => {});
+    loadEnergy();
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const energy = params.get('energy');
+    if (energy === 'success') {
+      toast.success('Энергия успешно зачислена!');
+      window.history.replaceState({}, '', window.location.pathname);
+      setTimeout(loadEnergy, 500);
+    } else if (energy === 'fail') {
+      toast.error('Пополнение не завершено. Попробуйте ещё раз.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <nav className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-border/50 dark:border-gray-700/50 sticky top-0 z-50 shadow-lg animate-fade-in">
@@ -212,6 +242,17 @@ const AppNavigation = ({
                   </div>
                   <Icon name="ChevronRight" size={16} className="ml-auto text-gray-400" />
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={(e) => { e.preventDefault(); setTopupOpen(true); }}
+                  className="cursor-pointer hover:bg-gradient-to-r hover:from-yellow-500/10 hover:to-orange-500/10 transition-all duration-200 dark:text-gray-200"
+                >
+                  <Icon name="Zap" size={18} className="mr-2 text-yellow-500" />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 leading-none">Баланс энергии</span>
+                    <span className="text-sm font-semibold leading-tight">{energyBalance} энергии</span>
+                  </div>
+                  <Icon name="Plus" size={16} className="ml-auto text-gray-400" />
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="md:hidden dark:text-gray-200">
                   <Icon name="Settings" size={18} className="mr-2" />
                   Настройки
@@ -225,6 +266,15 @@ const AppNavigation = ({
           </div>
         </div>
       </div>
+
+      {userId && (
+        <EnergyTopupDialog
+          open={topupOpen}
+          onClose={() => setTopupOpen(false)}
+          userId={userId}
+          currentBalance={energyBalance}
+        />
+      )}
     </nav>
   );
 };
