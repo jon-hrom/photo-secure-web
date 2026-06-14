@@ -31,14 +31,17 @@ interface Plan {
 }
 
 interface TariffsPageProps {
-  userId?: number;
+  userId?: string | number | null;
 }
 
 const STORAGE_ADMIN_URL = 'https://functions.poehali.dev/81fe316e-43c6-4e9f-93e2-63032b5c552c';
 
+const STORAGE_URL = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
+
 const TariffsPage = ({ userId }: TariffsPageProps) => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPlanId, setCurrentPlanId] = useState<number | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [isPromoDialogOpen, setIsPromoDialogOpen] = useState(false);
   const [promoDiscount, setPromoDiscount] = useState<number>(0);
@@ -49,7 +52,13 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
 
   useEffect(() => {
     loadPlans();
-  }, []);
+    if (userId) {
+      fetch(`${STORAGE_URL}?action=usage`, { headers: { 'X-User-Id': String(userId) } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (d?.plan_id) setCurrentPlanId(d.plan_id); })
+        .catch(() => {});
+    }
+  }, [userId]);
 
   const loadPlans = async () => {
     try {
@@ -203,20 +212,35 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.map((plan) => {
             const features = getPlanFeatures(plan);
-            const isPopular = plan.plan_name.toLowerCase().includes('проф') || 
-                             plan.plan_name.toLowerCase().includes('бизнес');
+            const isCurrent = currentPlanId === plan.plan_id;
+            const isPopular = !isCurrent && (
+              plan.plan_name.toLowerCase().includes('проф') ||
+              plan.plan_name.toLowerCase().includes('бизнес')
+            );
 
             return (
-              <Card 
-                key={plan.plan_id} 
-                className={`relative ${isPopular ? 'border-primary border-2 shadow-lg' : ''}`}
+              <Card
+                key={plan.plan_id}
+                className={`relative transition-all duration-200 ${
+                  isCurrent
+                    ? 'border-green-500 border-2 shadow-lg shadow-green-100 dark:shadow-green-900/20'
+                    : isPopular
+                    ? 'border-primary border-2 shadow-lg'
+                    : ''
+                }`}
               >
+                {isCurrent && (
+                  <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white flex items-center gap-1">
+                    <Icon name="CheckCircle" size={13} />
+                    Ваш текущий план
+                  </Badge>
+                )}
                 {isPopular && (
                   <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">
                     Популярный
                   </Badge>
                 )}
-                
+
                 <CardHeader>
                   <CardTitle className="text-2xl">{plan.plan_name}</CardTitle>
                   <CardDescription>{plan.description}</CardDescription>
@@ -239,13 +263,20 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
                       </li>
                     ))}
                   </ul>
-                  
-                  <Button 
-                    className="w-full"
-                    onClick={() => handleSelectPlan(plan)}
-                  >
-                    {plan.price_rub === 0 ? 'Начать бесплатно' : 'Выбрать тариф'}
-                  </Button>
+
+                  {isCurrent ? (
+                    <Button className="w-full bg-green-500 hover:bg-green-600 text-white cursor-default" disabled>
+                      <Icon name="CheckCircle" size={16} className="mr-2" />
+                      Активный тариф
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      onClick={() => handleSelectPlan(plan)}
+                    >
+                      {plan.price_rub === 0 ? 'Начать бесплатно' : 'Выбрать тариф'}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
