@@ -10,6 +10,7 @@ import { AdminStorageAuth } from '@/components/admin/AdminStorageAuth';
 import { AdminStorageStats } from '@/components/admin/AdminStorageStats';
 import { StorageBillingTab } from '@/components/admin/StorageBillingTab';
 import { PaymentsTab } from '@/components/admin/PaymentsTab';
+import { EnergyPromoCodesTab } from '@/components/admin/EnergyPromoCodesTab';
 import { ADMIN_API } from '@/components/admin/types';
 import { StorageTrashTab } from '@/components/admin/StorageTrashTab';
 import MobileNavigation from '@/components/layout/MobileNavigation';
@@ -227,7 +228,7 @@ const AdminStorage = () => {
         />
 
         <Tabs defaultValue="plans" className="space-y-4">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-8 w-full">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-9 w-full">
             <TabsTrigger value="plans" className="text-xs sm:text-sm">
               <Icon name="Package" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Тарифы</span>
@@ -242,6 +243,11 @@ const AdminStorage = () => {
               <Icon name="Tag" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Промокоды</span>
               <span className="sm:hidden">Промо</span>
+            </TabsTrigger>
+            <TabsTrigger value="energy-promo" className="text-xs sm:text-sm">
+              <Icon name="Zap" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Промо энергия</span>
+              <span className="sm:hidden">⚡</span>
             </TabsTrigger>
             <TabsTrigger value="stats" className="text-xs sm:text-sm">
               <Icon name="BarChart" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -294,6 +300,10 @@ const AdminStorage = () => {
               onTogglePromoCode={(id, isActive) => api.handleTogglePromoCode(id, isActive, refetchPromoCodes)}
               onDeletePromoCode={(id) => api.handleDeletePromoCode(id, refetchPromoCodes)}
             />
+          </TabsContent>
+
+          <TabsContent value="energy-promo" className="space-y-4">
+            <EnergyPromoCodesTab adminKey={adminKey} />
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-4">

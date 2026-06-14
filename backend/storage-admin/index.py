@@ -50,6 +50,94 @@ CORS_HEADERS = {
     'Content-Type': 'application/json'
 }
 
+def list_energy_promo_codes(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Список промокодов на энергию."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f"""
+                SELECT id, code, discount_type, discount_value, bonus_energy,
+                       max_uses, used_count, is_active, valid_until, description, created_at
+                FROM {SCHEMA}.energy_promo_codes
+                ORDER BY created_at DESC
+            """)
+            rows = [dict(r) for r in cur.fetchall()]
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': json.dumps({'promo_codes': rows}, default=str), 'isBase64Encoded': False}
+    finally:
+        conn.close()
+
+
+def create_energy_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Создание промокода на энергию."""
+    body = json.loads(event.get('body', '{}'))
+    code = str(body.get('code', '')).strip().upper()
+    discount_type = body.get('discount_type', 'percent')
+    discount_value = float(body.get('discount_value', 0) or 0)
+    bonus_energy = int(body.get('bonus_energy', 0) or 0)
+    max_uses = body.get('max_uses')
+    valid_until = body.get('valid_until')
+    description = body.get('description', '')
+
+    if not code:
+        return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'Код обязателен'}), 'isBase64Encoded': False}
+    if discount_type not in ('percent', 'fixed'):
+        discount_type = 'percent'
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f"SELECT id FROM {SCHEMA}.energy_promo_codes WHERE UPPER(code) = {escape_sql_string(code)}")
+            if cur.fetchone():
+                return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'Такой промокод уже существует'}), 'isBase64Encoded': False}
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.energy_promo_codes
+                (code, discount_type, discount_value, bonus_energy, max_uses, valid_until, description, is_active)
+                VALUES ({escape_sql_string(code)}, {escape_sql_string(discount_type)}, {discount_value},
+                        {bonus_energy}, {escape_sql_string(max_uses) if max_uses else 'NULL'},
+                        {escape_sql_string(valid_until) if valid_until else 'NULL'},
+                        {escape_sql_string(description)}, TRUE)
+                RETURNING id
+            """)
+            new_id = cur.fetchone()['id']
+            conn.commit()
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': json.dumps({'success': True, 'id': new_id}), 'isBase64Encoded': False}
+    finally:
+        conn.close()
+
+
+def toggle_energy_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Включение/выключение промокода на энергию."""
+    body = json.loads(event.get('body', '{}'))
+    promo_id = int(body.get('id', 0))
+    is_active = bool(body.get('is_active'))
+    if not promo_id:
+        return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'id обязателен'}), 'isBase64Encoded': False}
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE {SCHEMA}.energy_promo_codes SET is_active = {'TRUE' if is_active else 'FALSE'} WHERE id = {promo_id}")
+            conn.commit()
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': json.dumps({'success': True}), 'isBase64Encoded': False}
+    finally:
+        conn.close()
+
+
+def delete_energy_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Удаление промокода на энергию."""
+    body = json.loads(event.get('body', '{}'))
+    promo_id = int(body.get('id', 0))
+    if not promo_id:
+        return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'id обязателен'}), 'isBase64Encoded': False}
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"DELETE FROM {SCHEMA}.energy_promo_codes WHERE id = {promo_id}")
+            conn.commit()
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': json.dumps({'success': True}), 'isBase64Encoded': False}
+    finally:
+        conn.close()
+
+
 def payment_stats(event: Dict[str, Any]) -> Dict[str, Any]:
     """Статистика оплат тарифов: список платежей, общий доход, разбивка по тарифам."""
     params = event.get('queryStringParameters', {}) or {}
@@ -198,6 +286,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'delete-promo-code': delete_promo_code,
         'cloud-storage-stats': cloud_storage_stats,
         'payment-stats': payment_stats,
+        'list-energy-promo-codes': list_energy_promo_codes,
+        'create-energy-promo-code': create_energy_promo_code,
+        'toggle-energy-promo-code': toggle_energy_promo_code,
+        'delete-energy-promo-code': delete_energy_promo_code,
     }
     
     handler_func = handlers.get(action)
