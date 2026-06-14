@@ -20,7 +20,7 @@ import { ADMIN_API } from './types';
 interface EnergyPromo {
   id: number;
   code: string;
-  discount_type: 'percent' | 'fixed';
+  discount_type: 'percent' | 'fixed' | 'energy';
   discount_value: number;
   bonus_energy: number;
   max_uses: number | null;
@@ -39,7 +39,7 @@ export const EnergyPromoCodesTab = ({ adminKey }: { adminKey: string }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<{
     code: string;
-    discount_type: 'percent' | 'fixed';
+    discount_type: 'percent' | 'fixed' | 'energy';
     discount_value: number;
     bonus_energy: number;
     max_uses: string;
@@ -83,6 +83,10 @@ export const EnergyPromoCodesTab = ({ adminKey }: { adminKey: string }) => {
   const handleCreate = async () => {
     if (!form.code.trim()) {
       toast.error('Введите код промокода');
+      return;
+    }
+    if (form.discount_type === 'energy' && form.bonus_energy <= 0) {
+      toast.error('Укажите количество энергии');
       return;
     }
     try {
@@ -169,11 +173,17 @@ export const EnergyPromoCodesTab = ({ adminKey }: { adminKey: string }) => {
                 <TableRow key={p.id} className={p.used_count > 0 ? 'bg-yellow-500/5 border-l-2 border-yellow-500' : ''}>
                   <TableCell className="font-mono font-bold">{p.code}</TableCell>
                   <TableCell>
-                    {p.discount_value > 0
-                      ? p.discount_type === 'percent' ? `${p.discount_value}%` : `${p.discount_value} ₽`
-                      : '—'}
+                    {p.discount_type === 'energy'
+                      ? 'Энергия'
+                      : p.discount_value > 0
+                        ? p.discount_type === 'percent' ? `${p.discount_value}%` : `${p.discount_value} ₽`
+                        : '—'}
                   </TableCell>
-                  <TableCell>{p.bonus_energy > 0 ? `+${p.bonus_energy} ⚡` : '—'}</TableCell>
+                  <TableCell>
+                    {p.discount_type === 'energy'
+                      ? `${p.bonus_energy} ⚡`
+                      : p.bonus_energy > 0 ? `+${p.bonus_energy} ⚡` : '—'}
+                  </TableCell>
                   <TableCell>
                     {p.used_count}{p.max_uses ? ` / ${p.max_uses}` : ''}
                     {p.max_uses && p.used_count >= p.max_uses && (
@@ -233,37 +243,56 @@ export const EnergyPromoCodesTab = ({ adminKey }: { adminKey: string }) => {
                 <Label>Тип скидки</Label>
                 <Select
                   value={form.discount_type}
-                  onValueChange={(v: 'percent' | 'fixed') => setForm({ ...form, discount_type: v })}
+                  onValueChange={(v: 'percent' | 'fixed' | 'energy') => setForm({ ...form, discount_type: v })}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="percent">Процент (%)</SelectItem>
-                    <SelectItem value="fixed">Фиксированная (₽)</SelectItem>
+                    <SelectItem value="fixed">Фиксированная скидка (₽)</SelectItem>
+                    <SelectItem value="energy">Начислить энергию (без оплаты)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Размер скидки {form.discount_type === 'percent' ? '(%)' : '(₽)'}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.discount_value}
-                  onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })}
-                />
-                <p className="text-xs text-muted-foreground">100% — энергия начисляется бесплатно, без оплаты</p>
-              </div>
+              {form.discount_type === 'energy' ? (
+                <div className="space-y-2">
+                  <Label>Количество энергии</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Например: 123"
+                    value={form.bonus_energy}
+                    onChange={(e) => setForm({ ...form, bonus_energy: Number(e.target.value) })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    При вводе промокода эта энергия сразу зачисляется на баланс, без оплаты через Робокассу
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Размер скидки {form.discount_type === 'percent' ? '(%)' : '(₽)'}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.discount_value}
+                      onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })}
+                    />
+                    <p className="text-xs text-muted-foreground">100% — энергия начисляется бесплатно, без оплаты</p>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Бонус энергии (доп. единицы)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.bonus_energy}
-                  onChange={(e) => setForm({ ...form, bonus_energy: Number(e.target.value) })}
-                />
-                <p className="text-xs text-muted-foreground">Сколько энергии добавить сверх оплаченной</p>
-              </div>
+                  <div className="space-y-2">
+                    <Label>Бонус энергии (доп. единицы)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.bonus_energy}
+                      onChange={(e) => setForm({ ...form, bonus_energy: Number(e.target.value) })}
+                    />
+                    <p className="text-xs text-muted-foreground">Сколько энергии добавить сверх оплаченной</p>
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label>Лимит использований</Label>

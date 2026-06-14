@@ -106,6 +106,10 @@ def handler(event: dict, context) -> dict:
                         valid = False
                     if valid:
                         d_val = float(d_val)
+                        if d_type == 'energy':
+                            # Промокод даёт фикс. энергию без оплаты — отправляем на бесплатную активацию
+                            conn.close()
+                            return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'Этот промокод начисляет энергию без оплаты'}), 'isBase64Encoded': False}
                         discount = base_amount * (d_val / 100) if d_type == 'percent' else d_val
                         discount = min(discount, base_amount)
                         final_amount = round(max(0, base_amount - discount), 2)

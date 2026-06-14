@@ -80,7 +80,7 @@ def create_energy_promo_code(event: Dict[str, Any]) -> Dict[str, Any]:
 
     if not code:
         return {'statusCode': 400, 'headers': CORS_HEADERS, 'body': json.dumps({'error': 'Код обязателен'}), 'isBase64Encoded': False}
-    if discount_type not in ('percent', 'fixed'):
+    if discount_type not in ('percent', 'fixed', 'energy'):
         discount_type = 'percent'
 
     conn = get_db_connection()
