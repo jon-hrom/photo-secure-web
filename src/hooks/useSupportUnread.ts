@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-
-const SUPPORT_URL = 'https://functions.poehali.dev/d007b2e4-7b81-49f7-b426-06c2a7aa7d12';
+import { SUPPORT_TICKETS_URL } from '@/components/support/supportTicketsApi';
 
 export const useSupportUnread = (userId: number | string | null) => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -8,7 +7,7 @@ export const useSupportUnread = (userId: number | string | null) => {
   const fetchCount = useCallback(async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`${SUPPORT_URL}?action=unread`, {
+      const res = await fetch(`${SUPPORT_TICKETS_URL}?action=unread`, {
         headers: { 'X-User-Id': String(userId) },
       });
       if (res.ok) {
@@ -26,17 +25,9 @@ export const useSupportUnread = (userId: number | string | null) => {
     return () => clearInterval(interval);
   }, [fetchCount]);
 
-  const markRead = useCallback(async () => {
-    if (!userId) return;
+  const markRead = useCallback(() => {
     setUnreadCount(0);
-    try {
-      await fetch(`${SUPPORT_URL}?action=mark_read`, {
-        headers: { 'X-User-Id': String(userId) },
-      });
-    } catch {
-      // silently fail
-    }
-  }, [userId]);
+  }, []);
 
   return { unreadCount, markRead };
 };

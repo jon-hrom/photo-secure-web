@@ -22,6 +22,7 @@ import MobileNavigation from '@/components/layout/MobileNavigation';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import OnboardingTour from '@/components/OnboardingTour';
 import FloatingAppealsButton from '@/components/FloatingAppealsButton';
+import AdminTicketsButton from '@/components/support/AdminTicketsButton';
 import BookingDetailsDialog from '@/components/BookingDetailsDialog';
 import SyncIndicator from '@/components/SyncIndicator';
 
@@ -115,6 +116,7 @@ const AuthenticatedLayout = ({
       <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
 
       {userId && isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
+      {userId && isAdmin && <AdminTicketsButton userId={Number(userId)} />}
 
       {selectedBookingId && (
         <BookingDetailsDialog

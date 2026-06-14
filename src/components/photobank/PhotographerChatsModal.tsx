@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import ChatModal from '@/components/gallery/ChatModal';
-import SupportChatModal from '@/components/support/SupportChatModal';
+import SupportTicketsModal from '@/components/support/SupportTicketsModal';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 import { getTimezoneForRegion } from '@/utils/regionTimezone';
 
@@ -346,7 +346,7 @@ export default function PhotographerChatsModal({
       </div>
     </div>
 
-    <SupportChatModal
+    <SupportTicketsModal
       isOpen={showSupport}
       onClose={() => setShowSupport(false)}
       userId={photographerId}
