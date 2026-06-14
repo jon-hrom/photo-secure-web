@@ -13,12 +13,7 @@ import { toast } from 'sonner';
 const ROBOKASSA_CREATE_URL = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
 const ENERGY_RATE_RUB = 25;
 
-const PRESETS = [
-  { rub: 500, energy: 20 },
-  { rub: 1000, energy: 40 },
-  { rub: 2500, energy: 100 },
-  { rub: 5000, energy: 200 },
-];
+const PRESETS = [500, 1000, 2500, 5000];
 
 interface Props {
   open: boolean;
@@ -32,7 +27,6 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
   const [loading, setLoading] = useState(false);
 
   const numericAmount = parseInt(amount, 10) || 0;
-  const energyToGet = Math.floor(numericAmount / ENERGY_RATE_RUB);
 
   const handleTopup = async () => {
     if (numericAmount < ENERGY_RATE_RUB) {
@@ -95,21 +89,16 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
               className="text-2xl font-bold h-14"
               placeholder="2500"
             />
-            {energyToGet > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Вы получите <span className="font-semibold text-foreground">{energyToGet}</span> единиц энергии
-              </p>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {PRESETS.map((p) => {
-              const active = numericAmount === p.rub;
+            {PRESETS.map((rub) => {
+              const active = numericAmount === rub;
               return (
                 <button
-                  key={p.rub}
+                  key={rub}
                   type="button"
-                  onClick={() => setAmount(String(p.rub))}
+                  onClick={() => setAmount(String(rub))}
                   className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${
                     active
                       ? 'border-primary bg-primary/10 ring-1 ring-primary'
@@ -119,10 +108,7 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-primary/20' : 'bg-muted'}`}>
                     <Icon name="Zap" size={20} className={active ? 'text-primary' : 'text-yellow-500'} />
                   </div>
-                  <div>
-                    <div className={`font-bold ${active ? 'text-primary' : ''}`}>{p.rub} ₽</div>
-                    <div className="text-xs text-muted-foreground">{p.energy} запросов*</div>
-                  </div>
+                  <div className={`font-bold ${active ? 'text-primary' : ''}`}>{rub} ₽</div>
                 </button>
               );
             })}
@@ -141,10 +127,6 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance }: Pro
             )}
             {loading ? 'Обработка...' : `Пополнить на ${numericAmount} ₽`}
           </Button>
-
-          <p className="text-[11px] text-muted-foreground text-center">
-            * Энергия списывается за обработку запросов. Оплата через Робокассу.
-          </p>
         </div>
       </DialogContent>
     </Dialog>
