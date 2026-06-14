@@ -58,6 +58,16 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
         .then((d) => { if (d?.plan_id) setCurrentPlanId(d.plan_id); })
         .catch(() => {});
     }
+
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    if (payment === 'success') {
+      toast.success('Оплата прошла успешно! Тариф активирован.');
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (payment === 'fail') {
+      toast.error('Оплата не завершена. Попробуйте ещё раз.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, [userId]);
 
   const loadPlans = async () => {
@@ -113,46 +123,65 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
   const handleApplyTariff = async () => {
     if (!selectedPlan || !userId) return;
 
+    // Сумма к оплате: с учётом промокода, если применён
+    const amountToPay = promoDiscount > 0 ? promoFinalPrice : selectedPlan.price_rub * promoDuration;
+
+    // Бесплатный тариф или полностью покрытый промокодом — применяем сразу
+    if (amountToPay <= 0) {
+      setIsApplying(true);
+      try {
+        const applyTariffUrl = 'https://functions.poehali.dev/7565304f-3423-48fd-a77c-95c59c65714d';
+        const response = await fetch(applyTariffUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            plan_id: selectedPlan.plan_id,
+            promo_code: appliedPromoCode,
+            duration_months: promoDuration,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          toast.error(data.error || 'Ошибка применения тарифа');
+          return;
+        }
+        toast.success(data.message || 'Тариф успешно применён!');
+        setIsPromoDialogOpen(false);
+        setTimeout(() => window.location.reload(), 2000);
+      } catch (error) {
+        toast.error('Ошибка применения тарифа');
+      } finally {
+        setIsApplying(false);
+      }
+      return;
+    }
+
+    // Платный тариф — создаём заказ в Робокассе и редиректим на оплату
     setIsApplying(true);
     try {
-      const applyTariffUrl = 'https://functions.poehali.dev/7565304f-3423-48fd-a77c-95c59c65714d';
-      const response = await fetch(applyTariffUrl, {
+      const robokassaUrl = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
+      const response = await fetch(robokassaUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId,
+          user_id: Number(userId),
           plan_id: selectedPlan.plan_id,
-          promo_code: appliedPromoCode,
           duration_months: promoDuration,
+          amount: amountToPay,
+          success_url: `${window.location.origin}/tariffs?payment=success`,
+          fail_url: `${window.location.origin}/tariffs?payment=fail`,
         }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        toast.error(data.error || 'Ошибка применения тарифа');
+      if (!response.ok || !data.payment_url) {
+        toast.error(data.error || 'Не удалось создать оплату');
         return;
       }
-
-      if (data.payment_required) {
-        toast.info(`Требуется оплата ${data.amount.toFixed(2)} ₽`);
-        // Здесь будет интеграция с платежной системой
-        toast.info('Интеграция с платежной системой скоро появится!');
-      } else {
-        toast.success(data.message || 'Тариф успешно применен!');
-      }
-
-      setIsPromoDialogOpen(false);
-      
-      // Обновляем страницу через 2 секунды, чтобы пользователь увидел лимиты
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      toast.success('Переходим к оплате...');
+      window.location.href = data.payment_url;
     } catch (error) {
-      console.error('[APPLY_TARIFF] Error:', error);
-      toast.error('Ошибка применения тарифа');
+      toast.error('Ошибка при создании оплаты');
     } finally {
       setIsApplying(false);
     }

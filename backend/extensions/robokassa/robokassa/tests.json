@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Missing params returns 400",
+      "method": "POST",
+      "path": "/",
+      "body": {"user_id": 0, "plan_id": 0},
+      "expectedStatus": 400
+    }
+  ]
+}
