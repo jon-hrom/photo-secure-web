@@ -172,7 +172,6 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
     try {
       if (mode === 'chat' && appeal.is_support) {
         // Отправляем через respond_to_appeal — оно пишет admin_response в БД
-        // и пользователь увидит ответ в SupportChatModal
         const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
