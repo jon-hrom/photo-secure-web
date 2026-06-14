@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
@@ -18,6 +19,7 @@ interface AppNavigationProps {
   userAvatar: string;
   isVerified: boolean;
   hasVerifiedPhone?: boolean;
+  userId?: string | number | null;
   onLogout: () => void;
   unreadCount?: number;
   onOpenChat?: () => void;
@@ -30,12 +32,29 @@ const AppNavigation = ({
   userEmail,
   userAvatar,
   isVerified,
+  userId,
   onLogout,
   unreadCount = 0,
   onOpenChat,
 }: AppNavigationProps) => {
   const navigate = useNavigate();
-  
+  const [planName, setPlanName] = useState<string>('');
+
+  useEffect(() => {
+    if (!userId) return;
+    const controller = new AbortController();
+    fetch('https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985?action=usage', {
+      headers: { 'X-User-Id': String(userId) },
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.plan_name) setPlanName(data.plan_name);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [userId]);
+
   return (
     <nav className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-border/50 dark:border-gray-700/50 sticky top-0 z-50 shadow-lg animate-fade-in">
       <div className="container mx-auto px-4 py-4">
@@ -182,6 +201,17 @@ const AppNavigation = ({
                     {userEmail && <p className="text-xs text-gray-500 dark:text-gray-400">{userEmail}</p>}
                   </div>
                 )}
+                <DropdownMenuItem
+                  onClick={() => setCurrentPage('tariffs')}
+                  className="cursor-pointer hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200"
+                >
+                  <Icon name="Zap" size={18} className="mr-2 text-primary" />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 leading-none">Ваш тариф</span>
+                    <span className="text-sm font-semibold leading-tight">{planName || 'Старт'}</span>
+                  </div>
+                  <Icon name="ChevronRight" size={16} className="ml-auto text-gray-400" />
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="md:hidden dark:text-gray-200">
                   <Icon name="Settings" size={18} className="mr-2" />
                   Настройки
