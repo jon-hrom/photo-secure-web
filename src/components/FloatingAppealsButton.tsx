@@ -11,9 +11,11 @@ import AppealDetail from './appeals/AppealDetail';
 interface FloatingAppealsButtonProps {
   userId: number;
   isAdmin: boolean;
+  onClickOverride?: () => void;
+  extraUnread?: number;
 }
 
-const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) => {
+const FloatingAppealsButton = ({ userId, isAdmin, onClickOverride, extraUnread = 0 }: FloatingAppealsButtonProps) => {
   const [appeals, setAppeals] = useState<Appeal[]>([]);
   const [showDialog, setShowDialog] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -133,7 +135,11 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
 
   const handleClick = () => {
     if (!isDragging) {
-      setShowDialog(true);
+      if (onClickOverride) {
+        onClickOverride();
+      } else {
+        setShowDialog(true);
+      }
     }
   };
 
@@ -380,9 +386,9 @@ const FloatingAppealsButton = ({ userId, isAdmin }: FloatingAppealsButtonProps) 
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 shadow-2xl flex items-center justify-center hover:scale-110 transition-transform duration-200 border-4 border-white">
             <Icon name="Mail" size={32} className="text-white" />
           </div>
-          {unreadCount > 0 && (
-            <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-red-500 border-4 border-white flex items-center justify-center shadow-lg animate-pulse">
-              <span className="text-white font-bold text-sm">{unreadCount}</span>
+          {(unreadCount + extraUnread) > 0 && (
+            <div className="absolute -top-1 -right-1 min-w-8 h-8 px-1 rounded-full bg-red-500 border-4 border-white flex items-center justify-center shadow-lg animate-pulse">
+              <span className="text-white font-bold text-sm">{unreadCount + extraUnread}</span>
             </div>
           )}
         </div>

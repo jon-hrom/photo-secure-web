@@ -8,6 +8,10 @@ import TicketDetail from './TicketDetail';
 
 interface AdminTicketsButtonProps {
   userId: number;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onUnreadChange?: (count: number) => void;
+  hideFab?: boolean;
 }
 
 type Filter = 'open' | 'closed' | 'all';
@@ -27,8 +31,14 @@ const priorityDot = (priority: string) => {
 
 const POLL_INTERVAL = 20000;
 
-export default function AdminTicketsButton({ userId }: AdminTicketsButtonProps) {
-  const [open, setOpen] = useState(false);
+export default function AdminTicketsButton({ userId, open: openProp, onOpenChange, onUnreadChange, hideFab }: AdminTicketsButtonProps) {
+  const [openState, setOpenState] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : openState;
+  const setOpen = (v: boolean) => {
+    if (!isControlled) setOpenState(v);
+    onOpenChange?.(v);
+  };
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<Filter>('open');
@@ -55,10 +65,11 @@ export default function AdminTicketsButton({ userId }: AdminTicketsButtonProps) 
       const cnt = await adminFetchUnread(userId);
       setUnread(cnt);
       prevUnread.current = cnt;
+      onUnreadChange?.(cnt);
     } catch {
       // ignore
     }
-  }, [userId]);
+  }, [userId, onUnreadChange]);
 
   useEffect(() => {
     loadUnread();
@@ -79,18 +90,20 @@ export default function AdminTicketsButton({ userId }: AdminTicketsButtonProps) 
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
-        title="Обращения в поддержку"
-      >
-        <Icon name="LifeBuoy" size={24} />
-        {unread > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
-            {unread > 99 ? '99+' : unread}
-          </span>
-        )}
-      </button>
+      {!hideFab && (
+        <button
+          onClick={() => setOpen(true)}
+          className="fixed bottom-24 right-5 z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
+          title="Обращения в поддержку"
+        >
+          <Icon name="LifeBuoy" size={24} />
+          {unread > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </button>
+      )}
 
       {open && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex" onClick={() => setOpen(false)}>

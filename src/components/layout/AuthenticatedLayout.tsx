@@ -80,6 +80,8 @@ const AuthenticatedLayout = ({
   const [showTools, setShowTools] = useState(false);
   const [showLogoRemover, setShowLogoRemover] = useState(false);
   const [showHumanizer, setShowHumanizer] = useState(false);
+  const [showAdminTickets, setShowAdminTickets] = useState(false);
+  const [adminTicketsUnread, setAdminTicketsUnread] = useState(0);
   const unreadCount = useUnreadCount(userId);
   const { unreadCount: supportUnread, markRead: markSupportRead } = useSupportUnread(userId);
   const totalUnread = unreadCount + supportUnread;
@@ -115,8 +117,23 @@ const AuthenticatedLayout = ({
 
       <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
 
-      {userId && isAdmin && <FloatingAppealsButton userId={userId} isAdmin={isAdmin} />}
-      {userId && isAdmin && <AdminTicketsButton userId={Number(userId)} />}
+      {userId && isAdmin && (
+        <FloatingAppealsButton
+          userId={Number(userId)}
+          isAdmin={isAdmin}
+          onClickOverride={() => setShowAdminTickets(true)}
+          extraUnread={adminTicketsUnread}
+        />
+      )}
+      {userId && isAdmin && (
+        <AdminTicketsButton
+          userId={Number(userId)}
+          hideFab
+          open={showAdminTickets}
+          onOpenChange={setShowAdminTickets}
+          onUnreadChange={setAdminTicketsUnread}
+        />
+      )}
 
       {selectedBookingId && (
         <BookingDetailsDialog
