@@ -10,6 +10,7 @@ import { AdminStorageAuth } from '@/components/admin/AdminStorageAuth';
 import { AdminStorageStats } from '@/components/admin/AdminStorageStats';
 import { StorageBillingTab } from '@/components/admin/StorageBillingTab';
 import { PaymentsTab } from '@/components/admin/PaymentsTab';
+import { ADMIN_API } from '@/components/admin/types';
 import { StorageTrashTab } from '@/components/admin/StorageTrashTab';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import {
@@ -50,6 +51,7 @@ const AdminStorage = () => {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [cloudStorageStats, setCloudStorageStats] = useState<any[]>([]);
   const [cloudStorageSummary, setCloudStorageSummary] = useState<any>({});
+  const [paymentsRevenue, setPaymentsRevenue] = useState(0);
 
   const api = useAdminStorageAPI(adminKey);
 
@@ -135,6 +137,14 @@ const AdminStorage = () => {
   }, [financialPeriod, adminKey]);
 
   useEffect(() => {
+    if (!adminKey) return;
+    fetch(`${ADMIN_API}?action=payment-stats&period=all&admin_key=${adminKey}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.summary) setPaymentsRevenue(d.summary.total_revenue || 0); })
+      .catch(() => {});
+  }, [adminKey]);
+
+  useEffect(() => {
     if (adminKey) {
       console.log('[ADMIN_STORAGE] AdminKey set, checking cache...');
       
@@ -157,7 +167,8 @@ const AdminStorage = () => {
     }
   }, [adminKey]);
 
-  const totalRevenue = revenueStats.reduce((sum, stat) => sum + stat.total_revenue, 0);
+  const subscriptionsRevenue = revenueStats.reduce((sum, stat) => sum + stat.total_revenue, 0);
+  const totalRevenue = subscriptionsRevenue + paymentsRevenue;
   const totalUsers = users.length;
   const totalStorageUsed = users.reduce((sum, user) => sum + user.used_gb, 0);
 
