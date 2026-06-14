@@ -101,6 +101,7 @@ def ticket_to_dict(row):
         'subject': row['subject'],
         'status': row['status'],
         'created_at': str(row['created_at']),
+        'closed_at': str(row['closed_at']) if row.get('closed_at') else '',
         'last_message_at': str(row['last_message_at']),
         'last_message_preview': row.get('last_message_preview') or '',
         'user_name': row.get('user_name') or '',
@@ -265,7 +266,22 @@ def handler(event: dict, context) -> dict:
         if method == 'POST' and action == 'close':
             ticket_id = body.get('ticket_id')
             cur.execute(
-                f"UPDATE {SCHEMA}.support_tickets SET status = 'closed', updated_at = NOW() "
+                f"UPDATE {SCHEMA}.support_tickets SET status = 'closed', closed_at = NOW(), updated_at = NOW() "
+                f"WHERE id = %s AND user_identifier = %s RETURNING *",
+                (ticket_id, user_identifier),
+            )
+            ticket = cur.fetchone()
+            if not ticket:
+                return resp(404, {'error': 'Обращение не найдено'})
+            conn.commit()
+            return resp(200, {'success': True, 'ticket': ticket_to_dict(ticket)})
+
+        # ---------- USER: переоткрыть обращение ----------
+        if method == 'POST' and action == 'reopen':
+            ticket_id = body.get('ticket_id')
+            cur.execute(
+                f"UPDATE {SCHEMA}.support_tickets SET status = 'open', closed_at = NULL, "
+                f"updated_at = NOW(), last_message_at = NOW(), admin_unread_count = admin_unread_count + 1 "
                 f"WHERE id = %s AND user_identifier = %s RETURNING *",
                 (ticket_id, user_identifier),
             )
@@ -363,8 +379,9 @@ def handler(event: dict, context) -> dict:
             if new_status not in STATUSES:
                 return resp(400, {'error': 'Неверный статус'})
             cur.execute(
-                f"UPDATE {SCHEMA}.support_tickets SET status = %s, updated_at = NOW() WHERE id = %s RETURNING *",
-                (new_status, ticket_id),
+                f"UPDATE {SCHEMA}.support_tickets SET status = %s, updated_at = NOW(), "
+                f"closed_at = CASE WHEN %s = 'closed' THEN NOW() ELSE NULL END WHERE id = %s RETURNING *",
+                (new_status, new_status, ticket_id),
             )
             ticket = cur.fetchone()
             if not ticket:

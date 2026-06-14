@@ -18,6 +18,7 @@ export interface Ticket {
   subject: string;
   status: TicketStatus;
   created_at: string;
+  closed_at?: string;
   last_message_at: string;
   last_message_preview: string;
   user_name: string;
@@ -110,6 +111,15 @@ export async function sendTicketMessage(userId: string | number, payload: {
 
 export async function closeTicket(userId: string | number, ticketId: number): Promise<{ success?: boolean; ticket?: Ticket }> {
   const res = await fetch(`${SUPPORT_TICKETS_URL}?action=close`, {
+    method: 'POST',
+    headers: headers(userId),
+    body: JSON.stringify({ ticket_id: ticketId }),
+  });
+  return res.json();
+}
+
+export async function reopenTicket(userId: string | number, ticketId: number): Promise<{ success?: boolean; ticket?: Ticket }> {
+  const res = await fetch(`${SUPPORT_TICKETS_URL}?action=reopen`, {
     method: 'POST',
     headers: headers(userId),
     body: JSON.stringify({ ticket_id: ticketId }),

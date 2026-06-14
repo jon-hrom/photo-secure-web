@@ -4,11 +4,20 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import {
   Ticket, TicketMessage, NewAttachment,
-  fetchTicket, sendTicketMessage, closeTicket,
+  fetchTicket, sendTicketMessage, closeTicket, reopenTicket,
   adminFetchTicket, adminSendMessage, adminSetStatus,
   fileToAttachment, formatTicketTime,
   STATUS_LABELS, PRIORITY_LABELS,
 } from './supportTicketsApi';
+
+const formatClosedDate = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const cleaned = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+  const d = new Date(cleaned);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+};
 
 interface TicketDetailProps {
   userId: string | number;
@@ -117,6 +126,17 @@ export default function TicketDetail({ userId, userName, ticketId, mode, onBack,
     }
   };
 
+  const handleReopen = async () => {
+    const res = mode === 'admin'
+      ? await adminSetStatus(userId, ticketId, 'open')
+      : await reopenTicket(userId, ticketId);
+    if (res.success && res.ticket) {
+      setTicket(res.ticket);
+      onTicketUpdated?.(res.ticket);
+      toast.success('Обращение переоткрыто');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -162,6 +182,19 @@ export default function TicketDetail({ userId, userName, ticketId, mode, onBack,
         <div className="flex flex-col lg:flex-row gap-4 p-4">
           {/* Левая часть: первое сообщение + переписка */}
           <div className="flex-1 min-w-0 space-y-5">
+            {isClosed && (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400">
+                  <Icon name="CheckCircle2" size={18} className="shrink-0" />
+                  <span>
+                    Обращение закрыто{ticket.closed_at ? ` ${formatClosedDate(ticket.closed_at)}` : ''}
+                  </span>
+                </div>
+                <Button size="sm" variant="secondary" onClick={handleReopen} className="shrink-0">
+                  Переоткрыть
+                </Button>
+              </div>
+            )}
             {firstMessage && (
               <div className="rounded-xl border bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap break-words">
                 {firstMessage.body}
