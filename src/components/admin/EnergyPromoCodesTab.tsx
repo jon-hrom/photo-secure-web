@@ -254,21 +254,23 @@ export const EnergyPromoCodesTab = ({ adminKey }: { adminKey: string }) => {
                 </Select>
               </div>
 
-              {form.discount_type === 'energy' ? (
-                <div className="space-y-2">
-                  <Label>Количество энергии</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="Например: 123"
-                    value={form.bonus_energy}
-                    onChange={(e) => setForm({ ...form, bonus_energy: Number(e.target.value) })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    При вводе промокода эта энергия сразу зачисляется на баланс, без оплаты через Робокассу
-                  </p>
-                </div>
-              ) : (
+              <div className="space-y-2">
+                <Label>Количество энергии {form.discount_type !== 'energy' && '(бонус, доп. единицы)'}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Например: 123"
+                  value={form.bonus_energy}
+                  onChange={(e) => setForm({ ...form, bonus_energy: Number(e.target.value) })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {form.discount_type === 'energy'
+                    ? 'При вводе промокода эта энергия сразу зачисляется на баланс, без оплаты через Робокассу'
+                    : 'Сколько энергии добавить сверх оплаченной (бонус)'}
+                </p>
+              </div>
+
+              {form.discount_type !== 'energy' && (
                 <>
                   <div className="space-y-2">
                     <Label>Размер скидки {form.discount_type === 'percent' ? '(%)' : '(₽)'}</Label>
@@ -279,17 +281,6 @@ export const EnergyPromoCodesTab = ({ adminKey }: { adminKey: string }) => {
                       onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })}
                     />
                     <p className="text-xs text-muted-foreground">100% — энергия начисляется бесплатно, без оплаты</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Бонус энергии (доп. единицы)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={form.bonus_energy}
-                      onChange={(e) => setForm({ ...form, bonus_energy: Number(e.target.value) })}
-                    />
-                    <p className="text-xs text-muted-foreground">Сколько энергии добавить сверх оплаченной</p>
                   </div>
                 </>
               )}
