@@ -141,27 +141,77 @@ def log_message(conn, user_id: str, client_phone: str, template_type: str, succe
         """, (error,))
         conn.commit()
 
-def send_via_green_api(instance_id: str, token: str, phone: str, message: str) -> Dict[str, Any]:
-    """Отправить сообщение через GREEN-API"""
+def normalize_phone(phone: str) -> str:
+    """Нормализовать номер к формату 7XXXXXXXXXX"""
+    clean_phone = ''.join(filter(str.isdigit, phone or ''))
+    if not clean_phone.startswith('7') and not clean_phone.startswith('375'):
+        clean_phone = '7' + clean_phone.lstrip('8')
+    return clean_phone
+
+
+def check_account(instance_id: str, token: str, phone: str, force: bool = False) -> Dict[str, Any]:
+    """
+    Проверить наличие MAX-аккаунта на номере через метод checkAccount.
+    force=True игнорирует кэш green-api и делает прямой запрос в MAX
+    (помогает при iOS-аккаунтах, ошибочно закэшированных как noAccount).
+    Возвращает {'exist': bool, 'chatId': str, 'limited': bool}.
+    """
+    media_server = instance_id[:4] if len(instance_id) >= 4 else '7103'
+    url = f"https://{media_server}.api.green-api.com/waInstance{instance_id}/checkAccount/{token}"
+    clean_phone = normalize_phone(phone)
+    payload: Dict[str, Any] = {"phoneNumber": int(clean_phone)}
+    if force:
+        payload["force"] = True
+    try:
+        response = requests.post(url, json=payload, timeout=15)
+        print(f'[MAX] checkAccount(force={force}) {clean_phone} -> {response.status_code} {response.text}')
+        # 469 — лимит проверок, приостановить проверки
+        if response.status_code == 469:
+            return {'exist': True, 'chatId': '', 'limited': True}
+        data = response.json()
+        # instance starting/notAuthorized или лимит -> status:false
+        if data.get('status') is False:
+            return {'exist': True, 'chatId': '', 'limited': True}
+        return {'exist': bool(data.get('exist')), 'chatId': data.get('chatId') or '', 'limited': False}
+    except Exception as e:
+        print(f'[MAX] checkAccount error: {e}')
+        # При ошибке проверки не блокируем отправку
+        return {'exist': True, 'chatId': '', 'limited': True}
+
+
+def send_via_green_api(instance_id: str, token: str, phone: str, message: str, verify_account: bool = True) -> Dict[str, Any]:
+    """Отправить сообщение через GREEN-API.
+
+    Перед отправкой проверяет наличие MAX-аккаунта (checkAccount). Если обычная
+    проверка вернула exist=false (часто из-за устаревшего кэша для iOS), делает
+    повторную проверку с force=true напрямую в MAX. Если и тогда аккаунта нет —
+    возвращает ошибку без отправки.
+    """
+    clean_phone = normalize_phone(phone)
+
+    if verify_account:
+        check = check_account(instance_id, token, clean_phone, force=False)
+        # Если по кэшу аккаунта нет — перепроверяем напрямую с force
+        if not check['exist'] and not check['limited']:
+            check = check_account(instance_id, token, clean_phone, force=True)
+            if not check['exist'] and not check['limited']:
+                print(f'[MAX] account does not exist for {clean_phone}, skip send')
+                return {'no_account': True, 'error': 'У номера нет аккаунта MAX'}
+
     media_server = instance_id[:4] if len(instance_id) >= 4 else '7103'
     url = f"https://{media_server}.api.green-api.com/v3/waInstance{instance_id}/sendMessage/{token}"
-    
-    clean_phone = ''.join(filter(str.isdigit, phone))
-    if not clean_phone.startswith('7'):
-        clean_phone = '7' + clean_phone.lstrip('8')
-    
+
     payload = {
         "chatId": f"{clean_phone}@c.us",
         "message": message
     }
-    
+
     print(f'[MAX] Sending to {url} with chatId={clean_phone}@c.us')
-    print(f'[MAX] Payload: {payload}')
-    
+
     response = requests.post(url, json=payload, timeout=10)
     print(f'[MAX] Response status: {response.status_code}')
     print(f'[MAX] Response body: {response.text}')
-    
+
     response.raise_for_status()
     return response.json()
 
@@ -219,6 +269,10 @@ def send_service_message(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, 
             client_phone,
             message
         )
+        
+        if result.get('no_account'):
+            log_message(conn, user_id, client_phone, template_type, False, 'no MAX account')
+            return {'error': 'У номера нет аккаунта MAX', 'no_account': True}
         
         log_message(conn, user_id, client_phone, template_type, True)
         
@@ -362,6 +416,9 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
             client_phone,
             message
         )
+        
+        if result.get('no_account'):
+            return {'error': 'У номера нет аккаунта MAX', 'no_account': True}
         
         # Сохранить сообщение в БД
         with conn.cursor() as cur:

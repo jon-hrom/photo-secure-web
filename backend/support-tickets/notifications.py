@@ -65,6 +65,26 @@ def send_telegram(chat_id, text):
 
 
 # ---------------- MAX (green-api) ----------------
+def _max_check_account(instance, token, digits, force=False):
+    """Проверка MAX-аккаунта. Возвращает 'exist' | 'noaccount' | 'unknown'."""
+    try:
+        media = instance[:4] if len(instance) >= 4 else '7103'
+        url = f'https://{media}.api.green-api.com/waInstance{instance}/checkAccount/{token}'
+        payload = {'phoneNumber': int(digits)}
+        if force:
+            payload['force'] = True
+        data = json.dumps(payload).encode()
+        req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+        resp = urllib.request.urlopen(req, timeout=15)
+        body = json.loads(resp.read().decode())
+        if body.get('status') is False:
+            return 'unknown'
+        return 'exist' if body.get('exist') else 'noaccount'
+    except Exception as e:
+        print(f'[notify][max] checkAccount(force={force}) {e}')
+        return 'unknown'
+
+
 def send_max(phone, text):
     try:
         instance = os.environ.get('MAX_INSTANCE_ID') or os.environ.get('GREEN_API_INSTANCE')
@@ -74,7 +94,17 @@ def send_max(phone, text):
         digits = _normalize_phone(phone)
         if not digits:
             return False
-        url = f'https://api.green-api.com/waInstance{instance}/sendMessage/{token}'
+
+        # При noaccount по кэшу — перепроверяем напрямую с force (фикс для iOS)
+        status = _max_check_account(instance, token, digits, force=False)
+        if status == 'noaccount':
+            status = _max_check_account(instance, token, digits, force=True)
+            if status == 'noaccount':
+                print(f'[notify][max] no MAX account for {digits}, skip')
+                return False
+
+        media = instance[:4] if len(instance) >= 4 else '7103'
+        url = f'https://{media}.api.green-api.com/v3/waInstance{instance}/sendMessage/{token}'
         data = json.dumps({'chatId': f'{digits}@c.us', 'message': text}).encode()
         req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
         urllib.request.urlopen(req, timeout=10)
