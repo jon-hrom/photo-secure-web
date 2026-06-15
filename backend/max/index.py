@@ -179,24 +179,81 @@ def check_account(instance_id: str, token: str, phone: str, force: bool = False)
         return {'exist': True, 'chatId': '', 'limited': True}
 
 
-def send_via_green_api(instance_id: str, token: str, phone: str, message: str, verify_account: bool = True) -> Dict[str, Any]:
+# Сколько дней доверять кэшу проверки аккаунта
+CACHE_EXIST_DAYS = 30      # аккаунт есть — перепроверяем редко
+CACHE_NOACCOUNT_DAYS = 7   # аккаунта нет — перепроверяем чаще (вдруг установили MAX)
+
+
+def get_cached_account(conn, phone: str) -> Dict[str, Any]:
+    """Прочитать кэш проверки MAX-аккаунта. Возвращает {} если кэш отсутствует/устарел."""
+    if conn is None:
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT exists_flag, chat_id, checked_at FROM t_p28211681_photo_secure_web.max_account_cache WHERE phone = %s",
+                (phone,),
+            )
+            row = cur.fetchone()
+        if not row:
+            return {}
+        exists_flag, chat_id, checked_at = row[0], row[1], row[2]
+        age_days = (datetime.now() - checked_at).days
+        ttl = CACHE_EXIST_DAYS if exists_flag else CACHE_NOACCOUNT_DAYS
+        if age_days > ttl:
+            return {}
+        return {'exist': bool(exists_flag), 'chatId': chat_id or ''}
+    except Exception as e:
+        print(f'[MAX] cache read error: {e}')
+        return {}
+
+
+def save_cached_account(conn, phone: str, exists_flag: bool, chat_id: str = '') -> None:
+    """Сохранить/обновить кэш проверки MAX-аккаунта."""
+    if conn is None:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO t_p28211681_photo_secure_web.max_account_cache (phone, exists_flag, chat_id, checked_at) "
+                "VALUES (%s, %s, %s, NOW()) "
+                "ON CONFLICT (phone) DO UPDATE SET exists_flag = EXCLUDED.exists_flag, "
+                "chat_id = EXCLUDED.chat_id, checked_at = NOW()",
+                (phone, exists_flag, chat_id or ''),
+            )
+        conn.commit()
+    except Exception as e:
+        print(f'[MAX] cache write error: {e}')
+
+
+def send_via_green_api(instance_id: str, token: str, phone: str, message: str, verify_account: bool = True, conn=None) -> Dict[str, Any]:
     """Отправить сообщение через GREEN-API.
 
-    Перед отправкой проверяет наличие MAX-аккаунта (checkAccount). Если обычная
-    проверка вернула exist=false (часто из-за устаревшего кэша для iOS), делает
-    повторную проверку с force=true напрямую в MAX. Если и тогда аккаунта нет —
-    возвращает ошибку без отправки.
+    Перед отправкой проверяет наличие MAX-аккаунта (checkAccount) с кэшированием
+    результата в БД, чтобы не дёргать один номер повторно. Если проверка вернула
+    exist=false (часто из-за устаревшего кэша для iOS), делает повторную проверку
+    с force=true напрямую в MAX. Если и тогда аккаунта нет — возвращает ошибку.
     """
     clean_phone = normalize_phone(phone)
 
     if verify_account:
-        check = check_account(instance_id, token, clean_phone, force=False)
-        # Если по кэшу аккаунта нет — перепроверяем напрямую с force
-        if not check['exist'] and not check['limited']:
-            check = check_account(instance_id, token, clean_phone, force=True)
-            if not check['exist'] and not check['limited']:
-                print(f'[MAX] account does not exist for {clean_phone}, skip send')
+        cached = get_cached_account(conn, clean_phone)
+        if cached:
+            if not cached['exist']:
+                print(f'[MAX] cache: no account for {clean_phone}, skip send')
                 return {'no_account': True, 'error': 'У номера нет аккаунта MAX'}
+            # cached exist=True — шлём без обращения к checkAccount
+        else:
+            check = check_account(instance_id, token, clean_phone, force=False)
+            # Если по кэшу green-api аккаунта нет — перепроверяем напрямую с force
+            if not check['exist'] and not check['limited']:
+                check = check_account(instance_id, token, clean_phone, force=True)
+            # Сохраняем результат только когда проверка достоверна (не лимит/ошибка)
+            if not check['limited']:
+                save_cached_account(conn, clean_phone, check['exist'], check.get('chatId', ''))
+                if not check['exist']:
+                    print(f'[MAX] account does not exist for {clean_phone}, skip send')
+                    return {'no_account': True, 'error': 'У номера нет аккаунта MAX'}
 
     media_server = instance_id[:4] if len(instance_id) >= 4 else '7103'
     url = f"https://{media_server}.api.green-api.com/v3/waInstance{instance_id}/sendMessage/{token}"
@@ -267,7 +324,8 @@ def send_service_message(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, 
             creds['instance_id'],
             creds['token'],
             client_phone,
-            message
+            message,
+            conn=conn
         )
         
         if result.get('no_account'):
@@ -414,7 +472,8 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
             creds['instance_id'],
             creds['token'],
             client_phone,
-            message
+            message,
+            conn=conn
         )
         
         if result.get('no_account'):

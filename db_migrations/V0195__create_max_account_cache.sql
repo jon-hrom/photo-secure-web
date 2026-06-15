@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS t_p28211681_photo_secure_web.max_account_cache (
+    phone VARCHAR(20) PRIMARY KEY,
+    exists_flag BOOLEAN NOT NULL,
+    chat_id VARCHAR(50) NULL,
+    checked_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

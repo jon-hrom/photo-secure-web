@@ -85,7 +85,46 @@ def _max_check_account(instance, token, digits, force=False):
         return 'unknown'
 
 
-def send_max(phone, text):
+def _cache_get(cur, phone):
+    """Читает кэш проверки MAX. Возвращает True/False/None (None = нет/устарел)."""
+    if cur is None:
+        return None
+    try:
+        cur.execute(
+            f"SELECT exists_flag, checked_at FROM {SCHEMA}.max_account_cache WHERE phone = %s",
+            (phone,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        exists_flag = row['exists_flag'] if isinstance(row, dict) else row[0]
+        checked_at = row['checked_at'] if isinstance(row, dict) else row[1]
+        from datetime import datetime
+        age = (datetime.now() - checked_at).days
+        ttl = 30 if exists_flag else 7
+        if age > ttl:
+            return None
+        return bool(exists_flag)
+    except Exception as e:
+        print(f'[notify][max] cache read {e}')
+        return None
+
+
+def _cache_set(cur, phone, exists_flag, chat_id=''):
+    if cur is None:
+        return
+    try:
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.max_account_cache (phone, exists_flag, chat_id, checked_at) "
+            f"VALUES (%s, %s, %s, NOW()) ON CONFLICT (phone) DO UPDATE SET "
+            f"exists_flag = EXCLUDED.exists_flag, chat_id = EXCLUDED.chat_id, checked_at = NOW()",
+            (phone, exists_flag, chat_id or ''),
+        )
+    except Exception as e:
+        print(f'[notify][max] cache write {e}')
+
+
+def send_max(phone, text, cur=None):
     try:
         instance = os.environ.get('MAX_INSTANCE_ID') or os.environ.get('GREEN_API_INSTANCE')
         token = os.environ.get('MAX_TOKEN') or os.environ.get('GREEN_API_TOKEN')
@@ -95,10 +134,17 @@ def send_max(phone, text):
         if not digits:
             return False
 
-        # При noaccount по кэшу — перепроверяем напрямую с force (фикс для iOS)
-        status = _max_check_account(instance, token, digits, force=False)
-        if status == 'noaccount':
-            status = _max_check_account(instance, token, digits, force=True)
+        cached = _cache_get(cur, digits)
+        if cached is False:
+            print(f'[notify][max] cache: no account for {digits}, skip')
+            return False
+        if cached is None:
+            # При noaccount по кэшу green-api — перепроверяем напрямую с force (фикс для iOS)
+            status = _max_check_account(instance, token, digits, force=False)
+            if status == 'noaccount':
+                status = _max_check_account(instance, token, digits, force=True)
+            if status in ('exist', 'noaccount'):
+                _cache_set(cur, digits, status == 'exist')
             if status == 'noaccount':
                 print(f'[notify][max] no MAX account for {digits}, skip')
                 return False
@@ -235,9 +281,9 @@ def notify_contact(cur, contact, user_identifier, title, body, url_path, email_h
         send_telegram(tg_chat, f'<b>{title}</b>\n{body}')
     # MAX
     if max_phone and max_connected:
-        send_max(max_phone, f'{title}\n{body}')
+        send_max(max_phone, f'{title}\n{body}', cur)
     elif phone:
-        send_max(phone, f'{title}\n{body}')
+        send_max(phone, f'{title}\n{body}', cur)
     # Email
     if email:
         send_email(email, title, email_html)
