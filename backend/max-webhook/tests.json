@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "GET health check",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Игнорирует неизвестный вебхук",
+      "method": "POST",
+      "path": "/",
+      "body": {"typeWebhook": "incomingMessageReceived"},
+      "expectedStatus": 200,
+      "expectedBody": {"ignored": "incomingMessageReceived"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Принимает статус доставки",
+      "method": "POST",
+      "path": "/",
+      "body": {"typeWebhook": "outgoingMessageStatus", "idMessage": "TEST_MSG_1", "status": "delivered", "chatId": "79999999999@c.us"},
+      "expectedStatus": 200,
+      "expectedBody": {"success": true},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

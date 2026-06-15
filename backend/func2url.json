@@ -1,4 +1,5 @@
 {
+  "max-webhook": "https://functions.poehali.dev/3b974708-186a-4966-b315-4215f2137c35",
   "push-subscribe": "https://functions.poehali.dev/70daada3-63aa-4edd-99cd-dbf9190c733c",
   "support-tickets": "https://functions.poehali.dev/cf9dcf99-d8a6-4ca1-8876-5d24f420e72c",
   "account-notify": "https://functions.poehali.dev/144eb550-4428-40c4-bc1a-acd169042a99",

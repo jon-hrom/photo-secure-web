@@ -131,14 +131,17 @@ def check_rate_limit(conn, user_id: str, client_phone: str) -> bool:
     """Проверить антиспам (отключен)"""
     return True
 
-def log_message(conn, user_id: str, client_phone: str, template_type: str, success: bool, error: str = None):
+def log_message(conn, user_id: str, client_phone: str, template_type: str, success: bool, error: str = None, message_id: str = None):
     """Логировать отправленное сообщение"""
     with conn.cursor() as cur:
-        cur.execute(f"""
-            INSERT INTO t_p28211681_photo_secure_web.max_service_logs 
-            (user_id, client_phone, template_type, success, error_message, sent_at)
-            VALUES ({user_id}, '{client_phone}', '{template_type}', {success}, %s, NOW())
-        """, (error,))
+        cur.execute(
+            "INSERT INTO t_p28211681_photo_secure_web.max_service_logs "
+            "(user_id, client_phone, template_type, success, error_message, message_id, "
+            "delivery_status, sent_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())",
+            (int(user_id), client_phone, template_type, success, error, message_id,
+             'sent' if (success and message_id) else None),
+        )
         conn.commit()
 
 def normalize_phone(phone: str) -> str:
@@ -332,11 +335,12 @@ def send_service_message(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, 
             log_message(conn, user_id, client_phone, template_type, False, 'no MAX account')
             return {'error': 'У номера нет аккаунта MAX', 'no_account': True}
         
-        log_message(conn, user_id, client_phone, template_type, True)
+        msg_id = result.get('idMessage')
+        log_message(conn, user_id, client_phone, template_type, True, None, msg_id)
         
         return {
             'success': True,
-            'message_id': result.get('idMessage'),
+            'message_id': msg_id,
             'sent_at': datetime.now().isoformat()
         }
         
