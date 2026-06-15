@@ -18,6 +18,7 @@ import VKSettings from '@/components/settings/VKSettings';
 import NotificationMonitor from '@/components/admin/NotificationMonitor';
 import AdminBiometricSettings from '@/components/admin/AdminBiometricSettings';
 import AdminRetouchSettings from '@/components/admin/AdminRetouchSettings';
+import AdminPersonalData from '@/components/admin/AdminPersonalData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
@@ -447,6 +448,18 @@ const AdminPanelTabs = ({
         </AccordionTrigger>
         <AccordionContent className="px-4 sm:px-6 pb-4">
           <VKSettings userId={null} />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="personal-data" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="ShieldCheck" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">Персональные данные</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
+          <AdminPersonalData />
         </AccordionContent>
       </AccordionItem>
     </Accordion>

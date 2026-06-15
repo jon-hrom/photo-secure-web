@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import MobileNavigation from '@/components/layout/MobileNavigation';
+import LegalFooter from '@/components/legal/LegalFooter';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -244,6 +245,8 @@ const Tariffs = () => {
           </div>
         </div>
       </div>
+
+      <LegalFooter />
 
       <Dialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
         <DialogContent className="max-w-lg">

@@ -1,0 +1,32 @@
+{
+  "tests": [
+    {
+      "name": "Публичный список документов",
+      "method": "GET",
+      "path": "/?action=list",
+      "expectedStatus": 200,
+      "expectedBody": {"documents": "array"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Получить политику конфиденциальности",
+      "method": "GET",
+      "path": "/?action=get&slug=privacy-policy",
+      "expectedStatus": 200,
+      "expectedBody": {"document": "object"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Несуществующий документ 404",
+      "method": "GET",
+      "path": "/?action=get&slug=nope",
+      "expectedStatus": 404
+    },
+    {
+      "name": "Pending без авторизации 401",
+      "method": "GET",
+      "path": "/?action=pending",
+      "expectedStatus": 401
+    }
+  ]
+}

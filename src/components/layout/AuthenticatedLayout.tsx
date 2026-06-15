@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { registerPush } from '@/lib/push';
+import LegalConsentModal from '@/components/legal/LegalConsentModal';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
@@ -124,6 +125,8 @@ const AuthenticatedLayout = ({
       )}
 
       <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
+
+      {userId && !isAdmin && <LegalConsentModal userId={userId} />}
 
       {userId && isAdmin && (
         <FloatingAppealsButton

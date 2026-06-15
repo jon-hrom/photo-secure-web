@@ -26,7 +26,7 @@ import Statistics from "./pages/webapp/Statistics";
 import AdminCleanup from "./pages/AdminCleanup";
 import AdminPipelineEditor from "./pages/AdminPipelineEditor";
 import NewYearDecorations from "./components/NewYearDecorations";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
+import LegalDocument from "./pages/LegalDocument";
 import ShortLink from "./pages/ShortLink";
 import PublicGallery from "./pages/PublicGallery";
 import { RetouchProvider } from "./contexts/RetouchContext";
@@ -35,7 +35,7 @@ import IncomingTransfersWatcher from "./components/clients/transfer/IncomingTran
 
 const queryClient = new QueryClient();
 
-const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/privacy-policy', '/s/', '/g/', '/client/'];
+const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/privacy-policy', '/offer', '/personal-data', '/legal/', '/s/', '/g/', '/client/'];
 
 const ConditionalRetouchBar = () => {
   const { pathname } = useLocation();
@@ -134,7 +134,10 @@ const App = () => {
           <Route path="/auth/callback/google" element={<GoogleCallback />} />
           <Route path="/auth/telegram/callback" element={<TelegramCallback />} />
           <Route path="/client/photobook/:id" element={<ClientPhotobook />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/privacy-policy" element={<LegalDocument fixedSlug="privacy-policy" />} />
+          <Route path="/offer" element={<LegalDocument fixedSlug="offer" />} />
+          <Route path="/personal-data" element={<LegalDocument fixedSlug="personal-data" />} />
+          <Route path="/legal/:slug" element={<LegalDocument />} />
           <Route path="/s/:code" element={<ShortLink />} />
           <Route path="/g/:code" element={<PublicGallery />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
