@@ -258,6 +258,8 @@ const ClientDetailMessages = ({
         onMessageChange('content', '');
         setSelectedTemplate('');
         window.location.reload();
+      } else if (data.no_account) {
+        toast.error('У этого номера нет аккаунта MAX — сообщение не отправлено');
       } else {
         toast.error(data.error || 'Ошибка отправки');
       }

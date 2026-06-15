@@ -483,23 +483,26 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
         if result.get('no_account'):
             return {'error': 'У номера нет аккаунта MAX', 'no_account': True}
         
-        # Сохранить сообщение в БД
+        green_msg_id = result.get('idMessage')
+        # Сохранить сообщение в БД с привязкой к идентификатору green-api
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO t_p28211681_photo_secure_web.client_messages
-                (client_id, photographer_id, sender_type, content, type, author, message_date)
-                VALUES (%s, %s, 'photographer', %s, 'whatsapp', 'Фотограф', NOW())
+                (client_id, photographer_id, sender_type, content, type, author, message_date,
+                 external_message_id, delivery_status)
+                VALUES (%s, %s, 'photographer', %s, 'whatsapp', 'Фотограф', NOW(), %s, 'sent')
                 RETURNING id
-            """, (client_id, user_id, message))
+            """, (client_id, user_id, message, green_msg_id))
             message_id = cur.fetchone()[0]
             conn.commit()
         
-        log_message(conn, user_id, client_phone, 'direct_message', True)
+        log_message(conn, user_id, client_phone, 'direct_message', True, None, green_msg_id)
         
         return {
             'success': True,
-            'message_id': result.get('idMessage'),
+            'message_id': green_msg_id,
             'db_message_id': message_id,
+            'delivery_status': 'sent',
             'sent_at': datetime.now().isoformat()
         }
         

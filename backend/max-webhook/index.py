@@ -59,6 +59,16 @@ def handler(event: dict, context) -> dict:
             f"VALUES (%s, %s, %s, %s, %s, %s, NOW())",
             (message_id, chat_id, phone, status, type_webhook, json.dumps(body)),
         )
+        # Маппинг статуса green-api на статус для UI переписки
+        ui_status_map = {
+            'sent': 'sent',
+            'delivered': 'delivered',
+            'read': 'read',
+            'noAccount': 'failed',
+            'notInGroup': 'failed',
+        }
+        ui_status = ui_status_map.get(status, status)
+
         # Обновляем итоговый статус в логе отправки по idMessage
         if message_id:
             cur.execute(
@@ -66,6 +76,14 @@ def handler(event: dict, context) -> dict:
                 f"SET delivery_status = %s, delivery_updated_at = NOW() "
                 f"WHERE message_id = %s",
                 (status, message_id),
+            )
+            # И в переписке с клиентом (client_messages) — статус в формате UI
+            cur.execute(
+                f"UPDATE {SCHEMA}.client_messages "
+                f"SET delivery_status = %s, "
+                f"delivery_error = %s "
+                f"WHERE external_message_id = %s",
+                (ui_status, 'У номера нет аккаунта MAX' if status == 'noAccount' else None, message_id),
             )
             # Если у номера noAccount — поправим кэш аккаунта
             if status == 'noAccount' and phone:
