@@ -1,21 +1,9 @@
 import { useEffect, useState } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { adminListDocs, adminPublishDoc, LegalDoc } from '@/lib/legalApi';
-
-const quillModules = {
-  toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ list: 'ordered' }, { list: 'bullet' }],
-    [{ align: [] }],
-    ['link'],
-    ['clean'],
-  ],
-};
+import RichTextEditor from '@/components/admin/RichTextEditor';
 
 const AdminPersonalData = () => {
   const [docs, setDocs] = useState<LegalDoc[]>([]);
@@ -104,15 +92,7 @@ const AdminPersonalData = () => {
 
       {activeDoc && (
         <div className="space-y-3">
-          <div className="bg-white rounded-lg text-black">
-            <ReactQuill
-              theme="snow"
-              value={draft}
-              onChange={setDraft}
-              modules={quillModules}
-              className="min-h-[300px]"
-            />
-          </div>
+          <RichTextEditor value={draft} onChange={setDraft} />
 
           <div className="flex items-center justify-between gap-3 pt-2">
             <a
