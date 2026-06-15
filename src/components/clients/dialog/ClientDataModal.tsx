@@ -163,7 +163,6 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
           name: form.name,
           phone: form.phone,
           email: form.email,
-          address: form.address,
           vkProfile: form.vkProfile,
           vk_username: form.vk_username,
           birthdate: form.birthdate,
@@ -335,28 +334,6 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="cd-birthdate" className="text-sm">Дата рождения</Label>
-            <Input
-              id="cd-birthdate"
-              type="date"
-              value={form.birthdate || ''}
-              onChange={(e) => setForm({ ...form, birthdate: e.target.value })}
-              className="h-10 text-sm sm:text-base"
-            />
-            <p className="text-[11px] text-muted-foreground">Для автоматических поздравлений</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="cd-address" className="text-sm">Адрес</Label>
-            <Input
-              id="cd-address"
-              value={form.address || ''}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-              className="h-10 text-sm sm:text-base"
-            />
-          </div>
-
-          <div className="space-y-1.5">
             <Label htmlFor="cd-vk" className="text-sm">ВКонтакте</Label>
             <Input
               id="cd-vk"
@@ -366,18 +343,6 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
               className="h-10 text-sm sm:text-base"
             />
             <p className="text-[11px] text-muted-foreground">Можно подтянуть аватар отсюда кнопкой «Из ВК».</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="cd-tg" className="text-sm">Telegram Chat ID</Label>
-            <Input
-              id="cd-tg"
-              value={form.telegram_chat_id || ''}
-              onChange={(e) => setForm({ ...form, telegram_chat_id: e.target.value })}
-              placeholder="Например: 123456789"
-              className="h-10 text-sm sm:text-base"
-            />
-            <p className="text-[11px] text-muted-foreground">Для уведомлений о съёмках в Telegram</p>
           </div>
 
           <div className="space-y-1.5">

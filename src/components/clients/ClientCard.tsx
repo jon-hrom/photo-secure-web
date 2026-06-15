@@ -133,12 +133,6 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
               <span className="truncate">{client.email}</span>
             </div>
           )}
-          {client.address && (
-            <div className="flex items-center gap-2 min-w-0">
-              <Icon name="MapPin" size={16} className="text-muted-foreground flex-shrink-0" />
-              <span className="truncate">{client.address}</span>
-            </div>
-          )}
           {client.vkProfile && (
             <div className="flex items-center gap-2 min-w-0">
               <Icon name="MessageCircle" size={16} className="text-muted-foreground flex-shrink-0" />

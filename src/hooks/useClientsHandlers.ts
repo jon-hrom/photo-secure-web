@@ -165,7 +165,6 @@ export const useClientsHandlers = ({
             name: clientNameForSearch,
             phone: clientPhoneForSearch,
             email: newClient.email,
-            address: newClient.address,
             vkProfile: newClient.vkProfile,
             vkUsername: newClient.vkUsername,
             birthdate: newClient.birthdate

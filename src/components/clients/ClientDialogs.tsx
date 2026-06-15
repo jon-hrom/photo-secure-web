@@ -156,16 +156,6 @@ const ClientDialogs = ({
               />
             </div>
             <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="address" className="text-sm">Адрес</Label>
-              <Input
-                id="address"
-                value={newClient.address}
-                onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
-                placeholder="г. Москва, ул. Ленина, д. 1"
-                className="h-10 text-sm sm:text-base"
-              />
-            </div>
-            <div className="space-y-1.5 sm:space-y-2">
               <Label htmlFor="vk" className="text-sm">ВКонтакте</Label>
               <Input
                 id="vk"
@@ -175,17 +165,6 @@ const ClientDialogs = ({
                 className="h-10 text-sm sm:text-base"
               />
               <p className="text-[11px] sm:text-xs text-muted-foreground">Для поздравлений и сервисных уведомлений</p>
-            </div>
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="birthdate" className="text-sm">Дата рождения</Label>
-              <Input
-                id="birthdate"
-                type="date"
-                value={newClient.birthdate}
-                onChange={(e) => setNewClient({ ...newClient, birthdate: e.target.value })}
-                className="h-10 text-sm sm:text-base"
-              />
-              <p className="text-[11px] sm:text-xs text-muted-foreground">Для автоматических поздравлений</p>
             </div>
           </div>
           <div className="flex-shrink-0 p-3 sm:p-4 border-t bg-background">

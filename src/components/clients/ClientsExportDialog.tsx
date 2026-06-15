@@ -38,7 +38,6 @@ const defaultColumns: ExportColumn[] = [
   { id: 'name', label: 'ФИО', enabled: true, getValue: (c) => c.name },
   { id: 'phone', label: 'Телефон', enabled: true, getValue: (c) => c.phone },
   { id: 'email', label: 'Email', enabled: true, getValue: (c) => c.email || '' },
-  { id: 'address', label: 'Адрес', enabled: false, getValue: (c) => c.address || '' },
   { id: 'vkProfile', label: 'ВКонтакте', enabled: false, getValue: (c) => c.vkProfile || '' },
   { 
     id: 'activeProjects', 
@@ -81,7 +80,7 @@ const defaultTemplates: ExportTemplate[] = [
   { 
     id: 'full', 
     name: 'Полная информация', 
-    columns: ['name', 'phone', 'email', 'address', 'vkProfile', 'activeProjects', 'activeBookings', 'totalPaid', 'documentsCount', 'createdAt'] 
+    columns: ['name', 'phone', 'email', 'vkProfile', 'activeProjects', 'activeBookings', 'totalPaid', 'documentsCount', 'createdAt'] 
   },
   { 
     id: 'contacts', 
