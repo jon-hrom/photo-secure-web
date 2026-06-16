@@ -151,20 +151,21 @@ const Tariffs = () => {
     <>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-4 sm:py-6">
         <div className="w-full mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 2xl:px-12">
-          <div className="mb-8">
+          <div className="mb-4">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => navigate('/')}
               className="gap-2 hover:bg-primary/10"
             >
-              <Icon name="ArrowLeft" size={18} />
+              <Icon name="ArrowLeft" size={16} />
               Главная
             </Button>
           </div>
 
-          <div className="text-center mb-10">
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">Тарифные планы</h1>
-            <p className="text-gray-600 dark:text-gray-300">Выберите подходящий план для вашего бизнеса</p>
+          <div className="text-center mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1.5">Тарифные планы</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Выберите подходящий план для вашего бизнеса</p>
           </div>
           
           {plans.length === 0 ? (
@@ -174,7 +175,7 @@ const Tariffs = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-7xl mx-auto">
               {plans.map((plan) => {
                 const features = getPlanFeatures(plan);
                 const isPopular = plan.plan_name.toLowerCase().includes('проф');
@@ -183,46 +184,47 @@ const Tariffs = () => {
                 return (
                   <Card 
                     key={plan.plan_id}
-                    className={`relative bg-white dark:bg-gray-800 ${
-                      isPopular ? 'ring-2 ring-primary shadow-xl' : 'shadow-lg'
+                    className={`relative bg-white dark:bg-gray-800 flex flex-col ${
+                      isPopular ? 'ring-2 ring-primary shadow-lg' : 'shadow-md'
                     }`}
                   >
                     {isPopular && (
-                      <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-secondary text-white px-4 py-1 rounded-full text-sm font-medium">
+                      <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-secondary text-white px-3 py-0.5 rounded-full text-xs font-medium">
                         Популярный
                       </Badge>
                     )}
                     
-                    <CardHeader>
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-3 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-xl">
-                          <Icon name={icon} size={24} className="text-primary" />
+                    <CardHeader className="p-4 pb-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-2 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg">
+                          <Icon name={icon} size={18} className="text-primary" />
                         </div>
-                        <CardTitle className="text-2xl">{plan.plan_name}</CardTitle>
+                        <CardTitle className="text-lg">{plan.plan_name}</CardTitle>
                       </div>
-                      <CardDescription className="text-base">{plan.description}</CardDescription>
+                      <CardDescription className="text-xs min-h-[2rem]">{plan.description}</CardDescription>
                       
-                      <div className="mt-6">
-                        <div className="text-4xl font-bold text-gray-900 dark:text-white">
+                      <div className="mt-2 flex items-baseline gap-1.5">
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
                           {plan.price_rub === 0 ? 'Бесплатно' : `${Math.floor(plan.price_rub)} ₽`}
                         </div>
                         {plan.price_rub > 0 && (
-                          <div className="text-gray-600 dark:text-gray-400">в месяц</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">/ месяц</div>
                         )}
                       </div>
                     </CardHeader>
 
-                    <CardContent className="space-y-4">
-                      <ul className="space-y-3 mb-6">
+                    <CardContent className="p-4 pt-2 flex flex-col flex-1">
+                      <ul className="space-y-1.5 mb-4 flex-1">
                         {features.map((feature, index) => (
                           <li key={index} className="flex items-start gap-2">
-                            <Icon name="Check" size={20} className="text-green-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                            <Icon name="Check" size={16} className="text-green-500 flex-shrink-0 mt-0.5" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{feature}</span>
                           </li>
                         ))}
                       </ul>
                       
                       <Button 
+                        size="sm"
                         className={`w-full ${isPopular ? 'bg-gradient-to-r from-primary to-secondary' : ''}`}
                         variant={isPopular ? 'default' : 'outline'}
                         onClick={() => handleSelectPlan(plan)}
@@ -236,10 +238,10 @@ const Tariffs = () => {
             </div>
           )}
 
-          <div className="mt-10 text-center">
-            <p className="text-gray-600 dark:text-gray-300 mb-4">Нужен индивидуальный план?</p>
-            <Button variant="outline" className="gap-2">
-              <Icon name="MessageCircle" size={18} />
+          <div className="mt-8 text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Нужен индивидуальный план?</p>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Icon name="MessageCircle" size={16} />
               Связаться с нами
             </Button>
           </div>
