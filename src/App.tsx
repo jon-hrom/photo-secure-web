@@ -44,10 +44,19 @@ const LegalConsentGuard = () => {
   const [showConsent, setShowConsent] = useState(false);
   const userId = localStorage.getItem('userId');
 
-  const isAuthCallback = pathname.startsWith('/auth/') || pathname.startsWith('/vk-callback');
+  const isSkippedPath =
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/vk-callback') ||
+    pathname.startsWith('/privacy-policy') ||
+    pathname.startsWith('/offer') ||
+    pathname.startsWith('/personal-data') ||
+    pathname.startsWith('/legal/') ||
+    pathname.startsWith('/s/') ||
+    pathname.startsWith('/g/') ||
+    pathname.startsWith('/client/');
 
   useEffect(() => {
-    if (!userId || isAuthCallback) return;
+    if (!userId || isSkippedPath) return;
     fetchPendingDocs(userId).then((pending) => {
       if (pending.length > 0) setShowConsent(true);
     });
