@@ -45,6 +45,7 @@ const LegalConsentGuard = () => {
   const userId = localStorage.getItem('userId');
 
   const isSkippedPath =
+    pathname === '/' ||
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/vk-callback') ||
     pathname.startsWith('/privacy-policy') ||
