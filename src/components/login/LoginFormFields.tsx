@@ -61,6 +61,7 @@ const LoginFormFields = ({
 }: LoginFormFieldsProps) => {
   const [legalDocs, setLegalDocs] = useState<LegalDocMeta[]>([]);
   const [docConsents, setDocConsents] = useState<Record<string, boolean>>({});
+  const [blinking, setBlinking] = useState(false);
 
   useEffect(() => {
     fetchLegalList().then((docs) => {
@@ -76,6 +77,15 @@ const LoginFormFields = ({
   useEffect(() => {
     onPrivacyAcceptedChange(allDocsAccepted);
   }, [allDocsAccepted]);
+
+  const handleSubmitClick = () => {
+    if (!allDocsAccepted) {
+      setBlinking(true);
+      setTimeout(() => setBlinking(false), 1600);
+      return;
+    }
+    onSubmit();
+  };
 
   const handlePasswordChange = (value: string) => {
     onPasswordChange(value);
@@ -125,7 +135,7 @@ const LoginFormFields = ({
               onChange={(e) => handlePasswordChange(e.target.value)}
               disabled={isBlocked}
               className="rounded-xl pr-10 dark:bg-gray-800 dark:text-white dark:border-gray-700 h-11"
-              onKeyDown={(e) => e.key === 'Enter' && !isRegistering && onSubmit()}
+              onKeyDown={(e) => e.key === 'Enter' && !isRegistering && handleSubmitClick()}
             />
             <Button
               type="button"
@@ -166,38 +176,44 @@ const LoginFormFields = ({
         )}
 
         <div className="space-y-3">
-          {legalDocs.map((doc) => (
-            <div key={doc.slug} className="flex items-start gap-2">
-              <Checkbox
-                id={`consent-${doc.slug}`}
-                checked={docConsents[doc.slug] ?? false}
-                onCheckedChange={(v) =>
-                  setDocConsents((prev) => ({ ...prev, [doc.slug]: !!v }))
-                }
-                disabled={isBlocked}
-                className="mt-1"
-              />
-              <label
-                htmlFor={`consent-${doc.slug}`}
-                className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed"
-              >
-                Я принимаю{' '}
-                <a
-                  href={slugToUrl[doc.slug] || `/legal/${doc.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline font-medium"
-                  onClick={(e) => e.stopPropagation()}
+          {legalDocs.map((doc) => {
+            const checked = docConsents[doc.slug] ?? false;
+            const shouldBlink = blinking && !checked;
+            return (
+              <div key={doc.slug} className="flex items-start gap-2">
+                <Checkbox
+                  id={`consent-${doc.slug}`}
+                  checked={checked}
+                  onCheckedChange={(v) =>
+                    setDocConsents((prev) => ({ ...prev, [doc.slug]: !!v }))
+                  }
+                  disabled={isBlocked}
+                  className={`mt-1 ${shouldBlink ? 'animate-blink-attention border-red-500 ring-2 ring-red-500/50' : ''}`}
+                />
+                <label
+                  htmlFor={`consent-${doc.slug}`}
+                  className={`text-sm leading-relaxed transition-colors ${
+                    shouldBlink ? 'text-red-500 font-medium' : 'text-gray-600 dark:text-gray-400'
+                  }`}
                 >
-                  {doc.title}
-                </a>
-              </label>
-            </div>
-          ))}
+                  Я принимаю{' '}
+                  <a
+                    href={slugToUrl[doc.slug] || `/legal/${doc.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline font-medium"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {doc.title}
+                  </a>
+                </label>
+              </div>
+            );
+          })}
 
           <Button
-            onClick={onSubmit}
-            disabled={isBlocked || !privacyAccepted}
+            onClick={handleSubmitClick}
+            disabled={isBlocked}
             className="w-full rounded-xl h-11"
             size="default"
           >

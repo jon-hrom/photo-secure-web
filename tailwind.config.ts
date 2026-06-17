@@ -134,6 +134,11 @@ export default {
 				'glow': {
 					'0%, 100%': { boxShadow: '0 0 20px rgba(147, 51, 234, 0.3)' },
 					'50%': { boxShadow: '0 0 40px rgba(147, 51, 234, 0.6)' }
+				},
+				'blink-attention': {
+					'0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(239, 68, 68, 0)' },
+					'25%, 75%': { transform: 'scale(1.25)', boxShadow: '0 0 0 4px rgba(239, 68, 68, 0.4)' },
+					'50%': { transform: 'scale(1.1)', boxShadow: '0 0 0 6px rgba(239, 68, 68, 0)' }
 				}
 			},
 			animation: {
@@ -148,7 +153,8 @@ export default {
 				'bounce-subtle': 'bounce-subtle 2s ease-in-out infinite',
 				'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
 				'slide-up': 'slide-up 0.4s ease-out',
-				'glow': 'glow 2s ease-in-out infinite'
+				'glow': 'glow 2s ease-in-out infinite',
+				'blink-attention': 'blink-attention 0.5s ease-in-out 3'
 			}
 		}
 	},
