@@ -13,7 +13,7 @@ const SLUG_LABEL: Record<string, string> = {
   'personal-data': 'обработка пд',
 };
 
-const LegalFooter = () => {
+const LegalFooter = ({ className = '' }: { className?: string }) => {
   const [docs, setDocs] = useState<LegalDocMeta[]>([]);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ const LegalFooter = () => {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="w-full border-t border-border bg-black/90 text-gray-300">
+    <footer className={`w-full border-t border-border bg-black/90 text-gray-300 ${className}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-sm">
           <span className="font-semibold text-white">Foto-Mix</span>

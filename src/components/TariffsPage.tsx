@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PromoCodeInput } from './PromoCodeInput';
-import LegalFooter from '@/components/legal/LegalFooter';
 
 interface Plan {
   plan_id: number;
@@ -443,10 +442,6 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
           </div>
         </DialogContent>
       </Dialog>
-
-      <div className="-mx-4 sm:-mx-6 lg:-mx-8 mt-6">
-        <LegalFooter />
-      </div>
     </div>
   );
 };

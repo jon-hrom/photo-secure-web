@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { registerPush } from '@/lib/push';
 import LegalConsentModal from '@/components/legal/LegalConsentModal';
+import LegalFooter from '@/components/legal/LegalFooter';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
@@ -96,7 +97,7 @@ const AuthenticatedLayout = ({
   }, [userId]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-purple-50/30 to-blue-50/30 dark:via-purple-900/10 dark:to-blue-900/10">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-purple-50/30 to-blue-50/30 dark:via-purple-900/10 dark:to-blue-900/10">
       <AppNavigation
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
@@ -162,7 +163,7 @@ const AuthenticatedLayout = ({
         />
       )}
 
-      <main className="w-full mx-auto px-3 md:px-4 lg:px-6 xl:px-8 2xl:px-12 py-4 md:py-8">
+      <main className="flex-1 w-full mx-auto px-3 md:px-4 lg:px-6 xl:px-8 2xl:px-12 py-4 md:py-8">
         {verificationChecked && !emailVerified && hasEmail && currentPage === 'dashboard' && !isAdmin && (
           <div className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 shadow-sm">
             <div className="flex items-start gap-3">
@@ -261,7 +262,9 @@ const AuthenticatedLayout = ({
         {currentPage === 'help' && <HelpPage />}
         {currentPage === 'admin' && isAdmin && <AdminPanel />}
       </main>
-      
+
+      <LegalFooter className="pb-20 md:pb-0" />
+
       <MobileNavigation
         onNavigate={setCurrentPage}
         currentPage={currentPage}
