@@ -10,6 +10,7 @@ import urllib.request
 
 SCHEMA = os.environ.get('MAIN_DB_SCHEMA', 't_p28211681_photo_secure_web')
 SITE_URL = os.environ.get('SITE_URL', 'https://foto-mix.ru').rstrip('/')
+SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', 'support@foto-mix.ru')
 
 
 def _normalize_phone(phone):
@@ -303,23 +304,27 @@ def _email_template(title, body, url_path):
 
 # ---------------- ВЫСОКОУРОВНЕВЫЕ СОБЫТИЯ ----------------
 def notify_new_ticket(cur, ticket_number, subject, user_name):
-    """Новый тикет -> уведомить всех админов."""
+    """Новый тикет -> уведомить всех админов + копия на support@."""
     title = f'Новое обращение {ticket_number}'
     body = f'{user_name or "Пользователь"}: {subject}'
     html = _email_template(title, body, '/')
     for admin in get_admins_contacts(cur):
         admin_id = _field(admin, 'id', 0)
         notify_contact(cur, admin, admin_id, title, body, '/', html)
+    if SUPPORT_EMAIL:
+        send_email(SUPPORT_EMAIL, title, html)
 
 
 def notify_user_reply(cur, user_identifier, ticket_number, subject):
-    """Пользователь ответил -> уведомить админов."""
+    """Пользователь ответил -> уведомить админов + копия на support@."""
     title = f'Новый ответ в {ticket_number}'
     body = f'Тема: {subject}'
     html = _email_template(title, body, '/')
     for admin in get_admins_contacts(cur):
         admin_id = _field(admin, 'id', 0)
         notify_contact(cur, admin, admin_id, title, body, '/', html)
+    if SUPPORT_EMAIL:
+        send_email(SUPPORT_EMAIL, title, html)
 
 
 def notify_admin_reply(cur, user_identifier, ticket_number, subject, preview):
