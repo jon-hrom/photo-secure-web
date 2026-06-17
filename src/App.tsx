@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import LegalConsentModal from "@/components/login/LegalConsentModal";
+import { fetchPendingDocs } from "@/lib/legalApi";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import VKCallback from "./pages/VKCallback";
@@ -36,6 +38,32 @@ import IncomingTransfersWatcher from "./components/clients/transfer/IncomingTran
 const queryClient = new QueryClient();
 
 const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/privacy-policy', '/offer', '/personal-data', '/legal/', '/s/', '/g/', '/client/'];
+
+const LegalConsentGuard = () => {
+  const { pathname } = useLocation();
+  const [showConsent, setShowConsent] = useState(false);
+  const userId = localStorage.getItem('userId');
+
+  const isAuthCallback = pathname.startsWith('/auth/') || pathname.startsWith('/vk-callback');
+
+  useEffect(() => {
+    if (!userId || isAuthCallback) return;
+    fetchPendingDocs(userId).then((pending) => {
+      if (pending.length > 0) setShowConsent(true);
+    });
+  }, [pathname, userId]);
+
+  if (!showConsent || !userId) return null;
+
+  return (
+    <LegalConsentModal
+      open={showConsent}
+      userId={userId}
+      onAccepted={() => setShowConsent(false)}
+      onCancel={() => setShowConsent(false)}
+    />
+  );
+};
 
 const ConditionalRetouchBar = () => {
   const { pathname } = useLocation();
@@ -112,6 +140,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+        <LegalConsentGuard />
         <ConditionalRetouchBar />
         <ConditionalTransfersWatcher />
         <Routes>

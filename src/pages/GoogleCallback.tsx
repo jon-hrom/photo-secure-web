@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
+import LegalConsentModal from '@/components/login/LegalConsentModal';
+import { fetchPendingDocs } from '@/lib/legalApi';
 
 const GoogleCallback = () => {
   const [searchParams] = useSearchParams();
@@ -15,13 +17,15 @@ const GoogleCallback = () => {
     userId: number;
     userEmail: string;
     tempToken: string;
-    profile: any;
+    profile: Record<string, unknown>;
   } | null>(null);
   const [blockedUserData, setBlockedUserData] = useState<{
     userId?: number;
     userEmail?: string;
     authMethod?: string;
   } | null>(null);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [pendingNavigate, setPendingNavigate] = useState(false);
 
   useEffect(() => {
     const processCallback = async () => {
@@ -97,6 +101,14 @@ const GoogleCallback = () => {
           localStorage.setItem('google_user', JSON.stringify(userData));
           localStorage.setItem('auth_token', session_token);
           localStorage.setItem('userId', user_id.toString());
+
+          const pending = await fetchPendingDocs(String(user_id));
+          if (pending.length > 0) {
+            setShowConsentModal(true);
+            setPendingNavigate(true);
+            setProcessing(false);
+            return;
+          }
 
           toast.success(`Добро пожаловать, ${user.name || 'пользователь'}!`);
           navigate('/');
@@ -186,6 +198,27 @@ const GoogleCallback = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {showConsentModal && pendingNavigate && (
+        <LegalConsentModal
+          open={showConsentModal}
+          userId={localStorage.getItem('userId') || ''}
+          onAccepted={() => {
+            setShowConsentModal(false);
+            const storedUser = localStorage.getItem('google_user');
+            const name = storedUser ? JSON.parse(storedUser).name : 'пользователь';
+            toast.success(`Добро пожаловать, ${name}!`);
+            navigate('/');
+          }}
+          onCancel={() => {
+            setShowConsentModal(false);
+            localStorage.removeItem('google_user');
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('userId');
+            navigate('/');
+          }}
+        />
+      )}
     </div>
   );
 };

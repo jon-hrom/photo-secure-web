@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
+import LegalConsentModal from '@/components/login/LegalConsentModal';
+import { fetchPendingDocs } from '@/lib/legalApi';
 
 const VKCallback = () => {
   const [searchParams] = useSearchParams();
@@ -14,6 +16,8 @@ const VKCallback = () => {
     userEmail?: string;
     authMethod?: string;
   } | null>(null);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [pendingNavigate, setPendingNavigate] = useState(false);
 
   useEffect(() => {
     const processCallback = async () => {
@@ -85,10 +89,17 @@ const VKCallback = () => {
           console.log('VKCallback: auth_token =', localStorage.getItem('auth_token'));
           console.log('VKCallback: userId =', localStorage.getItem('userId'));
 
-          toast.success(`Добро пожаловать, ${profile.name || 'пользователь'}!`);
-          
-          // Даём время на сохранение в localStorage перед редиректом
           await new Promise(resolve => setTimeout(resolve, 100));
+
+          const pending = await fetchPendingDocs(String(user_id));
+          if (pending.length > 0) {
+            setShowConsentModal(true);
+            setPendingNavigate(true);
+            setProcessing(false);
+            return;
+          }
+
+          toast.success(`Добро пожаловать, ${profile.name || 'пользователь'}!`);
           navigate('/');
         } else {
           console.error('VKCallback: Auth failed:', data);
@@ -141,6 +152,27 @@ const VKCallback = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {showConsentModal && pendingNavigate && (
+        <LegalConsentModal
+          open={showConsentModal}
+          userId={localStorage.getItem('userId') || ''}
+          onAccepted={() => {
+            setShowConsentModal(false);
+            const storedUser = localStorage.getItem('vk_user');
+            const name = storedUser ? JSON.parse(storedUser).name : 'пользователь';
+            toast.success(`Добро пожаловать, ${name}!`);
+            navigate('/');
+          }}
+          onCancel={() => {
+            setShowConsentModal(false);
+            localStorage.removeItem('vk_user');
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('userId');
+            navigate('/');
+          }}
+        />
+      )}
     </div>
   );
 };

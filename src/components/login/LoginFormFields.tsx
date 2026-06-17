@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
+import { fetchLegalList, LegalDocMeta } from '@/lib/legalApi';
 
 interface LoginFormFieldsProps {
   email: string;
@@ -28,6 +30,12 @@ interface LoginFormFieldsProps {
   formatTime: (seconds: number) => string;
 }
 
+const slugToUrl: Record<string, string> = {
+  'offer': '/offer',
+  'privacy-policy': '/privacy-policy',
+  'personal-data': '/personal-data',
+};
+
 const LoginFormFields = ({
   email,
   password,
@@ -51,6 +59,24 @@ const LoginFormFields = ({
   onPrivacyPolicyClick,
   formatTime,
 }: LoginFormFieldsProps) => {
+  const [legalDocs, setLegalDocs] = useState<LegalDocMeta[]>([]);
+  const [docConsents, setDocConsents] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    fetchLegalList().then((docs) => {
+      setLegalDocs(docs);
+      const initial: Record<string, boolean> = {};
+      docs.forEach((d) => { initial[d.slug] = false; });
+      setDocConsents(initial);
+    });
+  }, []);
+
+  const allDocsAccepted = legalDocs.length === 0 || legalDocs.every((d) => docConsents[d.slug]);
+
+  useEffect(() => {
+    onPrivacyAcceptedChange(allDocsAccepted);
+  }, [allDocsAccepted]);
+
   const handlePasswordChange = (value: string) => {
     onPasswordChange(value);
   };
@@ -140,29 +166,34 @@ const LoginFormFields = ({
         )}
 
         <div className="space-y-3">
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="privacy-policy"
-              checked={privacyAccepted}
-              onCheckedChange={onPrivacyAcceptedChange}
-              disabled={isBlocked}
-              className="mt-1"
-            />
-            <label
-              htmlFor="privacy-policy"
-              className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed"
-            >
-              Я согласен с условиями обработки{' '}
-              <a
-                href="https://foto-mix.ru/privacy-policy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline font-medium"
+          {legalDocs.map((doc) => (
+            <div key={doc.slug} className="flex items-start gap-2">
+              <Checkbox
+                id={`consent-${doc.slug}`}
+                checked={docConsents[doc.slug] ?? false}
+                onCheckedChange={(v) =>
+                  setDocConsents((prev) => ({ ...prev, [doc.slug]: !!v }))
+                }
+                disabled={isBlocked}
+                className="mt-1"
+              />
+              <label
+                htmlFor={`consent-${doc.slug}`}
+                className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed"
               >
-                Персональных данных
-              </a>
-            </label>
-          </div>
+                Я принимаю{' '}
+                <a
+                  href={slugToUrl[doc.slug] || `/legal/${doc.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline font-medium"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {doc.title}
+                </a>
+              </label>
+            </div>
+          ))}
 
           <Button
             onClick={onSubmit}
