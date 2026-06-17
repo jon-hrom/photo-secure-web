@@ -42,6 +42,12 @@ const LegalFooter = ({ className = '' }: { className?: string }) => {
               {SLUG_LABEL[d.slug] || d.title}
             </a>
           ))}
+          <a
+            href="mailto:support@foto-mix.ru"
+            className="text-gray-300 hover:text-white transition-colors lowercase"
+          >
+            поддержка
+          </a>
         </nav>
 
         <div className="text-xs text-gray-500 text-center md:text-right">
