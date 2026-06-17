@@ -224,7 +224,7 @@ const LoginFormFields = ({
         <Button
           variant="secondary"
           onClick={onToggleMode}
-          className="w-full rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white"
+          className="w-full rounded-xl bg-gradient-to-r from-purple-500/40 to-purple-600/40 text-white/70 transition-all duration-500 ease-out hover:from-purple-500 hover:to-purple-600 hover:text-white hover:shadow-lg hover:shadow-purple-500/50 hover:scale-[1.02]"
         >
           {isRegistering ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
         </Button>
