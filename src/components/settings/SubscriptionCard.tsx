@@ -109,7 +109,9 @@ const SubscriptionCard = ({ userId }: SubscriptionCardProps) => {
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Действует до</span>
-          <span className="font-medium">{formatDate(subscription.expires_at)}</span>
+          <span className="font-medium">
+            {subscription.expires_at ? formatDate(subscription.expires_at) : 'Бессрочно'}
+          </span>
         </div>
         {subscription.locked_price_rub != null && (
           <div className="flex justify-between">

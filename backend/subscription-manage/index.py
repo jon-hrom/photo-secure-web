@@ -57,7 +57,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 FROM {SCHEMA}.user_subscriptions us
                 LEFT JOIN {SCHEMA}.storage_plans sp ON sp.id = us.plan_id
                 WHERE us.user_id = {user_id} AND us.status = 'active'
-                ORDER BY us.created_at DESC
+                  AND (us.expires_at IS NULL OR us.expires_at > CURRENT_TIMESTAMP)
+                ORDER BY us.expires_at DESC NULLS LAST, us.created_at DESC
                 LIMIT 1
             """)
             sub = cur.fetchone()
