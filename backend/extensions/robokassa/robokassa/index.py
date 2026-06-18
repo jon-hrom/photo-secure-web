@@ -89,6 +89,8 @@ def handler(event: dict, context) -> dict:
         fail_url = str(payload.get('fail_url', ''))
         # Согласие на автопродление (рекуррентные списания) — только для тарифов
         auto_renew = bool(payload.get('auto_renew', False)) and order_type == 'tariff'
+        # Метод оплаты: 'sbp' → IncCurrLabel=SBP, иначе стандартная страница Robokassa
+        payment_method = str(payload.get('payment_method', '')).lower()
 
         if not user_id:
             return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'user_id required'}), 'isBase64Encoded': False}
@@ -220,6 +222,9 @@ def handler(event: dict, context) -> dict:
         # Согласие на рекуррентные списания: первый платёж помечается Recurring=true
         if auto_renew:
             query_params['Recurring'] = 'true'
+        # СБП: фиксируем метод оплаты QR-кодом через Систему Быстрых Платежей
+        if payment_method == 'sbp':
+            query_params['IncCurrLabel'] = 'SBPQRcode'
 
         # Receipt уже URL-кодирован — не кодируем повторно
         payment_url = f"{ROBOKASSA_URL}?{urlencode(query_params, safe='%')}"

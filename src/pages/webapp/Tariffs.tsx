@@ -94,24 +94,26 @@ const Tariffs = () => {
     setIsPromoDialogOpen(true);
   };
 
-  const handlePay = async () => {
+  const handlePay = async (paymentMethod: 'default' | 'sbp' = 'default') => {
     if (!userId || !selectedPlan) return;
     setPaying(true);
     try {
       const origin = window.location.origin;
+      const body: Record<string, unknown> = {
+        order_type: 'tariff',
+        user_id: userId,
+        plan_id: selectedPlan.plan_id,
+        duration_months: promoDuration,
+        amount: promoFinalPrice,
+        auto_renew: autoRenew,
+        success_url: `${origin}/tariffs?payment=success`,
+        fail_url: `${origin}/tariffs?payment=fail`,
+      };
+      if (paymentMethod === 'sbp') body.payment_method = 'sbp';
       const response = await fetch(ROBOKASSA_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_type: 'tariff',
-          user_id: userId,
-          plan_id: selectedPlan.plan_id,
-          duration_months: promoDuration,
-          amount: promoFinalPrice,
-          auto_renew: autoRenew,
-          success_url: `${origin}/tariffs?payment=success`,
-          fail_url: `${origin}/tariffs?payment=fail`,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await response.json();
       if (data.payment_url) {
@@ -382,15 +384,27 @@ const Tariffs = () => {
                   </div>
                 )}
 
-                <Button 
-                  className="w-full" 
-                  size="lg"
-                  disabled={!userId || paying}
-                  onClick={handlePay}
-                >
-                  <Icon name="CreditCard" size={18} className="mr-2" />
-                  {paying ? 'Переход к оплате...' : 'Перейти к оплате'}
-                </Button>
+                <div className="space-y-2">
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    disabled={!userId || paying}
+                    onClick={() => handlePay('default')}
+                  >
+                    <Icon name="CreditCard" size={18} className="mr-2" />
+                    {paying ? 'Переход к оплате...' : 'Перейти к оплате'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
+                    disabled={!userId || paying}
+                    onClick={() => handlePay('sbp')}
+                  >
+                    <span className="mr-2 font-bold text-base leading-none">⚡</span>
+                    Оплатить через СБП
+                    <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>
+                  </Button>
+                </div>
               </>
             )}
           </div>

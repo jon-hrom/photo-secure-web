@@ -85,7 +85,7 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
     }
   };
 
-  const handleTopup = async () => {
+  const handleTopup = async (paymentMethod: 'default' | 'sbp' = 'default') => {
     if (numericAmount < ENERGY_RATE_RUB) {
       toast.error(`Минимальная сумма пополнения — ${ENERGY_RATE_RUB} ₽`);
       return;
@@ -110,17 +110,20 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
         return;
       }
 
+      const body: Record<string, unknown> = {
+        order_type: 'energy',
+        user_id: Number(userId),
+        amount: numericAmount,
+        code: promo ? promoCode.trim() : '',
+        success_url: `${window.location.origin}/?energy=success`,
+        fail_url: `${window.location.origin}/?energy=fail`,
+      };
+      if (paymentMethod === 'sbp') body.payment_method = 'sbp';
+
       const res = await fetch(ROBOKASSA_CREATE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_type: 'energy',
-          user_id: Number(userId),
-          amount: numericAmount,
-          code: promo ? promoCode.trim() : '',
-          success_url: `${window.location.origin}/?energy=success`,
-          fail_url: `${window.location.origin}/?energy=fail`,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok || !data.payment_url) {
@@ -238,23 +241,37 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
             </div>
           )}
 
-          <Button
-            className="w-full h-12 text-base"
-            size="lg"
-            onClick={handleTopup}
-            disabled={loading || numericAmount < ENERGY_RATE_RUB}
-          >
-            {loading ? (
-              <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-              <Icon name={isFree ? 'Gift' : 'CreditCard'} className="mr-2 h-5 w-5" />
+          <div className="space-y-2">
+            <Button
+              className="w-full h-12 text-base"
+              size="lg"
+              onClick={() => handleTopup('default')}
+              disabled={loading || numericAmount < ENERGY_RATE_RUB}
+            >
+              {loading ? (
+                <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <Icon name={isFree ? 'Gift' : 'CreditCard'} className="mr-2 h-5 w-5" />
+              )}
+              {loading
+                ? 'Обработка...'
+                : isFree
+                  ? 'Получить энергию бесплатно'
+                  : `Пополнить на ${payAmount} ₽`}
+            </Button>
+            {!isFree && (
+              <Button
+                variant="outline"
+                className="w-full h-11 text-sm border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
+                onClick={() => handleTopup('sbp')}
+                disabled={loading || numericAmount < ENERGY_RATE_RUB}
+              >
+                <span className="mr-2 font-bold text-base leading-none">⚡</span>
+                Оплатить через СБП
+                <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>
+              </Button>
             )}
-            {loading
-              ? 'Обработка...'
-              : isFree
-                ? 'Получить энергию бесплатно'
-                : `Пополнить на ${payAmount} ₽`}
-          </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
