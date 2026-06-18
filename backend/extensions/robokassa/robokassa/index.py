@@ -3,10 +3,33 @@ import os
 import hashlib
 import psycopg2
 import random
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 from datetime import datetime
 
 SCHEMA = 't_p28211681_photo_secure_web'
+
+# Ставка НДС для самозанятого (НПД) — без НДС
+RECEIPT_TAX = 'none'
+# Система налогообложения для чека: НПД использует УСН доход или patent; для самозанятого — 'usn_income' допустим как безопасный дефолт.
+RECEIPT_SNO = 'usn_income'
+
+
+def build_receipt(item_name: str, amount: float) -> str:
+    """Формирует фискальный чек (Receipt) для Робокассы, URL-кодированный JSON."""
+    receipt = {
+        'sno': RECEIPT_SNO,
+        'items': [
+            {
+                'name': item_name[:128],
+                'quantity': 1,
+                'sum': round(amount, 2),
+                'payment_method': 'full_payment',
+                'payment_object': 'service',
+                'tax': RECEIPT_TAX,
+            }
+        ],
+    }
+    return quote(json.dumps(receipt, ensure_ascii=False))
 
 
 def calculate_signature(*args) -> str:
@@ -64,6 +87,8 @@ def handler(event: dict, context) -> dict:
         amount = float(payload.get('amount', 0))
         success_url = str(payload.get('success_url', ''))
         fail_url = str(payload.get('fail_url', ''))
+        # Согласие на автопродление (рекуррентные списания) — только для тарифов
+        auto_renew = bool(payload.get('auto_renew', False)) and order_type == 'tariff'
 
         if not user_id:
             return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'user_id required'}), 'isBase64Encoded': False}
@@ -157,26 +182,30 @@ def handler(event: dict, context) -> dict:
 
         cur.execute(f"""
             INSERT INTO {SCHEMA}.payment_orders
-            (order_number, user_id, plan_id, duration_months, user_email, amount, robokassa_inv_id, status, order_type, energy_amount, energy_promo_code_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s)
+            (order_number, user_id, plan_id, duration_months, user_email, amount, robokassa_inv_id, status, order_type, energy_amount, energy_promo_code_id, auto_renew)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s)
             RETURNING id
-        """, (order_number, user_id, plan_id, duration_months, user_email, final_amount, robokassa_inv_id, order_type, energy_amount, energy_promo_id))
+        """, (order_number, user_id, plan_id, duration_months, user_email, final_amount, robokassa_inv_id, order_type, energy_amount, energy_promo_id, auto_renew))
         order_id = cur.fetchone()[0]
 
         amount_str = f"{final_amount:.2f}"
 
+        # Фискальный чек (НПД). Receipt входит в подпись сразу после InvId.
+        receipt = build_receipt(description, final_amount)
+
         if success_url or fail_url:
             signature = calculate_signature(
-                merchant_login, amount_str, robokassa_inv_id,
+                merchant_login, amount_str, robokassa_inv_id, receipt,
                 success_url, 'GET', fail_url, 'GET', password_1
             )
         else:
-            signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, password_1)
+            signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
 
         query_params = {
             'MerchantLogin': merchant_login,
             'OutSum': amount_str,
             'InvoiceID': robokassa_inv_id,
+            'Receipt': receipt,
             'SignatureValue': signature,
             'Email': user_email,
             'Culture': 'ru',
@@ -188,8 +217,12 @@ def handler(event: dict, context) -> dict:
         if fail_url:
             query_params['FailUrl2'] = fail_url
             query_params['FailUrl2Method'] = 'GET'
+        # Согласие на рекуррентные списания: первый платёж помечается Recurring=true
+        if auto_renew:
+            query_params['Recurring'] = 'true'
 
-        payment_url = f"{ROBOKASSA_URL}?{urlencode(query_params)}"
+        # Receipt уже URL-кодирован — не кодируем повторно
+        payment_url = f"{ROBOKASSA_URL}?{urlencode(query_params, safe='%')}"
 
         cur.execute(f"UPDATE {SCHEMA}.payment_orders SET payment_url = %s WHERE id = %s", (payment_url, order_id))
         conn.commit()

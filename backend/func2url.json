@@ -1,5 +1,6 @@
 {
-  "seed-test-user": "https://functions.poehali.dev/2ccd6a56-1daa-440f-8bfb-1a4f3714000b",
+  "recurring-cron": "https://functions.poehali.dev/3ed78003-2909-425d-9e2c-ec1788b7ef66",
+  "subscription-manage": "https://functions.poehali.dev/fbfc26c3-5cb7-4b8f-aeb7-891bbf9a0015",
   "legal-documents": "https://functions.poehali.dev/ab5aebb2-dfba-4256-9396-4c3adb50a9ea",
   "max-webhook": "https://functions.poehali.dev/3b974708-186a-4966-b315-4215f2137c35",
   "push-subscribe": "https://functions.poehali.dev/70daada3-63aa-4edd-99cd-dbf9190c733c",

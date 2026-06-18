@@ -15,6 +15,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PromoCodeInput } from '@/components/PromoCodeInput';
+import { Checkbox } from '@/components/ui/checkbox';
+
+const ROBOKASSA_URL = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
 
 interface Plan {
   plan_id: number;
@@ -45,6 +48,8 @@ const Tariffs = () => {
   const [promoFinalPrice, setPromoFinalPrice] = useState<number>(0);
   const [promoDuration, setPromoDuration] = useState<number>(1);
   const [userId, setUserId] = useState<number | null>(null);
+  const [autoRenew, setAutoRenew] = useState<boolean>(true);
+  const [paying, setPaying] = useState<boolean>(false);
 
   useEffect(() => {
     // Получаем userId из localStorage
@@ -85,7 +90,40 @@ const Tariffs = () => {
     setPromoDiscount(0);
     setPromoFinalPrice(plan.price_rub);
     setPromoDuration(1);
+    setAutoRenew(true);
     setIsPromoDialogOpen(true);
+  };
+
+  const handlePay = async () => {
+    if (!userId || !selectedPlan) return;
+    setPaying(true);
+    try {
+      const origin = window.location.origin;
+      const response = await fetch(ROBOKASSA_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_type: 'tariff',
+          user_id: userId,
+          plan_id: selectedPlan.plan_id,
+          duration_months: promoDuration,
+          amount: promoFinalPrice,
+          auto_renew: autoRenew,
+          success_url: `${origin}/tariffs?payment=success`,
+          fail_url: `${origin}/tariffs?payment=fail`,
+        }),
+      });
+      const data = await response.json();
+      if (data.payment_url) {
+        window.location.href = data.payment_url;
+      } else {
+        toast.error(data.error || 'Не удалось создать платёж');
+        setPaying(false);
+      }
+    } catch {
+      toast.error('Ошибка перехода к оплате');
+      setPaying(false);
+    }
   };
 
   const handlePromoApplied = (discount: number, finalPrice: number, duration: number) => {
@@ -326,17 +364,32 @@ const Tariffs = () => {
                   )}
                 </div>
 
+                {selectedPlan.price_rub > 0 && (
+                  <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/40">
+                    <Checkbox
+                      id="auto-renew"
+                      checked={autoRenew}
+                      onCheckedChange={(v) => setAutoRenew(v === true)}
+                      className="mt-0.5"
+                    />
+                    <label htmlFor="auto-renew" className="text-xs text-muted-foreground leading-snug cursor-pointer">
+                      Я даю согласие на автоматическое продление подписки: списание{' '}
+                      <b>{Math.floor(promoFinalPrice)} ₽</b> каждые {promoDuration}{' '}
+                      {promoDuration === 1 ? 'месяц' : promoDuration < 5 ? 'месяца' : 'месяцев'}.
+                      Уведомление о списании придёт на email за 3 дня. По каждому платежу формируется чек НПД.
+                      Отключить автопродление можно в любой момент в личном кабинете.
+                    </label>
+                  </div>
+                )}
+
                 <Button 
                   className="w-full" 
                   size="lg"
-                  disabled={!userId}
-                  onClick={() => {
-                    toast.success('Переход к оплате...');
-                    // Здесь будет логика перехода к оплате
-                  }}
+                  disabled={!userId || paying}
+                  onClick={handlePay}
                 >
                   <Icon name="CreditCard" size={18} className="mr-2" />
-                  Перейти к оплате
+                  {paying ? 'Переход к оплате...' : 'Перейти к оплате'}
                 </Button>
               </>
             )}

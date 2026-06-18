@@ -20,6 +20,7 @@ import BirthdayNotificationsCard from '@/components/settings/BirthdayNotificatio
 import VKSettings from '@/components/settings/VKSettings';
 import BiometricSettingsCard from '@/components/settings/BiometricSettingsCard';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
+import SubscriptionCard from '@/components/settings/SubscriptionCard';
 import { useSettingsData } from '@/hooks/useSettingsData';
 import { useThemeManager } from '@/hooks/useThemeManager';
 import { useContactManager } from '@/hooks/useContactManager';
@@ -392,6 +393,8 @@ const Settings = () => {
                     Выйти
                   </Button>
                 </div>
+
+                <SubscriptionCard userId={getUserId()} />
 
                 <DeleteAccountCard
                   userId={getUserId()}

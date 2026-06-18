@@ -42,8 +42,10 @@ HEADERS = {
 
 
 def activate_subscription(cur, order):
-    """Применить тариф пользователю после успешной оплаты."""
-    order_id, user_id, plan_id, duration_months, amount = order
+    """Применить тариф пользователю после успешной оплаты.
+    order = (order_id, user_id, plan_id, duration_months, amount, auto_renew, inv_id, user_email)
+    """
+    order_id, user_id, plan_id, duration_months, amount, auto_renew, inv_id, user_email = order
 
     cur.execute(f"SELECT name, quota_gb FROM {SCHEMA}.storage_plans WHERE id = %s", (plan_id,))
     plan = cur.fetchone()
@@ -51,19 +53,39 @@ def activate_subscription(cur, order):
         return
     quota_gb = float(plan[1])
 
-    expires_at = datetime.now() + timedelta(days=30 * int(duration_months))
+    duration_months = int(duration_months or 1)
+    expires_at = datetime.now() + timedelta(days=30 * duration_months)
+    amount = float(amount)
 
+    # Цена фиксируется на оплаченный период (п.5.6 оферты): locked_price_rub = фактически оплаченная сумма
     cur.execute(f"""
         INSERT INTO {SCHEMA}.user_subscriptions
-        (user_id, plan_id, expires_at, price_paid_rub, payment_status, status, created_at)
-        VALUES (%s, %s, %s, %s, 'completed', 'active', CURRENT_TIMESTAMP)
-    """, (user_id, plan_id, expires_at, amount))
+        (user_id, plan_id, expires_at, price_paid_rub, locked_price_rub, duration_months,
+         auto_renew, payment_status, status, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, 'completed', 'active', CURRENT_TIMESTAMP)
+    """, (user_id, plan_id, expires_at, amount, amount, duration_months, bool(auto_renew)))
 
     cur.execute(f"""
         UPDATE {SCHEMA}.users
         SET plan_id = %s, custom_quota_gb = %s
         WHERE id = %s
     """, (plan_id, quota_gb, user_id))
+
+    # Управление рекуррентной подпиской
+    if auto_renew:
+        next_charge_at = expires_at
+        # Деактивируем прежние активные рекуррентные подписки пользователя
+        cur.execute(f"""
+            UPDATE {SCHEMA}.recurring_subscriptions
+            SET status = 'cancelled', cancelled_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = %s AND status = 'active'
+        """, (user_id,))
+        cur.execute(f"""
+            INSERT INTO {SCHEMA}.recurring_subscriptions
+            (user_id, plan_id, duration_months, locked_price_rub, user_email, first_inv_id,
+             status, next_charge_at, last_charged_at, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, 'active', %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """, (user_id, plan_id, duration_months, amount, user_email, int(inv_id), next_charge_at))
 
 
 def add_energy(cur, order):
@@ -130,7 +152,7 @@ def handler(event: dict, context) -> dict:
         UPDATE {SCHEMA}.payment_orders
         SET status = 'paid', paid_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
         WHERE robokassa_inv_id = %s AND status = 'pending'
-        RETURNING id, user_id, plan_id, duration_months, amount, order_type, energy_amount, energy_promo_code_id
+        RETURNING id, user_id, plan_id, duration_months, amount, order_type, energy_amount, energy_promo_code_id, auto_renew, user_email
     """, (int(inv_id),))
     result = cur.fetchone()
 
@@ -145,7 +167,7 @@ def handler(event: dict, context) -> dict:
     notify_event = None
     notify_extra = {}
     try:
-        order_id, user_id, plan_id, duration_months, amount, order_type, energy_amount, energy_promo_id = result
+        order_id, user_id, plan_id, duration_months, amount, order_type, energy_amount, energy_promo_id, auto_renew, user_email = result
         if order_type == 'energy':
             add_energy(cur, (order_id, user_id, amount, energy_amount, energy_promo_id))
             cur.execute(f"SELECT energy_balance FROM {SCHEMA}.users WHERE id = %s", (user_id,))
@@ -153,7 +175,7 @@ def handler(event: dict, context) -> dict:
             notify_event = 'energy_topup'
             notify_extra = {'energy_added': int(energy_amount or 0), 'energy_balance': int(brow[0]) if brow else 0}
         else:
-            activate_subscription(cur, (order_id, user_id, plan_id, duration_months, amount))
+            activate_subscription(cur, (order_id, user_id, plan_id, duration_months, amount, auto_renew, int(inv_id), user_email))
             cur.execute(f"SELECT name FROM {SCHEMA}.storage_plans WHERE id = %s", (plan_id,))
             prow = cur.fetchone()
             notify_event = 'tariff_changed'
