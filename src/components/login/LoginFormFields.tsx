@@ -112,11 +112,13 @@ const LoginFormFields = ({
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email" className="dark:text-gray-200">Email</Label>
+          <Label htmlFor="email" className="dark:text-gray-200">{isRegistering ? 'Email' : 'Email или телефон'}</Label>
           <Input
             id="email"
-            type="email"
-            placeholder="example@mail.com"
+            type={isRegistering ? 'email' : 'text'}
+            inputMode="email"
+            autoComplete="username"
+            placeholder={isRegistering ? 'example@mail.com' : 'example@mail.com или +7...'}
             value={email}
             onChange={(e) => onEmailChange(e.target.value)}
             disabled={isBlocked}

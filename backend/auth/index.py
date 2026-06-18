@@ -231,6 +231,24 @@ def normalize_phone(phone: str) -> str:
         digits = '7' + digits
     return digits
 
+def is_email(value: str) -> bool:
+    """Похоже ли значение на email"""
+    return '@' in (value or '') and '.' in value.split('@')[-1]
+
+def is_phone(value: str) -> bool:
+    """Похоже ли значение на телефон (10+ цифр)"""
+    digits = re.sub(r'\D+', '', value or '')
+    return len(digits) >= 10 and digits.isdigit()
+
+def phone_last10(phone: str) -> str:
+    """Последние 10 цифр номера для сравнения без форматирования"""
+    digits = re.sub(r'\D+', '', phone or '')
+    return digits[-10:] if len(digits) >= 10 else digits
+
+def phone_match_sql(column: str) -> str:
+    """SQL: последние 10 цифр номера из колонки без форматирования"""
+    return f"RIGHT(regexp_replace(COALESCE({column}, ''), '\\D', '', 'g'), 10)"
+
 def generate_2fa_code(code_type: str) -> str:
     if code_type == 'sms':
         return ''.join([str(secrets.randbelow(10)) for _ in range(6)])
@@ -518,12 +536,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             elif action == 'login':
-                email = body.get('email')
+                login_input = body.get('email')
                 password = body.get('password')
                 gps_location = body.get('gps_location')
                 device_id = body.get('device_id', '')
                 
-                if not email or not password:
+                if not login_input or not password:
                     return {
                         'statusCode': 400,
                         'headers': headers,
@@ -541,10 +559,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT id, password_hash, two_factor_sms, two_factor_email, is_blocked FROM users WHERE email = %s",
-                    (email,)
-                )
+                if not is_email(login_input) and is_phone(login_input):
+                    last10 = phone_last10(login_input)
+                    cursor.execute(
+                        f"SELECT id, email, password_hash, two_factor_sms, two_factor_email, is_blocked "
+                        f"FROM users WHERE {phone_match_sql('phone')} = %s "
+                        f"OR {phone_match_sql('phone_number')} = %s "
+                        f"ORDER BY (password_hash IS NOT NULL) DESC, (email IS NOT NULL) DESC, id ASC "
+                        f"LIMIT 1",
+                        (last10, last10)
+                    )
+                else:
+                    cursor.execute(
+                        "SELECT id, email, password_hash, two_factor_sms, two_factor_email, is_blocked FROM users WHERE email = %s",
+                        (login_input,)
+                    )
                 user = cursor.fetchone()
                 
                 if not user:
@@ -554,6 +583,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'body': json.dumps({'error': 'Такой пользователь не зарегистрирован!'}),
                         'isBase64Encoded': False
                     }
+                
+                # Реальный email пользователя (для логов, 2FA, проверки админа)
+                email = user.get('email') or login_input
                 
                 # Check if user is main admin
                 is_main_admin = email == 'jonhrom2012@gmail.com'
