@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import {
 import { createTicket } from '@/components/support/supportTicketsApi';
 
 const DELETE_USER_URL = 'https://functions.poehali.dev/9df9d28d-b7ea-448c-9d93-054c04b6a52b';
+const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
 
 interface DeleteAccountCardProps {
   userId: string | number | null;
@@ -29,6 +30,19 @@ const DeleteAccountCard = ({ userId, userName, userEmail }: DeleteAccountCardPro
   const [stayMessage, setStayMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [maskedEmail, setMaskedEmail] = useState('');
+  const [energyBalance, setEnergyBalance] = useState<number>(0);
+
+  useEffect(() => {
+    if (step !== 'warning' || !userId) return;
+    fetch(ENERGY_URL, { headers: { 'X-User-Id': String(userId) } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.energy_balance === 'number') {
+          setEnergyBalance(data.energy_balance);
+        }
+      })
+      .catch(() => {});
+  }, [step, userId]);
 
   const reset = () => {
     setStep('closed');
@@ -155,6 +169,18 @@ const DeleteAccountCard = ({ userId, userName, userEmail }: DeleteAccountCardPro
                 Будут стёрты все данные, включая все фотографии в фотобанке
                 и всю информацию профиля. Это действие необратимо.
               </div>
+              {energyBalance > 0 && (
+                <div className="rounded-xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-4 text-amber-800 dark:text-amber-300 leading-relaxed">
+                  <div className="flex items-center gap-2 font-bold">
+                    <Icon name="Zap" size={18} />
+                    На балансе осталось {energyBalance} ед. энергии
+                  </div>
+                  <p className="text-sm mt-1">
+                    При удалении аккаунта неизрасходованная энергия сгорает
+                    без компенсации и возврату не подлежит (п. 5.11 Оферты).
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Расскажите, почему хотите удалить аккаунт?</label>
                 <Textarea
