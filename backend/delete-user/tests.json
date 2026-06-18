@@ -7,15 +7,21 @@
       "expectedStatus": 200
     },
     {
-      "name": "Test DELETE without user_id",
-      "method": "DELETE",
+      "name": "Admin list deleted users",
+      "method": "GET",
       "path": "/",
-      "body": {},
+      "expectedStatus": 200,
+      "expectedBody": {"success": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Request without user_id",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "request_code"},
       "expectedStatus": 400,
-      "expectedBody": {
-        "error": "user_id is required"
-      },
-      "bodyMatcher": "exact"
+      "expectedBody": {"error": "user_id обязателен"},
+      "bodyMatcher": "partial"
     }
   ]
 }

@@ -6,6 +6,7 @@ import UserDetailsModal from './UserDetailsModal';
 import AdminUserPhotoBank from './AdminUserPhotoBank';
 import UserCard from './users/UserCard';
 import UsersToolbar from './users/UsersToolbar';
+import DeletedUsersTab from './users/DeletedUsersTab';
 import type { User, EnhancedAdminUsersProps } from './users/types';
 import { isUserOnline } from './users/types';
 
@@ -116,7 +117,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
           />
 
           <Tabs defaultValue="whitelist" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="whitelist" className="gap-2">
                 <Icon name="CheckCircle" size={16} />
                 Белый список ({activeUsers.length})
@@ -124,6 +125,10 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
               <TabsTrigger value="blacklist" className="gap-2">
                 <Icon name="Ban" size={16} />
                 Черный список ({blockedUsers.length})
+              </TabsTrigger>
+              <TabsTrigger value="deleted" className="gap-2">
+                <Icon name="UserX" size={16} />
+                Удалённые
               </TabsTrigger>
             </TabsList>
 
@@ -163,6 +168,10 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
                   />
                 ))
               )}
+            </TabsContent>
+
+            <TabsContent value="deleted" className="mt-4">
+              <DeletedUsersTab />
             </TabsContent>
           </Tabs>
         </CardContent>

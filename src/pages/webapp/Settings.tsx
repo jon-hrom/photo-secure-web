@@ -19,6 +19,7 @@ import GoogleCalendarConnect from '@/components/settings/GoogleCalendarConnect';
 import BirthdayNotificationsCard from '@/components/settings/BirthdayNotificationsCard';
 import VKSettings from '@/components/settings/VKSettings';
 import BiometricSettingsCard from '@/components/settings/BiometricSettingsCard';
+import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
 import { useSettingsData } from '@/hooks/useSettingsData';
 import { useThemeManager } from '@/hooks/useThemeManager';
 import { useContactManager } from '@/hooks/useContactManager';
@@ -391,6 +392,8 @@ const Settings = () => {
                     Выйти
                   </Button>
                 </div>
+
+                <DeleteAccountCard userId={getUserId()} />
 
                 {finalIsAdmin && (
                   <Button
