@@ -268,11 +268,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
             code = generate_code()
             expires_at = datetime.now() + timedelta(minutes=10)
+            reason_val = (body.get('reason') or '').strip() or None
             cur.execute(
-                f"INSERT INTO {SCHEMA}.account_removal_codes (user_id, code, email, expires_at, attempts) "
-                f"VALUES ({int(user_id)}, {esc(code)}, {esc(email)}, {esc(expires_at)}, 0) "
+                f"INSERT INTO {SCHEMA}.account_removal_codes (user_id, code, email, expires_at, attempts, reason) "
+                f"VALUES ({int(user_id)}, {esc(code)}, {esc(email)}, {esc(expires_at)}, 0, {esc(reason_val)}) "
                 f"ON CONFLICT (user_id) DO UPDATE SET code = EXCLUDED.code, "
-                f"email = EXCLUDED.email, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = NOW()"
+                f"email = EXCLUDED.email, expires_at = EXCLUDED.expires_at, attempts = 0, "
+                f"reason = EXCLUDED.reason, created_at = NOW()"
             )
             conn.commit()
 
@@ -288,7 +290,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return resp(400, {'error': 'Код обязателен'})
 
             cur.execute(
-                f"SELECT code, expires_at, attempts FROM {SCHEMA}.account_removal_codes "
+                f"SELECT code, expires_at, attempts, reason FROM {SCHEMA}.account_removal_codes "
                 f"WHERE user_id = {int(user_id)}"
             )
             rec = cur.fetchone()
@@ -310,6 +312,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if not user:
                 return resp(404, {'error': 'Пользователь не найден'})
 
+            saved_reason = rec.get('reason') or body.get('reason')
             purge = purge_user_data(cur, user_id)
 
             cur.execute(
@@ -318,7 +321,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 f"VALUES ({int(user_id)}, {esc(user.get('email'))}, {esc(user.get('phone'))}, "
                 f"{esc(user.get('source'))}, {esc(user.get('registered_at'))}, 'user', "
                 f"{purge['photos_count']}, {purge['storage_bytes']}, {esc(ip_address)}, "
-                f"{esc(body.get('reason'))})"
+                f"{esc(saved_reason)})"
             )
             conn.commit()
 

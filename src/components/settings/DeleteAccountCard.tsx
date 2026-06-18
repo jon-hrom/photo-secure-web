@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import {
   Dialog,
@@ -11,23 +12,62 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { createTicket } from '@/components/support/supportTicketsApi';
 
 const DELETE_USER_URL = 'https://functions.poehali.dev/9df9d28d-b7ea-448c-9d93-054c04b6a52b';
 
 interface DeleteAccountCardProps {
   userId: string | number | null;
+  userName?: string;
+  userEmail?: string;
 }
 
-const DeleteAccountCard = ({ userId }: DeleteAccountCardProps) => {
-  const [step, setStep] = useState<'closed' | 'warning' | 'code'>('closed');
+const DeleteAccountCard = ({ userId, userName, userEmail }: DeleteAccountCardProps) => {
+  const [step, setStep] = useState<'closed' | 'warning' | 'code' | 'stay'>('closed');
   const [code, setCode] = useState('');
+  const [reason, setReason] = useState('');
+  const [stayMessage, setStayMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [maskedEmail, setMaskedEmail] = useState('');
 
   const reset = () => {
     setStep('closed');
     setCode('');
+    setReason('');
+    setStayMessage('');
     setMaskedEmail('');
+  };
+
+  const sendStayFeedback = async () => {
+    if (!stayMessage.trim()) {
+      reset();
+      return;
+    }
+    if (!userId) {
+      reset();
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await createTicket(userId, {
+        request_type: 'suggestion',
+        priority: 'high',
+        subject: 'Пользователь хотел удалить аккаунт, но остался',
+        message: `Пользователь начал удаление аккаунта, но передумал.\n\nПожелание/причина:\n${stayMessage.trim()}`,
+        user_name: userName || '',
+        user_email: userEmail || '',
+      });
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success('Спасибо! Ваше сообщение отправлено в поддержку');
+      reset();
+    } catch {
+      toast.error('Не удалось отправить сообщение. Попробуйте позже');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const requestCode = async () => {
@@ -40,7 +80,7 @@ const DeleteAccountCard = ({ userId }: DeleteAccountCardProps) => {
       const res = await fetch(DELETE_USER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'request_code', user_id: userId }),
+        body: JSON.stringify({ action: 'request_code', user_id: userId, reason: reason.trim() }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -115,11 +155,21 @@ const DeleteAccountCard = ({ userId }: DeleteAccountCardProps) => {
                 Будут стёрты все данные, включая все фотографии в фотобанке
                 и всю информацию профиля. Это действие необратимо.
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Расскажите, почему хотите удалить аккаунт?</label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Ваш ответ поможет нам стать лучше (необязательно)"
+                  rows={3}
+                  className="rounded-xl resize-none"
+                />
+              </div>
               <DialogFooter className="flex-row gap-3 sm:justify-between">
                 <Button
                   variant="outline"
                   className="flex-1 py-5 rounded-xl"
-                  onClick={reset}
+                  onClick={() => setStep('stay')}
                   disabled={loading}
                 >
                   Нет
@@ -131,6 +181,47 @@ const DeleteAccountCard = ({ userId }: DeleteAccountCardProps) => {
                   disabled={loading}
                 >
                   {loading ? 'Отправляем код...' : 'Да, удалить'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {step === 'stay' && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                  <Icon name="Heart" size={22} className="text-primary" />
+                  Спасибо, что остались с нами!
+                </DialogTitle>
+                <DialogDescription>
+                  Поделитесь, что подтолкнуло вас к удалению аккаунта, но потом
+                  вы передумали. Возможно, у вас есть пожелание — мы обязательно
+                  его учтём.
+                </DialogDescription>
+              </DialogHeader>
+              <Textarea
+                value={stayMessage}
+                onChange={(e) => setStayMessage(e.target.value)}
+                placeholder="Напишите ваши мысли или пожелания..."
+                rows={4}
+                className="rounded-xl resize-none"
+              />
+              <DialogFooter className="flex-row gap-3 sm:justify-between">
+                <Button
+                  variant="outline"
+                  className="flex-1 py-5 rounded-xl"
+                  onClick={reset}
+                  disabled={loading}
+                >
+                  Закрыть
+                </Button>
+                <Button
+                  className="flex-1 py-5 rounded-xl font-bold"
+                  onClick={sendStayFeedback}
+                  disabled={loading}
+                >
+                  <Icon name="Send" size={18} className="mr-2" />
+                  {loading ? 'Отправляем...' : 'Отправить'}
                 </Button>
               </DialogFooter>
             </>

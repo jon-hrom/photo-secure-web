@@ -393,7 +393,11 @@ const Settings = () => {
                   </Button>
                 </div>
 
-                <DeleteAccountCard userId={getUserId()} />
+                <DeleteAccountCard
+                  userId={getUserId()}
+                  userName={settings?.display_name || settings?.full_name || emailUser?.name || ''}
+                  userEmail={settings?.email || emailUser?.email || ''}
+                />
 
                 {finalIsAdmin && (
                   <Button

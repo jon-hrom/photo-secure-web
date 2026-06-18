@@ -134,6 +134,12 @@ const DeletedUsersTab = () => {
                   </span>
                 )}
               </div>
+              {u.reason && (
+                <div className="mt-2 rounded-lg bg-muted/60 p-2 text-sm flex items-start gap-2">
+                  <Icon name="MessageSquare" size={14} className="mt-0.5 text-muted-foreground shrink-0" />
+                  <span className="italic">«{u.reason}»</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
