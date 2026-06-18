@@ -127,6 +127,17 @@ def normalize_phone(phone: str) -> str:
         digits = '7' + digits
     return digits
 
+def phone_match_sql(column: str) -> str:
+    """SQL-выражение: последние 10 цифр номера из колонки (без форматирования)."""
+    return f"RIGHT(regexp_replace(COALESCE({column}, ''), '\\D', '', 'g'), 10)"
+
+
+def phone_last10(phone: str) -> str:
+    """Последние 10 цифр нормализованного номера для сравнения."""
+    digits = re.sub(r'\D+', '', phone or '')
+    return digits[-10:] if len(digits) >= 10 else digits
+
+
 def is_phone(value: str) -> bool:
     """Check if value looks like a phone number"""
     digits = re.sub(r'\D+', '', value or '')
@@ -286,10 +297,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 user = cursor.fetchone()
                 contact_type = 'email'
             elif is_phone(contact):
-                normalized_phone = normalize_phone(contact)
+                last10 = phone_last10(contact)
                 cursor.execute(
-                    "SELECT id as user_id, email, phone FROM users WHERE phone = %s",
-                    (normalized_phone,)
+                    f"SELECT id as user_id, email, COALESCE(phone, phone_number) AS phone "
+                    f"FROM users WHERE {phone_match_sql('phone')} = %s "
+                    f"OR {phone_match_sql('phone_number')} = %s "
+                    f"ORDER BY (email IS NOT NULL) DESC, (password_hash IS NOT NULL) DESC, id ASC "
+                    f"LIMIT 1",
+                    (last10, last10)
                 )
                 user = cursor.fetchone()
                 contact_type = 'phone'
@@ -347,10 +362,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     (contact,)
                 )
             else:
-                normalized_phone = normalize_phone(contact)
+                last10 = phone_last10(contact)
                 cursor.execute(
-                    "SELECT id as user_id, email, phone FROM users WHERE phone = %s",
-                    (normalized_phone,)
+                    f"SELECT id as user_id, email, COALESCE(phone, phone_number) AS phone "
+                    f"FROM users WHERE {phone_match_sql('phone')} = %s "
+                    f"OR {phone_match_sql('phone_number')} = %s "
+                    f"ORDER BY (email IS NOT NULL) DESC, (password_hash IS NOT NULL) DESC, id ASC "
+                    f"LIMIT 1",
+                    (last10, last10)
                 )
             
             user = cursor.fetchone()
@@ -447,10 +466,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Find user by email or phone
             if is_email(contact):
                 where_clause = "u.email = %s"
-                contact_value = contact
+                query_params = (contact, code, session_token)
             else:
-                where_clause = "u.phone = %s"
-                contact_value = normalize_phone(contact)
+                last10 = phone_last10(contact)
+                where_clause = (
+                    f"({phone_match_sql('u.phone')} = %s "
+                    f"OR {phone_match_sql('u.phone_number')} = %s)"
+                )
+                query_params = (last10, last10, code, session_token)
             
             cursor.execute(
                 f"""
@@ -462,7 +485,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 AND prc.expires_at > NOW()
                 AND prc.used = FALSE
                 """,
-                (contact_value, code, session_token)
+                query_params
             )
             
             reset_code = cursor.fetchone()
@@ -498,10 +521,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Find user by email or phone
             if is_email(contact):
                 where_clause = "u.email = %s"
-                contact_value = contact
+                query_params = (contact, session_token)
             else:
-                where_clause = "u.phone = %s"
-                contact_value = normalize_phone(contact)
+                last10 = phone_last10(contact)
+                where_clause = (
+                    f"({phone_match_sql('u.phone')} = %s "
+                    f"OR {phone_match_sql('u.phone_number')} = %s)"
+                )
+                query_params = (last10, last10, session_token)
             
             cursor.execute(
                 f"""
@@ -512,7 +539,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 AND prc.expires_at > NOW()
                 AND prc.used = FALSE
                 """,
-                (contact_value, session_token)
+                query_params
             )
             
             reset_code = cursor.fetchone()
