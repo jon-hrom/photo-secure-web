@@ -56,6 +56,7 @@ const LoginForm = ({
           onChange={(e) => setEmail(e.target.value)}
           disabled={isBlocked}
         />
+        <p className="text-xs text-muted-foreground">Можно войти по email или телефону</p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="login-password">Пароль</Label>

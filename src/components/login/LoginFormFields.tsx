@@ -124,6 +124,9 @@ const LoginFormFields = ({
             disabled={isBlocked}
             className="rounded-xl dark:bg-gray-800 dark:text-white dark:border-gray-700 h-11"
           />
+          {!isRegistering && (
+            <p className="text-xs text-muted-foreground dark:text-gray-400">Можно войти по email или телефону</p>
+          )}
         </div>
 
         <div className="space-y-2">
