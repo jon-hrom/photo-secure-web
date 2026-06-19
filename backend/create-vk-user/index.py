@@ -170,7 +170,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Create new user
         cursor.execute(
-            f"INSERT INTO {SCHEMA}.users (vk_id, email, phone, display_name, is_active, source, registered_at, created_at, updated_at, last_login, role) VALUES (%s, %s, %s, %s, TRUE, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'user') RETURNING id",
+            f"INSERT INTO {SCHEMA}.users (vk_id, email, phone, display_name, is_active, source, plan_id, registered_at, created_at, updated_at, last_login, role) VALUES (%s, %s, %s, %s, TRUE, 'vk', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'user') RETURNING id",
             (vk_id, email if email else None, phone if phone else None, full_name)
         )
         user_id = cursor.fetchone()['id']

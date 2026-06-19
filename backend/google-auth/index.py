@@ -258,9 +258,9 @@ def upsert_google_user(google_sub: str, email: str, name: str, picture: str,
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.users 
                 (email, display_name, is_active, source, registered_at, created_at, updated_at, last_login, 
-                 ip_address, user_agent, role, email_verified_at)
+                 ip_address, user_agent, role, plan_id, email_verified_at)
                 VALUES ({escape_sql(email)}, {escape_sql(name)}, {escape_sql(True)}, 'google', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
-                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user',
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user', 1,
                         CURRENT_TIMESTAMP)
                 RETURNING id
             """)

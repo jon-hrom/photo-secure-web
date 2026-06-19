@@ -80,7 +80,7 @@ def get_user_from_token(event: Dict[str, Any]) -> Dict[str, Any]:
                 'id': user['id'],
                 'plan_id': user['plan_id'],
                 'custom_quota_gb': float(user['custom_quota_gb']) if user['custom_quota_gb'] else None,
-                'plan_quota_gb': float(user['plan_quota_gb']) if user['plan_quota_gb'] else 5.0,
+                'plan_quota_gb': float(user['plan_quota_gb']) if user['plan_quota_gb'] else 1.0,
                 'used_bytes': total_bytes
             }
     finally:

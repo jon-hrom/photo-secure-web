@@ -177,10 +177,10 @@ def create_or_update_user(
                 INSERT INTO {SCHEMA}.users
                 (telegram_id, display_name, avatar_url, is_active, source, 
                  registered_at, created_at, updated_at, last_login,
-                 ip_address, user_agent, role)
+                 ip_address, user_agent, role, plan_id)
                 VALUES ({escape_sql(telegram_id)}, {escape_sql(display_name)}, {escape_sql(photo_url)},
                         TRUE, 'telegram', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
-                        {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user')
+                        {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user', 1)
                 RETURNING id
             """)
             new_user = cur.fetchone()

@@ -512,7 +512,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 display_name = body.get('name', email.split('@')[0])
                 
                 cursor.execute(
-                    "INSERT INTO users (email, password_hash, phone, display_name, ip_address, user_agent, last_login, source, role, is_active, registered_at, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, NOW(), 'email', 'user', TRUE, NOW(), NOW(), NOW()) RETURNING id",
+                    "INSERT INTO users (email, password_hash, phone, display_name, ip_address, user_agent, last_login, source, role, is_active, plan_id, registered_at, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, NOW(), 'email', 'user', TRUE, 1, NOW(), NOW(), NOW()) RETURNING id",
                     (email, password_hash, phone, display_name, ip_address, user_agent)
                 )
                 user_id = cursor.fetchone()['id']

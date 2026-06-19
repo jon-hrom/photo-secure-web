@@ -279,9 +279,9 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 raise Exception("REGISTRATION_DISABLED")
             
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.users (vk_id, email, phone, display_name, avatar_url, role, is_active, source, registered_at, created_at, updated_at, last_login, ip_address, user_agent)
+                INSERT INTO {SCHEMA}.users (vk_id, email, phone, display_name, avatar_url, role, is_active, source, plan_id, registered_at, created_at, updated_at, last_login, ip_address, user_agent)
                 VALUES ({escape_sql(vk_user_id)}, {escape_sql(email)}, {escape_sql(phone)}, {escape_sql(full_name)}, 
-                        {escape_sql(avatar_url)}, 'user', {escape_sql(True)}, 'vk', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
+                        {escape_sql(avatar_url)}, 'user', {escape_sql(True)}, 'vk', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 
                         {escape_sql(ip_address)}, {escape_sql(user_agent)})
                 RETURNING id
             """)
