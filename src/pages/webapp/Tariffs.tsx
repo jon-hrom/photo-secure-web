@@ -434,27 +434,21 @@ const Tariffs = () => {
                       {paying ? 'Активация...' : 'Активировать бесплатно'}
                     </Button>
                   ) : (
-                    <>
-                      <Button 
-                        className="w-full" 
-                        size="lg"
-                        disabled={!userId || paying}
-                        onClick={() => handlePay('default')}
-                      >
-                        <Icon name="CreditCard" size={18} className="mr-2" />
-                        {paying ? 'Переход к оплате...' : 'Перейти к оплате'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
-                        disabled={!userId || paying}
-                        onClick={() => handlePay('sbp')}
-                      >
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
+                      disabled={!userId || paying}
+                      onClick={() => handlePay('sbp')}
+                    >
+                      {paying ? (
+                        <Icon name="Loader2" size={18} className="mr-2 animate-spin" />
+                      ) : (
                         <span className="mr-2 font-bold text-base leading-none">⚡</span>
-                        Оплатить через СБП
-                        <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>
-                      </Button>
-                    </>
+                      )}
+                      {paying ? 'Переход к оплате...' : 'Оплатить через СБП'}
+                      {!paying && <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>}
+                    </Button>
                   )}
                 </div>
               </>
