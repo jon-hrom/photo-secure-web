@@ -34,6 +34,7 @@ import PublicGallery from "./pages/PublicGallery";
 import { RetouchProvider } from "./contexts/RetouchContext";
 import FloatingRetouchBar from "./components/photobank/FloatingRetouchBar";
 import IncomingTransfersWatcher from "./components/clients/transfer/IncomingTransfersWatcher";
+import NotificationsTicker from "./components/notifications/NotificationsTicker";
 
 const queryClient = new QueryClient();
 
@@ -91,6 +92,15 @@ const ConditionalTransfersWatcher = () => {
   );
   if (isPublicPage) return null;
   return <IncomingTransfersWatcher />;
+};
+
+const ConditionalNotificationsTicker = () => {
+  const { pathname } = useLocation();
+  const isPublicPage = PUBLIC_PATHS.some(p =>
+    p === '/' ? pathname === '/' : pathname.startsWith(p)
+  );
+  if (isPublicPage) return null;
+  return <NotificationsTicker />;
 };
 
 const App = () => {
@@ -153,6 +163,7 @@ const App = () => {
         <LegalConsentGuard />
         <ConditionalRetouchBar />
         <ConditionalTransfersWatcher />
+        <ConditionalNotificationsTicker />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/help" element={<Help />} />
