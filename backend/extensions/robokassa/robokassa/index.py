@@ -34,10 +34,14 @@ def build_receipt(item_name: str, amount: float) -> str:
     return quote(json.dumps(receipt, ensure_ascii=False, separators=(',', ':')))
 
 
-def calculate_signature(*args) -> str:
-    """Создание SHA256 подписи по документации Robokassa.
-    Алгоритм должен совпадать с выбранным в ЛК Robokassa (Технические настройки)."""
+def calculate_signature(use_md5: bool, *args) -> str:
+    """Создание подписи Robokassa.
+    Тестовый режим (IsTest=1) → MD5 + тестовые пароли.
+    Боевой режим → SHA256 (алгоритм из ЛК) + боевые пароли.
+    Несоответствие алгоритма и режима = ошибка 29."""
     joined = ':'.join(str(arg) for arg in args)
+    if use_md5:
+        return hashlib.md5(joined.encode()).hexdigest()
     return hashlib.sha256(joined.encode()).hexdigest()
 
 
@@ -204,7 +208,7 @@ def handler(event: dict, context) -> dict:
 
         # Подпись: MerchantLogin:OutSum:InvId:Receipt:Password1 (SHA256 в боевом режиме).
         # Адреса возврата берём из настроек ЛК — лишние параметры в подписи дают ошибку 29.
-        signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
+        signature = calculate_signature(is_test, merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
 
         query_params = {
             'MerchantLogin': merchant_login,
