@@ -10,21 +10,19 @@ SCHEMA = 't_p28211681_photo_secure_web'
 
 # Ставка НДС для самозанятого (НПД) — без НДС
 RECEIPT_TAX = 'none'
-# Система налогообложения для чека: НПД использует УСН доход или patent; для самозанятого — 'usn_income' допустим как безопасный дефолт.
-RECEIPT_SNO = 'usn_income'
 
 
 def build_receipt_json(item_name: str, amount: float) -> str:
-    """Формирует фискальный чек (Receipt) для Робокассы — компактный JSON (без URL-кодирования)."""
+    """Формирует фискальный чек (Receipt) для Робокассы — компактный JSON (без URL-кодирования).
+    Систему налогообложения (sno) НЕ передаём — Robokassa берёт её из настроек магазина."""
     receipt = {
-        'sno': RECEIPT_SNO,
         'items': [
             {
                 'name': item_name[:128],
                 'quantity': 1,
                 'sum': round(amount, 2),
                 'payment_method': 'full_payment',
-                'payment_object': 'service',
+                'payment_object': 'commodity',
                 'tax': RECEIPT_TAX,
             }
         ],
