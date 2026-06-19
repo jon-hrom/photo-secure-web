@@ -80,6 +80,10 @@ def handler(event: dict, context) -> dict:
         if not merchant_login or not password_1:
             return {'statusCode': 500, 'headers': HEADERS, 'body': json.dumps({'error': 'Robokassa credentials not configured'}), 'isBase64Encoded': False}
 
+        # Тестовый режим Robokassa: при IsTest=1 нужно использовать ТЕСТОВЫЕ пароли,
+        # иначе магазин вернёт ошибку 29 (неверная подпись).
+        is_test = str(os.environ.get('ROBOKASSA_IS_TEST', '')).strip() in ('1', 'true', 'True')
+
         payload = json.loads(event.get('body', '{}'))
 
         order_type = str(payload.get('order_type', 'tariff'))
@@ -195,10 +199,15 @@ def handler(event: dict, context) -> dict:
         # Фискальный чек (НПД). Receipt входит в подпись сразу после InvId.
         receipt = build_receipt(description, final_amount)
 
-        if success_url or fail_url:
+        # SuccessUrl2/FailUrl2 в подпись входят в URL-кодированном виде —
+        # ровно так, как они уходят в запросе. Иначе Robokassa вернёт ошибку 29.
+        success_url_enc = quote(success_url, safe='') if success_url else ''
+        fail_url_enc = quote(fail_url, safe='') if fail_url else ''
+
+        if success_url and fail_url:
             signature = calculate_signature(
                 merchant_login, amount_str, robokassa_inv_id, receipt,
-                success_url, 'GET', fail_url, 'GET', password_1
+                success_url_enc, 'GET', fail_url_enc, 'GET', password_1
             )
         else:
             signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
@@ -213,11 +222,11 @@ def handler(event: dict, context) -> dict:
             'Culture': 'ru',
             'Description': description
         }
-        if success_url:
-            query_params['SuccessUrl2'] = success_url
+        # SuccessUrl2/FailUrl2 передаём только парой (оба) — иначе подпись не сойдётся
+        if success_url and fail_url:
+            query_params['SuccessUrl2'] = success_url_enc
             query_params['SuccessUrl2Method'] = 'GET'
-        if fail_url:
-            query_params['FailUrl2'] = fail_url
+            query_params['FailUrl2'] = fail_url_enc
             query_params['FailUrl2Method'] = 'GET'
         # Согласие на рекуррентные списания: первый платёж помечается Recurring=true
         if auto_renew:
@@ -225,6 +234,9 @@ def handler(event: dict, context) -> dict:
         # СБП: фиксируем метод оплаты QR-кодом через Систему Быстрых Платежей
         if payment_method == 'sbp':
             query_params['IncCurrLabel'] = 'SBPQRcode'
+        # Тестовый режим — добавляется только при ROBOKASSA_IS_TEST=1 (с тестовыми паролями)
+        if is_test:
+            query_params['IsTest'] = '1'
 
         # Receipt уже URL-кодирован — не кодируем повторно
         payment_url = f"{ROBOKASSA_URL}?{urlencode(query_params, safe='%')}"
