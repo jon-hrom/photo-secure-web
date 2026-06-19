@@ -202,16 +202,9 @@ def handler(event: dict, context) -> dict:
 
         # SuccessUrl2/FailUrl2 в подпись входят в URL-кодированном виде —
         # ровно так, как они уходят в запросе. Иначе Robokassa вернёт ошибку 29.
-        success_url_enc = quote(success_url, safe='') if success_url else ''
-        fail_url_enc = quote(fail_url, safe='') if fail_url else ''
-
-        if success_url and fail_url:
-            signature = calculate_signature(
-                merchant_login, amount_str, robokassa_inv_id, receipt,
-                success_url_enc, 'GET', fail_url_enc, 'GET', password_1
-            )
-        else:
-            signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
+        # Базовая подпись без SuccessUrl2/FailUrl2 — адреса возврата берутся из настроек ЛК.
+        # Так надёжнее всего: лишние параметры в подписи — частая причина ошибки 29.
+        signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
 
         query_params = {
             'MerchantLogin': merchant_login,
@@ -223,12 +216,8 @@ def handler(event: dict, context) -> dict:
             'Culture': 'ru',
             'Description': description
         }
-        # SuccessUrl2/FailUrl2 передаём только парой (оба) — иначе подпись не сойдётся
-        if success_url and fail_url:
-            query_params['SuccessUrl2'] = success_url_enc
-            query_params['SuccessUrl2Method'] = 'GET'
-            query_params['FailUrl2'] = fail_url_enc
-            query_params['FailUrl2Method'] = 'GET'
+        print(f"[ROBOKASSA] is_test={is_test} login={merchant_login} p1_len={len(password_1)} "
+              f"out_sum={amount_str} inv={robokassa_inv_id} sig={signature}")
         # Согласие на рекуррентные списания: первый платёж помечается Recurring=true
         if auto_renew:
             query_params['Recurring'] = 'true'
