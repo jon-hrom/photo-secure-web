@@ -9,6 +9,18 @@ from datetime import datetime, timedelta
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 SCHEMA = 't_p28211681_photo_secure_web'
+ACCOUNT_NOTIFY_URL = 'https://functions.poehali.dev/144eb550-4428-40c4-bc1a-acd169042a99'
+
+
+def notify_tariff(user_id, extra):
+    """Шлёт красивое уведомление фотографу о смене тарифа (не критично при ошибке)."""
+    try:
+        import requests
+        payload = {'event_type': 'tariff_changed', 'user_id': int(user_id)}
+        payload.update(extra)
+        requests.post(ACCOUNT_NOTIFY_URL, json=payload, timeout=8)
+    except Exception as e:
+        print(f'[NOTIFY] error: {e}')
 
 def get_db_connection():
     # Парсим DATABASE_URL и добавляем параметры для удалённого подключения
@@ -252,7 +264,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 conn.commit()
                 print(f'[APPLY_TARIFF] FREE plan activated: subscription_id={subscription_id}')
-                
+
+                notify_tariff(user_id, {
+                    'plan_name': plan['plan_name'],
+                    'duration_months': int(duration_months or 1),
+                    'price_paid': 0,
+                    'discount_percent': float(discount_percent or 0),
+                    'promo_code': promo_code or None,
+                    'quota_gb': float(plan['quota_gb']) if plan.get('quota_gb') is not None else None,
+                    'max_clients': int(plan['max_clients']) if plan.get('max_clients') is not None else None,
+                })
+
                 return {
                     'statusCode': 200,
                     'headers': CORS_HEADERS,

@@ -110,18 +110,59 @@ def build_messages(event_type, name, data):
     elif event_type == 'tariff_changed':
         plan = data.get('plan_name', 'новый')
         months = data.get('duration_months', 1)
+        price = data.get('price_paid')
+        discount = data.get('discount_percent') or 0
+        promo = data.get('promo_code')
+        quota_gb = data.get('quota_gb')
+        max_clients = data.get('max_clients')
+
+        # Строка стоимости: бесплатно / по промокоду / обычная цена
+        if price is not None and float(price) == 0:
+            if discount and float(discount) >= 100:
+                price_line = "Стоимость: <b>бесплатно</b> (промокод −100%)"
+            else:
+                price_line = "Стоимость: <b>бесплатно</b>"
+        elif price is not None:
+            if discount and float(discount) > 0:
+                price_line = f"Стоимость: <b>{float(price):.0f} ₽</b> (скидка −{float(discount):.0f}%)"
+            else:
+                price_line = f"Стоимость: <b>{float(price):.0f} ₽</b>"
+        else:
+            price_line = None
+
+        # Слово "месяц" по числу
+        m = int(months or 1)
+        month_word = 'месяц' if m == 1 else ('месяца' if 2 <= m <= 4 else 'месяцев')
+
         subject = "🎉 Тариф активирован!"
+        extra_text = ""
+        extra_html = ""
+        if price_line:
+            extra_text += f"\n{price_line.replace('<b>', '').replace('</b>', '')}"
+            extra_html += f"<p style='margin:0 0 4px'>{price_line}</p>"
+        if promo:
+            extra_text += f"\nПромокод: {promo}"
+            extra_html += f"<p style='margin:0 0 4px'>Промокод: <b>{promo}</b></p>"
+        if quota_gb:
+            extra_text += f"\nХранилище: {int(float(quota_gb))} ГБ"
+            extra_html += f"<p style='margin:0 0 4px'>Хранилище: <b>{int(float(quota_gb))} ГБ</b></p>"
+        if max_clients:
+            extra_text += f"\nКлиентов: до {int(max_clients)}"
+            extra_html += f"<p style='margin:0 0 4px'>Клиентов: <b>до {int(max_clients)}</b></p>"
+
         text = (
             f"{greeting}\n\n"
             f"🎉 <b>Ваш тариф активирован!</b>\n"
             f"Тариф: <b>{plan}</b>\n"
-            f"Срок: <b>{months} мес.</b>\n\n"
+            f"Срок: <b>{m} {month_word}</b>"
+            f"{extra_text}\n\n"
             f"{warm}"
         )
         body_lines = (
             f"<p style='font-size:16px;margin:0 0 8px'>🎉 <b>Ваш тариф активирован!</b></p>"
             f"<p style='margin:0 0 4px'>Тариф: <b>{plan}</b></p>"
-            f"<p style='margin:0 0 4px'>Срок: <b>{months} мес.</b></p>"
+            f"<p style='margin:0 0 4px'>Срок: <b>{m} {month_word}</b></p>"
+            f"{extra_html}"
         )
     else:
         return None, None, None

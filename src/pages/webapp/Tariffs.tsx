@@ -18,6 +18,7 @@ import { PromoCodeInput } from '@/components/PromoCodeInput';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const ROBOKASSA_URL = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
+const APPLY_TARIFF_URL = 'https://functions.poehali.dev/7565304f-3423-48fd-a77c-95c59c65714d';
 
 interface Plan {
   plan_id: number;
@@ -47,6 +48,7 @@ const Tariffs = () => {
   const [promoDiscount, setPromoDiscount] = useState<number>(0);
   const [promoFinalPrice, setPromoFinalPrice] = useState<number>(0);
   const [promoDuration, setPromoDuration] = useState<number>(1);
+  const [promoCode, setPromoCode] = useState<string>('');
   const [userId, setUserId] = useState<number | null>(null);
   const [autoRenew, setAutoRenew] = useState<boolean>(true);
   const [paying, setPaying] = useState<boolean>(false);
@@ -90,12 +92,46 @@ const Tariffs = () => {
     setPromoDiscount(0);
     setPromoFinalPrice(plan.price_rub);
     setPromoDuration(1);
+    setPromoCode('');
     setAutoRenew(true);
     setIsPromoDialogOpen(true);
   };
 
+  const handleFreeActivation = async () => {
+    if (!userId || !selectedPlan) return;
+    setPaying(true);
+    try {
+      const response = await fetch(APPLY_TARIFF_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          plan_id: selectedPlan.plan_id,
+          promo_code: promoCode,
+          duration_months: promoDuration,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast.success(data.message || 'Тариф успешно активирован!');
+        setIsPromoDialogOpen(false);
+        setTimeout(() => navigate('/tariffs?payment=success'), 800);
+      } else {
+        toast.error(data.error || 'Не удалось активировать тариф');
+        setPaying(false);
+      }
+    } catch {
+      toast.error('Ошибка активации тарифа');
+      setPaying(false);
+    }
+  };
+
   const handlePay = async (paymentMethod: 'default' | 'sbp' = 'default') => {
     if (!userId || !selectedPlan) return;
+    if (promoFinalPrice <= 0) {
+      await handleFreeActivation();
+      return;
+    }
     setPaying(true);
     try {
       const origin = window.location.origin;
@@ -128,16 +164,18 @@ const Tariffs = () => {
     }
   };
 
-  const handlePromoApplied = (discount: number, finalPrice: number, duration: number) => {
+  const handlePromoApplied = (discount: number, finalPrice: number, duration: number, code?: string) => {
     setPromoDiscount(discount);
     setPromoFinalPrice(finalPrice);
     setPromoDuration(duration);
+    setPromoCode(code || '');
   };
 
   const handlePromoRemoved = () => {
     setPromoDiscount(0);
     setPromoFinalPrice(selectedPlan?.price_rub || 0);
     setPromoDuration(1);
+    setPromoCode('');
   };
 
   const getPlanFeatures = (plan: Plan): string[] => {
@@ -366,7 +404,7 @@ const Tariffs = () => {
                   )}
                 </div>
 
-                {selectedPlan.price_rub > 0 && (
+                {selectedPlan.price_rub > 0 && promoFinalPrice > 0 && (
                   <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/40">
                     <Checkbox
                       id="auto-renew"
@@ -385,25 +423,39 @@ const Tariffs = () => {
                 )}
 
                 <div className="space-y-2">
-                  <Button 
-                    className="w-full" 
-                    size="lg"
-                    disabled={!userId || paying}
-                    onClick={() => handlePay('default')}
-                  >
-                    <Icon name="CreditCard" size={18} className="mr-2" />
-                    {paying ? 'Переход к оплате...' : 'Перейти к оплате'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
-                    disabled={!userId || paying}
-                    onClick={() => handlePay('sbp')}
-                  >
-                    <span className="mr-2 font-bold text-base leading-none">⚡</span>
-                    Оплатить через СБП
-                    <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>
-                  </Button>
+                  {promoFinalPrice <= 0 ? (
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      disabled={!userId || paying}
+                      onClick={() => handlePay('default')}
+                    >
+                      <Icon name="Gift" size={18} className="mr-2" />
+                      {paying ? 'Активация...' : 'Активировать бесплатно'}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button 
+                        className="w-full" 
+                        size="lg"
+                        disabled={!userId || paying}
+                        onClick={() => handlePay('default')}
+                      >
+                        <Icon name="CreditCard" size={18} className="mr-2" />
+                        {paying ? 'Переход к оплате...' : 'Перейти к оплате'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
+                        disabled={!userId || paying}
+                        onClick={() => handlePay('sbp')}
+                      >
+                        <span className="mr-2 font-bold text-base leading-none">⚡</span>
+                        Оплатить через СБП
+                        <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>
+                      </Button>
+                    </>
+                  )}
                 </div>
               </>
             )}

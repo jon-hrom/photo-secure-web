@@ -177,10 +177,16 @@ def handler(event: dict, context) -> dict:
             notify_extra = {'energy_added': int(energy_amount or 0), 'energy_balance': int(brow[0]) if brow else 0}
         else:
             activate_subscription(cur, (order_id, user_id, plan_id, duration_months, amount, auto_renew, int(inv_id), user_email))
-            cur.execute(f"SELECT name FROM {SCHEMA}.storage_plans WHERE id = %s", (plan_id,))
+            cur.execute(f"SELECT name, quota_gb, max_clients FROM {SCHEMA}.storage_plans WHERE id = %s", (plan_id,))
             prow = cur.fetchone()
             notify_event = 'tariff_changed'
-            notify_extra = {'plan_name': prow[0] if prow else 'новый', 'duration_months': int(duration_months or 1)}
+            notify_extra = {
+                'plan_name': prow[0] if prow else 'новый',
+                'duration_months': int(duration_months or 1),
+                'price_paid': float(amount),
+                'quota_gb': float(prow[1]) if prow and prow[1] is not None else None,
+                'max_clients': int(prow[2]) if prow and prow[2] is not None else None,
+            }
         conn.commit()
     except Exception as e:
         conn.rollback()
