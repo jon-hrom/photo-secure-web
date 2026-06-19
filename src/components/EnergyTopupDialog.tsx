@@ -242,33 +242,34 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
           )}
 
           <div className="space-y-2">
-            <Button
-              className="w-full h-12 text-base"
-              size="lg"
-              onClick={() => handleTopup('default')}
-              disabled={loading || numericAmount < ENERGY_RATE_RUB}
-            >
-              {loading ? (
-                <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <Icon name={isFree ? 'Gift' : 'CreditCard'} className="mr-2 h-5 w-5" />
-              )}
-              {loading
-                ? 'Обработка...'
-                : isFree
-                  ? 'Получить энергию бесплатно'
-                  : `Пополнить на ${payAmount} ₽`}
-            </Button>
-            {!isFree && (
+            {isFree ? (
+              <Button
+                className="w-full h-12 text-base"
+                size="lg"
+                onClick={() => handleTopup('default')}
+                disabled={loading || numericAmount < ENERGY_RATE_RUB}
+              >
+                {loading ? (
+                  <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <Icon name="Gift" className="mr-2 h-5 w-5" />
+                )}
+                {loading ? 'Обработка...' : 'Получить энергию бесплатно'}
+              </Button>
+            ) : (
               <Button
                 variant="outline"
-                className="w-full h-11 text-sm border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
+                className="w-full h-12 text-base border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
                 onClick={() => handleTopup('sbp')}
                 disabled={loading || numericAmount < ENERGY_RATE_RUB}
               >
-                <span className="mr-2 font-bold text-base leading-none">⚡</span>
-                Оплатить через СБП
-                <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>
+                {loading ? (
+                  <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <span className="mr-2 font-bold text-base leading-none">⚡</span>
+                )}
+                {loading ? 'Обработка...' : `Оплатить через СБП ${payAmount} ₽`}
+                {!loading && <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>}
               </Button>
             )}
           </div>
