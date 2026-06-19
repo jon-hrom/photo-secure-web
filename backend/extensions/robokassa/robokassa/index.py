@@ -15,14 +15,17 @@ RECEIPT_TAX = 'none'
 def build_receipt_json(item_name: str, amount: float) -> str:
     """Формирует фискальный чек (Receipt) для Робокассы — компактный JSON (без URL-кодирования).
     Систему налогообложения (sno) НЕ передаём — Robokassa берёт её из настроек магазина."""
+    # Название номенклатуры: убираем кавычки (двойные/ёлочки) — они ломают
+    # экранирование JSON и URL-кодирование, что приводит к ошибке 29.
+    clean_name = item_name.replace('"', '').replace('«', '').replace('»', '').strip()
     receipt = {
         'items': [
             {
-                'name': item_name[:128],
+                'name': clean_name[:128],
                 'quantity': 1,
-                'sum': round(amount, 2),
+                'sum': round(float(amount), 2),
                 'payment_method': 'full_payment',
-                'payment_object': 'commodity',
+                'payment_object': 'service',
                 'tax': RECEIPT_TAX,
             }
         ],
