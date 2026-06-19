@@ -247,6 +247,13 @@ def handler(event: dict, context) -> dict:
               f"out_sum={amount_str} inv_id={robokassa_inv_id} sig={signature}")
         print(f"[ROBOKASSA] sig_base={sig_base}")
         print(f"[ROBOKASSA] receipt={receipt}")
+        # Что реально уходит в URL для Receipt (после urlencode)
+        _receipt_in_url = urlencode({'Receipt': receipt}, safe='%').split('=', 1)[1]
+        print(f"[ROBOKASSA] receipt_in_url={_receipt_in_url}")
+        print(f"[ROBOKASSA] receipt_match={_receipt_in_url == receipt}")
+        # Эталонный MD5 БЕЗ Receipt (вариант, который любит Robokassa в тесте)
+        _sig_no_receipt = calculate_signature(merchant_login, amount_str, robokassa_inv_id, password_1)
+        print(f"[ROBOKASSA] sig_without_receipt={_sig_no_receipt}")
 
         cur.execute(f"UPDATE {SCHEMA}.payment_orders SET payment_url = %s WHERE id = %s", (payment_url, order_id))
         conn.commit()
