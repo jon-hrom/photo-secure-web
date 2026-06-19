@@ -29,7 +29,9 @@ def build_receipt(item_name: str, amount: float) -> str:
             }
         ],
     }
-    return quote(json.dumps(receipt, ensure_ascii=False))
+    # ВАЖНО: компактный JSON без пробелов (separators) — иначе подпись с Receipt
+    # не совпадёт с расчётом Robokassa и будет ошибка 29.
+    return quote(json.dumps(receipt, ensure_ascii=False, separators=(',', ':')))
 
 
 def calculate_signature(*args) -> str:

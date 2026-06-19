@@ -56,7 +56,8 @@ def build_receipt(item_name: str, amount: float) -> str:
             'tax': RECEIPT_TAX,
         }],
     }
-    return urllib.parse.quote(json.dumps(receipt, ensure_ascii=False))
+    # Компактный JSON без пробелов — иначе подпись с Receipt не совпадёт (ошибка 29)
+    return urllib.parse.quote(json.dumps(receipt, ensure_ascii=False, separators=(',', ':')))
 
 
 def send_email(to_email: str, subject: str, html_body: str) -> bool:
