@@ -205,15 +205,15 @@ def handler(event: dict, context) -> dict:
         query_params = {
             'MerchantLogin': merchant_login,
             'OutSum': amount_str,
-            'InvoiceID': robokassa_inv_id,
+            'InvId': robokassa_inv_id,
             'Receipt': receipt,
             'SignatureValue': signature,
             'Email': user_email,
             'Culture': 'ru',
             'Description': description
         }
-        print(f"[ROBOKASSA] login={merchant_login} p1_len={len(password_1)} "
-              f"out_sum={amount_str} inv={robokassa_inv_id} sig={signature}")
+        sig_base = f"{merchant_login}:{amount_str}:{robokassa_inv_id}:Receipt({len(receipt)} chars):***"
+        print(f"[ROBOKASSA] p1_len={len(password_1)} base={sig_base} sig={signature}")
         # Согласие на рекуррентные списания: первый платёж помечается Recurring=true
         if auto_renew:
             query_params['Recurring'] = 'true'
