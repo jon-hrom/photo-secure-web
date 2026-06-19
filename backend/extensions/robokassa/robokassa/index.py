@@ -202,10 +202,8 @@ def handler(event: dict, context) -> dict:
         # Фискальный чек (НПД). Receipt входит в подпись сразу после InvId.
         receipt = build_receipt(description, final_amount)
 
-        # SuccessUrl2/FailUrl2 в подпись входят в URL-кодированном виде —
-        # ровно так, как они уходят в запросе. Иначе Robokassa вернёт ошибку 29.
-        # Базовая подпись без SuccessUrl2/FailUrl2 — адреса возврата берутся из настроек ЛК.
-        # Так надёжнее всего: лишние параметры в подписи — частая причина ошибки 29.
+        # Подпись: MerchantLogin:OutSum:InvId:Receipt:Password1 (SHA256 в боевом режиме).
+        # Адреса возврата берём из настроек ЛК — лишние параметры в подписи дают ошибку 29.
         signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
 
         query_params = {
@@ -223,9 +221,8 @@ def handler(event: dict, context) -> dict:
         # Согласие на рекуррентные списания: первый платёж помечается Recurring=true
         if auto_renew:
             query_params['Recurring'] = 'true'
-        # СБП: фиксируем метод оплаты QR-кодом через Систему Быстрых Платежей
-        if payment_method == 'sbp':
-            query_params['IncCurrLabel'] = 'SBPQRcode'
+        # Оплата только через СБП QR-кодом (Система Быстрых Платежей)
+        query_params['IncCurrLabel'] = 'SBPQRcode'
         # Тестовый режим — добавляется только при ROBOKASSA_IS_TEST=1 (с тестовыми паролями)
         if is_test:
             query_params['IsTest'] = '1'
