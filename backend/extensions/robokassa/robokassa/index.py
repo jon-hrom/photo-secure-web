@@ -218,9 +218,13 @@ def handler(event: dict, context) -> dict:
         else:
             receipt_raw = build_receipt_json(description, final_amount)
             receipt_encoded = quote(receipt_raw, safe='')
-            signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt_encoded, password_1)
+            # По документации Robokassa: в ПОДПИСЬ Receipt входит в URL-кодированном виде
+            # ровно так, как он передаётся в URL. Используем ОДНУ И ТУ ЖЕ строку receipt_encoded.
+            sig_mode = str(os.environ.get('ROBOKASSA_RECEIPT_SIG', 'raw')).strip().lower()
+            receipt_for_sign = receipt_raw if sig_mode == 'raw' else receipt_encoded
+            signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt_for_sign, password_1)
             other_params['SignatureValue'] = signature
-            print(f"[ROBOKASSA] WITH_RECEIPT base={merchant_login}:{amount_str}:{robokassa_inv_id}:Receipt({len(receipt_encoded)}):*** sig={signature}")
+            print(f"[ROBOKASSA] WITH_RECEIPT sig_mode={sig_mode} raw={receipt_raw} enc_len={len(receipt_encoded)} sig={signature}")
             query_string = urlencode(other_params) + f"&Receipt={receipt_encoded}"
         payment_url = f"{ROBOKASSA_URL}?{query_string}"
 
