@@ -14,8 +14,8 @@ RECEIPT_TAX = 'none'
 RECEIPT_SNO = 'usn_income'
 
 
-def build_receipt(item_name: str, amount: float) -> str:
-    """Формирует фискальный чек (Receipt) для Робокассы, URL-кодированный JSON."""
+def build_receipt_json(item_name: str, amount: float) -> str:
+    """Формирует фискальный чек (Receipt) для Робокассы — компактный JSON (без URL-кодирования)."""
     receipt = {
         'sno': RECEIPT_SNO,
         'items': [
@@ -29,9 +29,8 @@ def build_receipt(item_name: str, amount: float) -> str:
             }
         ],
     }
-    # ВАЖНО: компактный JSON без пробелов (separators) — иначе подпись с Receipt
-    # не совпадёт с расчётом Robokassa и будет ошибка 29.
-    return quote(json.dumps(receipt, ensure_ascii=False, separators=(',', ':')))
+    # Компактный JSON без пробелов (separators) — обязательное требование Robokassa.
+    return json.dumps(receipt, ensure_ascii=False, separators=(',', ':'))
 
 
 def calculate_signature(*args) -> str:
@@ -195,33 +194,34 @@ def handler(event: dict, context) -> dict:
 
         amount_str = f"{final_amount:.2f}"
 
-        # Фискальный чек (НПД). Receipt входит в подпись сразу после InvId.
-        receipt = build_receipt(description, final_amount)
+        # Фискальный чек (НПД): сырой компактный JSON и его URL-кодированная версия.
+        receipt_raw = build_receipt_json(description, final_amount)
+        receipt_encoded = quote(receipt_raw, safe='')
 
-        # Подпись: MerchantLogin:OutSum:InvId:Receipt:Password1 (SHA256 в боевом режиме).
-        # Адреса возврата берём из настроек ЛК — лишние параметры в подписи дают ошибку 29.
-        signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
+        # Подпись Robokassa: Receipt входит в URL-КОДИРОВАННОМ виде (как в URL).
+        # MerchantLogin:OutSum:InvId:Receipt(encoded):Password1
+        signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt_encoded, password_1)
 
-        query_params = {
+        # URL собираем вручную: Receipt вставляем ИМЕННО в том же виде, что и в подписи,
+        # без повторного кодирования — иначе подпись не сойдётся (ошибка 29).
+        other_params = {
             'MerchantLogin': merchant_login,
             'OutSum': amount_str,
-            'InvId': robokassa_inv_id,
-            'Receipt': receipt,
+            'InvId': str(robokassa_inv_id),
             'SignatureValue': signature,
-            'Email': user_email,
+            'Email': user_email or '',
             'Culture': 'ru',
-            'Description': description
+            'Description': description,
+            'IncCurrLabel': 'SBPQRcode',
         }
-        sig_base = f"{merchant_login}:{amount_str}:{robokassa_inv_id}:Receipt({len(receipt)} chars):***"
-        print(f"[ROBOKASSA] p1_len={len(password_1)} base={sig_base} sig={signature}")
-        # Согласие на рекуррентные списания: первый платёж помечается Recurring=true
         if auto_renew:
-            query_params['Recurring'] = 'true'
-        # Оплата только через СБП QR-кодом (Система Быстрых Платежей)
-        query_params['IncCurrLabel'] = 'SBPQRcode'
+            other_params['Recurring'] = 'true'
 
-        # Receipt уже URL-кодирован — не кодируем повторно
-        payment_url = f"{ROBOKASSA_URL}?{urlencode(query_params, safe='%')}"
+        sig_base = f"{merchant_login}:{amount_str}:{robokassa_inv_id}:Receipt({len(receipt_encoded)} chars):***"
+        print(f"[ROBOKASSA] p1_len={len(password_1)} base={sig_base} sig={signature}")
+
+        query_string = urlencode(other_params) + f"&Receipt={receipt_encoded}"
+        payment_url = f"{ROBOKASSA_URL}?{query_string}"
 
         cur.execute(f"UPDATE {SCHEMA}.payment_orders SET payment_url = %s WHERE id = %s", (payment_url, order_id))
         conn.commit()
