@@ -34,14 +34,10 @@ def build_receipt(item_name: str, amount: float) -> str:
     return quote(json.dumps(receipt, ensure_ascii=False, separators=(',', ':')))
 
 
-def calculate_signature(use_md5: bool, *args) -> str:
-    """Создание подписи Robokassa.
-    Тестовый режим (IsTest=1) → MD5 + тестовые пароли.
-    Боевой режим → SHA256 (алгоритм из ЛК) + боевые пароли.
-    Несоответствие алгоритма и режима = ошибка 29."""
+def calculate_signature(*args) -> str:
+    """Создание SHA256 подписи Robokassa (боевой режим).
+    Алгоритм SHA256 выбран в ЛК Robokassa (Технические настройки)."""
     joined = ':'.join(str(arg) for arg in args)
-    if use_md5:
-        return hashlib.md5(joined.encode()).hexdigest()
     return hashlib.sha256(joined.encode()).hexdigest()
 
 
@@ -86,10 +82,6 @@ def handler(event: dict, context) -> dict:
 
         if not merchant_login or not password_1:
             return {'statusCode': 500, 'headers': HEADERS, 'body': json.dumps({'error': 'Robokassa credentials not configured'}), 'isBase64Encoded': False}
-
-        # Тестовый режим Robokassa: при IsTest=1 нужно использовать ТЕСТОВЫЕ пароли,
-        # иначе магазин вернёт ошибку 29 (неверная подпись).
-        is_test = str(os.environ.get('ROBOKASSA_IS_TEST', '')).strip() in ('1', 'true', 'True')
 
         payload = json.loads(event.get('body', '{}'))
 
@@ -208,7 +200,7 @@ def handler(event: dict, context) -> dict:
 
         # Подпись: MerchantLogin:OutSum:InvId:Receipt:Password1 (SHA256 в боевом режиме).
         # Адреса возврата берём из настроек ЛК — лишние параметры в подписи дают ошибку 29.
-        signature = calculate_signature(is_test, merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
+        signature = calculate_signature(merchant_login, amount_str, robokassa_inv_id, receipt, password_1)
 
         query_params = {
             'MerchantLogin': merchant_login,
@@ -220,16 +212,13 @@ def handler(event: dict, context) -> dict:
             'Culture': 'ru',
             'Description': description
         }
-        print(f"[ROBOKASSA] is_test={is_test} login={merchant_login} p1_len={len(password_1)} "
+        print(f"[ROBOKASSA] login={merchant_login} p1_len={len(password_1)} "
               f"out_sum={amount_str} inv={robokassa_inv_id} sig={signature}")
         # Согласие на рекуррентные списания: первый платёж помечается Recurring=true
         if auto_renew:
             query_params['Recurring'] = 'true'
         # Оплата только через СБП QR-кодом (Система Быстрых Платежей)
         query_params['IncCurrLabel'] = 'SBPQRcode'
-        # Тестовый режим — добавляется только при ROBOKASSA_IS_TEST=1 (с тестовыми паролями)
-        if is_test:
-            query_params['IsTest'] = '1'
 
         # Receipt уже URL-кодирован — не кодируем повторно
         payment_url = f"{ROBOKASSA_URL}?{urlencode(query_params, safe='%')}"

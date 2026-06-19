@@ -20,13 +20,10 @@ def notify(event_type, user_id, extra):
         print(f"[NOTIFY] error: {e}")
 
 
-def calculate_signature(use_md5: bool, *args) -> str:
-    """Создание подписи Robokassa для Result URL.
-    Тестовый режим (IsTest=1) → MD5 + тестовый Пароль #2.
-    Боевой режим → SHA256 (алгоритм из ЛК) + боевой Пароль #2."""
+def calculate_signature(*args) -> str:
+    """Создание SHA256 подписи Robokassa для Result URL (боевой режим).
+    Алгоритм SHA256 выбран в ЛК Robokassa (Технические настройки)."""
     joined = ':'.join(str(arg) for arg in args)
-    if use_md5:
-        return hashlib.md5(joined.encode()).hexdigest().upper()
     return hashlib.sha256(joined.encode()).hexdigest().upper()
 
 
@@ -145,10 +142,8 @@ def handler(event: dict, context) -> dict:
     if not out_sum or not inv_id or not signature_value:
         return {'statusCode': 400, 'headers': HEADERS, 'body': 'Missing required parameters', 'isBase64Encoded': False}
 
-    # Robokassa в Result URL не сообщает режим — проверяем обе подписи (SHA256 для боя, MD5 для теста)
-    sig_sha = calculate_signature(False, out_sum, inv_id, password_2)
-    sig_md5 = calculate_signature(True, out_sum, inv_id, password_2)
-    if signature_value not in (sig_sha, sig_md5):
+    expected_signature = calculate_signature(out_sum, inv_id, password_2)
+    if signature_value != expected_signature:
         return {'statusCode': 400, 'headers': HEADERS, 'body': 'Invalid signature', 'isBase64Encoded': False}
 
     conn = get_db_connection()
