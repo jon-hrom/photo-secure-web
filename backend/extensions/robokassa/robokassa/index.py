@@ -241,6 +241,13 @@ def handler(event: dict, context) -> dict:
         # Receipt уже URL-кодирован — не кодируем повторно
         payment_url = f"{ROBOKASSA_URL}?{urlencode(query_params, safe='%')}"
 
+        # Диагностика подписи (пароли НЕ логируем, только длину)
+        sig_base = ':'.join(str(x) for x in [merchant_login, amount_str, robokassa_inv_id, receipt, '<PASSWORD1>'])
+        print(f"[ROBOKASSA] is_test={is_test} login={merchant_login} pass1_len={len(password_1)} "
+              f"out_sum={amount_str} inv_id={robokassa_inv_id} sig={signature}")
+        print(f"[ROBOKASSA] sig_base={sig_base}")
+        print(f"[ROBOKASSA] receipt={receipt}")
+
         cur.execute(f"UPDATE {SCHEMA}.payment_orders SET payment_url = %s WHERE id = %s", (payment_url, order_id))
         conn.commit()
         cur.close()
