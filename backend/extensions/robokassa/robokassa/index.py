@@ -33,9 +33,10 @@ def build_receipt(item_name: str, amount: float) -> str:
 
 
 def calculate_signature(*args) -> str:
-    """Создание MD5 подписи по документации Robokassa"""
+    """Создание SHA256 подписи по документации Robokassa.
+    Алгоритм должен совпадать с выбранным в ЛК Robokassa (Технические настройки)."""
     joined = ':'.join(str(arg) for arg in args)
-    return hashlib.md5(joined.encode()).hexdigest()
+    return hashlib.sha256(joined.encode()).hexdigest()
 
 
 def get_db_connection():
@@ -240,20 +241,6 @@ def handler(event: dict, context) -> dict:
 
         # Receipt уже URL-кодирован — не кодируем повторно
         payment_url = f"{ROBOKASSA_URL}?{urlencode(query_params, safe='%')}"
-
-        # Диагностика подписи (пароли НЕ логируем, только длину)
-        sig_base = ':'.join(str(x) for x in [merchant_login, amount_str, robokassa_inv_id, receipt, '<PASSWORD1>'])
-        print(f"[ROBOKASSA] is_test={is_test} login={merchant_login} pass1_len={len(password_1)} "
-              f"out_sum={amount_str} inv_id={robokassa_inv_id} sig={signature}")
-        print(f"[ROBOKASSA] sig_base={sig_base}")
-        print(f"[ROBOKASSA] receipt={receipt}")
-        # Что реально уходит в URL для Receipt (после urlencode)
-        _receipt_in_url = urlencode({'Receipt': receipt}, safe='%').split('=', 1)[1]
-        print(f"[ROBOKASSA] receipt_in_url={_receipt_in_url}")
-        print(f"[ROBOKASSA] receipt_match={_receipt_in_url == receipt}")
-        # Эталонный MD5 БЕЗ Receipt (вариант, который любит Robokassa в тесте)
-        _sig_no_receipt = calculate_signature(merchant_login, amount_str, robokassa_inv_id, password_1)
-        print(f"[ROBOKASSA] sig_without_receipt={_sig_no_receipt}")
 
         cur.execute(f"UPDATE {SCHEMA}.payment_orders SET payment_url = %s WHERE id = %s", (payment_url, order_id))
         conn.commit()

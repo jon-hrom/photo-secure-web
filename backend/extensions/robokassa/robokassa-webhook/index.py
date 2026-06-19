@@ -21,9 +21,10 @@ def notify(event_type, user_id, extra):
 
 
 def calculate_signature(*args) -> str:
-    """Создание MD5 подписи по документации Robokassa"""
+    """Создание SHA256 подписи по документации Robokassa.
+    Алгоритм должен совпадать с выбранным в ЛК Robokassa (Технические настройки)."""
     joined = ':'.join(str(arg) for arg in args)
-    return hashlib.md5(joined.encode()).hexdigest().upper()
+    return hashlib.sha256(joined.encode()).hexdigest().upper()
 
 
 def get_db_connection():

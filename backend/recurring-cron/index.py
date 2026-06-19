@@ -40,7 +40,8 @@ def get_conn():
 
 
 def md5_sig(*args) -> str:
-    return hashlib.md5(':'.join(str(a) for a in args).encode()).hexdigest()
+    # Алгоритм подписи Robokassa = SHA256 (совпадает с ЛК → Технические настройки)
+    return hashlib.sha256(':'.join(str(a) for a in args).encode()).hexdigest()
 
 
 def build_receipt(item_name: str, amount: float) -> str:
