@@ -130,21 +130,21 @@ const SubscriptionCard = ({ userId }: SubscriptionCardProps) => {
         <span className="font-semibold">Подписка</span>
       </div>
 
-      <div className="space-y-1 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Тариф</span>
-          <span className="font-medium">{subscription.plan_name || '—'}</span>
+      <div className="space-y-1.5 text-sm">
+        <div className="flex justify-between items-start gap-3">
+          <span className="text-muted-foreground shrink-0">Тариф</span>
+          <span className="font-medium text-right break-words min-w-0">{subscription.plan_name || '—'}</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Действует до</span>
-          <span className="font-medium">
+        <div className="flex justify-between items-start gap-3">
+          <span className="text-muted-foreground shrink-0">Действует до</span>
+          <span className="font-medium text-right break-words min-w-0">
             {subscription.expires_at ? formatDate(subscription.expires_at) : 'Бессрочно'}
           </span>
         </div>
         {subscription.locked_price_rub != null && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Цена периода</span>
-            <span className="font-medium">{Math.floor(subscription.locked_price_rub)} ₽</span>
+          <div className="flex justify-between items-start gap-3">
+            <span className="text-muted-foreground shrink-0">Цена периода</span>
+            <span className="font-medium text-right shrink-0">{Math.floor(subscription.locked_price_rub)} ₽</span>
           </div>
         )}
       </div>
@@ -169,7 +169,7 @@ const SubscriptionCard = ({ userId }: SubscriptionCardProps) => {
                 Отключить автопродление
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-2xl">
+            <AlertDialogContent className="rounded-2xl max-w-[calc(100vw-2rem)] sm:max-w-lg">
               <AlertDialogHeader>
                 <AlertDialogTitle>Отключить автопродление?</AlertDialogTitle>
                 <AlertDialogDescription>

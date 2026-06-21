@@ -339,7 +339,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
       )}
 
       <Dialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[calc(100vw-2rem)] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Оформление подписки: {selectedPlan?.plan_name}</DialogTitle>
             <DialogDescription>
@@ -347,13 +347,13 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {selectedPlan && (
               <>
                 <div className="p-4 bg-muted rounded-lg space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Тариф:</span>
-                    <span className="font-semibold">{selectedPlan.plan_name}</span>
+                  <div className="flex justify-between items-start gap-3">
+                    <span className="text-sm font-medium shrink-0">Тариф:</span>
+                    <span className="font-semibold text-right break-words min-w-0">{selectedPlan.plan_name}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">Квота:</span>
