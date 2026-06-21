@@ -48,6 +48,30 @@ export const ConsentLogTab = ({ adminKey }: Props) => {
   const [hasMore, setHasMore] = useState(false);
   const PAGE_SIZE = 50;
 
+  const exportCSV = () => {
+    if (records.length === 0) return;
+    const headers = ['ID', 'Дата', 'Email', 'Тариф', 'Сумма (₽)', 'Период (мес)', 'IP', 'Версия оферты', 'Текст согласия'];
+    const rows = records.map((r) => [
+      r.id,
+      formatDate(r.created_at),
+      r.user_email || `ID ${r.user_id}`,
+      r.plan_name || '',
+      r.amount_rub,
+      r.duration_months,
+      r.ip_address || '',
+      r.offer_version || '',
+      `"${(r.consent_text || '').replace(/"/g, '""')}"`,
+    ]);
+    const csv = [headers.join(';'), ...rows.map((r) => r.join(';'))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `consent_log_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const load = async (reset = false) => {
     setLoading(true);
     const p = reset ? 1 : page;
@@ -103,15 +127,26 @@ export const ConsentLogTab = ({ adminKey }: Props) => {
             <Icon name="ClipboardCheck" size={18} className="text-primary" />
             История согласий на автосписания
           </CardTitle>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => load(true)}
-            disabled={loading}
-          >
-            <Icon name="RefreshCw" size={14} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-            Обновить
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportCSV}
+              disabled={records.length === 0}
+            >
+              <Icon name="Download" size={14} className="mr-1.5" />
+              CSV
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => load(true)}
+              disabled={loading}
+            >
+              <Icon name="RefreshCw" size={14} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+              Обновить
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {records.length === 0 && !loading ? (
