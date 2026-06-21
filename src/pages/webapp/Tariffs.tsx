@@ -1,43 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import Icon from '@/components/ui/icon';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import LegalFooter from '@/components/legal/LegalFooter';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { PromoCodeInput } from '@/components/PromoCodeInput';
-import { Checkbox } from '@/components/ui/checkbox';
-
-const ROBOKASSA_URL = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
-const APPLY_TARIFF_URL = 'https://functions.poehali.dev/7565304f-3423-48fd-a77c-95c59c65714d';
-
-interface Plan {
-  plan_id: number;
-  plan_name: string;
-  quota_gb: number;
-  price_rub: number;
-  max_clients: number;
-  description: string;
-  is_active: boolean;
-  stats_enabled: boolean;
-  track_storage_usage: boolean;
-  track_client_count: boolean;
-  track_booking_analytics: boolean;
-  track_revenue: boolean;
-  track_upload_history: boolean;
-  track_download_stats: boolean;
-}
-
-const STORAGE_ADMIN_URL = 'https://functions.poehali.dev/81fe316e-43c6-4e9f-93e2-63032b5c552c';
+import { Plan, ROBOKASSA_URL, APPLY_TARIFF_URL, STORAGE_ADMIN_URL } from './tariffs-page/types';
+import TariffsGrid from './tariffs-page/TariffsGrid';
+import SubscribeDialog from './tariffs-page/SubscribeDialog';
 
 const Tariffs = () => {
   const navigate = useNavigate();
@@ -197,39 +165,6 @@ const Tariffs = () => {
     setPromoCode('');
   };
 
-  const getPlanFeatures = (plan: Plan): string[] => {
-    const features: string[] = [];
-    
-    features.push(`${Math.floor(plan.max_clients)} ${plan.max_clients === 1 ? 'клиент' : plan.max_clients < 5 ? 'клиента' : 'клиентов'}`);
-    features.push(`${Math.floor(plan.quota_gb)} ГБ хранилища`);
-    
-    if (plan.stats_enabled) {
-      features.push('Статистика и аналитика');
-    }
-    if (plan.track_booking_analytics) {
-      features.push('Аналитика бронирований');
-    }
-    if (plan.track_revenue) {
-      features.push('Отслеживание доходов');
-    }
-    if (plan.track_upload_history) {
-      features.push('История загрузок');
-    }
-    if (plan.track_download_stats) {
-      features.push('Статистика скачиваний');
-    }
-    
-    return features;
-  };
-
-  const getPlanIcon = (planName: string): string => {
-    const name = planName.toLowerCase();
-    if (name.includes('старт') || name.includes('базов')) return 'Package';
-    if (name.includes('проф')) return 'Zap';
-    if (name.includes('бизнес')) return 'Crown';
-    return 'Package';
-  };
-
   if (loading) {
     return (
       <>
@@ -247,276 +182,32 @@ const Tariffs = () => {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-4 sm:py-6">
-        <div className="w-full mx-auto px-2 sm:px-4 lg:px-6 xl:px-8 2xl:px-12">
-          <div className="mb-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/')}
-              className="gap-2 hover:bg-primary/10"
-            >
-              <Icon name="ArrowLeft" size={16} />
-              Главная
-            </Button>
-          </div>
-
-          <div className="text-center mb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-1.5">Тарифные планы</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-300">Выберите подходящий план для вашего бизнеса</p>
-          </div>
-          
-          {plans.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">Нет доступных тарифов</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-w-6xl mx-auto items-start">
-              {plans.map((plan) => {
-                const features = getPlanFeatures(plan);
-                const isPopular = plan.plan_name.toLowerCase().includes('проф');
-                const icon = getPlanIcon(plan.plan_name);
-
-                return (
-                  <Card 
-                    key={plan.plan_id}
-                    className={`relative bg-white dark:bg-gray-800 self-start ${
-                      isPopular ? 'ring-2 ring-primary shadow-lg' : 'shadow-md'
-                    }`}
-                  >
-                    {isPopular && (
-                      <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-secondary text-white px-2.5 py-0.5 rounded-full text-[10px] font-medium">
-                        Популярный
-                      </Badge>
-                    )}
-                    
-                    <CardHeader className="p-3 pb-1.5">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="p-1.5 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-md">
-                          <Icon name={icon} size={16} className="text-primary" />
-                        </div>
-                        <CardTitle className="text-base">{plan.plan_name}</CardTitle>
-                      </div>
-                      <CardDescription className="text-[11px] leading-tight">{plan.description}</CardDescription>
-                      
-                      <div className="mt-1.5 flex items-baseline gap-1">
-                        <div className="text-xl font-bold text-gray-900 dark:text-white">
-                          {plan.price_rub === 0 ? 'Бесплатно' : `${Math.floor(plan.price_rub)} ₽`}
-                        </div>
-                        {plan.price_rub > 0 && (
-                          <div className="text-[11px] text-gray-600 dark:text-gray-400">/ месяц</div>
-                        )}
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="p-3 pt-1.5">
-                      <ul className="space-y-1 mb-3">
-                        {features.map((feature, index) => (
-                          <li key={index} className="flex items-start gap-1.5">
-                            <Icon name="Check" size={14} className="text-green-500 flex-shrink-0 mt-0.5" />
-                            <span className="text-xs text-gray-700 dark:text-gray-300">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      
-                      <Button 
-                        size="sm"
-                        className={`w-full h-8 text-xs ${isPopular ? 'bg-gradient-to-r from-primary to-secondary' : ''}`}
-                        variant={isPopular ? 'default' : 'outline'}
-                        onClick={() => handleSelectPlan(plan)}
-                      >
-                        {plan.price_rub === 0 ? 'Начать бесплатно' : 'Выбрать план'}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Нужен индивидуальный план?</p>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Icon name="MessageCircle" size={16} />
-              Связаться с нами
-            </Button>
-          </div>
-        </div>
+        <TariffsGrid
+          plans={plans}
+          onSelectPlan={handleSelectPlan}
+          onNavigateHome={() => navigate('/')}
+        />
       </div>
 
       <LegalFooter />
 
-      <Dialog open={isPromoDialogOpen} onOpenChange={setIsPromoDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Оформление подписки: {selectedPlan?.plan_name}</DialogTitle>
-            <DialogDescription>
-              Введите промокод, чтобы получить скидку на выбранный тариф
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6">
-            {selectedPlan && (
-              <>
-                <div className="p-4 bg-muted rounded-lg space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Тариф:</span>
-                    <span className="font-semibold">{selectedPlan.plan_name}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Квота:</span>
-                    <span>{Math.floor(selectedPlan.quota_gb)} ГБ</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Макс. клиентов:</span>
-                    <span>{Math.floor(selectedPlan.max_clients)}</span>
-                  </div>
-                </div>
-
-                {userId && (
-                  <PromoCodeInput
-                    planId={selectedPlan.plan_id}
-                    userId={userId}
-                    originalPrice={selectedPlan.price_rub}
-                    onPromoApplied={handlePromoApplied}
-                    onPromoRemoved={handlePromoRemoved}
-                  />
-                )}
-
-                {!userId && (
-                  <div className="p-4 border border-yellow-200 bg-yellow-50 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      Войдите в систему, чтобы оформить подписку
-                    </p>
-                  </div>
-                )}
-
-                <div className="p-4 border rounded-lg space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Стоимость тарифа:</span>
-                    <span>{Math.floor(selectedPlan.price_rub)} ₽</span>
-                  </div>
-                  
-                  {promoDiscount > 0 && (
-                    <>
-                      <div className="flex justify-between items-center text-green-600">
-                        <span className="text-sm font-medium">Скидка по промокоду:</span>
-                        <span>-{promoDiscount}%</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Длительность:</span>
-                        <span>{promoDuration} {promoDuration === 1 ? 'месяц' : 'месяца'}</span>
-                      </div>
-                    </>
-                  )}
-                  
-                  <div className="pt-3 border-t flex justify-between items-center">
-                    <span className="font-bold">Итого к оплате:</span>
-                    <span className="text-2xl font-bold text-primary">{Math.floor(promoFinalPrice)} ₽</span>
-                  </div>
-                  
-                  {promoDuration > 1 && (
-                    <p className="text-xs text-muted-foreground">
-                      Цена указана за {promoDuration} {promoDuration === 1 ? 'месяц' : promoDuration < 5 ? 'месяца' : 'месяцев'}
-                    </p>
-                  )}
-                </div>
-
-                {promoFinalPrice > 0 && (
-                  <div className="rounded-xl border border-primary/30 bg-primary/5 dark:bg-primary/10 p-4 space-y-3">
-                    <p className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-1.5">
-                      <Icon name="RefreshCw" size={12} />
-                      Автоматическое продление
-                    </p>
-
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id="auto-renew"
-                        checked={autoRenew}
-                        onCheckedChange={(v) => {
-                          setAutoRenew(v === true);
-                          if (!v) setRecurringConsent(false);
-                        }}
-                        className="mt-0.5"
-                      />
-                      <label htmlFor="auto-renew" className="text-sm leading-snug cursor-pointer">
-                        Включить автопродление — каждые{' '}
-                        {promoDuration} {promoDuration === 1 ? 'месяц' : promoDuration < 5 ? 'месяца' : 'месяцев'} будет списываться{' '}
-                        <b>{Math.floor(promoFinalPrice)} ₽</b>.{' '}
-                        <span className="text-muted-foreground">Уведомление за 3 дня. Отключить — в личном кабинете.</span>
-                      </label>
-                    </div>
-
-                    {autoRenew && (
-                      <div className="flex items-start gap-3 pt-2 border-t border-primary/20">
-                        <Checkbox
-                          id="recurring-consent"
-                          checked={recurringConsent}
-                          onCheckedChange={(v) => setRecurringConsent(v === true)}
-                          className="mt-0.5"
-                        />
-                        <label htmlFor="recurring-consent" className="text-sm leading-snug cursor-pointer">
-                          Я согласен на автоматические списания согласно{' '}
-                          <a href="/offer" target="_blank" className="text-primary underline hover:no-underline font-medium">оферте</a>{' '}
-                          (п.&nbsp;5.5).{' '}
-                          <span className="text-muted-foreground">Списание {Math.floor(promoFinalPrice)} ₽ каждые{' '}
-                          {promoDuration} {promoDuration === 1 ? 'месяц' : 'месяца'} до отмены.</span>
-                        </label>
-                      </div>
-                    )}
-
-                    {autoRenew && !recurringConsent && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                        <Icon name="AlertCircle" size={12} />
-                        Отметьте согласие, чтобы продолжить
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  {promoFinalPrice <= 0 ? (
-                    <Button
-                      className="w-full"
-                      size="lg"
-                      disabled={!userId || paying}
-                      onClick={() => handlePay('default')}
-                    >
-                      <Icon name="Gift" size={18} className="mr-2" />
-                      {paying ? 'Активация...' : 'Активировать бесплатно'}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="w-full border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold disabled:opacity-50"
-                      disabled={!userId || paying || (autoRenew && !recurringConsent)}
-                      onClick={() => handlePay('sbp')}
-                    >
-                      {paying ? (
-                        <Icon name="Loader2" size={18} className="mr-2 animate-spin" />
-                      ) : (
-                        <span className="mr-2 font-bold text-base leading-none">⚡</span>
-                      )}
-                      {paying ? 'Переход к оплате...' : 'Оплатить через СБП'}
-                      {!paying && <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>}
-                    </Button>
-                  )}
-
-                  <p className="text-center text-[11px] text-muted-foreground leading-snug pt-1">
-                    Оплачивая, вы соглашаетесь с{' '}
-                    <a href="/offer" target="_blank" className="underline hover:no-underline">офертой</a>,{' '}
-                    <a href="/privacy-policy" target="_blank" className="underline hover:no-underline">политикой конфиденциальности</a>{' '}
-                    и{' '}
-                    <a href="/personal-data" target="_blank" className="underline hover:no-underline">согласием на обработку&nbsp;ПДн</a>
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SubscribeDialog
+        open={isPromoDialogOpen}
+        onOpenChange={setIsPromoDialogOpen}
+        selectedPlan={selectedPlan}
+        userId={userId}
+        promoDiscount={promoDiscount}
+        promoFinalPrice={promoFinalPrice}
+        promoDuration={promoDuration}
+        autoRenew={autoRenew}
+        recurringConsent={recurringConsent}
+        paying={paying}
+        setAutoRenew={setAutoRenew}
+        setRecurringConsent={setRecurringConsent}
+        onPromoApplied={handlePromoApplied}
+        onPromoRemoved={handlePromoRemoved}
+        onPay={handlePay}
+      />
 
       <MobileNavigation />
     </>
