@@ -16,12 +16,16 @@ from typing import Dict, Any, List
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
+import requests
 
 SCHEMA = 't_p28211681_photo_secure_web'
 ROBOKASSA_RECURRING_URL = 'https://auth.robokassa.ru/Merchant/Recurring'
 REMINDER_DAYS = 3
 RECEIPT_TAX = 'none'
 RECEIPT_SNO = 'usn_income'
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+MAX_INSTANCE_ID = os.environ.get('MAX_INSTANCE_ID', '')
+MAX_TOKEN = os.environ.get('MAX_TOKEN', '')
 
 CORS_HEADERS = {
     'Content-Type': 'application/json',
@@ -106,14 +110,64 @@ def reminder_html(plan_name: str, amount: float, charge_date: str) -> str:
 </body></html>'''
 
 
+def send_telegram(chat_id: str, text: str) -> bool:
+    """Отправка напоминания в Telegram."""
+    if not TELEGRAM_BOT_TOKEN or not chat_id:
+        return False
+    try:
+        r = requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={'chat_id': chat_id, 'text': text, 'parse_mode': 'HTML', 'disable_web_page_preview': True},
+            timeout=10,
+        )
+        return r.status_code == 200
+    except Exception as e:
+        print(f"[TG] error: {e}")
+        return False
+
+
+def send_whatsapp(instance_id: str, token: str, phone: str, text: str) -> bool:
+    """Отправка напоминания в MAX (Green-API)."""
+    if not instance_id or not token or not phone:
+        return False
+    try:
+        digits = ''.join(c for c in phone if c.isdigit())
+        if not digits:
+            return False
+        media = instance_id[:4] if len(instance_id) >= 4 else '7103'
+        url = f"https://{media}.api.green-api.com/waInstance{instance_id}/sendMessage/{token}"
+        r = requests.post(url, json={'chatId': f"{digits}@c.us", 'message': text}, timeout=10)
+        return r.status_code == 200
+    except Exception as e:
+        print(f"[WA] error: {e}")
+        return False
+
+
+def reminder_text(plan_name: str, amount: float, charge_date: str) -> str:
+    """Текст напоминания для мессенджеров (Telegram/MAX)."""
+    return (
+        f"🔔 <b>Предстоящее автопродление подписки</b>\n\n"
+        f"Через {REMINDER_DAYS} дня состоится автоматическое продление на foto-mix.ru.\n\n"
+        f"Тариф: <b>{plan_name}</b>\n"
+        f"Сумма списания: <b>{amount:.2f} ₽</b>\n"
+        f"Дата списания: <b>{charge_date}</b>\n\n"
+        f"После оплаты придёт чек НПД.\n"
+        f"Отключить автопродление можно в Настройки → Управление подпиской."
+    )
+
+
 def process_reminders(cur, conn) -> int:
-    """Письма за REMINDER_DAYS дней до списания."""
+    """Напоминания за REMINDER_DAYS дней до списания: Email + Telegram + MAX."""
     threshold = datetime.now() + timedelta(days=REMINDER_DAYS)
     cur.execute(f"""
         SELECT rs.id, rs.user_id, rs.plan_id, rs.locked_price_rub, rs.user_email,
-               rs.next_charge_at, sp.name AS plan_name
+               rs.next_charge_at, sp.name AS plan_name,
+               u.telegram_chat_id, u.telegram_verified,
+               u.max_phone, u.phone_number, u.phone,
+               u.green_api_instance_id, u.green_api_token
         FROM {SCHEMA}.recurring_subscriptions rs
         LEFT JOIN {SCHEMA}.storage_plans sp ON sp.id = rs.plan_id
+        LEFT JOIN {SCHEMA}.users u ON u.id = rs.user_id
         WHERE rs.status = 'active'
           AND rs.next_charge_at <= %s
           AND rs.next_charge_at > NOW()
@@ -122,15 +176,36 @@ def process_reminders(cur, conn) -> int:
     rows = cur.fetchall()
     sent = 0
     for r in rows:
-        if not r['user_email']:
-            continue
-        ok = send_email(
-            r['user_email'],
-            'Предстоящее списание за подписку — foto-mix.ru',
-            reminder_html(r.get('plan_name') or 'Подписка', float(r['locked_price_rub']),
-                          r['next_charge_at'].strftime('%d.%m.%Y')),
-        )
-        if ok:
+        plan_name = r.get('plan_name') or 'Подписка'
+        amount = float(r['locked_price_rub'])
+        charge_date = r['next_charge_at'].strftime('%d.%m.%Y')
+        msg = reminder_text(plan_name, amount, charge_date)
+
+        delivered = False
+
+        # Email
+        if r['user_email']:
+            if send_email(
+                r['user_email'],
+                'Предстоящее списание за подписку — foto-mix.ru',
+                reminder_html(plan_name, amount, charge_date),
+            ):
+                delivered = True
+
+        # Telegram
+        if r.get('telegram_verified') and r.get('telegram_chat_id'):
+            if send_telegram(r['telegram_chat_id'], msg):
+                delivered = True
+
+        # MAX (Green-API): личный аккаунт фотографа или системный
+        wa_phone = r.get('max_phone') or r.get('phone_number') or r.get('phone')
+        inst = r.get('green_api_instance_id') or MAX_INSTANCE_ID
+        tok = r.get('green_api_token') or MAX_TOKEN
+        plain = msg.replace('<b>', '').replace('</b>', '')
+        if send_whatsapp(inst, tok, wa_phone, plain):
+            delivered = True
+
+        if delivered:
             cur.execute(f"""
                 UPDATE {SCHEMA}.recurring_subscriptions
                 SET reminder_sent_for = next_charge_at, updated_at = CURRENT_TIMESTAMP
