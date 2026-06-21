@@ -77,13 +77,36 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 405, 'headers': HEADERS, 'body': json.dumps({'error': 'Method not allowed'}), 'isBase64Encoded': False}
 
     try:
+        payload = json.loads(event.get('body', '{}'))
+
+        # Логирование согласия на рекуррентные платежи
+        if payload.get('action') == 'log_consent':
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute(
+                f"""INSERT INTO {SCHEMA}.recurring_consent_log
+                    (user_id, plan_id, plan_name, amount_rub, duration_months, consent_text, ip_address, offer_version)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                (
+                    int(payload.get('user_id', 0)),
+                    int(payload.get('plan_id', 0)),
+                    str(payload.get('plan_name', '')),
+                    float(payload.get('amount_rub', 0)),
+                    int(payload.get('duration_months', 1)),
+                    str(payload.get('consent_text', '')),
+                    event.get('requestContext', {}).get('identity', {}).get('sourceIp', ''),
+                    '1.1',
+                )
+            )
+            conn.commit()
+            conn.close()
+            return {'statusCode': 200, 'headers': HEADERS, 'body': json.dumps({'ok': True}), 'isBase64Encoded': False}
+
         merchant_login = os.environ.get('ROBOKASSA_MERCHANT_LOGIN')
         password_1 = os.environ.get('ROBOKASSA_PASSWORD_1')
 
         if not merchant_login or not password_1:
             return {'statusCode': 500, 'headers': HEADERS, 'body': json.dumps({'error': 'Robokassa credentials not configured'}), 'isBase64Encoded': False}
-
-        payload = json.loads(event.get('body', '{}'))
 
         order_type = str(payload.get('order_type', 'tariff'))
         user_id = int(payload.get('user_id', 0))

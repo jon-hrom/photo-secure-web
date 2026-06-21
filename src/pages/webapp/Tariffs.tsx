@@ -51,6 +51,7 @@ const Tariffs = () => {
   const [promoCode, setPromoCode] = useState<string>('');
   const [userId, setUserId] = useState<number | null>(null);
   const [autoRenew, setAutoRenew] = useState<boolean>(true);
+  const [recurringConsent, setRecurringConsent] = useState<boolean>(false);
   const [paying, setPaying] = useState<boolean>(false);
 
   useEffect(() => {
@@ -93,7 +94,8 @@ const Tariffs = () => {
     setPromoFinalPrice(plan.price_rub);
     setPromoDuration(1);
     setPromoCode('');
-    setAutoRenew(true);
+    setAutoRenew(false);
+    setRecurringConsent(false);
     setIsPromoDialogOpen(true);
   };
 
@@ -134,6 +136,23 @@ const Tariffs = () => {
     }
     setPaying(true);
     try {
+      // Логируем согласие на рекуррентные платежи если включено
+      if (autoRenew && recurringConsent) {
+        await fetch(ROBOKASSA_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'log_consent',
+            user_id: userId,
+            plan_id: selectedPlan.plan_id,
+            plan_name: selectedPlan.plan_name,
+            amount_rub: promoFinalPrice,
+            duration_months: promoDuration,
+            consent_text: `Согласие на автосписание ${Math.floor(promoFinalPrice)} ₽ каждые ${promoDuration} мес. Оферта п.5.5`,
+          }),
+        }).catch(() => {});
+      }
+
       const origin = window.location.origin;
       const body: Record<string, unknown> = {
         order_type: 'tariff',
@@ -405,20 +424,40 @@ const Tariffs = () => {
                 </div>
 
                 {selectedPlan.price_rub > 0 && promoFinalPrice > 0 && (
-                  <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/40">
-                    <Checkbox
-                      id="auto-renew"
-                      checked={autoRenew}
-                      onCheckedChange={(v) => setAutoRenew(v === true)}
-                      className="mt-0.5"
-                    />
-                    <label htmlFor="auto-renew" className="text-xs text-muted-foreground leading-snug cursor-pointer">
-                      Я даю согласие на автоматическое продление подписки: списание{' '}
-                      <b>{Math.floor(promoFinalPrice)} ₽</b> каждые {promoDuration}{' '}
-                      {promoDuration === 1 ? 'месяц' : promoDuration < 5 ? 'месяца' : 'месяцев'}.
-                      Уведомление о списании придёт на email за 3 дня. По каждому платежу формируется чек НПД.
-                      Отключить автопродление можно в любой момент в личном кабинете.
-                    </label>
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/40">
+                      <Checkbox
+                        id="auto-renew"
+                        checked={autoRenew}
+                        onCheckedChange={(v) => {
+                          setAutoRenew(v === true);
+                          if (!v) setRecurringConsent(false);
+                        }}
+                        className="mt-0.5"
+                      />
+                      <label htmlFor="auto-renew" className="text-xs text-muted-foreground leading-snug cursor-pointer">
+                        Включить автопродление — списание <b>{Math.floor(promoFinalPrice)} ₽</b> каждые{' '}
+                        {promoDuration} {promoDuration === 1 ? 'месяц' : promoDuration < 5 ? 'месяца' : 'месяцев'}.
+                        Уведомление придёт на email за 3 дня. Отключить можно в любой момент в личном кабинете.
+                      </label>
+                    </div>
+
+                    {autoRenew && (
+                      <div className="flex items-start gap-3 p-3 border border-orange-200 dark:border-orange-800 rounded-lg bg-orange-50/60 dark:bg-orange-950/20">
+                        <Checkbox
+                          id="recurring-consent"
+                          checked={recurringConsent}
+                          onCheckedChange={(v) => setRecurringConsent(v === true)}
+                          className="mt-0.5"
+                        />
+                        <label htmlFor="recurring-consent" className="text-xs leading-snug cursor-pointer">
+                          Я согласен на автоматические списания согласно условиям{' '}
+                          <a href="/offer" target="_blank" className="text-primary underline hover:no-underline">оферты</a>{' '}
+                          (п.&nbsp;5.5). Списание <b>{Math.floor(promoFinalPrice)} ₽</b> будет производиться автоматически каждые{' '}
+                          {promoDuration} {promoDuration === 1 ? 'месяц' : 'месяца'} до отмены.
+                        </label>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -437,8 +476,8 @@ const Tariffs = () => {
                     <Button
                       variant="outline"
                       size="lg"
-                      className="w-full border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
-                      disabled={!userId || paying}
+                      className="w-full border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold disabled:opacity-50"
+                      disabled={!userId || paying || (autoRenew && !recurringConsent)}
                       onClick={() => handlePay('sbp')}
                     >
                       {paying ? (
@@ -450,6 +489,14 @@ const Tariffs = () => {
                       {!paying && <span className="ml-2 text-xs text-muted-foreground font-normal">QR-код</span>}
                     </Button>
                   )}
+
+                  <p className="text-center text-[11px] text-muted-foreground leading-snug pt-1">
+                    Оплачивая, вы соглашаетесь с{' '}
+                    <a href="/offer" target="_blank" className="underline hover:no-underline">офертой</a>,{' '}
+                    <a href="/privacy-policy" target="_blank" className="underline hover:no-underline">политикой конфиденциальности</a>{' '}
+                    и{' '}
+                    <a href="/personal-data" target="_blank" className="underline hover:no-underline">согласием на обработку&nbsp;ПДн</a>
+                  </p>
                 </div>
               </>
             )}
