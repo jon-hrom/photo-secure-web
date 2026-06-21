@@ -92,8 +92,36 @@ const SubscriptionCard = ({ userId }: SubscriptionCardProps) => {
     }
   };
 
-  if (loading) return null;
-  if (!subscription) return null;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-6 text-muted-foreground">
+        <Icon name="Loader2" size={18} className="animate-spin mr-2" />
+        Загрузка...
+      </div>
+    );
+  }
+
+  if (!subscription) {
+    return (
+      <div className="rounded-xl border p-4 space-y-3 bg-card text-sm">
+        <div className="flex items-center gap-2">
+          <Icon name="CreditCard" size={18} className="text-primary" />
+          <span className="font-semibold">Подписка</span>
+        </div>
+        <div className="rounded-lg bg-muted/50 border p-3 text-muted-foreground flex items-center gap-2">
+          <Icon name="Info" size={14} />
+          У вас сейчас бесплатный тариф. Платная подписка не оформлена.
+        </div>
+        <Button
+          className="w-full rounded-xl"
+          onClick={() => { window.location.href = '/tariffs'; }}
+        >
+          <Icon name="Sparkles" size={16} className="mr-2" />
+          Выбрать тариф
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border p-4 space-y-3 bg-card">

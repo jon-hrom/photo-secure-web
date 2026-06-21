@@ -8,6 +8,7 @@ import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
 import ContactInfoCard from '@/components/settings/ContactInfoCard';
 import SecurityCard from '@/components/settings/SecurityCard';
 import HintsCard from '@/components/settings/HintsCard';
+import SubscriptionCard from '@/components/settings/SubscriptionCard';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 import { formatPhoneNumber as formatPhone, validatePhone } from '@/utils/phoneFormat';
@@ -349,6 +350,18 @@ const SettingsPage = ({ userId }: SettingsPageProps) => {
                 settings={settings}
                 handleToggle2FA={handleToggle2FA}
               />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="subscription" className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-0">
+            <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Icon name="CreditCard" size={20} className="text-primary" />
+                <span className="text-lg font-semibold">Управление подпиской</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 sm:px-6 pb-4">
+              <SubscriptionCard userId={userId} />
             </AccordionContent>
           </AccordionItem>
 

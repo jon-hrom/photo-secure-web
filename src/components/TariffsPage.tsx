@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PromoCodeInput } from './PromoCodeInput';
 
 interface Plan {
@@ -49,6 +50,8 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
   const [promoDuration, setPromoDuration] = useState<number>(1);
   const [isApplying, setIsApplying] = useState(false);
   const [appliedPromoCode, setAppliedPromoCode] = useState<string>('');
+  const [autoRenew, setAutoRenew] = useState(false);
+  const [recurringConsent, setRecurringConsent] = useState(false);
 
   useEffect(() => {
     loadPlans();
@@ -103,6 +106,8 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
     setPromoDiscount(0);
     setPromoFinalPrice(plan.price_rub);
     setPromoDuration(1);
+    setAutoRenew(false);
+    setRecurringConsent(false);
     setIsPromoDialogOpen(true);
   };
 
@@ -161,6 +166,24 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
     setIsApplying(true);
     try {
       const robokassaUrl = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
+
+      // Логируем согласие на автосписания (в фоне, не блокируя переход)
+      if (autoRenew && recurringConsent) {
+        fetch(robokassaUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'log_consent',
+            user_id: Number(userId),
+            plan_id: selectedPlan.plan_id,
+            plan_name: selectedPlan.plan_name,
+            amount_rub: amountToPay,
+            duration_months: promoDuration,
+            consent_text: `Согласие на автосписание ${Math.floor(amountToPay)} ₽ каждые ${promoDuration} мес. Оферта п.5.5`,
+          }),
+        }).catch(() => {});
+      }
+
       const response = await fetch(robokassaUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,6 +192,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
           plan_id: selectedPlan.plan_id,
           duration_months: promoDuration,
           amount: amountToPay,
+          auto_renew: autoRenew,
           success_url: `${window.location.origin}/tariffs?payment=success`,
           fail_url: `${window.location.origin}/tariffs?payment=fail`,
         }),
@@ -389,12 +413,66 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
                   </Button>
                 )}
 
+                {(() => {
+                  const payAmount = promoDiscount > 0 ? promoFinalPrice : selectedPlan.price_rub * promoDuration;
+                  return selectedPlan.price_rub > 0 && payAmount > 0;
+                })() && (
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 dark:bg-primary/10 p-4 space-y-3">
+                    <p className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-1.5">
+                      <Icon name="RefreshCw" size={12} />
+                      Автоматическое продление
+                    </p>
+
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="auto-renew"
+                        checked={autoRenew}
+                        onCheckedChange={(v) => {
+                          setAutoRenew(v === true);
+                          if (!v) setRecurringConsent(false);
+                        }}
+                        className="mt-0.5"
+                      />
+                      <label htmlFor="auto-renew" className="text-sm leading-snug cursor-pointer">
+                        Включить автопродление — каждые{' '}
+                        {promoDuration} {promoDuration === 1 ? 'месяц' : promoDuration < 5 ? 'месяца' : 'месяцев'} будет списываться{' '}
+                        <b>{Math.floor(promoDiscount > 0 ? promoFinalPrice : selectedPlan.price_rub * promoDuration)} ₽</b>.{' '}
+                        <span className="text-muted-foreground">Уведомление за 3 дня. Отключить — в личном кабинете.</span>
+                      </label>
+                    </div>
+
+                    {autoRenew && (
+                      <div className="flex items-start gap-3 pt-2 border-t border-primary/20">
+                        <Checkbox
+                          id="recurring-consent"
+                          checked={recurringConsent}
+                          onCheckedChange={(v) => setRecurringConsent(v === true)}
+                          className="mt-0.5"
+                        />
+                        <label htmlFor="recurring-consent" className="text-sm leading-snug cursor-pointer">
+                          Я согласен на автоматические списания согласно{' '}
+                          <a href="/offer" target="_blank" rel="noreferrer" className="text-primary underline hover:no-underline font-medium">оферте</a>{' '}
+                          (п.&nbsp;5.5) и{' '}
+                          <a href="/privacy" target="_blank" rel="noreferrer" className="text-primary underline hover:no-underline font-medium">политике конфиденциальности</a>.
+                        </label>
+                      </div>
+                    )}
+
+                    {autoRenew && !recurringConsent && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Icon name="AlertCircle" size={12} />
+                        Отметьте согласие, чтобы продолжить
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {selectedPlan.price_rub > 0 && promoDiscount === 0 && (
                   <Button 
                     className="w-full" 
                     size="lg"
                     onClick={handleApplyTariff}
-                    disabled={isApplying}
+                    disabled={isApplying || (autoRenew && !recurringConsent)}
                   >
                     {isApplying ? (
                       <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
@@ -426,7 +504,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
                       className="w-full" 
                       size="lg"
                       onClick={handleApplyTariff}
-                      disabled={isApplying}
+                      disabled={isApplying || (autoRenew && !recurringConsent)}
                     >
                       {isApplying ? (
                         <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
