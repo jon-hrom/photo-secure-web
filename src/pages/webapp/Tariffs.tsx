@@ -136,9 +136,9 @@ const Tariffs = () => {
     }
     setPaying(true);
     try {
-      // Логируем согласие на рекуррентные платежи если включено
+      // Логируем согласие на рекуррентные платежи параллельно (не блокируя редирект)
       if (autoRenew && recurringConsent) {
-        await fetch(ROBOKASSA_URL, {
+        fetch(ROBOKASSA_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -423,8 +423,8 @@ const Tariffs = () => {
                   )}
                 </div>
 
-                {selectedPlan.price_rub > 0 && promoFinalPrice > 0 && (
-                  <div className="rounded-xl border border-primary/20 bg-primary/5 dark:bg-primary/10 p-4 space-y-3">
+                {promoFinalPrice > 0 && (
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 dark:bg-primary/10 p-4 space-y-3">
                     <p className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-1.5">
                       <Icon name="RefreshCw" size={12} />
                       Автоматическое продление
