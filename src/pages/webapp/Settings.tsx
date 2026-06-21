@@ -365,6 +365,18 @@ const Settings = () => {
               </AccordionContent>
             </AccordionItem>
 
+            <AccordionItem value="subscription" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+              <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+                <div className="flex items-center gap-3">
+                  <Icon name="CreditCard" size={20} className="text-primary" />
+                  <span className="text-lg font-semibold">Управление подпиской</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
+                <SubscriptionCard userId={getUserId()} />
+              </AccordionContent>
+            </AccordionItem>
+
             <AccordionItem value="account" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
               <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
                 <div className="flex items-center gap-3">
@@ -393,8 +405,6 @@ const Settings = () => {
                     Выйти
                   </Button>
                 </div>
-
-                <SubscriptionCard userId={getUserId()} />
 
                 <DeleteAccountCard
                   userId={getUserId()}

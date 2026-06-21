@@ -424,8 +424,13 @@ const Tariffs = () => {
                 </div>
 
                 {selectedPlan.price_rub > 0 && promoFinalPrice > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/40">
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 dark:bg-primary/10 p-4 space-y-3">
+                    <p className="text-xs font-semibold text-primary uppercase tracking-wide flex items-center gap-1.5">
+                      <Icon name="RefreshCw" size={12} />
+                      Автоматическое продление
+                    </p>
+
+                    <div className="flex items-start gap-3">
                       <Checkbox
                         id="auto-renew"
                         checked={autoRenew}
@@ -435,28 +440,37 @@ const Tariffs = () => {
                         }}
                         className="mt-0.5"
                       />
-                      <label htmlFor="auto-renew" className="text-xs text-muted-foreground leading-snug cursor-pointer">
-                        Включить автопродление — списание <b>{Math.floor(promoFinalPrice)} ₽</b> каждые{' '}
-                        {promoDuration} {promoDuration === 1 ? 'месяц' : promoDuration < 5 ? 'месяца' : 'месяцев'}.
-                        Уведомление придёт на email за 3 дня. Отключить можно в любой момент в личном кабинете.
+                      <label htmlFor="auto-renew" className="text-sm leading-snug cursor-pointer">
+                        Включить автопродление — каждые{' '}
+                        {promoDuration} {promoDuration === 1 ? 'месяц' : promoDuration < 5 ? 'месяца' : 'месяцев'} будет списываться{' '}
+                        <b>{Math.floor(promoFinalPrice)} ₽</b>.{' '}
+                        <span className="text-muted-foreground">Уведомление за 3 дня. Отключить — в личном кабинете.</span>
                       </label>
                     </div>
 
                     {autoRenew && (
-                      <div className="flex items-start gap-3 p-3 border border-orange-200 dark:border-orange-800 rounded-lg bg-orange-50/60 dark:bg-orange-950/20">
+                      <div className="flex items-start gap-3 pt-2 border-t border-primary/20">
                         <Checkbox
                           id="recurring-consent"
                           checked={recurringConsent}
                           onCheckedChange={(v) => setRecurringConsent(v === true)}
                           className="mt-0.5"
                         />
-                        <label htmlFor="recurring-consent" className="text-xs leading-snug cursor-pointer">
-                          Я согласен на автоматические списания согласно условиям{' '}
-                          <a href="/offer" target="_blank" className="text-primary underline hover:no-underline">оферты</a>{' '}
-                          (п.&nbsp;5.5). Списание <b>{Math.floor(promoFinalPrice)} ₽</b> будет производиться автоматически каждые{' '}
-                          {promoDuration} {promoDuration === 1 ? 'месяц' : 'месяца'} до отмены.
+                        <label htmlFor="recurring-consent" className="text-sm leading-snug cursor-pointer">
+                          Я согласен на автоматические списания согласно{' '}
+                          <a href="/offer" target="_blank" className="text-primary underline hover:no-underline font-medium">оферте</a>{' '}
+                          (п.&nbsp;5.5).{' '}
+                          <span className="text-muted-foreground">Списание {Math.floor(promoFinalPrice)} ₽ каждые{' '}
+                          {promoDuration} {promoDuration === 1 ? 'месяц' : 'месяца'} до отмены.</span>
                         </label>
                       </div>
+                    )}
+
+                    {autoRenew && !recurringConsent && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Icon name="AlertCircle" size={12} />
+                        Отметьте согласие, чтобы продолжить
+                      </p>
                     )}
                   </div>
                 )}

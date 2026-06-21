@@ -236,6 +236,66 @@ def payment_stats(event: Dict[str, Any]) -> Dict[str, Any]:
         conn.close()
 
 
+def consent_log(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Список согласий пользователей на автоматические списания (рекуррентные платежи)"""
+    params = event.get('queryStringParameters', {}) or {}
+    page = int(params.get('page', 1))
+    limit = int(params.get('limit', 50))
+    offset = (page - 1) * limit
+
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'''
+                SELECT
+                    cl.id,
+                    cl.user_id,
+                    COALESCE(u.email, '') as user_email,
+                    cl.plan_name,
+                    cl.amount_rub,
+                    cl.duration_months,
+                    cl.consent_text,
+                    cl.ip_address,
+                    cl.offer_version,
+                    cl.created_at
+                FROM {SCHEMA}.recurring_consent_log cl
+                LEFT JOIN {SCHEMA}.users u ON u.id = cl.user_id
+                ORDER BY cl.created_at DESC
+                LIMIT {limit} OFFSET {offset}
+            ''')
+            records = cur.fetchall()
+
+            cur.execute(f'''
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(DISTINCT user_id) as unique_users,
+                    COALESCE(SUM(amount_rub), 0) as total_amount
+                FROM {SCHEMA}.recurring_consent_log
+            ''')
+            summary = cur.fetchone()
+
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({
+                    'success': True,
+                    'records': [dict(r) for r in records],
+                    'summary': dict(summary) if summary else {}
+                }, default=str),
+                'isBase64Encoded': False
+            }
+    except Exception as e:
+        print(f'[ERROR] consent_log failed: {e}')
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': str(e)}),
+            'isBase64Encoded': False
+        }
+    finally:
+        conn.close()
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
     print(f'[HANDLER] Received {method} request')
@@ -290,6 +350,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'create-energy-promo-code': create_energy_promo_code,
         'toggle-energy-promo-code': toggle_energy_promo_code,
         'delete-energy-promo-code': delete_energy_promo_code,
+        'consent-log': consent_log,
     }
     
     handler_func = handlers.get(action)

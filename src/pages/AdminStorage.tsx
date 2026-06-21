@@ -13,6 +13,7 @@ import { PaymentsTab } from '@/components/admin/PaymentsTab';
 import { EnergyPromoCodesTab } from '@/components/admin/EnergyPromoCodesTab';
 import { ADMIN_API } from '@/components/admin/types';
 import { StorageTrashTab } from '@/components/admin/StorageTrashTab';
+import { ConsentLogTab } from '@/components/admin/ConsentLogTab';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import {
   useAdminStorageAPI,
@@ -228,7 +229,7 @@ const AdminStorage = () => {
         />
 
         <Tabs defaultValue="plans" className="space-y-4">
-          <TabsList className="grid grid-cols-3 sm:grid-cols-9 h-auto w-full gap-1 sm:gap-0">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-10 h-auto w-full gap-1 sm:gap-0">
             <TabsTrigger value="plans" className="text-xs sm:text-sm px-1 sm:px-3 py-1.5">
               <Icon name="Package" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Тарифы</span>
@@ -273,6 +274,11 @@ const AdminStorage = () => {
               <Icon name="Trash2" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">Корзина</span>
               <span className="sm:hidden">🗑️</span>
+            </TabsTrigger>
+            <TabsTrigger value="consents" className="text-xs sm:text-sm">
+              <Icon name="ClipboardCheck" className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Согласия</span>
+              <span className="sm:hidden">✅</span>
             </TabsTrigger>
           </TabsList>
 
@@ -336,6 +342,10 @@ const AdminStorage = () => {
 
           <TabsContent value="trash" className="space-y-4">
             <StorageTrashTab adminKey={adminKey} />
+          </TabsContent>
+
+          <TabsContent value="consents" className="space-y-4">
+            <ConsentLogTab adminKey={adminKey} />
           </TabsContent>
         </Tabs>
       </div>
