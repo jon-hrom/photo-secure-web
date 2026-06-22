@@ -33,9 +33,9 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; icon: string; color: s
 ];
 
 const PLACEHOLDERS: Record<RequestType, string> = {
-  question: 'Опишите ваш вопрос как можно подробнее.',
-  problem: 'Подробно опишите проблему. Укажите дату и время, когда она возникла.',
-  suggestion: 'Расскажите о вашей идее: что именно хотите улучшить.',
+  question: 'Опишите ваш вопрос как можно подробнее.\n\nЕсли есть скриншот или фото — прикрепите ниже, так будет проще разобраться.',
+  problem: 'Подробно опишите проблему. Укажите дату и время, когда она возникла.\n\nПрикрепите скриншот или фото экрана — это поможет быстрее найти причину.',
+  suggestion: 'Расскажите о вашей идее: что именно хотите улучшить.\n\nМожно прикрепить референс или скриншот для наглядности.',
 };
 
 export default function CreateTicketDialog({ open, onClose, userId, userName, userEmail, onCreated }: CreateTicketDialogProps) {
@@ -221,7 +221,7 @@ export default function CreateTicketDialog({ open, onClose, userId, userName, us
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <Icon name="ImagePlus" size={18} />
-            <span className="hidden xs:inline">Прикрепить</span>
+            <span>Прикрепить файл</span>
           </button>
           <input
             ref={fileRef}
