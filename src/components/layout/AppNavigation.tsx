@@ -197,11 +197,17 @@ const AppNavigation = ({
             <Button
               variant="ghost"
               onClick={() => setTopupOpen(true)}
-              className="flex items-center gap-1.5 rounded-full px-3 hover:bg-yellow-500/10 transition-all duration-300"
-              title="Энергия"
+              className={`flex items-center gap-1.5 rounded-full px-3 transition-all duration-300 ${energyBalance < 10 ? 'hover:bg-red-500/10' : 'hover:bg-yellow-500/10'}`}
+              title={energyBalance < 10 ? 'Энергия заканчивается!' : 'Энергия'}
             >
-              <Icon name="Zap" size={16} className="text-yellow-500 shrink-0" />
-              <span className="text-sm font-semibold text-yellow-500">{energyBalance}</span>
+              <Icon
+                name="Zap"
+                size={16}
+                className={`shrink-0 ${energyBalance < 10 ? 'energy-low-anim' : 'text-yellow-500'}`}
+              />
+              <span className={`text-sm font-semibold ${energyBalance < 10 ? 'energy-low-anim' : 'text-yellow-500'}`}>
+                {energyBalance}
+              </span>
             </Button>
 
             {onOpenChat && (

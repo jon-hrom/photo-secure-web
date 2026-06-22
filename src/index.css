@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes energy-low {
+  0%,
+  100% {
+    color: #ef4444;
+    filter: drop-shadow(0 0 4px #ef4444aa);
+  }
+  50% {
+    color: #eab308;
+    filter: drop-shadow(0 0 6px #eab308cc);
+  }
+}
+
+.energy-low-anim {
+  animation: energy-low 1.2s ease-in-out infinite;
+}
+
 @keyframes rainbow-shift {
   0% {
     background-position: 0% 50%;
