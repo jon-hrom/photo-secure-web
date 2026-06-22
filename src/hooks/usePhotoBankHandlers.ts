@@ -194,8 +194,28 @@ export const usePhotoBankHandlers = (
     let successCount = 0;
     let errorCount = 0;
 
-    const BATCH_SIZE = 5;
-    let cancelledRef = uploadCancelled;
+    const PARALLEL_LIMIT = 10;
+    const URL_BATCH_SIZE = 100;
+    const DIRECT_UPLOAD_API = 'https://functions.poehali.dev/145813d2-d8f3-4a2b-b38e-08583a3153da';
+    const cancelledRef = uploadCancelled;
+
+    // Заранее полученные presigned URL для RAW/видео файлов (по индексу файла)
+    const presignedByIndex = new Map<number, { url: string; key: string }>();
+    // Накопитель записей в БД для батч-вставки
+    const pendingDbWrites: Array<{ file_name: string; s3_url: string; file_size: number; content_type: string }> = [];
+    const flushDbWrites = async () => {
+      if (pendingDbWrites.length === 0 || !selectedFolder) return;
+      const writes = pendingDbWrites.splice(0, pendingDbWrites.length);
+      await fetch(PHOTOBANK_FOLDERS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({
+          action: 'upload_photos_batch',
+          folder_id: selectedFolder.id,
+          photos: writes,
+        }),
+      });
+    };
 
     const totalBytes = mediaFiles.reduce((sum, f) => sum + (f.size || 1), 0);
     const fileLoaded = new Map<number, number>();
@@ -235,15 +255,9 @@ export const usePhotoBankHandlers = (
       const isVideo = file.type.startsWith('video/');
       
       if (isRaw || isVideo) {
-        const MOBILE_UPLOAD_API = 'https://functions.poehali.dev/3372b3ed-5509-41e0-a542-b3774be6b702';
-        
-        const urlResponse = await fetch(
-          `${MOBILE_UPLOAD_API}?action=get-url&filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type || 'application/octet-stream')}`,
-          { headers: { 'X-User-Id': userId } }
-        );
-        
-        if (!urlResponse.ok) throw new Error('Failed to get upload URL');
-        const { url, key } = await urlResponse.json();
+        const presigned = presignedByIndex.get(index);
+        if (!presigned) throw new Error('Failed to get upload URL');
+        const { url, key } = presigned;
         
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
@@ -271,22 +285,14 @@ export const usePhotoBankHandlers = (
         });
         
         const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
-        const addPhotoResponse = await fetch(PHOTOBANK_FOLDERS_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-          body: JSON.stringify({
-            action: 'upload_photo',
-            folder_id: selectedFolder.id,
-            file_name: file.name,
-            s3_url: s3Url,
-            file_size: file.size,
-            content_type: file.type || 'application/octet-stream'
-          }),
+        pendingDbWrites.push({
+          file_name: file.name,
+          s3_url: s3Url,
+          file_size: file.size,
+          content_type: file.type || 'application/octet-stream',
         });
-        
-        if (!addPhotoResponse.ok) {
-          const error = await addPhotoResponse.json();
-          throw new Error(error.error || 'Failed to add photo to folder');
+        if (pendingDbWrites.length >= 20) {
+          await flushDbWrites();
         }
 
         fileLoaded.set(index, file.size);
@@ -379,27 +385,50 @@ export const usePhotoBankHandlers = (
     };
 
     try {
-      for (let i = 0; i < mediaFiles.length; i += BATCH_SIZE) {
-        cancelledRef = uploadCancelled;
-        if (cancelledRef) {
-          console.log('[UPLOAD] Upload cancelled by user');
-          break;
-        }
-        
-        const batch = mediaFiles.slice(i, i + BATCH_SIZE);
-        console.log(`[UPLOAD] Starting batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} files`);
-        
-        const results = await Promise.allSettled(
-          batch.map((file, batchIndex) => uploadSingleFile(file, i + batchIndex))
-        );
-        
-        let shouldStop = false;
-        results.forEach((result, batchIndex) => {
-          if (result.status === 'fulfilled') {
+      // 1. Заранее получаем presigned URL для всех RAW/видео файлов батчами по 100 (1 запрос вместо N)
+      const rawVideoIndexes: number[] = [];
+      mediaFiles.forEach((file, idx) => {
+        if (isRawFile(file.name) || file.type.startsWith('video/')) rawVideoIndexes.push(idx);
+      });
+
+      for (let i = 0; i < rawVideoIndexes.length; i += URL_BATCH_SIZE) {
+        if (uploadCancelled) break;
+        const chunkIdx = rawVideoIndexes.slice(i, i + URL_BATCH_SIZE);
+        const filesPayload = chunkIdx.map(idx => ({
+          name: mediaFiles[idx].name,
+          type: mediaFiles[idx].type || 'application/octet-stream',
+          size: mediaFiles[idx].size,
+        }));
+        const urlRes = await fetch(DIRECT_UPLOAD_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+          body: JSON.stringify({ action: 'batch-urls', files: filesPayload }),
+        });
+        if (!urlRes.ok) throw new Error('Failed to get upload URLs');
+        const urlData = await urlRes.json();
+        const uploads = urlData.uploads || [];
+        chunkIdx.forEach((idx, j) => {
+          const u = uploads[j];
+          if (u) presignedByIndex.set(idx, { url: u.url, key: u.key });
+        });
+      }
+
+      // 2. Пул параллельных загрузок (скользящее окно) — новый файл стартует сразу, как освободился слот
+      let shouldStop = false;
+      let nextIndex = 0;
+
+      const worker = async () => {
+        while (true) {
+          if (shouldStop || uploadCancelled) return;
+          const index = nextIndex++;
+          if (index >= mediaFiles.length) return;
+          try {
+            await uploadSingleFile(mediaFiles[index], index);
             successCount++;
-          } else {
-            console.error(`[UPLOAD] File ${i + batchIndex + 1} failed:`, result.reason);
-            if (result.reason?.message === 'EMAIL_VERIFICATION_REQUIRED') {
+          } catch (err: unknown) {
+            const msg = (err as Error)?.message;
+            console.error(`[UPLOAD] File ${index + 1} failed:`, err);
+            if (msg === 'EMAIL_VERIFICATION_REQUIRED') {
               toast({
                 title: 'Подтвердите email',
                 description: 'Для загрузки фото необходимо подтвердить адрес электронной почты',
@@ -408,18 +437,22 @@ export const usePhotoBankHandlers = (
               shouldStop = true;
               return;
             }
-            if (result.reason?.message === 'Upload cancelled') {
+            if (msg === 'Upload cancelled') {
               shouldStop = true;
               return;
             }
             errorCount++;
           }
-        });
-        
-        flushProgress();
+        }
+      };
 
-        if (shouldStop) break;
-      }
+      await Promise.all(
+        Array.from({ length: Math.min(PARALLEL_LIMIT, mediaFiles.length) }, () => worker())
+      );
+
+      // 3. Дописываем оставшиеся записи в БД одним батчем
+      await flushDbWrites();
+      flushProgress();
 
       if (uploadCancelled) {
         toast({
