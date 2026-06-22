@@ -108,20 +108,54 @@ export default function GalleryJustifiedLayout({
     const missing = sortedPhotos.filter(p => !p.width || !p.height);
     if (missing.length === 0) return;
 
-    missing.forEach(p => {
-      const src = p.thumbnail_url || p.photo_url;
-      if (!src) return;
-      const img = new Image();
-      img.onload = () => {
-        if (img.naturalWidth && img.naturalHeight) {
-          setDetectedRatios(prev => ({
-            ...prev,
-            [p.id]: img.naturalWidth / img.naturalHeight,
-          }));
-        }
-      };
-      img.src = src;
-    });
+    let cancelled = false;
+    const buffer: Record<number, number> = {};
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const flush = () => {
+      if (cancelled || Object.keys(buffer).length === 0) return;
+      setDetectedRatios(prev => ({ ...prev, ...buffer }));
+    };
+
+    const scheduleFlush = () => {
+      if (flushTimer) return;
+      flushTimer = setTimeout(() => {
+        flushTimer = null;
+        flush();
+      }, 300);
+    };
+
+    // Грузим thumbnail'ы порциями, чтобы не вешать браузер
+    let idx = 0;
+    const CONCURRENCY = 6;
+    let active = 0;
+
+    const loadNext = () => {
+      if (cancelled) return;
+      while (active < CONCURRENCY && idx < missing.length) {
+        const p = missing[idx++];
+        const src = p.thumbnail_url || p.photo_url;
+        if (!src) continue;
+        active++;
+        const img = new Image();
+        const done = (ratio?: number) => {
+          if (ratio) buffer[p.id] = ratio;
+          active--;
+          scheduleFlush();
+          loadNext();
+        };
+        img.onload = () => done(img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : undefined);
+        img.onerror = () => done();
+        img.src = src;
+      }
+    };
+
+    loadNext();
+
+    return () => {
+      cancelled = true;
+      if (flushTimer) clearTimeout(flushTimer);
+    };
   }, [allRaw, sortedPhotos]);
 
   const getAR = (p: Photo): number => {
