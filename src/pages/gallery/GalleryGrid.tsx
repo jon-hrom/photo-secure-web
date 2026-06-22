@@ -139,6 +139,15 @@ export default function GalleryGrid({
   const [downloadingSelected, setDownloadingSelected] = useState(false);
   const [selectedProgress, setSelectedProgress] = useState(0);
   const [savingList, setSavingList] = useState(false);
+  const [pulseStarBtn, setPulseStarBtn] = useState(false);
+
+  const handleAddToFavoritesWithPulse = onAddToFavorites
+    ? (photo: Parameters<typeof onAddToFavorites>[0]) => {
+        onAddToFavorites(photo);
+        setPulseStarBtn(true);
+        setTimeout(() => setPulseStarBtn(false), 3000);
+      }
+    : undefined;
 
   useEffect(() => {
     if (activeFavoriteList) {
@@ -289,6 +298,7 @@ export default function GalleryGrid({
         onOpenChat={onOpenChat}
         unreadMessagesCount={unreadMessagesCount}
         onOpenMyFavorites={onOpenMyFavorites}
+        pulseStarBtn={pulseStarBtn}
         clientUploadEnabled={clientUploadEnabled}
         onOpenUpload={onOpenUpload}
         downloadingAll={downloadingAll}
@@ -327,7 +337,7 @@ export default function GalleryGrid({
           watermark={gallery.watermark}
           onPhotoClick={onPhotoClick}
           onDownloadPhoto={onDownloadPhoto}
-          onAddToFavorites={onAddToFavorites}
+          onAddToFavorites={handleAddToFavoritesWithPulse}
           onPhotoLoad={onPhotoLoad}
           selectionMode={selectionMode}
           selectedIds={selectedIds}

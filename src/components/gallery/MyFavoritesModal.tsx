@@ -275,10 +275,10 @@ export default function MyFavoritesModal({
                       e.stopPropagation();
                       handleRemoveFromFavorites(photo.id);
                     }}
-                    className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 p-1 bg-red-500 text-white rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 active:bg-red-700 shadow-lg touch-manipulation"
+                    className="absolute top-1.5 right-1.5 p-1.5 bg-red-500/90 text-white rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-600 active:bg-red-700 shadow touch-manipulation"
                     title="Удалить из избранного"
                   >
-                    <Icon name="Trash2" size={12} />
+                    <Icon name="Trash2" size={13} />
                   </button>
                   <button
                     onClick={async (e) => {
@@ -322,10 +322,10 @@ export default function MyFavoritesModal({
                         alert('Ошибка при скачивании фото');
                       }
                     }}
-                    className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 p-1 bg-blue-500 text-white rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 active:bg-blue-700 shadow-lg touch-manipulation"
+                    className="absolute bottom-1.5 right-1.5 p-1.5 bg-blue-500/90 text-white rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-blue-600 active:bg-blue-700 shadow touch-manipulation"
                     title="Скачать фото"
                   >
-                    <Icon name="Download" size={12} />
+                    <Icon name="Download" size={13} />
                   </button>
                 </div>
               ))}
