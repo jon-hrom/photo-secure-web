@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchLegalList, LegalDocMeta } from '@/lib/legalApi';
+import CreateTicketDialog from '@/components/support/CreateTicketDialog';
 
 const SLUG_PATH: Record<string, string> = {
   'offer': '/offer',
@@ -15,12 +16,16 @@ const SLUG_LABEL: Record<string, string> = {
 
 const LegalFooter = ({ className = '' }: { className?: string }) => {
   const [docs, setDocs] = useState<LegalDocMeta[]>([]);
+  const [ticketOpen, setTicketOpen] = useState(false);
 
   useEffect(() => {
     fetchLegalList().then(setDocs).catch(() => setDocs([]));
   }, []);
 
   const year = new Date().getFullYear();
+  const userId = localStorage.getItem('userId') || 'guest';
+  const userName = localStorage.getItem('userName') || undefined;
+  const userEmail = localStorage.getItem('userEmail') || undefined;
 
   return (
     <footer className={`w-full border-t border-border bg-black/90 text-gray-300 ${className}`}>
@@ -42,18 +47,27 @@ const LegalFooter = ({ className = '' }: { className?: string }) => {
               {SLUG_LABEL[d.slug] || d.title}
             </a>
           ))}
-          <a
-            href="mailto:support@foto-mix.ru"
-            className="text-gray-300 hover:text-white transition-colors lowercase"
+          <button
+            onClick={() => setTicketOpen(true)}
+            className="text-gray-300 hover:text-white transition-colors lowercase cursor-pointer bg-transparent border-0 p-0 font-[inherit] text-[inherit]"
           >
-            поддержка
-          </a>
+            тех.поддержка
+          </button>
         </nav>
 
         <div className="text-xs text-gray-500 text-center md:text-right">
           НПД Пономарев Е.В. · ИНН 634502706508
         </div>
       </div>
+
+      <CreateTicketDialog
+        open={ticketOpen}
+        onClose={() => setTicketOpen(false)}
+        userId={userId}
+        userName={userName}
+        userEmail={userEmail}
+        onCreated={() => setTicketOpen(false)}
+      />
     </footer>
   );
 };
