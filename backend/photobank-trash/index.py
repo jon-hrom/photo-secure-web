@@ -13,6 +13,93 @@ from psycopg2.extras import RealDictCursor
 import boto3
 from botocore.client import Config
 
+SCHEMA = 't_p28211681_photo_secure_web'
+
+
+def _purge_folders_forever(cur, folder_ids):
+    """Полностью и безопасно удаляет папки из БД вместе со всеми зависимостями.
+    Порядок удаления учитывает все внешние ключи, чтобы не было FK violation.
+    """
+    if not folder_ids:
+        return
+    ph = ','.join(['%s'] * len(folder_ids))
+    fids = tuple(folder_ids)
+
+    # ID фотографий в этих папках
+    cur.execute(f'SELECT id FROM {SCHEMA}.photo_bank WHERE folder_id IN ({ph})', fids)
+    photo_ids = [r['id'] for r in cur.fetchall()]
+
+    if photo_ids:
+        p_ph = ','.join(['%s'] * len(photo_ids))
+        p_t = tuple(photo_ids)
+        cur.execute(f'DELETE FROM {SCHEMA}.download_logs WHERE photo_id IN ({p_ph})', p_t)
+        cur.execute(f'DELETE FROM {SCHEMA}.photobook_design_photos WHERE photo_bank_id IN ({p_ph})', p_t)
+        cur.execute(f'DELETE FROM {SCHEMA}.photo_bank WHERE id IN ({p_ph})', p_t)
+
+    # Логи скачиваний по папке
+    cur.execute(f'DELETE FROM {SCHEMA}.download_logs WHERE folder_id IN ({ph})', fids)
+
+    # Короткие ссылки и всё, что от них зависит
+    cur.execute(f'SELECT id, short_code FROM {SCHEMA}.folder_short_links WHERE folder_id IN ({ph})', fids)
+    links = cur.fetchall()
+    short_link_ids = [r['id'] for r in links]
+    short_codes = [r['short_code'] for r in links if r['short_code']]
+
+    # Клиенты галереи по short_code
+    if short_codes:
+        sc_ph = ','.join(['%s'] * len(short_codes))
+        cur.execute(f'SELECT id FROM {SCHEMA}.favorite_clients WHERE gallery_code IN ({sc_ph})', tuple(short_codes))
+        client_ids = [r['id'] for r in cur.fetchall()]
+        if client_ids:
+            c_ph = ','.join(['%s'] * len(client_ids))
+            c_t = tuple(client_ids)
+            cur.execute(f'DELETE FROM {SCHEMA}.client_messages WHERE client_id IN ({c_ph})', c_t)
+            cur.execute(f'DELETE FROM {SCHEMA}.favorite_photos WHERE client_id IN ({c_ph})', c_t)
+            cur.execute(f'''DELETE FROM {SCHEMA}.favorite_list_photos
+                WHERE list_id IN (
+                    SELECT id FROM {SCHEMA}.favorite_lists WHERE client_id IN ({c_ph})
+                )''', c_t)
+            cur.execute(f'DELETE FROM {SCHEMA}.favorite_lists WHERE client_id IN ({c_ph})', c_t)
+            cur.execute(f'''DELETE FROM {SCHEMA}.client_upload_photos
+                WHERE upload_folder_id IN (
+                    SELECT id FROM {SCHEMA}.client_upload_folders WHERE client_id IN ({c_ph})
+                )''', c_t)
+            cur.execute(f'DELETE FROM {SCHEMA}.client_upload_folders WHERE client_id IN ({c_ph})', c_t)
+            cur.execute(f'DELETE FROM {SCHEMA}.favorite_clients WHERE id IN ({c_ph})', c_t)
+
+    # Зависимости от самих коротких ссылок
+    if short_link_ids:
+        sl_ph = ','.join(['%s'] * len(short_link_ids))
+        sl_t = tuple(short_link_ids)
+        cur.execute(f'''DELETE FROM {SCHEMA}.client_upload_photos
+            WHERE upload_folder_id IN (
+                SELECT id FROM {SCHEMA}.client_upload_folders WHERE short_link_id IN ({sl_ph})
+            )''', sl_t)
+        cur.execute(f'DELETE FROM {SCHEMA}.client_upload_folders WHERE short_link_id IN ({sl_ph})', sl_t)
+        cur.execute(f'''DELETE FROM {SCHEMA}.favorite_list_photos
+            WHERE list_id IN (
+                SELECT id FROM {SCHEMA}.favorite_lists WHERE short_link_id IN ({sl_ph})
+            )''', sl_t)
+        cur.execute(f'DELETE FROM {SCHEMA}.favorite_lists WHERE short_link_id IN ({sl_ph})', sl_t)
+        cur.execute(f'DELETE FROM {SCHEMA}.gallery_view_logs WHERE short_link_id IN ({sl_ph})', sl_t)
+
+    cur.execute(f'DELETE FROM {SCHEMA}.folder_short_links WHERE folder_id IN ({ph})', fids)
+
+    # Прямые зависимости от папок
+    cur.execute(f'''DELETE FROM {SCHEMA}.client_upload_photos
+        WHERE upload_folder_id IN (
+            SELECT id FROM {SCHEMA}.client_upload_folders WHERE parent_folder_id IN ({ph})
+        )''', fids)
+    cur.execute(f'DELETE FROM {SCHEMA}.client_upload_folders WHERE parent_folder_id IN ({ph})', fids)
+    cur.execute(f'''DELETE FROM {SCHEMA}.favorite_list_photos
+        WHERE list_id IN (
+            SELECT id FROM {SCHEMA}.favorite_lists WHERE parent_folder_id IN ({ph})
+        )''', fids)
+    cur.execute(f'DELETE FROM {SCHEMA}.favorite_lists WHERE parent_folder_id IN ({ph})', fids)
+
+    cur.execute(f'DELETE FROM {SCHEMA}.photo_folders WHERE id IN ({ph})', fids)
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method: str = event.get('httpMethod', 'GET')
     
@@ -57,8 +144,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         conn = psycopg2.connect(db_url)
         
-        # Auto-cleanup: delete trashed items older than 7 days
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Auto-cleanup: delete trashed items older than 7 days.
+        # Оборачиваем в try/except — даже если очистка не удалась,
+        # корзина должна открываться (GET-запросы не должны падать).
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 # Clean up expired folders first (including their photos)
                 cur.execute('''
                     SELECT id, s3_prefix, folder_name
@@ -91,7 +181,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         
                         # Определяем хранилище по префиксу
                         if s3_key.startswith('uploads/'):
-                            # poehali.dev bucket
                             storage_client = boto3.client(
                                 's3',
                                 endpoint_url='https://bucket.poehali.dev',
@@ -100,19 +189,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             )
                             storage_bucket = 'files'
                         else:
-                            # Yandex Cloud foto-mix
                             storage_client = s3_client
                             storage_bucket = bucket
                         
-                        # Удаляем основной файл
                         try:
                             storage_client.delete_object(Bucket=storage_bucket, Key=s3_key)
                             deleted_files_count += 1
-                            print(f'[AUTO_CLEANUP] Deleted S3 file: {s3_key}')
                         except Exception as e:
                             print(f'[AUTO_CLEANUP] Failed to delete {s3_key}: {e}')
                         
-                        # Удаляем thumbnail если есть
                         if thumb_key:
                             try:
                                 storage_client.delete_object(Bucket=storage_bucket, Key=thumb_key)
@@ -122,56 +207,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 if expired_folders:
                     expired_folder_ids = [f['id'] for f in expired_folders]
-                    ids_str = ','.join(map(str, expired_folder_ids))
-                    
-                    cur.execute(f'''
-                        SELECT short_code FROM t_p28211681_photo_secure_web.folder_short_links
-                        WHERE folder_id IN ({ids_str})
-                    ''')
-                    exp_short_codes = [row['short_code'] for row in cur.fetchall()]
-                    
-                    if exp_short_codes:
-                        sc_ph = ','.join(['%s'] * len(exp_short_codes))
-                        cur.execute(f'''
-                            SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
-                            WHERE gallery_code IN ({sc_ph})
-                        ''', tuple(exp_short_codes))
-                        exp_client_ids = [row['id'] for row in cur.fetchall()]
-                        
-                        if exp_client_ids:
-                            cl_ph = ','.join(['%s'] * len(exp_client_ids))
-                            cur.execute(f'''
-                                DELETE FROM t_p28211681_photo_secure_web.client_messages
-                                WHERE client_id IN ({cl_ph})
-                            ''', tuple(exp_client_ids))
-                            cur.execute(f'''
-                                DELETE FROM t_p28211681_photo_secure_web.favorite_photos
-                                WHERE client_id IN ({cl_ph})
-                            ''', tuple(exp_client_ids))
-                            cur.execute(f'''
-                                DELETE FROM t_p28211681_photo_secure_web.favorite_clients
-                                WHERE id IN ({cl_ph})
-                            ''', tuple(exp_client_ids))
-                            print(f'[AUTO_CLEANUP] Deleted {len(exp_client_ids)} gallery clients from expired folders')
-                    
-                    cur.execute(f'''
-                        DELETE FROM t_p28211681_photo_secure_web.folder_short_links
-                        WHERE folder_id IN ({ids_str})
-                    ''')
-                    
-                    cur.execute(f'''
-                        DELETE FROM t_p28211681_photo_secure_web.photo_bank 
-                        WHERE folder_id IN ({ids_str})
-                          AND is_trashed = TRUE
-                    ''')
-                    cur.execute(f'''
-                        DELETE FROM t_p28211681_photo_secure_web.photo_folders 
-                        WHERE id IN ({ids_str})
-                    ''')
+                    _purge_folders_forever(cur, expired_folder_ids)
                     conn.commit()
                     print(f'[AUTO_CLEANUP] Deleted {len(expired_folders)} expired folders ({deleted_files_count} files) from trash')
-                
-                # Clean up expired standalone photos (not in trashed folders)
+        except Exception as cleanup_err:
+            conn.rollback()
+            print(f'[AUTO_CLEANUP] Folders cleanup skipped due to error: {cleanup_err}')
+
+        # Clean up expired standalone photos (not in trashed folders)
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute('''
                     SELECT pb.id, pb.s3_key, pb.thumbnail_s3_key, pb.folder_id
                     FROM t_p28211681_photo_secure_web.photo_bank pb
@@ -182,8 +227,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 ''')
                 expired_photos = cur.fetchall()
                 
-                deleted_standalone_count = 0
-                
                 for photo in expired_photos:
                     s3_key = photo['s3_key']
                     thumb_key = photo['thumbnail_s3_key']
@@ -191,9 +234,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if not s3_key:
                         continue
                     
-                    # Определяем хранилище по префиксу
                     if s3_key.startswith('uploads/'):
-                        # poehali.dev bucket
                         storage_client = boto3.client(
                             's3',
                             endpoint_url='https://bucket.poehali.dev',
@@ -202,19 +243,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         )
                         storage_bucket = 'files'
                     else:
-                        # Yandex Cloud foto-mix
                         storage_client = s3_client
                         storage_bucket = bucket
                     
-                    # Удаляем основной файл
                     try:
                         storage_client.delete_object(Bucket=storage_bucket, Key=s3_key)
-                        deleted_standalone_count += 1
-                        print(f'[AUTO_CLEANUP] Deleted standalone photo: {s3_key}')
                     except Exception as e:
                         print(f'[AUTO_CLEANUP] Failed to delete {s3_key}: {e}')
                     
-                    # Удаляем thumbnail если есть
                     if thumb_key:
                         try:
                             storage_client.delete_object(Bucket=storage_bucket, Key=thumb_key)
@@ -223,12 +259,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 if expired_photos:
                     expired_ids = [p['id'] for p in expired_photos]
-                    cur.execute(f'''
-                        DELETE FROM t_p28211681_photo_secure_web.photo_bank 
-                        WHERE id IN ({','.join(map(str, expired_ids))})
-                    ''')
+                    p_ph = ','.join(['%s'] * len(expired_ids))
+                    p_t = tuple(expired_ids)
+                    cur.execute(f'DELETE FROM t_p28211681_photo_secure_web.download_logs WHERE photo_id IN ({p_ph})', p_t)
+                    cur.execute(f'DELETE FROM t_p28211681_photo_secure_web.photobook_design_photos WHERE photo_bank_id IN ({p_ph})', p_t)
+                    cur.execute(f'DELETE FROM t_p28211681_photo_secure_web.photo_bank WHERE id IN ({p_ph})', p_t)
                     conn.commit()
                     print(f'[AUTO_CLEANUP] Deleted {len(expired_photos)} expired standalone photos from trash')
+        except Exception as cleanup_err2:
+            conn.rollback()
+            print(f'[AUTO_CLEANUP] Standalone cleanup skipped due to error: {cleanup_err2}')
         
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list')
@@ -519,141 +559,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         print(f'[EMPTY_TRASH] Folder {folder["id"]}: s3_prefix={folder["s3_prefix"]}')
                     
                     folder_ids = [f['id'] for f in folders]
-                    photo_ids = []
                     
                     if folder_ids:
                         print(f'[EMPTY_TRASH] Processing {len(folder_ids)} folders: {folder_ids}')
-                        
-                        # Получаем все ID фотографий из удаляемых папок
-                        placeholders = ','.join(['%s'] * len(folder_ids))
-                        cur.execute(f'''
-                            SELECT id FROM t_p28211681_photo_secure_web.photo_bank 
-                            WHERE folder_id IN ({placeholders})
-                        ''', tuple(folder_ids))
-                        photo_ids = [row['id'] for row in cur.fetchall()]
-                        print(f'[EMPTY_TRASH] Found {len(photo_ids)} photos to delete')
-                        
-                        if photo_ids:
-                            # 1. Удаляем логи скачиваний по photo_id
-                            print(f'[EMPTY_TRASH] Deleting download logs by photo_id...')
-                            placeholders_photos = ','.join(['%s'] * len(photo_ids))
-                            cur.execute(f'''
-                                DELETE FROM t_p28211681_photo_secure_web.download_logs 
-                                WHERE photo_id IN ({placeholders_photos})
-                            ''', tuple(photo_ids))
-                            
-                            # 2. Удаляем связи с фотокнигами
-                            print(f'[EMPTY_TRASH] Deleting photobook design links...')
-                            cur.execute(f'''
-                                DELETE FROM t_p28211681_photo_secure_web.photobook_design_photos 
-                                WHERE photo_bank_id IN ({placeholders_photos})
-                            ''', tuple(photo_ids))
-                            
-                            # 3. Теперь можно безопасно удалить сами фото
-                            print(f'[EMPTY_TRASH] Deleting photos...')
-                            cur.execute(f'''
-                                DELETE FROM t_p28211681_photo_secure_web.photo_bank 
-                                WHERE id IN ({placeholders_photos})
-                            ''', tuple(photo_ids))
-                        
-                        # 4. Удаляем логи скачиваний по folder_id
-                        print(f'[EMPTY_TRASH] Deleting download logs by folder_id...')
-                        cur.execute(f'''
-                            DELETE FROM t_p28211681_photo_secure_web.download_logs 
-                            WHERE folder_id IN ({placeholders})
-                        ''', tuple(folder_ids))
-                        
-                        # 5. Удаляем клиентов галереи и их данные по short_code
-                        print(f'[EMPTY_TRASH] Cleaning up gallery clients...')
-                        cur.execute(f'''
-                            SELECT short_code FROM t_p28211681_photo_secure_web.folder_short_links
-                            WHERE folder_id IN ({placeholders})
-                        ''', tuple(folder_ids))
-                        short_codes = [row['short_code'] for row in cur.fetchall()]
-                        
-                        if short_codes:
-                            sc_placeholders = ','.join(['%s'] * len(short_codes))
-                            
-                            cur.execute(f'''
-                                SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
-                                WHERE gallery_code IN ({sc_placeholders})
-                            ''', tuple(short_codes))
-                            client_ids = [row['id'] for row in cur.fetchall()]
-                            
-                            if client_ids:
-                                cl_placeholders = ','.join(['%s'] * len(client_ids))
-                                
-                                cur.execute(f'''
-                                    DELETE FROM t_p28211681_photo_secure_web.client_messages
-                                    WHERE client_id IN ({cl_placeholders})
-                                ''', tuple(client_ids))
-                                print(f'[EMPTY_TRASH] Deleted messages for {len(client_ids)} clients')
-                                
-                                cur.execute(f'''
-                                    DELETE FROM t_p28211681_photo_secure_web.favorite_photos
-                                    WHERE client_id IN ({cl_placeholders})
-                                ''', tuple(client_ids))
-                                print(f'[EMPTY_TRASH] Deleted favorite photos for clients')
-                                
-                                cur.execute(f'''
-                                    DELETE FROM t_p28211681_photo_secure_web.client_upload_photos
-                                    WHERE upload_folder_id IN (
-                                        SELECT id FROM t_p28211681_photo_secure_web.client_upload_folders
-                                        WHERE client_id IN ({cl_placeholders})
-                                    )
-                                ''', tuple(client_ids))
-                                print(f'[EMPTY_TRASH] Deleted client upload photos')
-                                
-                                cur.execute(f'''
-                                    DELETE FROM t_p28211681_photo_secure_web.client_upload_folders
-                                    WHERE client_id IN ({cl_placeholders})
-                                ''', tuple(client_ids))
-                                print(f'[EMPTY_TRASH] Deleted client upload folders')
-                                
-                                cur.execute(f'''
-                                    DELETE FROM t_p28211681_photo_secure_web.favorite_clients
-                                    WHERE id IN ({cl_placeholders})
-                                ''', tuple(client_ids))
-                                print(f'[EMPTY_TRASH] Deleted {len(client_ids)} gallery clients')
-                        
-                        # 5.5. Удаляем client_upload_folders по short_link_id (даже без client_id)
-                        cur.execute(f'''
-                            SELECT id FROM t_p28211681_photo_secure_web.folder_short_links
-                            WHERE folder_id IN ({placeholders})
-                        ''', tuple(folder_ids))
-                        short_link_ids = [row['id'] for row in cur.fetchall()]
-                        
-                        if short_link_ids:
-                            sl_placeholders = ','.join(['%s'] * len(short_link_ids))
-                            cur.execute(f'''
-                                DELETE FROM t_p28211681_photo_secure_web.client_upload_photos
-                                WHERE upload_folder_id IN (
-                                    SELECT id FROM t_p28211681_photo_secure_web.client_upload_folders
-                                    WHERE short_link_id IN ({sl_placeholders})
-                                )
-                            ''', tuple(short_link_ids))
-                            cur.execute(f'''
-                                DELETE FROM t_p28211681_photo_secure_web.client_upload_folders
-                                WHERE short_link_id IN ({sl_placeholders})
-                            ''', tuple(short_link_ids))
-                            print(f'[EMPTY_TRASH] Cleaned up remaining client upload folders by short_link_id')
-                        
-                        # 6. Удаляем короткие ссылки на папки
-                        print(f'[EMPTY_TRASH] Deleting folder short links...')
-                        cur.execute(f'''
-                            DELETE FROM t_p28211681_photo_secure_web.folder_short_links 
-                            WHERE folder_id IN ({placeholders})
-                        ''', tuple(folder_ids))
-                        
-                        # 7. Наконец удаляем папки
-                        print(f'[EMPTY_TRASH] Deleting folders...')
-                        cur.execute(f'''
-                            DELETE FROM t_p28211681_photo_secure_web.photo_folders 
-                            WHERE id IN ({placeholders}) AND is_trashed = TRUE
-                        ''', tuple(folder_ids))
-                        
+                        _purge_folders_forever(cur, folder_ids)
                         conn.commit()
-                        print(f'[EMPTY_TRASH] Successfully deleted {len(photo_ids)} photos and {len(folder_ids)} folders')
+                        print(f'[EMPTY_TRASH] Successfully deleted {len(folder_ids)} folders')
                 
                 deleted_count = 0
                 folders_with_s3 = 0
