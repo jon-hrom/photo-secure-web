@@ -96,30 +96,61 @@ export default function GalleryJustifiedLayout({
     });
   }, [photos]);
 
+  const RAW_EXTS = ['.cr2', '.nef', '.arw', '.dng', '.orf', '.raf', '.rw2', '.cr3'];
+  const isRaw = (p: Photo) => RAW_EXTS.some(ext => p.file_name.toLowerCase().endsWith(ext));
+  const isLandscapePhoto = (p: Photo) => (p.width || 1) / (p.height || 1) > 1.15;
+  const allRaw = sortedPhotos.length > 0 && sortedPhotos.every(isRaw);
+
   const targetHeight = 280;
   const containerWidth = typeof window !== 'undefined' ? Math.min(window.innerWidth - 32, 1280) : 1200;
 
   const justifiedRows: { photos: Photo[]; height: number }[] = [];
-  let currentRow: Photo[] = [];
-  let currentAR = 0;
 
-  sortedPhotos.forEach((photo, i) => {
-    const ar = (photo.width || 1) / (photo.height || 1);
-    currentRow.push(photo);
-    currentAR += ar;
-
-    const gaps = currentRow.length > 1 ? (currentRow.length - 1) * gridGap : 0;
-    const rowHeight = (containerWidth - gaps) / currentAR;
-
-    if (rowHeight <= targetHeight || i === sortedPhotos.length - 1) {
-      const finalHeight = i === sortedPhotos.length - 1 && rowHeight > targetHeight * 1.5
-        ? targetHeight
-        : rowHeight;
-      justifiedRows.push({ photos: [...currentRow], height: finalHeight });
-      currentRow = [];
-      currentAR = 0;
+  if (allRaw) {
+    // RAW-режим: горизонтальные — по 1 на всю ширину, вертикальные — по 2 рядом
+    let i = 0;
+    while (i < sortedPhotos.length) {
+      const photo = sortedPhotos[i];
+      if (isLandscapePhoto(photo)) {
+        // Горизонтальное: одно на всю строку
+        const ar = (photo.width || 1) / (photo.height || 1);
+        justifiedRows.push({ photos: [photo], height: containerWidth / ar });
+        i++;
+      } else {
+        // Вертикальное: берём до 2 подряд вертикальных
+        const verticals: Photo[] = [photo];
+        if (i + 1 < sortedPhotos.length && !isLandscapePhoto(sortedPhotos[i + 1])) {
+          verticals.push(sortedPhotos[i + 1]);
+        }
+        const totalAR = verticals.reduce((s, p) => s + (p.width || 1) / (p.height || 1), 0);
+        const gaps = (verticals.length - 1) * gridGap;
+        const h = (containerWidth - gaps) / totalAR;
+        justifiedRows.push({ photos: verticals, height: h });
+        i += verticals.length;
+      }
     }
-  });
+  } else {
+    let currentRow: Photo[] = [];
+    let currentAR = 0;
+
+    sortedPhotos.forEach((photo, i) => {
+      const ar = (photo.width || 1) / (photo.height || 1);
+      currentRow.push(photo);
+      currentAR += ar;
+
+      const gaps = currentRow.length > 1 ? (currentRow.length - 1) * gridGap : 0;
+      const rowHeight = (containerWidth - gaps) / currentAR;
+
+      if (rowHeight <= targetHeight || i === sortedPhotos.length - 1) {
+        const finalHeight = i === sortedPhotos.length - 1 && rowHeight > targetHeight * 1.5
+          ? targetHeight
+          : rowHeight;
+        justifiedRows.push({ photos: [...currentRow], height: finalHeight });
+        currentRow = [];
+        currentAR = 0;
+      }
+    });
+  }
 
   let globalIndex = 0;
   return (
