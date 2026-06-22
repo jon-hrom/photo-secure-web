@@ -64,8 +64,8 @@ const PhotobankTab = ({
 }: PhotobankTabProps) => {
   const mainFolders = folders.filter(f => !f.parent_folder_id);
   const getSubfolders = (parentId: number) => folders.filter(f => f.parent_folder_id === parentId);
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortField, setSortField] = useState<SortField>('shot_date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { frameMode, setFrameMode, getFrameStyle } = usePhotoFrames();
 
   const sortedPhotos = useMemo(() => {

@@ -129,8 +129,8 @@ const PhotoBankPhotoGrid = ({
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
   const [viewVideo, setViewVideo] = useState<Photo | null>(null);
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortField, setSortField] = useState<SortField>('shot_date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { frameMode, setFrameMode, getFrameStyle } = usePhotoFrames();
 
   const naturalCompare = (a: string, b: string): number => {
