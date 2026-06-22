@@ -3,6 +3,10 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { EnergyTopupDialog } from '@/components/EnergyTopupDialog';
+import { CelebrationDialog } from '@/components/CelebrationDialog';
+
+const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
 
 interface NavItem {
   icon: string;
@@ -15,9 +19,10 @@ interface MobileNavigationProps {
   currentPage?: string;
   unreadCount?: number;
   onOpenChat?: () => void;
+  userId?: string | number | null;
 }
 
-const MobileNavigation = ({ onNavigate, currentPage, unreadCount = 0, onOpenChat }: MobileNavigationProps) => {
+const MobileNavigation = ({ onNavigate, currentPage, unreadCount = 0, onOpenChat, userId: userIdProp }: MobileNavigationProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -28,6 +33,19 @@ const MobileNavigation = ({ onNavigate, currentPage, unreadCount = 0, onOpenChat
   const dragStartY = useRef(0);
   const dragStartBottom = useRef(16);
   const dragStartTime = useRef(0);
+  const [energyBalance, setEnergyBalance] = useState<number>(0);
+  const [topupOpen, setTopupOpen] = useState(false);
+  const [celebration, setCelebration] = useState<null | 'energy' | 'tariff'>(null);
+
+  const userId = userIdProp ?? localStorage.getItem('userId');
+
+  useEffect(() => {
+    if (!userId) return;
+    fetch(ENERGY_URL, { headers: { 'X-User-Id': String(userId) } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.energy_balance != null) setEnergyBalance(d.energy_balance); })
+      .catch(() => {});
+  }, [userId]);
 
   const navItems: NavItem[] = [
     { icon: 'LayoutDashboard', label: 'МЕНЮ', path: '/' },
@@ -204,6 +222,33 @@ const MobileNavigation = ({ onNavigate, currentPage, unreadCount = 0, onOpenChat
             </Button>
           ))}
 
+          {/* Кнопка Энергия */}
+          {isExpanded && (
+            <Button
+              variant="ghost"
+              className="flex flex-col items-center gap-0.5 h-auto py-2 px-3 relative bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 backdrop-blur-xl border-2 border-border/50 dark:border-gray-700/50 shadow-2xl hover:shadow-3xl"
+              onClick={() => { setIsExpanded(false); setTopupOpen(true); }}
+              style={{
+                animation: `slide-in-from-bottom 0.4s ease-out ${navItems.length * 0.1}s both`,
+                transformOrigin: 'bottom center'
+              }}
+            >
+              <div className="p-2 rounded-lg transition-all duration-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <Icon
+                  name="Zap"
+                  size={18}
+                  className={energyBalance < 10 ? 'energy-low-anim' : 'text-yellow-500'}
+                />
+              </div>
+              <span className={cn(
+                'text-[10px] font-semibold',
+                energyBalance < 10 ? 'energy-low-anim' : 'text-yellow-500'
+              )}>
+                {energyBalance}
+              </span>
+            </Button>
+          )}
+
           {/* Кнопка Чат с клиентами */}
           {isExpanded && onOpenChat && (
             <Button
@@ -291,6 +336,30 @@ const MobileNavigation = ({ onNavigate, currentPage, unreadCount = 0, onOpenChat
           </Button>
         </div>
       </nav>
+
+      <EnergyTopupDialog
+        open={topupOpen}
+        onClose={() => setTopupOpen(false)}
+        userId={userId ? String(userId) : ''}
+        currentBalance={energyBalance}
+        onSuccess={() => {
+          if (userId) {
+            fetch(ENERGY_URL, { headers: { 'X-User-Id': String(userId) } })
+              .then((r) => (r.ok ? r.json() : null))
+              .then((d) => { if (d?.energy_balance != null) setEnergyBalance(d.energy_balance); })
+              .catch(() => {});
+          }
+          setTopupOpen(false);
+          setCelebration('energy');
+        }}
+      />
+      {celebration && (
+        <CelebrationDialog
+          open={!!celebration}
+          kind={celebration}
+          onClose={() => setCelebration(null)}
+        />
+      )}
     </>
   );
 };
