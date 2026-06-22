@@ -62,6 +62,36 @@ def postprocess_raw_capture_one_style(raw_data: bytes, file_name: str) -> Image.
     return Image.fromarray(rgb)
 
 
+def extract_shot_date_from_raw(raw_data, file_name):
+    """Извлекает дату съёмки (DateTimeOriginal) из RAW через встроенный JPEG-превью.
+    Возвращает datetime или None. Безопасно: при любой ошибке возвращает None.
+    """
+    from datetime import datetime
+    from PIL.ExifTags import Base as ExifBase
+    try:
+        with rawpy.imread(BytesIO(raw_data)) as raw:
+            try:
+                thumb = raw.extract_thumb()
+            except Exception:
+                return None
+            if thumb.format != rawpy.ThumbFormat.JPEG:
+                return None
+            img = Image.open(BytesIO(thumb.data))
+            exif = img.getexif()
+            if not exif:
+                return None
+            for tag_id in [ExifBase.DateTimeOriginal, ExifBase.DateTimeDigitized, ExifBase.DateTime]:
+                val = exif.get(tag_id)
+                if val:
+                    try:
+                        return datetime.strptime(str(val), '%Y:%m:%d %H:%M:%S')
+                    except Exception:
+                        continue
+    except Exception as e:
+        print(f'[THUMBNAIL] shot_date extract failed: {e}')
+    return None
+
+
 def try_extract_embedded_jpeg(raw_data):
     """Fallback: извлекает встроенный JPEG-превью из RAW.
     Используется ТОЛЬКО если postprocess упал (например, неизвестная камера).
@@ -106,9 +136,13 @@ def process_single_thumbnail(conn, s3_client, photo_id, force=False):
     
     print(f'[THUMBNAIL] Downloaded {len(raw_data)//1024//1024}MB in {dl_time:.1f}s, converting...')
 
+    file_name = photo['file_name'] or ''
+
+    # Дата съёмки из EXIF (пока RAW в памяти) — для сортировки по дате/времени
+    shot_date = extract_shot_date_from_raw(raw_data, file_name)
+
     img = None
     source = None
-    file_name = photo['file_name'] or ''
 
     # Для RAW — ВСЕГДА полный демозаик с матрицей камеры (Capture One-style),
     # а не встроенный JPEG-превью (он часто красный/перекрученный).
@@ -138,6 +172,12 @@ def process_single_thumbnail(conn, s3_client, photo_id, force=False):
     except Exception as e:
         print(f'[THUMBNAIL] exif_transpose failed: {e}')
 
+    # Реальные размеры кадра (до ресайза превью). half_size в postprocess
+    # уменьшает RAW вдвое — компенсируем, чтобы записать настоящее разрешение.
+    full_w, full_h = img.size
+    if is_true_raw(file_name) and source and source.startswith('postprocess'):
+        full_w, full_h = full_w * 2, full_h * 2
+
     # Превью отдаём как с камеры (camera WB + лёгкое auto-bright libraw),
     # БЕЗ цветокора. Пресет применяется только на этапе ретуши.
     img.thumbnail((2400, 2400), Image.Resampling.LANCZOS)
@@ -162,11 +202,17 @@ def process_single_thumbnail(conn, s3_client, photo_id, force=False):
     print(f'[THUMBNAIL] Done photo_id={photo_id} in {total_time:.1f}s (download: {dl_time:.1f}s)')
     
     with conn.cursor() as cur:
+        # shot_date пишем только если он ещё не задан (COALESCE),
+        # чтобы не перетирать дату при принудительной перегенерации.
         cur.execute('''
             UPDATE photo_bank 
-            SET thumbnail_s3_key = %s, is_raw = TRUE
+            SET thumbnail_s3_key = %s,
+                is_raw = TRUE,
+                shot_date = COALESCE(shot_date, %s),
+                width = COALESCE(width, %s),
+                height = COALESCE(height, %s)
             WHERE id = %s
-        ''', (thumbnail_key, photo_id))
+        ''', (thumbnail_key, shot_date, full_w, full_h, photo_id))
         conn.commit()
     
     return {'photo_id': photo_id, 'thumbnail_key': thumbnail_key, 'time': round(total_time, 1)}
