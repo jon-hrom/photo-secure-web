@@ -397,6 +397,7 @@ export default function PublicGallery() {
         onClientLogin={handlers.handleClientLogin}
         onRemoveFromFavorites={handlers.handleRemoveFromFavorites}
         onDownloadPhoto={downloadPhoto}
+        onAddToFavorites={handlers.handleAddToFavorites}
         loadClientFavorites={handlers.loadClientFavorites}
         isDarkTheme={isDarkTheme}
       />

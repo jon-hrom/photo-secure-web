@@ -13,6 +13,8 @@ interface GalleryViewerTopBarProps {
   onShowHelp: () => void;
   onClose: () => void;
   showUI: boolean;
+  onAddToFavorites?: () => void;
+  isFavorite?: boolean;
 }
 
 export default function GalleryViewerTopBar({
@@ -28,6 +30,8 @@ export default function GalleryViewerTopBar({
   onShowHelp,
   onClose,
   showUI,
+  onAddToFavorites,
+  isFavorite = false,
 }: GalleryViewerTopBarProps) {
   // На мобиле landscape кнопки меньше чтобы не перекрывать фото
   const btnSize = 'w-9 h-9 sm:w-11 sm:h-11';
@@ -77,6 +81,23 @@ export default function GalleryViewerTopBar({
             title="Скачать фото"
           >
             <Icon name="Download" size={18} className="text-white" />
+          </button>
+        )}
+        {onAddToFavorites && (
+          <button
+            onClick={onAddToFavorites}
+            className={`${btnSize} flex items-center justify-center rounded-full backdrop-blur-sm transition-all ${
+              isFavorite
+                ? 'bg-yellow-500/80 active:bg-yellow-600'
+                : 'bg-white/10 active:bg-yellow-500/70'
+            }`}
+            title={isFavorite ? 'Уже в избранном' : 'Добавить в избранное'}
+          >
+            <Icon
+              name="Star"
+              size={18}
+              className={isFavorite ? 'text-white fill-white' : 'text-white'}
+            />
           </button>
         )}
         <button

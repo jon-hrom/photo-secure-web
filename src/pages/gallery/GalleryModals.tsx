@@ -82,6 +82,7 @@ interface GalleryModalsProps {
   onClientLogin: (clientData: { client_id: number; full_name: string; phone: string; email?: string }) => void;
   onRemoveFromFavorites: (photoId: number) => void;
   onDownloadPhoto: (photo: Photo) => void;
+  onAddToFavorites: (photo: Photo) => void;
   loadClientFavorites: (clientId: number) => void;
   isDarkTheme?: boolean;
 }
@@ -115,6 +116,7 @@ export default function GalleryModals({
   onClientLogin,
   onRemoveFromFavorites,
   onDownloadPhoto,
+  onAddToFavorites,
   loadClientFavorites
 }: GalleryModalsProps) {
   const visiblePhotos = (clientData && clientData.client_id > 0 && gallery)
@@ -135,6 +137,8 @@ export default function GalleryModals({
           screenshotProtection={gallery?.screenshot_protection}
           watermark={gallery?.watermark}
           onDownload={onDownloadPhoto}
+          onAddToFavorites={favoriteFolder ? onAddToFavorites : undefined}
+          clientFavoritePhotoIds={clientFavoritePhotoIds}
         />
       )}
 

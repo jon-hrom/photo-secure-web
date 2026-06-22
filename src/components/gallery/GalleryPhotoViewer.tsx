@@ -40,6 +40,8 @@ interface GalleryPhotoViewerProps {
   screenshotProtection?: boolean;
   watermark?: WatermarkSettings;
   onDownload?: (photo: Photo) => void;
+  onAddToFavorites?: (photo: Photo) => void;
+  clientFavoritePhotoIds?: number[];
 }
 
 export default function GalleryPhotoViewer({
@@ -49,7 +51,9 @@ export default function GalleryPhotoViewer({
   downloadDisabled = false,
   screenshotProtection = false,
   watermark,
-  onDownload
+  onDownload,
+  onAddToFavorites,
+  clientFavoritePhotoIds = [],
 }: GalleryPhotoViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(() => 
     photos.findIndex(p => p.id === initialPhotoId) || 0
@@ -77,6 +81,17 @@ export default function GalleryPhotoViewer({
     const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
     if (newIndex >= 0 && newIndex < photos.length) {
       setCurrentIndex(newIndex);
+    }
+  };
+
+  const handleAddToFavorites = () => {
+    if (!onAddToFavorites || !currentPhoto) return;
+    onAddToFavorites(currentPhoto);
+    // Переходим к следующему фото (или к предыдущему если это последнее)
+    if (currentIndex < photos.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
     }
   };
 
@@ -300,6 +315,8 @@ export default function GalleryPhotoViewer({
             onShowHelp={() => setShowHelp(true)}
             onClose={onClose}
             showUI={showUI}
+            onAddToFavorites={onAddToFavorites ? handleAddToFavorites : undefined}
+            isFavorite={clientFavoritePhotoIds.includes(currentPhoto.id)}
           />
 
           <GalleryViewerImage
