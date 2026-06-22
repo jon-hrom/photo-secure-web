@@ -194,6 +194,16 @@ const AppNavigation = ({
           </div>
           
           <div className="flex items-center space-x-3">
+            <Button
+              variant="ghost"
+              onClick={() => setTopupOpen(true)}
+              className="flex items-center gap-1.5 rounded-full px-3 hover:bg-yellow-500/10 transition-all duration-300"
+              title="Энергия"
+            >
+              <Icon name="Zap" size={16} className="text-yellow-500 shrink-0" />
+              <span className="text-sm font-semibold text-yellow-500">{energyBalance}</span>
+            </Button>
+
             {onOpenChat && (
               <Button
                 variant="ghost"
