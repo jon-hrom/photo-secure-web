@@ -1,7 +1,7 @@
 {
   "tests": [
     {
-      "name": "Register existing user",
+      "name": "Register without portfolio rejected",
       "method": "POST",
       "body": {
         "action": "register",
@@ -9,7 +9,7 @@
         "password": "securepass123",
         "phone": "+79991234567"
       },
-      "expectedStatus": 400,
+      "expectedStatus": 403,
       "expectedBody": {
         "error": "string"
       },

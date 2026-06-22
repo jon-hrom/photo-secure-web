@@ -5,6 +5,7 @@ import OAuthProviders from '@/components/login/OAuthProviders';
 import BiometricLoginButton from '@/components/login/BiometricLoginButton';
 import BiometricOverlay from '@/components/login/BiometricOverlay';
 import LoginDialogs from '@/components/login/LoginDialogs';
+import RegistrationPendingDialog from '@/components/login/RegistrationPendingDialog';
 import NewYearDecorations from '@/components/NewYearDecorations';
 import useLoginState from '@/components/login/useLoginState';
 
@@ -54,6 +55,8 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
           passwordError={state.passwordError}
           loginAttemptFailed={state.loginAttemptFailed}
           privacyAccepted={state.privacyAccepted}
+          portfolioLinks={state.portfolioLinks}
+          onPortfolioLinksChange={state.setPortfolioLinks}
           onEmailChange={state.setEmail}
           onPasswordChange={state.handlePasswordChange}
           onPhoneChange={state.setPhone}
@@ -98,6 +101,15 @@ const LoginPage = ({ onLoginSuccess }: LoginPageProps) => {
         showAppealDialog={state.showAppealDialog}
         onSetShowAppealDialog={state.setShowAppealDialog}
         blockedUserData={state.blockedUserData}
+      />
+
+      <RegistrationPendingDialog
+        open={state.showRegistrationPending}
+        email={state.email}
+        onClose={() => {
+          state.setShowRegistrationPending(false);
+          state.handleToggleMode();
+        }}
       />
     </div>
   );

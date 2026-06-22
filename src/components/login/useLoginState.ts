@@ -45,6 +45,8 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
   );
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [portfolioLinks, setPortfolioLinks] = useState<string[]>(['']);
+  const [showRegistrationPending, setShowRegistrationPending] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
   const [biometricUserData, setBiometricUserData] = useState<{ userId: number; email: string; token?: string } | null>(null);
@@ -299,6 +301,10 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
             await tryRegisterBiometric();
           }
 
+          if (data.show_welcome) {
+            localStorage.setItem('show_welcome', '1');
+          }
+
           onLoginSuccess(data.userId, email, data.token);
         }
       } else {
@@ -315,6 +321,11 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
         
         if (response.status === 404) {
           toast.error('Пользователь с такой почтой не зарегистрирован!');
+          return;
+        }
+        
+        if (response.status === 403 && (data.pending_approval || data.rejected)) {
+          toast.error(data.message || data.error, { duration: 8000 });
           return;
         }
         
@@ -356,6 +367,12 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
     }
     setPasswordError('');
 
+    const cleanLinks = portfolioLinks.map((l) => l.trim()).filter(Boolean);
+    if (cleanLinks.length === 0) {
+      toast.error('Укажите хотя бы одну ссылку на портфолио');
+      return;
+    }
+
     playSuccessSound();
 
     let normalizedPhone = phone.trim();
@@ -378,14 +395,13 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
       const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'register', email, password, phone: normalizedPhone }),
+        body: JSON.stringify({ action: 'register', email, password, phone: normalizedPhone, portfolio_links: cleanLinks }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        toast.success('Регистрация успешна! Подтвердите email');
-        onLoginSuccess(data.userId, email);
+        setShowRegistrationPending(true);
       
       } else if (response.status === 403 && data.registration_disabled) {
         toast.error('Регистрация сейчас временно недоступна, попробуйте позже.', {
@@ -476,6 +492,10 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
     setPrivacyAccepted,
     showPrivacyPolicy,
     setShowPrivacyPolicy,
+    portfolioLinks,
+    setPortfolioLinks,
+    showRegistrationPending,
+    setShowRegistrationPending,
     biometricEnabled,
     showBiometricPrompt,
     setShowBiometricPrompt,

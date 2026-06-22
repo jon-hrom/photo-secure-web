@@ -229,6 +229,34 @@ const FloatingAppealsButton = ({ userId, isAdmin, onClickOverride, extraUnread =
     }
   };
 
+  const decideRegistration = async (appeal: Appeal, approve: boolean) => {
+    setLoading(true);
+    try {
+      const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
+        body: JSON.stringify({
+          action: approve ? 'approve-registration' : 'reject-registration',
+          user_id: appeal.user_identifier,
+          admin_id: userId,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast.success(approve ? 'Регистрация одобрена — фотограф уведомлён' : 'Заявка отклонена');
+        setSelectedAppeal(null);
+        await fetchAppeals();
+      } else {
+        toast.error(data.error || 'Не удалось обработать заявку');
+      }
+    } catch (error) {
+      console.error('Error deciding registration:', error);
+      toast.error('Ошибка сети');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const raw = dateString.includes('Z') || dateString.includes('+') ? dateString : dateString.replace(' ', 'T') + 'Z';
     const date = new Date(raw);
@@ -451,6 +479,8 @@ const FloatingAppealsButton = ({ userId, isAdmin, onClickOverride, extraUnread =
                 onDelete={deleteAppeal}
                 onResponseChange={setResponseText}
                 onSendResponse={sendResponse}
+                onApproveRegistration={(a) => decideRegistration(a, true)}
+                onRejectRegistration={(a) => decideRegistration(a, false)}
                 formatDate={formatDate}
               />
             </div>

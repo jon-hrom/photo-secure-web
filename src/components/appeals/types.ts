@@ -15,6 +15,7 @@ export interface Appeal {
   read_at: string | null;
   admin_response: string | null;
   responded_at: string | null;
+  appeal_type?: string;
 }
 
 export interface GroupedAppeals {

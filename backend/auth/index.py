@@ -443,6 +443,118 @@ def get_real_ip(event: Dict[str, Any]) -> str:
     print(f"[IP] Fallback to sourceIp: {fallback_ip}")
     return fallback_ip
 
+def send_max_message(phone: str, text: str) -> bool:
+    """Отправить сообщение в MAX через green-api"""
+    instance_id = os.environ.get('MAX_INSTANCE_ID', '')
+    token = os.environ.get('MAX_TOKEN', '')
+    if not instance_id or not token or not phone:
+        print('[MAX] no credentials or phone', flush=True)
+        return False
+    clean_phone = ''.join(filter(str.isdigit, phone))
+    if not clean_phone.startswith('7'):
+        clean_phone = '7' + clean_phone.lstrip('8')
+    media_server = instance_id[:4] if len(instance_id) >= 4 else '7103'
+    url = f"https://{media_server}.api.green-api.com/v3/waInstance{instance_id}/sendMessage/{token}"
+    try:
+        data = json.dumps({'chatId': f'{clean_phone}@c.us', 'message': text}).encode('utf-8')
+        req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            print(f'[MAX] status={r.status}', flush=True)
+            return True
+    except Exception as e:
+        print(f'[MAX] error: {e}', flush=True)
+        return False
+
+def notify_admin_new_registration(conn, display_name: str, email: str, phone: str, portfolio_links: list):
+    """Уведомить администратора о новой заявке на регистрацию: email + MAX"""
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT email, phone, max_phone FROM {SCHEMA}.users WHERE role = 'admin' AND email IS NOT NULL LIMIT 1")
+    admin = cursor.fetchone()
+    links_html = ''.join(f'<li><a href="{l}">{l}</a></li>' for l in portfolio_links)
+    links_text = '\n'.join(portfolio_links)
+    admin_email = (admin or {}).get('email') if admin else None
+    admin_phone = (admin or {}).get('max_phone') or (admin or {}).get('phone') if admin else None
+    if admin_email:
+        html = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1a1a1a">
+        <div style="max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#7c3aed">📝 Запрос на регистрацию</h2>
+        <p>Новый фотограф хочет зарегистрироваться на foto-mix.ru:</p>
+        <p><b>Имя:</b> {display_name}<br><b>Email:</b> {email}<br><b>Телефон:</b> {phone}</p>
+        <p><b>Портфолио:</b></p><ul>{links_html}</ul>
+        <p>Откройте чат техподдержки на сайте, проверьте работы и нажмите «Разрешить регистрацию» или «Отклонить».</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="color:#9ca3af;font-size:12px">🤖 Автоматическое уведомление foto-mix.ru</p>
+        </div></body></html>'''
+        try:
+            send_email(admin_email, '📝 Запрос на регистрацию — foto-mix.ru', html, 'FotoMix')
+        except Exception as e:
+            print(f'[REGISTER] admin email error: {e}', flush=True)
+    if admin_phone:
+        max_text = (
+            f'📝 Запрос на регистрацию\n\n'
+            f'Фотограф: {display_name}\n'
+            f'Email: {email}\n'
+            f'Телефон: {phone}\n\n'
+            f'Портфолио:\n{links_text}\n\n'
+            f'Откройте чат техподдержки на foto-mix.ru для проверки.'
+        )
+        send_max_message(admin_phone, max_text)
+
+def notify_user_registration_approved(conn, user_id: int):
+    """Уведомить фотографа об одобрении: email + MAX"""
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT email, phone, max_phone, display_name FROM {SCHEMA}.users WHERE id = %s", (user_id,))
+    u = cursor.fetchone()
+    if not u:
+        return
+    name = u.get('display_name') or 'Фотограф'
+    user_email = u.get('email')
+    user_phone = u.get('max_phone') or u.get('phone')
+    if user_email:
+        html = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1a1a1a">
+        <div style="max-width:600px;margin:0 auto;padding:24px">
+        <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);padding:30px;border-radius:12px 12px 0 0;text-align:center">
+        <h1 style="color:#fff;margin:0">🎉 Регистрация одобрена!</h1></div>
+        <div style="background:#f9fafb;padding:30px;border-radius:0 0 12px 12px">
+        <p>Здравствуйте, {name}!</p>
+        <p>Мы проверили ваше портфолио — добро пожаловать в команду фотографов foto-mix.ru!</p>
+        <p>Теперь вы можете войти в свой аккаунт и начать работу.</p>
+        <a href="https://foto-mix.ru" style="display:inline-block;background:#7c3aed;color:#fff;padding:14px 32px;text-decoration:none;border-radius:8px;margin-top:16px">Перейти на сайт</a>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+        <p style="color:#9ca3af;font-size:12px">🤖 Автоматическое уведомление foto-mix.ru</p>
+        </div></div></body></html>'''
+        try:
+            send_email(user_email, '🎉 Ваша регистрация на foto-mix.ru одобрена!', html, 'FotoMix')
+        except Exception as e:
+            print(f'[APPROVE] user email error: {e}', flush=True)
+    if user_phone:
+        send_max_message(user_phone, (
+            f'🎉 {name}, ваша регистрация на foto-mix.ru одобрена!\n\n'
+            f'Мы проверили ваше портфолио — добро пожаловать!\n'
+            f'Войдите в аккаунт и начните работу: https://foto-mix.ru'
+        ))
+
+def notify_user_registration_rejected(conn, user_id: int):
+    """Уведомить фотографа об отклонении заявки: email"""
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT email, display_name FROM {SCHEMA}.users WHERE id = %s", (user_id,))
+    u = cursor.fetchone()
+    if not u or not u.get('email'):
+        return
+    name = u.get('display_name') or 'Фотограф'
+    html = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1a1a1a">
+    <div style="max-width:600px;margin:0 auto;padding:24px">
+    <h2>Здравствуйте, {name}!</h2>
+    <p>К сожалению, мы не смогли подтвердить вашу заявку на регистрацию на foto-mix.ru.</p>
+    <p>Если вы считаете, что произошла ошибка, напишите нам в техподдержку — мы рассмотрим вашу заявку повторно.</p>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+    <p style="color:#9ca3af;font-size:12px">🤖 Автоматическое уведомление foto-mix.ru</p>
+    </div></body></html>'''
+    try:
+        send_email(u['email'], 'Результат проверки регистрации — foto-mix.ru', html, 'FotoMix')
+    except Exception as e:
+        print(f'[REJECT] user email error: {e}', flush=True)
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     method = event.get('httpMethod', 'GET')
     body_str = event.get('body', '{}')
@@ -475,6 +587,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 email = body.get('email')
                 password = body.get('password')
                 phone = body.get('phone', '')
+                portfolio_links = body.get('portfolio_links') or []
+                if isinstance(portfolio_links, str):
+                    portfolio_links = [portfolio_links]
+                portfolio_links = [str(l).strip() for l in portfolio_links if str(l).strip()]
                 
                 if not is_registration_enabled(conn):
                     return {
@@ -495,6 +611,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                if not portfolio_links:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Укажите хотя бы одну ссылку на портфолио'}),
+                        'isBase64Encoded': False
+                    }
+                
                 cursor = conn.cursor()
                 cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
                 if cursor.fetchone():
@@ -511,9 +635,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 # Извлекаем имя из email если не передано отдельно
                 display_name = body.get('name', email.split('@')[0])
                 
+                portfolio_json = json.dumps(portfolio_links, ensure_ascii=False)
+                
                 cursor.execute(
-                    "INSERT INTO users (email, password_hash, phone, display_name, ip_address, user_agent, last_login, source, role, is_active, plan_id, registered_at, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, NOW(), 'email', 'user', TRUE, 1, NOW(), NOW(), NOW()) RETURNING id",
-                    (email, password_hash, phone, display_name, ip_address, user_agent)
+                    "INSERT INTO users (email, password_hash, phone, display_name, ip_address, user_agent, last_login, source, role, is_active, plan_id, approval_status, portfolio_links, welcome_seen, registered_at, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s, NOW(), 'email', 'user', TRUE, 1, 'pending', %s, FALSE, NOW(), NOW(), NOW()) RETURNING id",
+                    (email, password_hash, phone, display_name, ip_address, user_agent, portfolio_json)
                 )
                 user_id = cursor.fetchone()['id']
                 
@@ -526,14 +652,89 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     "INSERT INTO user_emails (user_id, email, provider, is_primary, is_verified, added_at, last_used_at) VALUES (%s, %s, 'email', TRUE, FALSE, NOW(), NOW()) ON CONFLICT DO NOTHING",
                     (user_id, email)
                 )
+                
+                # Создаём заявку на регистрацию
+                cursor.execute(
+                    "INSERT INTO registration_requests (user_id, email, phone, display_name, portfolio_links, status, created_at) VALUES (%s, %s, %s, %s, %s, 'pending', NOW())",
+                    (user_id, email, phone, display_name, portfolio_json)
+                )
+                
+                # Заявка администратору в чат техподдержки (тема "Запрос на регистрацию")
+                links_text = '\n'.join(f'• {l}' for l in portfolio_links)
+                appeal_message = (
+                    f'📝 Запрос на регистрацию\n\n'
+                    f'Фотограф: {display_name}\n'
+                    f'Email: {email}\n'
+                    f'Телефон: {phone}\n\n'
+                    f'Портфолио:\n{links_text}\n\n'
+                    f'Проверьте работы и одобрите или отклоните заявку.'
+                )
+                cursor.execute(
+                    "INSERT INTO blocked_user_appeals (user_identifier, user_email, user_phone, user_name, message, is_support, is_blocked, is_read, is_archived, appeal_type) VALUES (%s, %s, %s, %s, %s, true, false, false, false, 'registration_request')",
+                    (str(user_id), email, phone, display_name, appeal_message)
+                )
                 conn.commit()
+                
+                # Уведомить администратора (email + MAX) — не блокируем регистрацию при ошибке
+                try:
+                    notify_admin_new_registration(conn, display_name, email, phone, portfolio_links)
+                except Exception as _e:
+                    print(f'[REGISTER] admin notify error: {_e}', flush=True)
                 
                 return {
                     'statusCode': 200,
                     'headers': headers,
-                    'body': json.dumps({'success': True, 'userId': user_id}),
+                    'body': json.dumps({'success': True, 'userId': user_id, 'pending_approval': True}),
                     'isBase64Encoded': False
                 }
+            
+            elif action == 'approve-registration' or action == 'reject-registration':
+                admin_id = (event.get('headers', {}) or {}).get('X-User-Id') or body.get('admin_id')
+                target_user_id = body.get('user_id')
+                if not target_user_id:
+                    return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'user_id обязателен'}), 'isBase64Encoded': False}
+                
+                cursor = conn.cursor()
+                cursor.execute(f"SELECT role FROM {SCHEMA}.users WHERE id = %s", (admin_id,))
+                admin_row = cursor.fetchone()
+                if not admin_row or admin_row.get('role') != 'admin':
+                    return {'statusCode': 403, 'headers': headers, 'body': json.dumps({'error': 'Только администратор может одобрять заявки'}), 'isBase64Encoded': False}
+                
+                new_status = 'approved' if action == 'approve-registration' else 'rejected'
+                cursor.execute(
+                    f"UPDATE {SCHEMA}.users SET approval_status = %s, updated_at = NOW() WHERE id = %s",
+                    (new_status, target_user_id)
+                )
+                cursor.execute(
+                    f"UPDATE {SCHEMA}.registration_requests SET status = %s, decided_at = NOW(), decided_by = %s WHERE user_id = %s",
+                    (new_status, admin_id, target_user_id)
+                )
+                # Отметить обращение в чате как обработанное
+                resp_text = 'Регистрация одобрена ✅' if new_status == 'approved' else 'Заявка отклонена ❌'
+                cursor.execute(
+                    f"UPDATE {SCHEMA}.blocked_user_appeals SET admin_response = %s, responded_at = NOW(), is_archived = true WHERE user_identifier = %s AND appeal_type = 'registration_request'",
+                    (resp_text, str(target_user_id))
+                )
+                conn.commit()
+                
+                try:
+                    if new_status == 'approved':
+                        notify_user_registration_approved(conn, int(target_user_id))
+                    else:
+                        notify_user_registration_rejected(conn, int(target_user_id))
+                except Exception as _e:
+                    print(f'[DECISION] notify error: {_e}', flush=True)
+                
+                return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'success': True, 'status': new_status}), 'isBase64Encoded': False}
+            
+            elif action == 'mark-welcome-seen':
+                uid = (event.get('headers', {}) or {}).get('X-User-Id') or body.get('user_id')
+                if not uid:
+                    return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'user_id обязателен'}), 'isBase64Encoded': False}
+                cursor = conn.cursor()
+                cursor.execute(f"UPDATE {SCHEMA}.users SET welcome_seen = TRUE WHERE id = %s", (uid,))
+                conn.commit()
+                return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'success': True}), 'isBase64Encoded': False}
             
             elif action == 'login':
                 login_input = body.get('email')
@@ -562,7 +763,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if not is_email(login_input) and is_phone(login_input):
                     last10 = phone_last10(login_input)
                     cursor.execute(
-                        f"SELECT id, email, password_hash, two_factor_sms, two_factor_email, is_blocked "
+                        f"SELECT id, email, password_hash, two_factor_sms, two_factor_email, is_blocked, approval_status, welcome_seen "
                         f"FROM users WHERE {phone_match_sql('phone')} = %s "
                         f"OR {phone_match_sql('phone_number')} = %s "
                         f"ORDER BY (password_hash IS NOT NULL) DESC, (email IS NOT NULL) DESC, id ASC "
@@ -571,7 +772,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     )
                 else:
                     cursor.execute(
-                        "SELECT id, email, password_hash, two_factor_sms, two_factor_email, is_blocked FROM users WHERE email = %s",
+                        "SELECT id, email, password_hash, two_factor_sms, two_factor_email, is_blocked, approval_status, welcome_seen FROM users WHERE email = %s",
                         (login_input,)
                     )
                 user = cursor.fetchone()
@@ -617,6 +818,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                # Проверка одобрения регистрации (заявка фотографа на проверке)
+                approval = user.get('approval_status') or 'approved'
+                if not is_main_admin and approval != 'approved':
+                    if approval == 'rejected':
+                        msg = 'Ваша заявка на регистрацию отклонена. Если это ошибка — напишите в техподдержку.'
+                    else:
+                        msg = 'Ваша заявка на проверке. Мы изучаем ваше портфолио — результат придёт на почту.'
+                    return {
+                        'statusCode': 403,
+                        'headers': headers,
+                        'body': json.dumps({
+                            'error': msg,
+                            'pending_approval': approval == 'pending',
+                            'rejected': approval == 'rejected',
+                            'message': msg
+                        }),
+                        'isBase64Encoded': False
+                    }
+                
                 user_agent = event.get('headers', {}).get('User-Agent', '')
                 cursor.execute(
                     "UPDATE users SET last_login = NOW(), ip_address = %s, user_agent = %s, is_active = true WHERE id = %s",
@@ -652,7 +872,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'success': True, 
                         'userId': user['id'],
                         'token': token,
-                        'session_id': session_id
+                        'session_id': session_id,
+                        'show_welcome': not bool(user.get('welcome_seen'))
                     }),
                     'isBase64Encoded': False
                 }
@@ -941,7 +1162,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                            message, block_reason, is_blocked, is_read, is_archived,
                            created_at, read_at, admin_response, responded_at,
                            COALESCE(is_support, false) as is_support,
-                           user_name
+                           user_name,
+                           COALESCE(appeal_type, 'support') as appeal_type
                     FROM t_p28211681_photo_secure_web.blocked_user_appeals
                     ORDER BY is_archived ASC, is_read ASC, created_at DESC
                     LIMIT 200

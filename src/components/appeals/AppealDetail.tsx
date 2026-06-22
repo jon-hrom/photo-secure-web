@@ -15,6 +15,8 @@ interface AppealDetailProps {
   onDelete: (appealId: number) => void;
   onResponseChange: (text: string) => void;
   onSendResponse: (appeal: Appeal, mode: 'email' | 'chat') => void;
+  onApproveRegistration?: (appeal: Appeal) => void;
+  onRejectRegistration?: (appeal: Appeal) => void;
   formatDate: (dateString: string) => string;
 }
 
@@ -28,8 +30,11 @@ const AppealDetail = ({
   onDelete,
   onResponseChange,
   onSendResponse,
+  onApproveRegistration,
+  onRejectRegistration,
   formatDate,
 }: AppealDetailProps) => {
+  const isRegRequest = selectedAppeal?.appeal_type === 'registration_request';
   const [replyMode, setReplyMode] = useState<'email' | 'chat'>('email');
 
   if (!selectedAppeal) {
@@ -150,6 +155,16 @@ const AppealDetail = ({
             </div>
           )}
 
+          {/* Бейдж заявки на регистрацию */}
+          {isRegRequest && (
+            <div className="mb-3">
+              <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border-0">
+                <Icon name="ClipboardCheck" size={12} className="mr-1" />
+                Запрос на регистрацию
+              </Badge>
+            </div>
+          )}
+
           {/* Сообщение */}
           <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 sm:p-4">
             <p className="font-semibold text-xs text-blue-700 dark:text-blue-400 mb-2">Сообщение:</p>
@@ -157,6 +172,29 @@ const AppealDetail = ({
               {selectedAppeal.message}
             </p>
           </div>
+
+          {/* Действия по заявке на регистрацию */}
+          {isRegRequest && !selectedAppeal.is_archived && (
+            <div className="mt-3 flex gap-2">
+              <Button
+                onClick={() => onApproveRegistration?.(selectedAppeal)}
+                disabled={loading}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Icon name="Check" size={15} className="mr-1.5" />
+                Разрешить регистрацию
+              </Button>
+              <Button
+                onClick={() => onRejectRegistration?.(selectedAppeal)}
+                disabled={loading}
+                variant="destructive"
+                className="flex-1"
+              >
+                <Icon name="X" size={15} className="mr-1.5" />
+                Отклонить
+              </Button>
+            </div>
+          )}
 
           {/* Ответ */}
           {selectedAppeal.admin_response && (

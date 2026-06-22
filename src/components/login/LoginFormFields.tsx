@@ -18,6 +18,8 @@ interface LoginFormFieldsProps {
   passwordError: string;
   loginAttemptFailed: boolean;
   privacyAccepted: boolean;
+  portfolioLinks: string[];
+  onPortfolioLinksChange: (links: string[]) => void;
   onEmailChange: (email: string) => void;
   onPasswordChange: (password: string) => void;
   onPhoneChange: (phone: string) => void;
@@ -48,6 +50,8 @@ const LoginFormFields = ({
   passwordError,
   loginAttemptFailed,
   privacyAccepted,
+  portfolioLinks,
+  onPortfolioLinksChange,
   onEmailChange,
   onPasswordChange,
   onPhoneChange,
@@ -176,6 +180,56 @@ const LoginFormFields = ({
             <p className="text-xs text-muted-foreground dark:text-gray-400">
               <Icon name="Info" size={12} className="inline mr-1" />
               Обязательное поле для регистрации
+            </p>
+          </div>
+        )}
+
+        {isRegistering && (
+          <div className="space-y-2">
+            <Label className="dark:text-gray-200">Ссылка на портфолио *</Label>
+            {portfolioLinks.map((link, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <Input
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://instagram.com/your_photos"
+                  value={link}
+                  onChange={(e) => {
+                    const next = [...portfolioLinks];
+                    next[idx] = e.target.value;
+                    onPortfolioLinksChange(next);
+                  }}
+                  disabled={isBlocked}
+                  className="rounded-xl dark:bg-gray-800 dark:text-white dark:border-gray-700 h-11"
+                />
+                {portfolioLinks.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-11 px-2 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={() => onPortfolioLinksChange(portfolioLinks.filter((_, i) => i !== idx))}
+                    disabled={isBlocked}
+                  >
+                    <Icon name="X" size={18} />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-xl w-full border-dashed dark:border-gray-700 dark:text-gray-300"
+              onClick={() => onPortfolioLinksChange([...portfolioLinks, ''])}
+              disabled={isBlocked}
+            >
+              <Icon name="Plus" size={16} className="mr-1" />
+              Добавить ещё ссылку
+            </Button>
+            <p className="text-xs text-muted-foreground dark:text-gray-400">
+              <Icon name="Info" size={12} className="inline mr-1" />
+              Укажите ссылки на ваши работы — мы проверим их перед активацией аккаунта
             </p>
           </div>
         )}

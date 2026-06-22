@@ -25,6 +25,9 @@ import FloatingAppealsButton from '@/components/FloatingAppealsButton';
 import AdminTicketsButton from '@/components/support/AdminTicketsButton';
 import BookingDetailsDialog from '@/components/BookingDetailsDialog';
 import SyncIndicator from '@/components/SyncIndicator';
+import WelcomeDialog from '@/components/WelcomeDialog';
+
+const AUTH_URL = 'https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9';
 
 interface AuthenticatedLayoutProps {
   currentPage: string;
@@ -77,6 +80,7 @@ const AuthenticatedLayout = ({
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
   const [showMAXChat, setShowMAXChat] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [showAdminTickets, setShowAdminTickets] = useState(false);
   const [adminTicketsUnread, setAdminTicketsUnread] = useState(0);
   const unreadCount = useUnreadCount(userId);
@@ -89,6 +93,24 @@ const AuthenticatedLayout = ({
       return () => clearTimeout(t);
     }
   }, [userId]);
+
+  useEffect(() => {
+    if (userId && localStorage.getItem('show_welcome') === '1') {
+      setShowWelcome(true);
+    }
+  }, [userId]);
+
+  const handleCloseWelcome = () => {
+    setShowWelcome(false);
+    localStorage.removeItem('show_welcome');
+    if (userId) {
+      fetch(AUTH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
+        body: JSON.stringify({ action: 'mark-welcome-seen', user_id: userId }),
+      }).catch(() => {});
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-purple-50/30 to-blue-50/30 dark:via-purple-900/10 dark:to-blue-900/10">
@@ -120,6 +142,13 @@ const AuthenticatedLayout = ({
       )}
 
       <OnboardingTour currentPage={currentPage} onPageChange={setCurrentPage} />
+
+      <WelcomeDialog
+        open={showWelcome}
+        userName={userName}
+        onClose={handleCloseWelcome}
+        onOpenSupport={() => { setShowMAXChat(true); markSupportRead(); }}
+      />
 
       {userId && !isAdmin && <LegalConsentModal userId={userId} />}
 
@@ -264,6 +293,7 @@ const AuthenticatedLayout = ({
         currentPage={currentPage}
         unreadCount={totalUnread}
         onOpenChat={() => { setShowMAXChat(true); markSupportRead(); }}
+        userId={userId}
       />
 
       {userId && (
