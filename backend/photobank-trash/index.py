@@ -555,37 +555,76 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     folders = cur.fetchall()
                     
                     print(f'[EMPTY_TRASH] Found {len(folders)} trashed folders')
-                    for folder in folders:
-                        print(f'[EMPTY_TRASH] Folder {folder["id"]}: s3_prefix={folder["s3_prefix"]}')
-                    
                     folder_ids = [f['id'] for f in folders]
                     
+                    # 1. Собираем РЕАЛЬНЫЕ ключи файлов из БД ДО удаления записей
+                    s3_keys = []
+                    if folder_ids:
+                        placeholders = ','.join(['%s'] * len(folder_ids))
+                        cur.execute(f'''
+                            SELECT s3_key, thumbnail_s3_key
+                            FROM t_p28211681_photo_secure_web.photo_bank
+                            WHERE folder_id IN ({placeholders})
+                        ''', tuple(folder_ids))
+                        for row in cur.fetchall():
+                            if row['s3_key']:
+                                s3_keys.append(row['s3_key'])
+                            if row['thumbnail_s3_key']:
+                                s3_keys.append(row['thumbnail_s3_key'])
+                        print(f'[EMPTY_TRASH] Collected {len(s3_keys)} S3 keys to delete')
+                    
+                    # 2. Удаляем записи из БД (со всеми зависимостями)
                     if folder_ids:
                         print(f'[EMPTY_TRASH] Processing {len(folder_ids)} folders: {folder_ids}')
                         _purge_folders_forever(cur, folder_ids)
                         conn.commit()
-                        print(f'[EMPTY_TRASH] Successfully deleted {len(folder_ids)} folders')
+                        print(f'[EMPTY_TRASH] Successfully deleted {len(folder_ids)} folders from DB')
                 
+                # 3. Удаляем сами файлы из S3 по реальным ключам
                 deleted_count = 0
-                folders_with_s3 = 0
-                for folder in folders:
-                    if folder["s3_prefix"]:
-                        folders_with_s3 += 1
-                        trash_prefix = f'trash/{folder["s3_prefix"]}'
-                        print(f'[EMPTY_TRASH] Checking S3 prefix: {trash_prefix}')
-                        paginator = s3_client.get_paginator('list_objects_v2')
-                        pages = paginator.paginate(Bucket=bucket, Prefix=trash_prefix)
-                        
-                        for page in pages:
-                            for obj in page.get('Contents', []):
-                                try:
-                                    s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
-                                    deleted_count += 1
-                                    print(f'[EMPTY_TRASH] Deleted from S3: {obj["Key"]}')
-                                except Exception as e:
-                                    print(f'[EMPTY_TRASH] Failed to delete {obj["Key"]}: {e}')
+                poehali_client = boto3.client(
+                    's3',
+                    endpoint_url='https://bucket.poehali.dev',
+                    aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+                )
+                for key in s3_keys:
+                    # Определяем хранилище по префиксу ключа
+                    if key.startswith('uploads/'):
+                        storage_client = poehali_client
+                        storage_bucket = 'files'
+                    else:
+                        storage_client = s3_client
+                        storage_bucket = bucket
+                    # Удаляем по реальному ключу
+                    try:
+                        storage_client.delete_object(Bucket=storage_bucket, Key=key)
+                        deleted_count += 1
+                    except Exception as e:
+                        print(f'[EMPTY_TRASH] Failed to delete {key}: {e}')
+                    # На случай если файл лежал в trash/ (удалён по одному ранее)
+                    try:
+                        storage_client.delete_object(Bucket=storage_bucket, Key=f'trash/{key}')
+                    except Exception:
+                        pass
                 
-                print(f'[EMPTY_TRASH] S3 cleanup: {folders_with_s3} folders had s3_prefix, {deleted_count} files deleted from S3')
+                # 4. Подчищаем возможные остатки по trash-префиксу папок
+                for folder in folders:
+                    if folder.get('s3_prefix'):
+                        for prefix in (folder['s3_prefix'], f'trash/{folder["s3_prefix"]}'):
+                            try:
+                                paginator = s3_client.get_paginator('list_objects_v2')
+                                for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+                                    for obj in page.get('Contents', []):
+                                        try:
+                                            s3_client.delete_object(Bucket=bucket, Key=obj['Key'])
+                                            deleted_count += 1
+                                        except Exception as e:
+                                            print(f'[EMPTY_TRASH] Failed to delete {obj["Key"]}: {e}')
+                            except Exception as e:
+                                print(f'[EMPTY_TRASH] List error for {prefix}: {e}')
+                
+                print(f'[EMPTY_TRASH] S3 cleanup done: {deleted_count} files deleted from S3')
                 
                 return {
                     'statusCode': 200,
