@@ -87,12 +87,6 @@ export default function GalleryPhotoViewer({
   const handleAddToFavorites = () => {
     if (!onAddToFavorites || !currentPhoto) return;
     onAddToFavorites(currentPhoto);
-    // Переходим к следующему фото (или к предыдущему если это последнее)
-    if (currentIndex < photos.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
   };
 
   // Helpers: enter / exit real fullscreen
