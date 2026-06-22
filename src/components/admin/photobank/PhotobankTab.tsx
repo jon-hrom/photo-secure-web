@@ -7,7 +7,7 @@ import type { PhotoFolder, Photo } from './types';
 import { usePhotoFrames } from '@/hooks/usePhotoFrames';
 import AdminPhotoCard from './AdminPhotoCard';
 
-type SortField = 'name' | 'shot_date' | 'created_at';
+type SortField = 'name' | 'shot_date' | 'created_at' | 'shot_time';
 type SortDirection = 'asc' | 'desc';
 
 interface PhotobankTabProps {
@@ -77,6 +77,13 @@ const PhotobankTab = ({
         const aDate = a.shot_date || a.created_at || '';
         const bDate = b.shot_date || b.created_at || '';
         cmp = aDate.localeCompare(bDate);
+      } else if (sortField === 'shot_time') {
+        const toTime = (d?: string | null) => {
+          if (!d) return '';
+          const t = new Date(d);
+          return `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+        };
+        cmp = toTime(a.shot_date).localeCompare(toTime(b.shot_date));
       } else {
         cmp = (a.created_at || '').localeCompare(b.created_at || '');
       }
@@ -177,6 +184,7 @@ const PhotobankTab = ({
                   {([
                     { field: 'name' as SortField, label: 'По имени' },
                     { field: 'shot_date' as SortField, label: 'По дате съёмки' },
+                    { field: 'shot_time' as SortField, label: 'По времени' },
                     { field: 'created_at' as SortField, label: 'По дате загрузки' },
                   ]).map(({ field, label }) => (
                     <button
