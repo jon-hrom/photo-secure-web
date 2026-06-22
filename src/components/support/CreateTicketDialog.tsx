@@ -222,6 +222,9 @@ export default function CreateTicketDialog({ open, onClose, userId, userName, us
           >
             <Icon name="ImagePlus" size={18} />
             <span>Прикрепить файл</span>
+            {attachments.length > 0 && (
+              <span className="text-xs text-primary font-medium">{attachments.length}/6</span>
+            )}
           </button>
           <input
             ref={fileRef}
