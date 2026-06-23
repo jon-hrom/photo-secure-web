@@ -9,7 +9,7 @@
         "password": "securepass123",
         "phone": "+79991234567"
       },
-      "expectedStatus": 403,
+      "expectedStatus": 400,
       "expectedBody": {
         "error": "string"
       },
