@@ -147,39 +147,48 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if action == 'list':
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     cur.execute('''
+                        WITH user_folders AS (
+                            SELECT * FROM t_p28211681_photo_secure_web.photo_folders
+                            WHERE user_id = %s AND is_trashed = FALSE
+                        ),
+                        folder_counts AS (
+                            SELECT folder_id, COUNT(*) AS cnt
+                            FROM t_p28211681_photo_secure_web.photo_bank
+                            WHERE is_trashed = FALSE
+                              AND folder_id IN (SELECT id FROM user_folders)
+                            GROUP BY folder_id
+                        ),
+                        sub_counts AS (
+                            SELECT uf.parent_folder_id AS parent_id, COALESCE(SUM(fc.cnt), 0) AS cnt
+                            FROM user_folders uf
+                            JOIN folder_counts fc ON fc.folder_id = uf.id
+                            WHERE uf.parent_folder_id IS NOT NULL
+                            GROUP BY uf.parent_folder_id
+                        )
                         SELECT 
-                            id, 
-                            folder_name, 
-                            s3_prefix,
-                            folder_type,
-                            parent_folder_id,
-                            created_at, 
-                            updated_at,
-                            archive_download_count,
-                            COALESCE(is_hidden, FALSE) as is_hidden,
-                            CASE WHEN password_hash IS NOT NULL THEN TRUE ELSE FALSE END as has_password,
-                            COALESCE(sort_order, 0) as sort_order,
-                            (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank pb
-                             WHERE pb.is_trashed = FALSE
-                               AND (
-                                 pb.folder_id = t_p28211681_photo_secure_web.photo_folders.id
-                                 OR pb.folder_id IN (
-                                   SELECT sub.id FROM t_p28211681_photo_secure_web.photo_folders sub
-                                   WHERE sub.parent_folder_id = t_p28211681_photo_secure_web.photo_folders.id
-                                     AND sub.is_trashed = FALSE
-                                 )
-                               )) as photo_count,
-                            (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank 
-                             WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id AND is_trashed = FALSE) as own_photo_count,
+                            f.id, 
+                            f.folder_name, 
+                            f.s3_prefix,
+                            f.folder_type,
+                            f.parent_folder_id,
+                            f.created_at, 
+                            f.updated_at,
+                            f.archive_download_count,
+                            COALESCE(f.is_hidden, FALSE) as is_hidden,
+                            CASE WHEN f.password_hash IS NOT NULL THEN TRUE ELSE FALSE END as has_password,
+                            COALESCE(f.sort_order, 0) as sort_order,
+                            COALESCE(own.cnt, 0) + COALESCE(sub.cnt, 0) as photo_count,
+                            COALESCE(own.cnt, 0) as own_photo_count,
                             (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.gallery_view_logs gvl
-                             WHERE gvl.folder_id = t_p28211681_photo_secure_web.photo_folders.id
-                               AND (t_p28211681_photo_secure_web.photo_folders.views_cleared_at IS NULL
-                                    OR gvl.viewed_at > t_p28211681_photo_secure_web.photo_folders.views_cleared_at)) as share_views_count,
+                             WHERE gvl.folder_id = f.id
+                               AND (f.views_cleared_at IS NULL
+                                    OR gvl.viewed_at > f.views_cleared_at)) as share_views_count,
                             (SELECT MAX(fsl.expires_at) FROM t_p28211681_photo_secure_web.folder_short_links fsl
-                             WHERE fsl.folder_id = t_p28211681_photo_secure_web.photo_folders.id) as share_link_expires_at
-                        FROM t_p28211681_photo_secure_web.photo_folders
-                        WHERE user_id = %s AND is_trashed = FALSE
-                        ORDER BY parent_folder_id NULLS FIRST, sort_order ASC, created_at DESC
+                             WHERE fsl.folder_id = f.id) as share_link_expires_at
+                        FROM user_folders f
+                        LEFT JOIN folder_counts own ON own.folder_id = f.id
+                        LEFT JOIN sub_counts sub ON sub.parent_id = f.id
+                        ORDER BY f.parent_folder_id NULLS FIRST, COALESCE(f.sort_order, 0) ASC, f.created_at DESC
                     ''', (user_id,))
                     all_folders = cur.fetchall()
                     
