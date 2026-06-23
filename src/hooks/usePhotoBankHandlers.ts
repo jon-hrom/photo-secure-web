@@ -195,12 +195,83 @@ export const usePhotoBankHandlers = (
     let errorCount = 0;
 
     const PARALLEL_LIMIT = 10;
-    const URL_BATCH_SIZE = 100;
+    const URL_BATCH_SIZE = 50;
     const DIRECT_UPLOAD_API = 'https://functions.poehali.dev/145813d2-d8f3-4a2b-b38e-08583a3153da';
     const cancelledRef = uploadCancelled;
 
-    // Заранее полученные presigned URL для RAW/видео файлов (по индексу файла)
+    // Список индексов RAW/видео файлов (для них нужны presigned URL)
+    const rawVideoIndexes: number[] = [];
+    mediaFiles.forEach((file, idx) => {
+      if (isRawFile(file.name) || file.type.startsWith('video/')) rawVideoIndexes.push(idx);
+    });
+
+    // Presigned URL кэш + ленивое (just-in-time) получение пачками.
+    // КРИТИЧНО: URL живут 30 минут, поэтому НЕ получаем все сразу для 1000 файлов —
+    // иначе поздние URL истекут до загрузки. Берём пачку прямо перед загрузкой.
     const presignedByIndex = new Map<number, { url: string; key: string }>();
+    let urlFetchCursor = 0;
+    let urlFetchPromise: Promise<void> | null = null;
+
+    const fetchNextUrlBatch = async () => {
+      const start = urlFetchCursor;
+      const chunkIdx = rawVideoIndexes.slice(start, start + URL_BATCH_SIZE);
+      if (chunkIdx.length === 0) return;
+      urlFetchCursor = start + chunkIdx.length;
+      const filesPayload = chunkIdx.map(idx => ({
+        name: mediaFiles[idx].name,
+        type: mediaFiles[idx].type || 'application/octet-stream',
+        size: mediaFiles[idx].size,
+      }));
+      const urlRes = await fetch(DIRECT_UPLOAD_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({ action: 'batch-urls', files: filesPayload }),
+      });
+      if (!urlRes.ok) throw new Error('Failed to get upload URLs');
+      const urlData = await urlRes.json();
+      const uploads = urlData.uploads || [];
+      chunkIdx.forEach((idx, j) => {
+        const u = uploads[j];
+        if (u) presignedByIndex.set(idx, { url: u.url, key: u.key });
+      });
+    };
+
+    // Возвращает свежий presigned URL для индекса, подгружая пачку при необходимости.
+    const getPresignedForIndex = async (index: number, forceRefresh = false) => {
+      if (forceRefresh) presignedByIndex.delete(index);
+      while (!presignedByIndex.has(index)) {
+        // Защита от параллельных дублей запросов
+        if (urlFetchPromise) {
+          await urlFetchPromise;
+          if (presignedByIndex.has(index)) break;
+        }
+        urlFetchPromise = (forceRefresh
+          ? (async () => {
+              // Точечный запрос только для этого файла (URL истёк)
+              const f = mediaFiles[index];
+              const res = await fetch(DIRECT_UPLOAD_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+                body: JSON.stringify({
+                  action: 'batch-urls',
+                  files: [{ name: f.name, type: f.type || 'application/octet-stream', size: f.size }],
+                }),
+              });
+              if (!res.ok) throw new Error('Failed to refresh upload URL');
+              const d = await res.json();
+              const u = (d.uploads || [])[0];
+              if (u) presignedByIndex.set(index, { url: u.url, key: u.key });
+            })()
+          : fetchNextUrlBatch());
+        try {
+          await urlFetchPromise;
+        } finally {
+          urlFetchPromise = null;
+        }
+        forceRefresh = false;
+      }
+      return presignedByIndex.get(index)!;
+    };
     // Накопитель записей в БД для батч-вставки
     const pendingDbWrites: Array<{ file_name: string; s3_url: string; file_size: number; content_type: string }> = [];
     const flushDbWrites = async () => {
@@ -255,13 +326,9 @@ export const usePhotoBankHandlers = (
       const isVideo = file.type.startsWith('video/');
       
       if (isRaw || isVideo) {
-        const presigned = presignedByIndex.get(index);
-        if (!presigned) throw new Error('Failed to get upload URL');
-        const { url, key } = presigned;
-        
-        await new Promise<void>((resolve, reject) => {
+        const putToS3 = (uploadUrl: string) => new Promise<number>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          
+
           xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable) {
               const prev = fileLoaded.get(index) || 0;
@@ -270,20 +337,28 @@ export const usePhotoBankHandlers = (
               scheduleProgressUpdate();
             }
           });
-          
-          xhr.addEventListener('load', () => {
-            if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else reject(new Error('Failed to upload file to S3'));
-          });
-          
+
+          xhr.addEventListener('load', () => resolve(xhr.status));
           xhr.addEventListener('error', () => reject(new Error('Network error')));
           xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
-          
-          xhr.open('PUT', url);
+
+          xhr.open('PUT', uploadUrl);
           xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
           xhr.send(file);
         });
-        
+
+        // Берём свежий URL (just-in-time). Если истёк (403/400) — обновляем и повторяем.
+        let { url, key } = await getPresignedForIndex(index);
+        let status = await putToS3(url);
+        if (status === 403 || status === 400) {
+          fileLoaded.set(index, 0);
+          ({ url, key } = await getPresignedForIndex(index, true));
+          status = await putToS3(url);
+        }
+        if (status < 200 || status >= 300) {
+          throw new Error('Failed to upload file to S3');
+        }
+
         const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
         pendingDbWrites.push({
           file_name: file.name,
@@ -385,35 +460,8 @@ export const usePhotoBankHandlers = (
     };
 
     try {
-      // 1. Заранее получаем presigned URL для всех RAW/видео файлов батчами по 100 (1 запрос вместо N)
-      const rawVideoIndexes: number[] = [];
-      mediaFiles.forEach((file, idx) => {
-        if (isRawFile(file.name) || file.type.startsWith('video/')) rawVideoIndexes.push(idx);
-      });
-
-      for (let i = 0; i < rawVideoIndexes.length; i += URL_BATCH_SIZE) {
-        if (uploadCancelled) break;
-        const chunkIdx = rawVideoIndexes.slice(i, i + URL_BATCH_SIZE);
-        const filesPayload = chunkIdx.map(idx => ({
-          name: mediaFiles[idx].name,
-          type: mediaFiles[idx].type || 'application/octet-stream',
-          size: mediaFiles[idx].size,
-        }));
-        const urlRes = await fetch(DIRECT_UPLOAD_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-          body: JSON.stringify({ action: 'batch-urls', files: filesPayload }),
-        });
-        if (!urlRes.ok) throw new Error('Failed to get upload URLs');
-        const urlData = await urlRes.json();
-        const uploads = urlData.uploads || [];
-        chunkIdx.forEach((idx, j) => {
-          const u = uploads[j];
-          if (u) presignedByIndex.set(idx, { url: u.url, key: u.key });
-        });
-      }
-
-      // 2. Пул параллельных загрузок (скользящее окно) — новый файл стартует сразу, как освободился слот
+      // Пул параллельных загрузок (скользящее окно) — новый файл стартует сразу, как освободился слот.
+      // presigned URL берутся лениво внутри uploadSingleFile (just-in-time), чтобы они не истекали.
       let shouldStop = false;
       let nextIndex = 0;
 

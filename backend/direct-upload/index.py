@@ -119,7 +119,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'Key': s3_key,
                         'ContentType': content_type
                     },
-                    ExpiresIn=1800  # 30 минут для batch загрузки
+                    ExpiresIn=3600  # 1 час (URL берутся just-in-time, но даём запас на большие файлы)
                 )
                 
                 results.append({
@@ -135,7 +135,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({
                     'success': True,
                     'uploads': results,
-                    'expires_in': 1800
+                    'expires_in': 3600
                 }),
                 'isBase64Encoded': False
             }
