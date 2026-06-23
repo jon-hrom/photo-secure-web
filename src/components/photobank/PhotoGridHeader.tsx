@@ -73,24 +73,47 @@ const PhotoGridHeader = ({
           )}
         </CardTitle>
         {selectedFolder && (
-          <div className="relative">
-            <input
-              type="file"
-              id="photo-upload"
-              className="hidden"
-              accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
-              multiple
-              onChange={onUploadPhoto}
-              disabled={uploading || isStorageFull}
-            />
-            <Button asChild disabled={uploading || isStorageFull} size="sm" title={isStorageFull ? 'Хранилище заполнено. Перейдите на другой тариф' : ''} className="h-auto min-h-9 py-1.5">
-              <label htmlFor="photo-upload" className={`${isStorageFull ? 'cursor-not-allowed' : 'cursor-pointer'} flex items-center justify-center gap-1.5`}>
-                <Icon name={isStorageFull ? 'Ban' : 'Upload'} className="shrink-0" size={16} />
-                <span className="text-xs sm:text-sm leading-tight text-center whitespace-normal max-w-[120px] sm:max-w-none">
-                  {isStorageFull ? 'Хранилище заполнено' : uploading ? 'Загрузка...' : 'Загрузить фото / видео'}
-                </span>
-              </label>
-            </Button>
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <input
+                type="file"
+                id="photo-upload"
+                className="hidden"
+                accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
+                multiple
+                onChange={onUploadPhoto}
+                disabled={uploading || isStorageFull}
+              />
+              <Button asChild disabled={uploading || isStorageFull} size="sm" title={isStorageFull ? 'Хранилище заполнено. Перейдите на другой тариф' : ''} className="h-auto min-h-9 py-1.5">
+                <label htmlFor="photo-upload" className={`${isStorageFull ? 'cursor-not-allowed' : 'cursor-pointer'} flex items-center justify-center gap-1.5`}>
+                  <Icon name={isStorageFull ? 'Ban' : 'Upload'} className="shrink-0" size={16} />
+                  <span className="text-xs sm:text-sm leading-tight text-center whitespace-normal max-w-[120px] sm:max-w-none">
+                    {isStorageFull ? 'Хранилище заполнено' : uploading ? 'Загрузка...' : 'Загрузить фото / видео'}
+                  </span>
+                </label>
+              </Button>
+            </div>
+            {!isStorageFull && (
+              <div className="relative">
+                <input
+                  type="file"
+                  id="photo-upload-missing"
+                  className="hidden"
+                  accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
+                  multiple
+                  onChange={onUploadPhoto}
+                  disabled={uploading}
+                />
+                <Button asChild variant="outline" disabled={uploading} size="sm" title="Выберите ту же папку с файлами — загрузятся только те, которых ещё нет" className="h-auto min-h-9 py-1.5">
+                  <label htmlFor="photo-upload-missing" className="cursor-pointer flex items-center justify-center gap-1.5">
+                    <Icon name="RefreshCw" className="shrink-0" size={16} />
+                    <span className="text-xs sm:text-sm leading-tight text-center whitespace-normal max-w-[120px] sm:max-w-none">
+                      Догрузить недостающие
+                    </span>
+                  </label>
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
