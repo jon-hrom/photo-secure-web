@@ -83,6 +83,7 @@ const AuthenticatedLayout = ({
   const [showWelcome, setShowWelcome] = useState(false);
   const [showAdminTickets, setShowAdminTickets] = useState(false);
   const [adminTicketsUnread, setAdminTicketsUnread] = useState(0);
+  const [appealsOpenSignal, setAppealsOpenSignal] = useState(0);
   const unreadCount = useUnreadCount(userId);
   const { unreadCount: supportUnread, markRead: markSupportRead } = useSupportUnread(userId);
   const totalUnread = unreadCount + supportUnread;
@@ -156,8 +157,9 @@ const AuthenticatedLayout = ({
         <FloatingAppealsButton
           userId={Number(userId)}
           isAdmin={isAdmin}
-          onClickOverride={() => setShowAdminTickets(true)}
           extraUnread={adminTicketsUnread}
+          onOpenTickets={() => setShowAdminTickets(true)}
+          openSignal={appealsOpenSignal}
         />
       )}
       {userId && isAdmin && (
@@ -167,6 +169,7 @@ const AuthenticatedLayout = ({
           open={showAdminTickets}
           onOpenChange={setShowAdminTickets}
           onUnreadChange={setAdminTicketsUnread}
+          onOpenAppeals={() => setAppealsOpenSignal((s) => s + 1)}
         />
       )}
 

@@ -12,6 +12,7 @@ interface AdminTicketsButtonProps {
   onOpenChange?: (open: boolean) => void;
   onUnreadChange?: (count: number) => void;
   hideFab?: boolean;
+  onOpenAppeals?: () => void;
 }
 
 type Filter = 'open' | 'closed' | 'all';
@@ -31,7 +32,7 @@ const priorityDot = (priority: string) => {
 
 const POLL_INTERVAL = 20000;
 
-export default function AdminTicketsButton({ userId, open: openProp, onOpenChange, onUnreadChange, hideFab }: AdminTicketsButtonProps) {
+export default function AdminTicketsButton({ userId, open: openProp, onOpenChange, onUnreadChange, hideFab, onOpenAppeals }: AdminTicketsButtonProps) {
   const [openState, setOpenState] = useState(false);
   const isControlled = openProp !== undefined;
   const open = isControlled ? openProp : openState;
@@ -142,11 +143,23 @@ export default function AdminTicketsButton({ userId, open: openProp, onOpenChang
                 <div className="flex items-center justify-between gap-3 p-4 border-b">
                   <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
                     <Icon name="LifeBuoy" size={22} className="text-primary" />
-                    Обращения в поддержку
+                    <span className="hidden sm:inline">Тикеты поддержки</span>
+                    <span className="sm:hidden">Тикеты</span>
                   </h2>
-                  <button className="p-2 rounded-lg hover:bg-muted" onClick={() => setOpen(false)}>
-                    <Icon name="X" size={20} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {onOpenAppeals && (
+                      <button
+                        className="flex items-center gap-1.5 h-9 px-3 rounded-lg border hover:bg-muted text-sm font-medium"
+                        onClick={() => { setOpen(false); onOpenAppeals(); }}
+                      >
+                        <Icon name="Mail" size={16} className="text-blue-600" />
+                        <span className="hidden sm:inline">Обращения</span>
+                      </button>
+                    )}
+                    <button className="p-2 rounded-lg hover:bg-muted" onClick={() => setOpen(false)}>
+                      <Icon name="X" size={20} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 p-4 border-b">

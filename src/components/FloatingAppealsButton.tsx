@@ -13,9 +13,11 @@ interface FloatingAppealsButtonProps {
   isAdmin: boolean;
   onClickOverride?: () => void;
   extraUnread?: number;
+  onOpenTickets?: () => void;
+  openSignal?: number;
 }
 
-const FloatingAppealsButton = ({ userId, isAdmin, onClickOverride, extraUnread = 0 }: FloatingAppealsButtonProps) => {
+const FloatingAppealsButton = ({ userId, isAdmin, onClickOverride, extraUnread = 0, onOpenTickets, openSignal }: FloatingAppealsButtonProps) => {
   const [appeals, setAppeals] = useState<Appeal[]>([]);
   const [showDialog, setShowDialog] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -82,6 +84,12 @@ const FloatingAppealsButton = ({ userId, isAdmin, onClickOverride, extraUnread =
       setCustomSound(savedSound);
     }
   }, []);
+
+  useEffect(() => {
+    if (openSignal && openSignal > 0) {
+      setShowDialog(true);
+    }
+  }, [openSignal]);
 
   const playNotificationSound = () => {
     try {
@@ -437,14 +445,33 @@ const FloatingAppealsButton = ({ userId, isAdmin, onClickOverride, extraUnread =
                   </Badge>
                 )}
               </DialogTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDialog(false)}
-                className="sm:hidden h-8 w-8 p-0"
-              >
-                <Icon name="X" size={20} />
-              </Button>
+              <div className="flex items-center gap-2">
+                {onOpenTickets && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setShowDialog(false); onOpenTickets(); }}
+                    className="h-9 gap-1.5 relative"
+                  >
+                    <Icon name="LifeBuoy" size={16} className="text-primary" />
+                    <span className="hidden sm:inline">Тикеты поддержки</span>
+                    <span className="sm:hidden">Тикеты</span>
+                    {extraUnread > 0 && (
+                      <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[11px] h-5 min-w-5 flex items-center justify-center">
+                        {extraUnread}
+                      </Badge>
+                    )}
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDialog(false)}
+                  className="sm:hidden h-8 w-8 p-0"
+                >
+                  <Icon name="X" size={20} />
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
