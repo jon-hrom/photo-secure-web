@@ -21,6 +21,10 @@ export default function CoverControlsPanel({
     onSettingsChange({ ...settings, gridGap: value[0] });
   };
 
+  const handleGridSizeChange = (value: number[]) => {
+    onSettingsChange({ ...settings, gridSize: value[0] });
+  };
+
   return (
     <>
       <div>
@@ -60,6 +64,26 @@ export default function CoverControlsPanel({
         <div className="flex justify-between mt-1">
           <span className="text-xs text-gray-400">0px</span>
           <span className="text-xs text-gray-400">24px</span>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+            Размер фото в сетке
+          </h3>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{settings.gridSize ?? 280}px</span>
+        </div>
+        <Slider
+          value={[settings.gridSize ?? 280]}
+          onValueChange={handleGridSizeChange}
+          min={160}
+          max={420}
+          step={20}
+        />
+        <div className="flex justify-between mt-1">
+          <span className="text-xs text-gray-400">Мельче</span>
+          <span className="text-xs text-gray-400">Крупнее</span>
         </div>
       </div>
 

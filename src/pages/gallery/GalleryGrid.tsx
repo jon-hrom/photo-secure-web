@@ -44,6 +44,7 @@ export interface GalleryData {
   cover_focus_x?: number;
   cover_focus_y?: number;
   grid_gap?: number;
+  grid_size?: number;
   bg_theme?: string;
   bg_color?: string | null;
   bg_image_url?: string | null;
@@ -263,6 +264,7 @@ export default function GalleryGrid({
   const focusX = isMobile ? (gallery.mobile_cover_focus_x ?? gallery.cover_focus_x ?? 0.5) : (gallery.cover_focus_x ?? 0.5);
   const focusY = isMobile ? (gallery.mobile_cover_focus_y ?? gallery.cover_focus_y ?? 0.5) : (gallery.cover_focus_y ?? 0.5);
   const gridGap = gallery.grid_gap ?? 8;
+  const gridSize = gallery.grid_size ?? 280;
 
   const { isDarkBg, textColor, secondaryText, bgStyles, toggleClientTheme } = useGalleryTheme(gallery);
 
@@ -331,6 +333,7 @@ export default function GalleryGrid({
         <GalleryJustifiedLayout
           photos={gallery.photos}
           gridGap={gridGap}
+          gridSize={gridSize}
           isDarkBg={!!isDarkBg}
           screenshotProtection={gallery.screenshot_protection}
           downloadDisabled={gallery.download_disabled}

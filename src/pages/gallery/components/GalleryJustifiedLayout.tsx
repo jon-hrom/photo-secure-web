@@ -5,6 +5,7 @@ import { Photo, WatermarkSettings } from '../GalleryGrid';
 interface GalleryJustifiedLayoutProps {
   photos: Photo[];
   gridGap: number;
+  gridSize?: number;
   isDarkBg: boolean;
   screenshotProtection?: boolean;
   downloadDisabled?: boolean;
@@ -21,6 +22,7 @@ interface GalleryJustifiedLayoutProps {
 export default function GalleryJustifiedLayout({
   photos,
   gridGap,
+  gridSize = 280,
   isDarkBg,
   screenshotProtection,
   downloadDisabled,
@@ -167,7 +169,7 @@ export default function GalleryJustifiedLayout({
 
   const isLandscapePhoto = (p: Photo) => getAR(p) > 1.15;
 
-  const targetHeight = 280;
+  const targetHeight = gridSize;
 
   // Контейнер растягивается под реальную ширину экрана (без жёсткого лимита 1280),
   // ширину измеряем по контейнеру и обновляем при ресайзе/повороте экрана.

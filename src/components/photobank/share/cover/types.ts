@@ -13,6 +13,7 @@ export interface PageDesignSettings {
   coverFocusX: number;
   coverFocusY: number;
   gridGap: number;
+  gridSize: number;
   bgTheme: 'light' | 'dark' | 'auto' | 'custom';
   bgColor: string | null;
   bgImageUrl: string | null;

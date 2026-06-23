@@ -50,6 +50,7 @@ interface GalleryData {
   cover_focus_x?: number;
   cover_focus_y?: number;
   grid_gap?: number;
+  grid_size?: number;
   mobile_cover_photo_id?: number | null;
   mobile_cover_focus_x?: number;
   mobile_cover_focus_y?: number;
