@@ -178,6 +178,28 @@ const PhotoBankPhotoGrid = ({
     return sorted;
   }, [photos, sortField, sortDirection]);
 
+  // Анализ пропусков в нумерации кадров — признак того, что не все файлы догрузились
+  const missingFrames = useMemo(() => {
+    if (selectedFolder?.folder_type === 'tech_rejects') return null;
+    const nums: number[] = [];
+    for (const p of photos) {
+      const base = (p.file_name || '').replace(/\.[A-Za-z0-9]+$/, '');
+      const matches = base.match(/\d+/g);
+      if (matches && matches.length > 0) nums.push(parseInt(matches[matches.length - 1], 10));
+    }
+    if (nums.length < 5) return null;
+    const set = new Set(nums);
+    const lo = Math.min(...nums);
+    const hi = Math.max(...nums);
+    if (hi - lo <= 0 || hi - lo > 100000) return null;
+    const missing: number[] = [];
+    for (let n = lo; n <= hi; n++) {
+      if (!set.has(n)) missing.push(n);
+    }
+    if (missing.length === 0) return null;
+    return { count: missing.length, expected: hi - lo + 1, actual: set.size, sample: missing.slice(0, 30) };
+  }, [photos, selectedFolder]);
+
   const handleSortChange = (field: SortField) => {
     if (field === sortField) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -251,6 +273,7 @@ const PhotoBankPhotoGrid = ({
         onOpenSubfolderSettings={onOpenSubfolderSettings}
         onDeleteSubfolder={onDeleteSubfolder}
         onNavigateToParent={onNavigateToParent}
+        missingFrames={missingFrames}
       />
       <CardContent>
         {isTechRejectsFolder && photos.length > 0 && (

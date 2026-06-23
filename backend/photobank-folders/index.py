@@ -6,6 +6,7 @@ Returns: HTTP response with folders data and S3 upload URLs
 
 import json
 import os
+import re
 import uuid
 from typing import Dict, Any
 import psycopg2
@@ -372,10 +373,41 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     except Exception as e:
                         print(f'[LIST_PHOTOS] thumbnail trigger failed: {e}')
                 
+                # Анализ пропусков в нумерации кадров: если имена файлов содержат
+                # порядковый номер (например "IMG_0123" или " (123).CR2"), а часть
+                # номеров отсутствует — значит не все кадры догрузились.
+                gaps_info = None
+                try:
+                    nums = []
+                    for p in result_photos:
+                        fname = p.get('file_name') or ''
+                        # Берём ПОСЛЕДНЮЮ группу цифр в имени (без расширения) — это обычно номер кадра
+                        base = re.sub(r'\.[A-Za-z0-9]+$', '', fname)
+                        matches = re.findall(r'\d+', base)
+                        if matches:
+                            nums.append(int(matches[-1]))
+                    if len(nums) >= 5:
+                        num_set = set(nums)
+                        lo, hi = min(num_set), max(num_set)
+                        # Защита от мусора: диапазон не должен быть абсурдно большим
+                        if 0 < (hi - lo) < 100000:
+                            missing = [n for n in range(lo, hi + 1) if n not in num_set]
+                            if missing:
+                                gaps_info = {
+                                    'expected': hi - lo + 1,
+                                    'actual': len(num_set),
+                                    'missing_count': len(missing),
+                                    'first': lo,
+                                    'last': hi,
+                                    'missing_sample': missing[:50],
+                                }
+                except Exception as e:
+                    print(f'[LIST_PHOTOS] gap analysis failed: {e}')
+
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'photos': result_photos}),
+                    'body': json.dumps({'photos': result_photos, 'gaps': gaps_info}),
                     'isBase64Encoded': False
                 }
             

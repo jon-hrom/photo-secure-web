@@ -30,6 +30,7 @@ interface PhotoGridHeaderProps {
   onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
   onDeleteSubfolder?: (subfolder: PhotoFolder) => void;
   onNavigateToParent?: () => void;
+  missingFrames?: { count: number; expected: number; actual: number; sample: number[] } | null;
 }
 
 const PhotoGridHeader = ({
@@ -46,7 +47,8 @@ const PhotoGridHeader = ({
   onCreateSubfolder,
   onOpenSubfolderSettings,
   onDeleteSubfolder,
-  onNavigateToParent
+  onNavigateToParent,
+  missingFrames
 }: PhotoGridHeaderProps) => {
   const isStorageFull = storageUsage && storageUsage.percent >= 100;
 
@@ -117,6 +119,24 @@ const PhotoGridHeader = ({
           </div>
         )}
       </div>
+
+      {selectedFolder && missingFrames && missingFrames.count > 0 && (
+        <div className="mt-3 p-2.5 sm:p-3 bg-amber-50 border border-amber-300 rounded-lg">
+          <div className="flex items-start gap-2 text-amber-800">
+            <Icon name="TriangleAlert" size={18} className="flex-shrink-0 mt-0.5" />
+            <div className="text-xs sm:text-sm leading-snug">
+              <span className="font-semibold">
+                Похоже, загрузились не все кадры: не хватает {missingFrames.count} шт.
+              </span>{' '}
+              В нумерации файлов есть пропуски (загружено {missingFrames.actual} из {missingFrames.expected}).
+              Нажмите <span className="font-medium">«Догрузить недостающие»</span> и выберите ту же папку — система дозальёт только пропавшие файлы.
+              <div className="mt-1 text-amber-700/80">
+                Пропущены номера: {missingFrames.sample.join(', ')}{missingFrames.count > missingFrames.sample.length ? '…' : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedFolder && subfolders && subfolders.length > 0 && (
         <div className="flex items-center gap-2 mt-3 overflow-x-auto pb-1 scrollbar-thin">
