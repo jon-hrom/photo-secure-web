@@ -158,8 +158,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             COALESCE(is_hidden, FALSE) as is_hidden,
                             CASE WHEN password_hash IS NOT NULL THEN TRUE ELSE FALSE END as has_password,
                             COALESCE(sort_order, 0) as sort_order,
+                            (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank pb
+                             WHERE pb.is_trashed = FALSE
+                               AND (
+                                 pb.folder_id = t_p28211681_photo_secure_web.photo_folders.id
+                                 OR pb.folder_id IN (
+                                   SELECT sub.id FROM t_p28211681_photo_secure_web.photo_folders sub
+                                   WHERE sub.parent_folder_id = t_p28211681_photo_secure_web.photo_folders.id
+                                     AND sub.is_trashed = FALSE
+                                 )
+                               )) as photo_count,
                             (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.photo_bank 
-                             WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id AND is_trashed = FALSE) as photo_count,
+                             WHERE folder_id = t_p28211681_photo_secure_web.photo_folders.id AND is_trashed = FALSE) as own_photo_count,
                             (SELECT COUNT(*) FROM t_p28211681_photo_secure_web.gallery_view_logs gvl
                              WHERE gvl.folder_id = t_p28211681_photo_secure_web.photo_folders.id
                                AND (t_p28211681_photo_secure_web.photo_folders.views_cleared_at IS NULL
