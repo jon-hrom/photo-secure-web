@@ -195,7 +195,7 @@ export const SubfolderPhotosView = ({
           </div>
         </div>
       )}
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-4">
+      <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-6 py-4">
         <div className="flex items-center gap-3 mb-4">
           <button onClick={onBack}
             className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"

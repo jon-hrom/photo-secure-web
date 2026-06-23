@@ -137,7 +137,7 @@ export default function GalleryModals({
           screenshotProtection={gallery?.screenshot_protection}
           watermark={gallery?.watermark}
           onDownload={onDownloadPhoto}
-          onAddToFavorites={favoriteFolder ? onAddToFavorites : undefined}
+          onAddToFavorites={onAddToFavorites}
           clientFavoritePhotoIds={clientFavoritePhotoIds}
         />
       )}

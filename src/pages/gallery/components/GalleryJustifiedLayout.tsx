@@ -168,9 +168,32 @@ export default function GalleryJustifiedLayout({
   const isLandscapePhoto = (p: Photo) => getAR(p) > 1.15;
 
   const targetHeight = 280;
-  const containerWidth = typeof window !== 'undefined' ? Math.min(window.innerWidth - 32, 1280) : 1200;
 
-  const justifiedRows: { photos: Photo[]; height: number }[] = [];
+  // Контейнер растягивается под реальную ширину экрана (без жёсткого лимита 1280),
+  // ширину измеряем по контейнеру и обновляем при ресайзе/повороте экрана.
+  const containerElRef = useRef<HTMLDivElement | null>(null);
+  const [measuredWidth, setMeasuredWidth] = useState<number>(
+    typeof window !== 'undefined' ? window.innerWidth - 32 : 1200
+  );
+
+  useEffect(() => {
+    const measure = () => {
+      const w = containerElRef.current?.clientWidth;
+      if (w && w > 0) setMeasuredWidth(w);
+      else if (typeof window !== 'undefined') setMeasuredWidth(window.innerWidth - 32);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('orientationchange', measure);
+    };
+  }, []);
+
+  const containerWidth = measuredWidth;
+
+  const justifiedRows: { photos: Photo[]; height: number; fill?: boolean }[] = [];
 
   if (allRaw) {
     // RAW-режим: горизонтальные — по 1 на всю ширину, вертикальные — по 2 рядом
@@ -206,11 +229,18 @@ export default function GalleryJustifiedLayout({
       const gaps = currentRow.length > 1 ? (currentRow.length - 1) * gridGap : 0;
       const rowHeight = (containerWidth - gaps) / currentAR;
 
-      if (rowHeight <= targetHeight || i === sortedPhotos.length - 1) {
-        const finalHeight = i === sortedPhotos.length - 1 && rowHeight > targetHeight * 1.5
-          ? targetHeight
-          : rowHeight;
-        justifiedRows.push({ photos: [...currentRow], height: finalHeight });
+      const isLastPhoto = i === sortedPhotos.length - 1;
+      const rowIsFull = rowHeight <= targetHeight;
+
+      if (rowIsFull || isLastPhoto) {
+        if (rowIsFull) {
+          // Полный ряд — растягиваем фото на всю ширину (justified).
+          justifiedRows.push({ photos: [...currentRow], height: rowHeight, fill: true });
+        } else {
+          // Неполный последний ряд — НЕ раздуваем фото на всю ширину,
+          // фиксируем высоту targetHeight и выравниваем слева.
+          justifiedRows.push({ photos: [...currentRow], height: targetHeight, fill: false });
+        }
         currentRow = [];
         currentAR = 0;
       }
@@ -219,19 +249,41 @@ export default function GalleryJustifiedLayout({
 
   let globalIndex = 0;
   return (
-    <>
+    <div ref={containerElRef} className="w-full">
       {justifiedRows.map((row, rowIdx) => {
         const gaps = row.photos.length > 1 ? (row.photos.length - 1) * gridGap : 0;
         const availW = containerWidth - gaps;
         const totalAR = row.photos.reduce((sum, p) => sum + getAR(p), 0);
+        // Неполный последний ряд: не растягиваем фото на всю ширину, выравниваем слева.
+        const noStretch = row.fill === false;
 
         return (
-          <div key={`row-${rowIdx}`} className="flex" style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}>
+          <div
+            key={`row-${rowIdx}`}
+            className={`flex ${noStretch ? 'justify-start' : ''}`}
+            style={{ gap: `${gridGap}px`, marginBottom: `${gridGap}px` }}
+          >
             {row.photos.map(photo => {
               const ar = getAR(photo);
-              const w = (ar / totalAR) * availW;
               const idx = globalIndex++;
               const isL = ar > 1.15;
+
+              if (noStretch) {
+                // Естественный размер по фиксированной высоте ряда (targetHeight).
+                const wPx = row.height * ar;
+                const widthPct = Math.min((wPx / containerWidth) * 100, 100);
+                return (
+                  <div key={photo.id} style={{ width: `${widthPct}%`, flexShrink: 0, flexGrow: 0 }}>
+                    <GalleryPhotoCard ref={photoCardRef} photo={photo} index={idx} gridGap={0} isDarkBg={isDarkBg}
+                      screenshotProtection={screenshotProtection} downloadDisabled={downloadDisabled}
+                      watermark={watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
+                      onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
+                      isSelected={selectedIds.has(photo.id)} onToggleSelect={onToggleSelect} isLandscape={isL} />
+                  </div>
+                );
+              }
+
+              const w = (ar / totalAR) * availW;
               return (
                 <div key={photo.id} style={{ width: `${(w / containerWidth) * 100}%`, flexShrink: 0, flexGrow: 1 }}>
                   <GalleryPhotoCard ref={photoCardRef} photo={photo} index={idx} gridGap={0} isDarkBg={isDarkBg}
@@ -245,6 +297,6 @@ export default function GalleryJustifiedLayout({
           </div>
         );
       })}
-    </>
+    </div>
   );
 }

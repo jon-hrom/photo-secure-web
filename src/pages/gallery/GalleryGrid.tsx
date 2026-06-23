@@ -316,7 +316,7 @@ export default function GalleryGrid({
         favoriteLists={favoriteLists}
         onOpenFavoriteList={onOpenFavoriteList}
       />
-      <div id="gallery-photo-grid" className="max-w-7xl mx-auto px-2 sm:px-4 pt-2 md:pt-0"
+      <div id="gallery-photo-grid" className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-6 pt-2 md:pt-0"
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}
       >
         {gallery.subfolders && gallery.subfolders.length > 0 && (
