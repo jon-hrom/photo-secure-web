@@ -167,8 +167,6 @@ export default function GalleryJustifiedLayout({
     return 3 / 2;
   };
 
-  const isLandscapePhoto = (p: Photo) => getAR(p) > 1.15;
-
   const targetHeight = gridSize;
 
   // Контейнер растягивается под реальную ширину экрана (без жёсткого лимита 1280),
@@ -197,34 +195,15 @@ export default function GalleryJustifiedLayout({
 
   const justifiedRows: { photos: Photo[]; height: number; fill?: boolean }[] = [];
 
-  if (allRaw) {
-    // RAW-режим: горизонтальные — по 1 на всю ширину, вертикальные — по 2 рядом
-    let i = 0;
-    while (i < sortedPhotos.length) {
-      const photo = sortedPhotos[i];
-      if (isLandscapePhoto(photo)) {
-        // Горизонтальное: одно на всю строку
-        justifiedRows.push({ photos: [photo], height: containerWidth / getAR(photo) });
-        i++;
-      } else {
-        // Вертикальное: берём до 2 подряд вертикальных
-        const verticals: Photo[] = [photo];
-        if (i + 1 < sortedPhotos.length && !isLandscapePhoto(sortedPhotos[i + 1])) {
-          verticals.push(sortedPhotos[i + 1]);
-        }
-        const totalAR = verticals.reduce((s, p) => s + getAR(p), 0);
-        const gaps = (verticals.length - 1) * gridGap;
-        const h = (containerWidth - gaps) / totalAR;
-        justifiedRows.push({ photos: verticals, height: h });
-        i += verticals.length;
-      }
-    }
-  } else {
+  // Единый justified-алгоритм для всех фото, включая RAW.
+  // getAR() для RAW определяет соотношение сторон по thumbnail, поэтому
+  // gridSize (targetHeight) корректно влияет на размер всех типов файлов.
+  {
     let currentRow: Photo[] = [];
     let currentAR = 0;
 
     sortedPhotos.forEach((photo, i) => {
-      const ar = (photo.width || 1) / (photo.height || 1);
+      const ar = getAR(photo);
       currentRow.push(photo);
       currentAR += ar;
 

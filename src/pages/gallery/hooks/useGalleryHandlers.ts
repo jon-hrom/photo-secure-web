@@ -185,11 +185,6 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
   }, [clientData?.client_id, code, sendHeartbeat]);
 
   const handleAddToFavorites = async (photo: Photo) => {
-    if (!favoriteFolder) {
-      alert('Фотограф ещё не настроил папку избранного');
-      return;
-    }
-    
     if (clientData && clientData.client_id > 0) {
       const galleryCode = code;
       console.log('[FAVORITES] Adding photo for logged-in client:', {

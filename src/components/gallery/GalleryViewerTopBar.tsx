@@ -74,15 +74,6 @@ export default function GalleryViewerTopBar({
             <Icon name="ZoomOut" size={18} className="text-white" />
           </button>
         )}
-        {!downloadDisabled && onDownload && (
-          <button
-            onClick={onDownload}
-            className={`${btnSize} flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all`}
-            title="Скачать фото"
-          >
-            <Icon name="Download" size={18} className="text-white" />
-          </button>
-        )}
         {onAddToFavorites && (
           <button
             onClick={onAddToFavorites}
@@ -98,6 +89,15 @@ export default function GalleryViewerTopBar({
               size={18}
               className={isFavorite ? 'text-white fill-white' : 'text-white'}
             />
+          </button>
+        )}
+        {!downloadDisabled && onDownload && (
+          <button
+            onClick={onDownload}
+            className={`${btnSize} flex items-center justify-center rounded-full bg-white/10 active:bg-white/30 backdrop-blur-sm transition-all`}
+            title="Скачать фото"
+          >
+            <Icon name="Download" size={18} className="text-white" />
           </button>
         )}
         <button
