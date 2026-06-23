@@ -160,26 +160,22 @@ def purge_user_data(cur, user_id: int) -> Dict[str, int]:
     deleted_s3 = delete_s3_objects(s3_keys)
     print(f'Deleted {deleted_s3} S3 objects for user {uid}')
 
-    tables = [
-        ('photo_bank', 'user_id'),
-        ('photo_folders', 'user_id'),
+    # Дополнительная очистка таблиц, ссылающихся на пользователя НЕ через FK
+    # (например, по email или другим логическим связям)
+    extra_tables = [
         ('photo_short_links', 'user_id'),
         ('favorite_photos', 'user_id'),
         ('favorite_clients', 'user_id'),
         ('favorite_lists', 'user_id'),
-        ('download_logs', 'user_id'),
         ('gallery_view_logs', 'user_id'),
-        ('clients', 'user_id'),
         ('client_upload_folders', 'user_id'),
         ('active_sessions', 'user_id'),
         ('user_sessions', 'user_id'),
         ('refresh_tokens', 'user_id'),
-        ('two_factor_codes', 'user_id'),
         ('phone_verification_codes', 'user_id'),
         ('password_reset_codes', 'user_id'),
         ('email_verifications', 'user_id'),
         ('login_attempts', 'user_id'),
-        ('user_profiles', 'user_id'),
         ('user_settings', 'user_id'),
         ('push_subscriptions', 'user_id'),
         ('watermark_logos', 'user_id'),
@@ -189,11 +185,34 @@ def purge_user_data(cur, user_id: int) -> Dict[str, int]:
         ('vk_users', 'user_id'),
         ('account_removal_codes', 'user_id'),
     ]
-    for table, col in tables:
+    for table, col in extra_tables:
         try:
             cur.execute(f"DELETE FROM {SCHEMA}.{table} WHERE {col} = {uid}")
         except Exception as e:
             print(f'skip {table}: {str(e)}')
+
+    # Автоматически находим ВСЕ таблицы, ссылающиеся на users через FK,
+    # и удаляем связанные записи. Это гарантирует, что финальный DELETE
+    # не упадёт по foreign key constraint при любых новых таблицах.
+    cur.execute(
+        "SELECT tc.table_name, kcu.column_name "
+        "FROM information_schema.table_constraints tc "
+        "JOIN information_schema.key_column_usage kcu "
+        "  ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema "
+        "JOIN information_schema.constraint_column_usage ccu "
+        "  ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema "
+        "WHERE tc.constraint_type = 'FOREIGN KEY' "
+        f"  AND tc.table_schema = '{SCHEMA}' "
+        "  AND ccu.table_name = 'users'"
+    )
+    fk_refs = cur.fetchall()
+    for ref in fk_refs:
+        table = ref['table_name'] if isinstance(ref, dict) else ref[0]
+        col = ref['column_name'] if isinstance(ref, dict) else ref[1]
+        try:
+            cur.execute(f"DELETE FROM {SCHEMA}.{table} WHERE {col} = {uid}")
+        except Exception as e:
+            print(f'skip FK {table}.{col}: {str(e)}')
 
     cur.execute(f"DELETE FROM {SCHEMA}.users WHERE id = {uid}")
 
