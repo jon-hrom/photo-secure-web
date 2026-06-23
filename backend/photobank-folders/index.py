@@ -8,6 +8,7 @@ import json
 import os
 import re
 import uuid
+from decimal import Decimal
 from typing import Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -18,6 +19,13 @@ from PIL.ExifTags import Base as ExifBase
 import io
 import requests
 from datetime import datetime
+
+def _json_default(o):
+    if isinstance(o, Decimal):
+        i = int(o)
+        return i if i == o else float(o)
+    raise TypeError(f'Object of type {type(o).__name__} is not JSON serializable')
+
 
 def _extract_shot_date(file_bytes):
     try:
@@ -211,7 +219,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'folders': folders}),
+                    'body': json.dumps({'folders': folders}, default=_json_default),
                     'isBase64Encoded': False
                 }
             
