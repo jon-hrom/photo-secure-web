@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { playNotificationSound } from '@/utils/notificationSound';
 
 interface Photo {
@@ -43,6 +43,7 @@ interface GalleryHandlersParams {
   setUnreadCount: (count: number) => void;
   setPhotoToAdd: (photo: Photo | null) => void;
   setIsFavoritesModalOpen: (open: boolean) => void;
+  setIsLoginModalOpen: (open: boolean) => void;
   previousUnreadCount: React.MutableRefObject<number>;
 }
 
@@ -59,8 +60,13 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     setUnreadCount,
     setPhotoToAdd,
     setIsFavoritesModalOpen,
+    setIsLoginModalOpen,
     previousUnreadCount
   } = params;
+
+  // Фото, которое клиент захотел добавить в избранное ДО авторизации.
+  // После успешного входа оно автоматически добавится в избранное.
+  const pendingFavoritePhotoRef = useRef<Photo | null>(null);
 
   const loadClientFavorites = useCallback(async (clientId: number) => {
     try {
@@ -184,45 +190,47 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     };
   }, [clientData?.client_id, code, sendHeartbeat]);
 
+  const addPhotoToFavoritesForClient = async (
+    photo: Photo,
+    client: { client_id: number; full_name: string; phone: string; email?: string }
+  ) => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_to_favorites',
+          gallery_code: code,
+          full_name: client.full_name,
+          phone: client.phone,
+          email: client.email || null,
+          photo_id: photo.id
+        })
+      });
+
+      const result = await response.json();
+      console.log('[FAVORITES] Add response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка при добавлении в избранное');
+      }
+
+      setClientFavoritePhotoIds(prev => prev.includes(photo.id) ? prev : [...prev, photo.id]);
+    } catch (error) {
+      console.error('[FAVORITES] Error adding photo:', error);
+      alert(error instanceof Error ? error.message : 'Ошибка при добавлении в избранное');
+    }
+  };
+
   const handleAddToFavorites = async (photo: Photo) => {
     if (clientData && clientData.client_id > 0) {
-      const galleryCode = code;
-      console.log('[FAVORITES] Adding photo for logged-in client:', {
-        gallery_code: galleryCode,
-        full_name: clientData.full_name,
-        phone: clientData.phone,
-        photo_id: photo.id
-      });
-      
-      try {
-        const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'add_to_favorites',
-            gallery_code: galleryCode,
-            full_name: clientData.full_name,
-            phone: clientData.phone,
-            email: clientData.email || null,
-            photo_id: photo.id
-          })
-        });
-        
-        const result = await response.json();
-        console.log('[FAVORITES] Add response:', result);
-        
-        if (!response.ok) {
-          throw new Error(result.error || 'Ошибка при добавлении в избранное');
-        }
-        
-        setClientFavoritePhotoIds(prev => [...prev, photo.id]);
-      } catch (error) {
-        console.error('[FAVORITES] Error adding photo:', error);
-        alert(error instanceof Error ? error.message : 'Ошибка при добавлении в избранное');
-      }
+      await addPhotoToFavoritesForClient(photo, clientData);
     } else {
+      // Сначала авторизация: запоминаем фото и открываем окно входа.
+      // После успешного входа фото добавится в избранное автоматически.
+      pendingFavoritePhotoRef.current = photo;
       setPhotoToAdd(photo);
-      setIsFavoritesModalOpen(true);
+      setIsLoginModalOpen(true);
     }
   };
 
@@ -255,6 +263,14 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     
     if (loginData.client_id) {
       await loadClientFavorites(loginData.client_id);
+    }
+
+    // Если до входа клиент нажал звёздочку — добавляем то фото в избранное
+    const pendingPhoto = pendingFavoritePhotoRef.current;
+    if (pendingPhoto && loginData.client_id > 0) {
+      pendingFavoritePhotoRef.current = null;
+      setPhotoToAdd(null);
+      await addPhotoToFavoritesForClient(pendingPhoto, loginData);
     }
   };
 

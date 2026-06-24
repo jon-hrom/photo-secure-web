@@ -137,6 +137,7 @@ export default function PublicGallery() {
     setUnreadCount: state.setUnreadCount,
     setPhotoToAdd: state.setPhotoToAdd,
     setIsFavoritesModalOpen: state.setIsFavoritesModalOpen,
+    setIsLoginModalOpen: state.setIsLoginModalOpen,
     previousUnreadCount: state.previousUnreadCount
   });
 
