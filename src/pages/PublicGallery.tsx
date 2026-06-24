@@ -149,6 +149,18 @@ export default function PublicGallery() {
     reloadClientFolders,
   });
 
+  // При переходе между уровнями (открытие/закрытие подпапки) закрываем
+  // окно входа и сопутствующие модалки — чтобы папка открывалась "чисто",
+  // а окно авторизации появлялось только по клику на звёздочку.
+  const viewingSubfolderId = subfolder.viewingSubfolder?.id;
+  useEffect(() => {
+    state.setIsLoginModalOpen(false);
+    state.setIsFavoritesModalOpen(false);
+    state.setSelectedPhoto(null);
+    state.setPhotoToAdd(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingSubfolderId]);
+
   const visiblePhotos = (state.clientData && state.clientData.client_id > 0 && gallery)
     ? gallery.photos.filter((p: Photo) => !state.clientFavoritePhotoIds.includes(p.id))
     : gallery?.photos || [];
