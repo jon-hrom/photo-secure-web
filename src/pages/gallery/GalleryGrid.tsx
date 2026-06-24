@@ -136,8 +136,6 @@ export default function GalleryGrid({
   onCancelListSelection,
   favoriteLists = [],
   onOpenFavoriteList,
-  onSaveToYandexDisk,
-  savingToYandexDisk = false,
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length, 'subfolders:', gallery.subfolders?.length || 0, gallery.subfolders);
 
