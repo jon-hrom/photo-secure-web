@@ -64,6 +64,22 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     );
   }
 
+  const clientsWithPhotos = clients.filter(
+    c => resolveClientPhotos(c, allPhotos).length > 0
+  );
+  const totalPhotos = clientsWithPhotos.reduce(
+    (sum, c) => sum + resolveClientPhotos(c, allPhotos).length,
+    0
+  );
+
+  const pluralize = (n: number, forms: [string, string, string]) => {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return forms[0];
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1];
+    return forms[2];
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-900 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -75,6 +91,15 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {folderName}
             </p>
+            {clientsWithPhotos.length > 0 && (
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mt-1">
+                {clientsWithPhotos.length}{' '}
+                {pluralize(clientsWithPhotos.length, ['клиент', 'клиента', 'клиентов'])}
+                {' · '}
+                {totalPhotos}{' '}
+                {pluralize(totalPhotos, ['фото отобрано', 'фото отобрано', 'фото отобрано'])}
+              </p>
+            )}
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <Icon name="X" size={20} />
