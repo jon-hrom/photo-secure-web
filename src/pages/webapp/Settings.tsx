@@ -16,7 +16,6 @@ import TelegramVerificationCard from '@/components/settings/TelegramVerification
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
 import GoogleCalendarConnect from '@/components/settings/GoogleCalendarConnect';
-import BirthdayNotificationsCard from '@/components/settings/BirthdayNotificationsCard';
 import VKSettings from '@/components/settings/VKSettings';
 import BiometricSettingsCard from '@/components/settings/BiometricSettingsCard';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
@@ -318,10 +317,6 @@ const Settings = () => {
               <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
                 {settings && (
                   <TelegramVerificationCard userId={settings.id} />
-                )}
-
-                {settings && (
-                  <BirthdayNotificationsCard userId={settings.id?.toString() || null} />
                 )}
               </AccordionContent>
             </AccordionItem>
