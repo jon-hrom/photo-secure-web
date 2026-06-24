@@ -161,6 +161,9 @@ interface SubfolderPhotosViewProps {
   cancelDownload?: () => void;
   formatFileSize: (bytes: number) => string;
   onBack: () => void;
+  subfolderId?: number;
+  onSaveToYandexDisk?: (subfolderId?: number) => void;
+  savingToYandexDisk?: boolean;
 }
 
 export const SubfolderPhotosView = ({
@@ -179,6 +182,9 @@ export const SubfolderPhotosView = ({
   cancelDownload,
   formatFileSize,
   onBack,
+  subfolderId,
+  onSaveToYandexDisk,
+  savingToYandexDisk = false,
 }: SubfolderPhotosViewProps) => {
   const sfSecondaryText = isDarkTheme ? 'rgba(255,255,255,0.6)' : '#6b7280';
 
@@ -232,6 +238,8 @@ export const SubfolderPhotosView = ({
           gallery={{ ...gallery, photos: visibleSubfolderPhotos, subfolders: [] }}
           downloadingAll={downloadingAll}
           onDownloadAll={downloadAll || (() => {})}
+          onSaveToYandexDisk={onSaveToYandexDisk ? () => onSaveToYandexDisk(subfolderId) : undefined}
+          savingToYandexDisk={savingToYandexDisk}
           onPhotoClick={state.setSelectedPhoto}
           onDownloadPhoto={downloadPhoto}
           onAddToFavorites={handlers.handleAddToFavorites}

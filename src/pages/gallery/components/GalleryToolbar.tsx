@@ -188,7 +188,7 @@ export default function GalleryToolbar({
                   </button>
                   {onSaveToYandexDisk && (
                     <button
-                      onClick={onSaveToYandexDisk}
+                      onClick={() => onSaveToYandexDisk()}
                       disabled={savingToYandexDisk}
                       title="Сохранить все фото на свой Яндекс.Диск"
                       className="flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-[#FC3F1D] text-white rounded-full sm:rounded-lg active:bg-[#d8330f] disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"

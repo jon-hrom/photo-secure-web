@@ -340,6 +340,9 @@ export default function PublicGallery() {
         cancelDownload={cancelDownload}
         formatFileSize={formatFileSize}
         onBack={subfolder.handleBackFromSubfolder}
+        subfolderId={subfolder.viewingSubfolder?.id}
+        onSaveToYandexDisk={state.clientData?.client_id ? saveToYandexDisk : undefined}
+        savingToYandexDisk={savingToYandexDisk}
       />
     );
   }

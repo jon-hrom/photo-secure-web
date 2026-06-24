@@ -108,6 +108,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         token = body.get('token', '')
         auth_code = str(body.get('auth_code', '') or '').strip()
         share_code = body.get('code', '')
+        subfolder_id = body.get('subfolder_id')
+        try:
+            subfolder_id = int(subfolder_id) if subfolder_id is not None and str(subfolder_id) != '' else None
+        except (ValueError, TypeError):
+            subfolder_id = None
 
         if not share_code:
             return _resp(400, {'error': 'Не передан код галереи'})
@@ -156,6 +161,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             folder_id, folder_name, download_disabled = row
             if download_disabled:
                 return _resp(403, {'error': 'Скачивание для этой галереи отключено'})
+
+            # Если открыта подпапка — грузим именно её (проверяем, что она
+            # принадлежит дереву папки короткой ссылки).
+            if subfolder_id:
+                target_id = subfolder_id
+                belongs = False
+                for _ in range(10):
+                    if target_id == folder_id:
+                        belongs = True
+                        break
+                    cur.execute(
+                        f"SELECT parent_folder_id FROM {SCHEMA}.photo_folders WHERE id = %s",
+                        (target_id,),
+                    )
+                    pr = cur.fetchone()
+                    if not pr or not pr[0]:
+                        break
+                    target_id = pr[0]
+                if belongs:
+                    cur.execute(
+                        f"SELECT folder_name FROM {SCHEMA}.photo_folders WHERE id = %s",
+                        (subfolder_id,),
+                    )
+                    nm = cur.fetchone()
+                    if nm:
+                        folder_id = subfolder_id
+                        folder_name = nm[0]
 
             cur.execute(
                 f"""

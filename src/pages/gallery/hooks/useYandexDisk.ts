@@ -6,6 +6,7 @@ const YANDEX_DISK_URL = 'https://functions.poehali.dev/e4f749e4-5c96-48dd-9787-1
 export function useYandexDisk(code?: string) {
   const [savingToYandexDisk, setSavingToYandexDisk] = useState(false);
   const [codeDialogOpen, setCodeDialogOpen] = useState(false);
+  const [pendingSubfolderId, setPendingSubfolderId] = useState<number | null>(null);
 
   const submitAuthCode = useCallback(async (authCode: string) => {
     if (!code || !authCode.trim()) return;
@@ -16,7 +17,11 @@ export function useYandexDisk(code?: string) {
       const resp = await fetch(YANDEX_DISK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ auth_code: authCode.trim(), code }),
+        body: JSON.stringify({
+          auth_code: authCode.trim(),
+          code,
+          subfolder_id: pendingSubfolderId ?? undefined,
+        }),
       });
       const data = await resp.json();
       if (resp.ok && data.success) {
@@ -32,10 +37,11 @@ export function useYandexDisk(code?: string) {
     } finally {
       setSavingToYandexDisk(false);
     }
-  }, [code]);
+  }, [code, pendingSubfolderId]);
 
-  const saveToYandexDisk = useCallback(async () => {
+  const saveToYandexDisk = useCallback(async (subfolderId?: number) => {
     if (!code) return;
+    setPendingSubfolderId(subfolderId ?? null);
     try {
       const resp = await fetch(`${YANDEX_DISK_URL}?action=auth_url&code=${encodeURIComponent(code)}`);
       const data = await resp.json();
