@@ -17,6 +17,7 @@ import { useGalleryHandlers } from './gallery/hooks/useGalleryHandlers';
 import { useSubfolderState } from './gallery/hooks/useSubfolderState';
 import { useYandexDisk } from './gallery/hooks/useYandexDisk';
 import YandexDiskCodeDialog from './gallery/components/YandexDiskCodeDialog';
+import YandexDiskProgress from './gallery/components/YandexDiskProgress';
 
 interface Photo {
   id: number;
@@ -133,6 +134,9 @@ export default function PublicGallery() {
     codeDialogOpen: yandexDiskCodeOpen,
     setCodeDialogOpen: setYandexDiskCodeOpen,
     submitAuthCode: submitYandexDiskCode,
+    progress: yandexDiskProgress,
+    progressTotal: yandexDiskTotal,
+    progressDone: yandexDiskDone,
   } = useYandexDisk(code);
 
   const handlers = useGalleryHandlers({
@@ -324,6 +328,7 @@ export default function PublicGallery() {
 
   if (subfolder.viewingSubfolder && subfolder.subfolderPhotos.length > 0) {
     return (
+      <>
       <SubfolderPhotosView
         subfolderPhotos={subfolder.subfolderPhotos}
         subfolderFolderName={subfolder.subfolderFolderName}
@@ -344,11 +349,24 @@ export default function PublicGallery() {
         onSaveToYandexDisk={state.clientData?.client_id ? saveToYandexDisk : undefined}
         savingToYandexDisk={savingToYandexDisk}
       />
+        <YandexDiskProgress
+          show={savingToYandexDisk}
+          percent={yandexDiskProgress}
+          done={yandexDiskDone}
+          total={yandexDiskTotal}
+        />
+      </>
     );
   }
 
   return (
     <div className="min-h-screen">
+      <YandexDiskProgress
+        show={savingToYandexDisk}
+        percent={yandexDiskProgress}
+        done={yandexDiskDone}
+        total={yandexDiskTotal}
+      />
       <LoadingIndicators
         showProgress={state.showProgress}
         loadingProgress={actualProgress}

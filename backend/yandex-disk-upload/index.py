@@ -110,6 +110,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         share_code = body.get('code', '')
         subfolder_id = body.get('subfolder_id')
         try:
+            batch_offset = int(body.get('offset', 0) or 0)
+        except (ValueError, TypeError):
+            batch_offset = 0
+        try:
+            batch_limit = int(body.get('limit', 0) or 0)
+        except (ValueError, TypeError):
+            batch_limit = 0
+        try:
             subfolder_id = int(subfolder_id) if subfolder_id is not None and str(subfolder_id) != '' else None
         except (ValueError, TypeError):
             subfolder_id = None
@@ -208,31 +216,51 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not photos:
             return _resp(400, {'error': 'В галерее нет фото'})
 
+        total = len(photos)
+
         # Папка назначения на Диске клиента
         safe_name = ''.join(ch for ch in str(folder_name or 'Галерея') if ch not in '\\/:*?"<>|').strip() or 'Галерея'
         disk_dir = f'/{safe_name}'
-        _yandex_disk_request('PUT', '/resources', token, {'path': disk_dir})
+
+        # Создаём папку только на первом батче
+        if batch_offset <= 0:
+            _yandex_disk_request('PUT', '/resources', token, {'path': disk_dir})
+
+        # Берём срез фото для этого батча (для прогресса). Если limit не задан — грузим все.
+        if batch_limit and batch_limit > 0:
+            batch = photos[batch_offset:batch_offset + batch_limit]
+        else:
+            batch = photos[batch_offset:] if batch_offset else photos
 
         s3 = _get_s3_client()
         queued = 0
         failed = 0
         errors: List[str] = []
+        # Уникальность имён по позиции файла во всём списке (стабильно между батчами)
         used_names: Dict[str, int] = {}
+        for idx, (sk, fn) in enumerate(photos):
+            base = (fn or '').strip() or sk.split('/')[-1]
+            used_names[base] = used_names.get(base, 0) + 1
 
-        for s3_key, file_name in photos:
+        seen: Dict[str, int] = {}
+
+        def unique_name(raw: str) -> str:
+            seen[raw] = seen.get(raw, 0)
+            if used_names.get(raw, 0) > 1 and seen[raw] > 0:
+                dot = raw.rfind('.')
+                out = f'{raw[:dot]}_{seen[raw]}{raw[dot:]}' if dot > 0 else f'{raw}_{seen[raw]}'
+            else:
+                out = raw
+            seen[raw] += 1
+            return out
+
+        # Восстанавливаем счётчик seen до текущего offset, чтобы имена не конфликтовали между батчами
+        for s3_key, file_name in photos[:batch_offset]:
+            unique_name((file_name or '').strip() or s3_key.split('/')[-1])
+
+        for s3_key, file_name in batch:
             try:
-                name = (file_name or '').strip() or s3_key.split('/')[-1]
-                # защита от одинаковых имён
-                if name in used_names:
-                    used_names[name] += 1
-                    dot = name.rfind('.')
-                    if dot > 0:
-                        name = f'{name[:dot]}_{used_names[name]}{name[dot:]}'
-                    else:
-                        name = f'{name}_{used_names[name]}'
-                else:
-                    used_names[name] = 0
-
+                name = unique_name((file_name or '').strip() or s3_key.split('/')[-1])
                 source_url = _presign(s3, s3_key)
                 dest_path = f'{disk_dir}/{name}'
                 result = _yandex_disk_request('POST', '/resources/upload', token, {
@@ -250,13 +278,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if len(errors) < 5:
                     errors.append(f"{file_name}: {str(e)}")
 
+        processed = batch_offset + len(batch)
+        done = processed >= total
+
         return _resp(200, {
-            'success': queued > 0,
+            'success': queued > 0 or done,
             'folder_name': folder_name,
             'disk_folder': disk_dir,
-            'total': len(photos),
+            'total': total,
+            'processed': processed,
             'queued': queued,
             'failed': failed,
+            'done': done,
+            'token': token,
             'errors': errors,
         })
 

@@ -114,12 +114,12 @@ export default function GalleryToolbar({
       boxShadow: isDarkBg ? '0 1px 2px rgba(0,0,0,0.3)' : '0 1px 2px rgba(0,0,0,0.08)'
     }}>
       <div className="max-w-7xl mx-auto px-2 sm:px-4">
-        <div className="flex items-center gap-2 py-2 sm:py-2.5 overflow-x-auto">
+        <div className="flex items-center gap-2 py-2 sm:py-2.5 flex-wrap sm:flex-nowrap sm:overflow-x-auto justify-center sm:justify-start">
           <ThemeToggleButton isDarkBg={isDarkBg} onToggle={onToggleTheme} />
           <p className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0" style={{ color: secondaryText }}>
             {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}
           </p>
-          <div className="flex-1" />
+          <div className="hidden sm:block flex-1" />
           {clientName ? (
             <>
               <button
