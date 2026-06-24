@@ -253,8 +253,9 @@ export const SubfolderPhotosView = ({
         onClientLogin={handlers.handleClientLogin}
         onRemoveFromFavorites={handlers.handleRemoveFromFavorites}
         onDownloadPhoto={downloadPhoto}
-        loadClientFavorites={handlers.loadClientFavorites}
+        onAddToFavorites={handlers.handleAddToFavorites}
         isDarkTheme={isDarkTheme}
+        loadClientFavorites={handlers.loadClientFavorites}
       />
     </div>
   );
