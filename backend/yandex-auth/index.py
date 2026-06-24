@@ -69,8 +69,8 @@ def save_session(state: str) -> None:
         expires_at = datetime.now() + timedelta(minutes=10)
         with conn.cursor() as cur:
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.oauth_sessions (state, nonce, provider, expires_at)
-                VALUES ({escape_sql(state)}, {escape_sql(state)}, 'yandex', {escape_sql(expires_at.isoformat())})
+                INSERT INTO {SCHEMA}.oauth_sessions (state, nonce, code_verifier, provider, expires_at)
+                VALUES ({escape_sql(state)}, {escape_sql(state)}, {escape_sql(state)}, 'yandex', {escape_sql(expires_at.isoformat())})
             """)
         conn.commit()
     finally:
@@ -452,8 +452,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 with conn.cursor() as cur:
                     temp_token = generate_state()
                     cur.execute(f"""
-                        INSERT INTO {SCHEMA}.oauth_sessions (state, nonce, provider, expires_at)
-                        VALUES ({escape_sql(temp_token)}, {escape_sql(str(user_id))}, 'yandex-2fa',
+                        INSERT INTO {SCHEMA}.oauth_sessions (state, nonce, code_verifier, provider, expires_at)
+                        VALUES ({escape_sql(temp_token)}, {escape_sql(str(user_id))}, {escape_sql(temp_token)}, 'yandex-2fa',
                                 CURRENT_TIMESTAMP + INTERVAL '10 minutes')
                     """)
                     conn.commit()
