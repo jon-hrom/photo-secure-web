@@ -424,6 +424,8 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
 
     if (provider === 'google') {
       window.location.href = 'https://functions.poehali.dev/a362a521-0759-4577-adbf-7960bf063100';
+    } else if (provider === 'yandex') {
+      window.location.href = 'https://functions.poehali.dev/e5943511-d507-4fb9-bbb0-2431e3eb0d9a';
     } else {
       toast.info(`OAuth через ${provider} будет доступен в следующей версии`);
     }

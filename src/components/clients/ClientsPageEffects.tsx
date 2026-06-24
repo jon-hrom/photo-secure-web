@@ -57,11 +57,12 @@ export const ClientsPageEffects = ({
       
       if (!hasSeenEmailNotification) {
         const googleUser = localStorage.getItem('google_user');
+        const yandexUser = localStorage.getItem('yandex_user');
         
-        if (googleUser) {
+        if (googleUser || yandexUser) {
           setTimeout(() => {
             toast.success('Ваша почта подтверждена автоматически', {
-              description: 'Вы вошли через Google — email подтверждён',
+              description: googleUser ? 'Вы вошли через Google — email подтверждён' : 'Вы вошли через Яндекс — email подтверждён',
               duration: 5000,
             });
           }, 500);

@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Callback without state returns redirect to Yandex",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 302
+    },
+    {
+      "name": "Callback with code but invalid state",
+      "method": "GET",
+      "path": "/?code=test&state=invalidstate123",
+      "expectedStatus": 400,
+      "expectedBody": {"success": false},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -114,6 +114,19 @@ export const getAuthUserId = (): string | null => {
     } catch {}
   }
   
+  const yandexUser = localStorage.getItem('yandex_user');
+  if (yandexUser) {
+    try {
+      const userData = JSON.parse(yandexUser);
+      const userId = userData.user_id?.toString() || userData.id?.toString();
+      if (userId) {
+        cachedUserId = userId;
+        cacheTimestamp = Date.now();
+        return userId;
+      }
+    } catch {}
+  }
+  
   cachedUserId = null;
   cacheTimestamp = Date.now();
   return null;
@@ -128,17 +141,19 @@ export const usePhotoBankAuth = () => {
       const authSession = localStorage.getItem('authSession');
       const vkUser = localStorage.getItem('vk_user');
       const googleUser = localStorage.getItem('google_user');
+      const yandexUser = localStorage.getItem('yandex_user');
       const adminViewingUserId = localStorage.getItem('admin_viewing_user_id');
       
       console.log('[PHOTO_BANK] Auth check:', { 
         hasAuthSession: !!authSession, 
         hasVkUser: !!vkUser,
         hasGoogleUser: !!googleUser,
+        hasYandexUser: !!yandexUser,
         hasAdminViewingUserId: !!adminViewingUserId
       });
       
       // Если нет авторизации, очищаем admin_viewing_user_id
-      if (!authSession && !vkUser && !googleUser) {
+      if (!authSession && !vkUser && !googleUser && !yandexUser) {
         if (adminViewingUserId) {
           console.log('[PHOTO_BANK] No auth found, clearing admin viewing session');
           localStorage.removeItem('admin_viewing_user_id');
@@ -204,7 +219,7 @@ export const usePhotoBankAuth = () => {
     
     // Слушаем изменения в localStorage (для logout в других вкладках)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'authSession' || e.key === 'vk_user' || e.key === 'google_user') {
+      if (e.key === 'authSession' || e.key === 'vk_user' || e.key === 'google_user' || e.key === 'yandex_user') {
         console.log('[PHOTO_BANK] Auth storage changed, re-checking');
         checkAuth();
       }
@@ -232,6 +247,7 @@ export const useEmailVerification = (userId: string | null, authChecking: boolea
         const authSession = localStorage.getItem('authSession');
         const vkUser = localStorage.getItem('vk_user');
         const googleUser = localStorage.getItem('google_user');
+        const yandexUser = localStorage.getItem('yandex_user');
         
         let userEmail = null;
         let vkUserData = null;
@@ -256,8 +272,8 @@ export const useEmailVerification = (userId: string | null, authChecking: boolea
           return;
         }
 
-        if (googleUser) {
-          console.log('[PHOTO_BANK] Google user detected, auto-verified');
+        if (googleUser || yandexUser) {
+          console.log('[PHOTO_BANK] Google/Yandex user detected, auto-verified');
           setEmailVerified(true);
           setCheckingVerification(false);
           return;

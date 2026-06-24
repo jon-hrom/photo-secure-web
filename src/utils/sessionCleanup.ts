@@ -9,6 +9,7 @@ export const clearUserSession = () => {
   localStorage.removeItem('authSession');
   localStorage.removeItem('vk_user');
   localStorage.removeItem('google_user');
+  localStorage.removeItem('yandex_user');
   localStorage.removeItem('auth_token');
   localStorage.removeItem('vk_user_id');
   localStorage.removeItem('vk_access_token');
@@ -39,8 +40,9 @@ export const isAdminViewingSessionValid = (): boolean => {
   const authSession = localStorage.getItem('authSession');
   const vkUser = localStorage.getItem('vk_user');
   const googleUser = localStorage.getItem('google_user');
+  const yandexUser = localStorage.getItem('yandex_user');
   
-  if (!authSession && !vkUser && !googleUser) {
+  if (!authSession && !vkUser && !googleUser && !yandexUser) {
     console.warn('[SESSION_CLEANUP] Admin viewing session invalid: no auth, clearing');
     localStorage.removeItem('admin_viewing_user_id');
     localStorage.removeItem('admin_viewing_user');

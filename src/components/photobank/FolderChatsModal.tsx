@@ -38,6 +38,7 @@ export default function FolderChatsModal({
     const authSession = localStorage.getItem('authSession');
     const vkUser = localStorage.getItem('vk_user');
     const googleUser = localStorage.getItem('google_user');
+    const yandexUser = localStorage.getItem('yandex_user');
     
     if (authSession) {
       try {
@@ -59,6 +60,13 @@ export default function FolderChatsModal({
     } else if (googleUser) {
       try {
         const userData = JSON.parse(googleUser);
+        if (userData.name) setPhotographerName(userData.name);
+      } catch {
+        // Ignore
+      }
+    } else if (yandexUser) {
+      try {
+        const userData = JSON.parse(yandexUser);
         if (userData.name) setPhotographerName(userData.name);
       } catch {
         // Ignore

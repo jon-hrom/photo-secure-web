@@ -31,6 +31,7 @@ export const useSettingsData = () => {
   const getUserId = (): number | null => {
     const vkUser = localStorage.getItem('vk_user');
     const googleUser = localStorage.getItem('google_user');
+    const yandexUser = localStorage.getItem('yandex_user');
     const authSession = localStorage.getItem('authSession');
 
     if (vkUser) {
@@ -48,6 +49,15 @@ export const useSettingsData = () => {
         return userData.user_id || null;
       } catch (e) {
         console.error('Failed to parse google_user:', e);
+      }
+    }
+
+    if (yandexUser) {
+      try {
+        const userData = JSON.parse(yandexUser);
+        return userData.user_id || null;
+      } catch (e) {
+        console.error('Failed to parse yandex_user:', e);
       }
     }
 

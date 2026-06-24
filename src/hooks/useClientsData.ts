@@ -179,11 +179,13 @@ export const useClientsData = (
       
       const vkUser = localStorage.getItem('vk_user');
       const googleUser = localStorage.getItem('google_user');
+      const yandexUser = localStorage.getItem('yandex_user');
       const authSession = localStorage.getItem('authSession');
       
       console.log('[EMAIL_VERIFICATION] Checking verification for user:', {
         userId,
         hasGoogleUser: !!googleUser,
+        hasYandexUser: !!yandexUser,
         hasVkUser: !!vkUser,
         settingsSource: data.settings.source,
         emailVerifiedAt: data.settings.email_verified_at
@@ -217,6 +219,16 @@ export const useClientsData = (
         console.log('[EMAIL_VERIFICATION] Google user detected - email auto-verified', {
           hasGoogleUserInLocalStorage: !!googleUser,
           sourceIsGoogle: data.settings.source === 'google'
+        });
+        setEmailVerified(true);
+        return;
+      }
+      
+      // Yandex пользователи имеют автоматически подтверждённую почту
+      if (yandexUser || data.settings.source === 'yandex') {
+        console.log('[EMAIL_VERIFICATION] Yandex user detected - email auto-verified', {
+          hasYandexUserInLocalStorage: !!yandexUser,
+          sourceIsYandex: data.settings.source === 'yandex'
         });
         setEmailVerified(true);
         return;

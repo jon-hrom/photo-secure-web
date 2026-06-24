@@ -18,7 +18,8 @@ export const useSessionWatcher = () => {
       if (
         e.key === 'authSession' ||
         e.key === 'vk_user' ||
-        e.key === 'google_user'
+        e.key === 'google_user' ||
+        e.key === 'yandex_user'
       ) {
         console.log('[SESSION_WATCHER] Auth key changed/removed:', e.key);
         

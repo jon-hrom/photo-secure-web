@@ -42,8 +42,9 @@ const PhotoBankTrash = () => {
       const authSession = localStorage.getItem('authSession');
       const vkUser = localStorage.getItem('vk_user');
       const googleUser = localStorage.getItem('google_user');
+      const yandexUser = localStorage.getItem('yandex_user');
       
-      if (!authSession && !vkUser && !googleUser) {
+      if (!authSession && !vkUser && !googleUser && !yandexUser) {
         navigate('/');
         return;
       }

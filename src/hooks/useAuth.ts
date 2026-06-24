@@ -325,21 +325,24 @@ export const useAuth = () => {
       
       const vkUser = localStorage.getItem('vk_user');
       const googleUser = localStorage.getItem('google_user');
+      const yandexUser = localStorage.getItem('yandex_user');
       const vkAuthCompleted = localStorage.getItem('vk_auth_completed');
       
       console.log('📦 LocalStorage check:', { 
         hasVkUser: !!vkUser,
         hasGoogleUser: !!googleUser,
+        hasYandexUser: !!yandexUser,
         vkAuthCompleted,
         vkSessionId: !!vkSessionId,
         vkUserData: vkUser ? JSON.parse(vkUser) : null,
-        googleUserData: googleUser ? JSON.parse(googleUser) : null
+        googleUserData: googleUser ? JSON.parse(googleUser) : null,
+        yandexUserData: yandexUser ? JSON.parse(yandexUser) : null
       });
       
-      if (vkUser || googleUser) {
+      if (vkUser || googleUser || yandexUser) {
         try {
-          const userData = JSON.parse(vkUser || googleUser!);
-          const authMethod = vkUser ? 'vk' : 'google';
+          const userData = JSON.parse(vkUser || googleUser || yandexUser!);
+          const authMethod = vkUser ? 'vk' : (googleUser ? 'google' : 'yandex');
           const uid = userData.user_id;
           
           // CRITICAL: Check session expiry before restoring
@@ -413,7 +416,7 @@ export const useAuth = () => {
             
             setIsAuthenticated(true);
             setUserId(uid);
-            setUserName(userData.name || (authMethod === 'vk' ? 'Пользователь VK' : 'Пользователь Google'));
+            setUserName(userData.name || (authMethod === 'vk' ? 'Пользователь VK' : (authMethod === 'yandex' ? 'Пользователь Яндекс' : 'Пользователь Google')));
             setUserAvatar(userData.avatar || userData.picture || '');
             setIsVerified(userData.is_verified || userData.verified || userData.verified_email || false);
             setIsAdmin(isUserAdmin);
@@ -425,6 +428,8 @@ export const useAuth = () => {
               const updatedUserData = { ...userData, email: dbData.email };
               if (authMethod === 'vk') {
                 localStorage.setItem('vk_user', JSON.stringify(updatedUserData));
+              } else if (authMethod === 'yandex') {
+                localStorage.setItem('yandex_user', JSON.stringify(updatedUserData));
               } else {
                 localStorage.setItem('google_user', JSON.stringify(updatedUserData));
               }

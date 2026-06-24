@@ -26,6 +26,16 @@ export const getAuthUserId = (): string | null => {
     } catch {}
   }
   
+  const yandexUser = localStorage.getItem('yandex_user');
+  if (yandexUser) {
+    try {
+      const userData = JSON.parse(yandexUser);
+      if (userData.user_id) return userData.user_id.toString();
+      if (userData.id) return userData.id.toString();
+      if (userData.sub) return userData.sub.toString();
+    } catch {}
+  }
+  
   return null;
 };
 
