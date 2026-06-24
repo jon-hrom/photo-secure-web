@@ -35,8 +35,9 @@ def _resp(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _redirect_uri() -> str:
-    site = os.environ.get('SITE_URL', 'https://foto-mix.ru').rstrip('/')
-    return f'{site}/yandex-disk/callback'
+    # Жёстко строчными буквами — Яндекс сверяет redirect_uri точно (регистр домена важен).
+    # Должен совпадать с Callback URL в приложении на oauth.yandex.ru.
+    return 'https://foto-mix.ru/yandex-disk/callback'
 
 
 def _get_s3_client():
