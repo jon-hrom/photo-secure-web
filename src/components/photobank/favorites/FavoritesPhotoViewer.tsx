@@ -1,5 +1,6 @@
 import Icon from '@/components/ui/icon';
 import PhotoGridViewer from '../PhotoGridViewer';
+import { resolveClientPhotos } from './useFavoritesData';
 import type { ClientData, Photo } from './useFavoritesData';
 
 interface FavoritesPhotoViewerProps {
@@ -19,9 +20,7 @@ export default function FavoritesPhotoViewer({
   onDownload,
   onNavigate
 }: FavoritesPhotoViewerProps) {
-  const displayPhotos = selectedClient.photos
-    .map(fp => allPhotos.find(p => p.id === fp.photo_id))
-    .filter((p): p is Photo => p !== undefined);
+  const displayPhotos = resolveClientPhotos(selectedClient, allPhotos);
   
   const currentIndex = displayPhotos.findIndex(p => p.id === selectedPhoto.id);
   const canGoPrev = currentIndex > 0;

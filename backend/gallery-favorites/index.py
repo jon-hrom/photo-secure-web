@@ -1001,6 +1001,9 @@ def handler(event: dict, context) -> dict:
                 }
             
             elif gallery_code:
+                # JOIN с photo_bank, чтобы у каждого избранного фото были полные URL.
+                # Тогда фотограф видит избранное клиентов с ЛЮБОГО уровня вложенности
+                # папок, а не только из текущей открытой папки.
                 cur.execute('''
                     SELECT 
                         fc.id as client_id,
@@ -1008,13 +1011,25 @@ def handler(event: dict, context) -> dict:
                         fc.phone,
                         fc.email,
                         fp.photo_id,
-                        fp.added_at
+                        fp.added_at,
+                        pb.file_name, pb.s3_url, pb.thumbnail_s3_url,
+                        pb.grid_thumbnail_s3_url, COALESCE(pb.is_raw, FALSE),
+                        pb.width, pb.height, pb.file_size, pb.s3_key
                     FROM t_p28211681_photo_secure_web.favorite_clients fc
                     LEFT JOIN t_p28211681_photo_secure_web.favorite_photos fp ON fc.id = fp.client_id
+                    LEFT JOIN t_p28211681_photo_secure_web.photo_bank pb
+                        ON pb.id = fp.photo_id AND pb.is_trashed = FALSE
                     WHERE fc.gallery_code = %s
                     ORDER BY fc.full_name, fp.added_at DESC
                 ''', (gallery_code,))
-                
+
+                def resolve_url(u: str) -> str:
+                    if not u:
+                        return ''
+                    if 'cdn.poehali.dev' in u:
+                        return u
+                    return generate_presigned_url(u)
+
                 clients = {}
                 for row in cur.fetchall():
                     client_id_row = row[0]
@@ -1028,9 +1043,31 @@ def handler(event: dict, context) -> dict:
                         }
                     
                     if row[4]:
+                        s3_url = row[7] or ''
+                        thumbnail_s3_url = row[8] or ''
+                        grid_thumbnail_s3_url = row[9] or ''
+                        is_raw = row[10]
+
+                        preview_src = grid_thumbnail_s3_url or thumbnail_s3_url
+                        if not preview_src and not is_raw:
+                            preview_src = s3_url
+                        thumbnail_url = resolve_url(preview_src)
+
+                        photo_src = (thumbnail_s3_url or s3_url) if is_raw else s3_url
+                        photo_url = resolve_url(photo_src) or thumbnail_url
+                        if not thumbnail_url:
+                            thumbnail_url = photo_url
+
                         clients[client_id_row]['photos'].append({
                             'photo_id': row[4],
-                            'added_at': row[5].isoformat() if row[5] else None
+                            'added_at': row[5].isoformat() if row[5] else None,
+                            'file_name': row[6],
+                            'photo_url': photo_url,
+                            'thumbnail_url': thumbnail_url,
+                            'width': row[11],
+                            'height': row[12],
+                            'file_size': row[13],
+                            's3_key': row[14]
                         })
                 
                 return {
@@ -1046,7 +1083,8 @@ def handler(event: dict, context) -> dict:
                 cur.execute('''
                     SELECT fp.photo_id, fp.added_at,
                            pb.file_name, pb.s3_url, pb.thumbnail_s3_url,
-                           pb.width, pb.height, pb.file_size, pb.s3_key
+                           pb.width, pb.height, pb.file_size, pb.s3_key,
+                           pb.grid_thumbnail_s3_url, COALESCE(pb.is_raw, FALSE)
                     FROM t_p28211681_photo_secure_web.favorite_photos fp
                     LEFT JOIN t_p28211681_photo_secure_web.photo_bank pb
                         ON pb.id = fp.photo_id AND pb.is_trashed = FALSE
@@ -1059,10 +1097,30 @@ def handler(event: dict, context) -> dict:
                     file_name = row[2]
                     s3_url = row[3] or ''
                     thumbnail_s3_url = row[4] or ''
-                    if not thumbnail_s3_url or thumbnail_s3_url.endswith('.CR2'):
-                        thumbnail_s3_url = s3_url
-                    photo_url = generate_presigned_url(s3_url) if s3_url else ''
-                    thumbnail_url = generate_presigned_url(thumbnail_s3_url) if thumbnail_s3_url else photo_url
+                    grid_thumbnail_s3_url = row[9] or ''
+                    is_raw = row[10]
+
+                    def resolve_url(u: str) -> str:
+                        if not u:
+                            return ''
+                        # CDN poehali — уже готовый публичный URL, presigned не нужен
+                        if 'cdn.poehali.dev' in u:
+                            return u
+                        return generate_presigned_url(u)
+
+                    # Превью для сетки: grid → thumbnail → (для не-RAW) оригинал
+                    preview_src = grid_thumbnail_s3_url or thumbnail_s3_url
+                    if not preview_src and not is_raw:
+                        preview_src = s3_url
+                    thumbnail_url = resolve_url(preview_src)
+
+                    # Полный просмотр: для RAW показываем превью (сам .CR2 браузер не отрисует)
+                    photo_src = thumbnail_s3_url or s3_url if is_raw else s3_url
+                    photo_url = resolve_url(photo_src) or thumbnail_url
+
+                    if not thumbnail_url:
+                        thumbnail_url = photo_url
+
                     photos.append({
                         'photo_id': row[0],
                         'added_at': row[1].isoformat() if row[1] else None,

@@ -8,6 +8,13 @@ interface ClientData {
   photos: Array<{
     photo_id: number;
     added_at?: string;
+    file_name?: string;
+    photo_url?: string;
+    thumbnail_url?: string;
+    width?: number | null;
+    height?: number | null;
+    file_size?: number;
+    s3_key?: string;
   }>;
 }
 
@@ -16,6 +23,27 @@ interface Photo {
   file_name: string;
   photo_url: string;
   thumbnail_url?: string;
+}
+
+// Превращает избранные фото клиента в полноценные Photo:
+// приоритет — URL с сервера (работают для любой папки), иначе ищем в allPhotos.
+export function resolveClientPhotos(
+  client: ClientData,
+  allPhotos: Photo[]
+): Photo[] {
+  return client.photos
+    .map((fp) => {
+      if (fp.photo_url) {
+        return {
+          id: fp.photo_id,
+          file_name: fp.file_name || '',
+          photo_url: fp.photo_url,
+          thumbnail_url: fp.thumbnail_url || fp.photo_url,
+        } as Photo;
+      }
+      return allPhotos.find((p) => p.id === fp.photo_id);
+    })
+    .filter((p): p is Photo => p !== undefined);
 }
 
 export function useFavoritesData(folderId: number | null, userId: number) {
@@ -164,9 +192,7 @@ export function useFavoritesData(folderId: number | null, userId: number) {
   };
 
   const handleDownloadClientPhotos = async (client: ClientData) => {
-    const displayPhotos = client.photos
-      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
-      .filter((p): p is Photo => p !== undefined);
+    const displayPhotos = resolveClientPhotos(client, allPhotos);
 
     if (displayPhotos.length === 0) {
       alert('Нет фото для скачивания');

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
-import { useFavoritesData } from './favorites/useFavoritesData';
+import { useFavoritesData, resolveClientPhotos } from './favorites/useFavoritesData';
 import FavoritesClientsList from './favorites/FavoritesClientsList';
 import FavoritesPhotoViewer from './favorites/FavoritesPhotoViewer';
 import type { ClientData, Photo } from './favorites/useFavoritesData';
@@ -29,9 +29,7 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (!selectedClient || !selectedPhoto) return;
     
-    const displayPhotos = selectedClient.photos
-      .map(fp => allPhotos.find(p => p.id === fp.photo_id))
-      .filter((p): p is Photo => p !== undefined);
+    const displayPhotos = resolveClientPhotos(selectedClient, allPhotos);
     
     const currentIndex = displayPhotos.findIndex(p => p.id === selectedPhoto.id);
     

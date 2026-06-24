@@ -1,5 +1,6 @@
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
+import { resolveClientPhotos } from './useFavoritesData';
 import type { ClientData, Photo } from './useFavoritesData';
 
 interface FavoritesClientsListProps {
@@ -20,9 +21,7 @@ export default function FavoritesClientsList({
   return (
     <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
       {clients.map(client => {
-        const displayPhotos = client.photos
-          .map(fp => allPhotos.find(p => p.id === fp.photo_id))
-          .filter((p): p is Photo => p !== undefined);
+        const displayPhotos = resolveClientPhotos(client, allPhotos);
 
         if (displayPhotos.length === 0) return null;
 
