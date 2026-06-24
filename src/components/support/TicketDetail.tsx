@@ -229,13 +229,6 @@ export default function TicketDetail({ userId, userName, ticketId, mode, onBack,
                 </Button>
               </div>
             )}
-            {firstMessage && (
-              <div className="rounded-xl border bg-muted/40 p-4 text-sm leading-relaxed whitespace-pre-wrap break-words">
-                {firstMessage.body}
-                <MessageAttachments atts={firstMessage.attachments} />
-              </div>
-            )}
-
             <div className="relative text-center">
               <span className="bg-background px-3 text-xs text-muted-foreground relative z-10">
                 Сообщения ({messages.length})
