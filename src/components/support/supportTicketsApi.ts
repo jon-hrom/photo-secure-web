@@ -27,6 +27,13 @@ export interface Ticket {
   admin_unread_count: number;
 }
 
+export interface TicketUserInfo {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+}
+
 export interface TicketMessage {
   id: number;
   sender: 'user' | 'admin';
@@ -141,7 +148,7 @@ export async function adminFetchTickets(userId: string | number, status?: 'open'
   return data.tickets || [];
 }
 
-export async function adminFetchTicket(userId: string | number, ticketId: number): Promise<{ ticket: Ticket; messages: TicketMessage[] }> {
+export async function adminFetchTicket(userId: string | number, ticketId: number): Promise<{ ticket: Ticket; messages: TicketMessage[]; user_info?: TicketUserInfo }> {
   const res = await fetch(`${SUPPORT_TICKETS_URL}?action=admin_get&ticket_id=${ticketId}`, { headers: headers(userId) });
   return res.json();
 }

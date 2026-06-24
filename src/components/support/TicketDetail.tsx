@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import {
-  Ticket, TicketMessage, NewAttachment,
+  Ticket, TicketMessage, NewAttachment, TicketUserInfo,
   fetchTicket, sendTicketMessage, closeTicket, reopenTicket,
   adminFetchTicket, adminSendMessage, adminSetStatus,
   fileToAttachment, formatTicketTime,
@@ -38,6 +38,7 @@ const statusBadgeClass = (status: string) => {
 
 export default function TicketDetail({ userId, userName, ticketId, mode, onBack, onTicketUpdated }: TicketDetailProps) {
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [userInfo, setUserInfo] = useState<TicketUserInfo | null>(null);
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [reply, setReply] = useState('');
@@ -56,6 +57,9 @@ export default function TicketDetail({ userId, userName, ticketId, mode, onBack,
       if (data.ticket) {
         setTicket(data.ticket);
         setMessages(data.messages || []);
+        if (mode === 'admin' && 'user_info' in data && data.user_info) {
+          setUserInfo(data.user_info);
+        }
       }
     } catch {
       // ignore
@@ -176,6 +180,36 @@ export default function TicketDetail({ userId, userName, ticketId, mode, onBack,
           {STATUS_LABELS[ticket.status]}
         </span>
       </div>
+
+      {/* Данные фотографа (только для админа) */}
+      {mode === 'admin' && userInfo && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-4 py-2.5 border-b bg-muted/40 text-xs">
+          {userInfo.full_name && (
+            <span className="flex items-center gap-1.5 text-foreground font-medium">
+              <Icon name="User" size={14} className="text-muted-foreground" />
+              {userInfo.full_name}
+            </span>
+          )}
+          {userInfo.id && (
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Icon name="Hash" size={14} />
+              ID {userInfo.id}
+            </span>
+          )}
+          {userInfo.email && (
+            <a href={`mailto:${userInfo.email}`} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary">
+              <Icon name="Mail" size={14} />
+              {userInfo.email}
+            </a>
+          )}
+          {userInfo.phone && (
+            <a href={`tel:${userInfo.phone}`} className="flex items-center gap-1.5 text-muted-foreground hover:text-primary">
+              <Icon name="Phone" size={14} />
+              {userInfo.phone}
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Тело */}
       <div className="flex-1 overflow-y-auto">

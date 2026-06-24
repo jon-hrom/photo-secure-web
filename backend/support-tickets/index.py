@@ -108,6 +108,41 @@ def gen_ticket_number(cur):
     return f"AB{nxt:06d}"
 
 
+def get_ticket_user_info(cur, ticket):
+    """Возвращает данные фотографа по тикету: id, ФИО, email, телефон.
+    ФИО: user_profiles.full_name -> users.display_name -> users.name -> user_name тикета."""
+    info = {
+        'id': ticket.get('user_identifier') or '',
+        'full_name': ticket.get('user_name') or '',
+        'email': ticket.get('user_email') or '',
+        'phone': '',
+    }
+    try:
+        uid = int(str(ticket.get('user_identifier')))
+    except (TypeError, ValueError):
+        return info
+    try:
+        cur.execute(
+            f"SELECT u.id, u.email, u.phone, u.phone_number, u.display_name, u.name, "
+            f"p.full_name AS profile_name "
+            f"FROM {SCHEMA}.users u "
+            f"LEFT JOIN {SCHEMA}.user_profiles p ON p.user_id = u.id "
+            f"WHERE u.id = %s",
+            (uid,),
+        )
+        row = cur.fetchone()
+        if row:
+            info['id'] = str(row.get('id'))
+            full_name = (row.get('profile_name') or row.get('display_name')
+                         or row.get('name') or info['full_name'] or '')
+            info['full_name'] = full_name
+            info['email'] = row.get('email') or info['email']
+            info['phone'] = row.get('phone') or row.get('phone_number') or ''
+    except Exception as e:
+        print(f'[support-tickets] get_ticket_user_info failed: {e}')
+    return info
+
+
 def ticket_to_dict(row):
     return {
         'id': row['id'],
@@ -127,6 +162,47 @@ def ticket_to_dict(row):
     }
 
 
+AUTO_CLOSE_HOURS = 48  # 2 суток без активности -> автозакрытие
+
+
+def auto_close_stale_tickets():
+    """Закрывает незакрытые тикеты, в которых нет активности более 2 суток.
+    Уведомляет фотографа и админов. Вызывается из cron (action=cron_auto_close)."""
+    conn = get_conn()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    closed = []
+    try:
+        cur.execute(
+            f"SELECT id, user_identifier, ticket_number, subject FROM {SCHEMA}.support_tickets "
+            f"WHERE status != 'closed' "
+            f"AND last_message_at < NOW() - INTERVAL '{AUTO_CLOSE_HOURS} hours'"
+        )
+        stale = cur.fetchall()
+        for t in stale:
+            cur.execute(
+                f"UPDATE {SCHEMA}.support_tickets "
+                f"SET status = 'closed', closed_at = NOW(), updated_at = NOW() WHERE id = %s",
+                (t['id'],),
+            )
+            cur.execute(
+                f"INSERT INTO {SCHEMA}.support_ticket_messages (ticket_id, sender, sender_name, body, attachments) "
+                f"VALUES (%s, 'admin', 'Поддержка', %s, '[]'::jsonb)",
+                (t['id'],
+                 f"Тикет {t['ticket_number']} был автоматически закрыт по истечению времени. "
+                 f"Если возникнут новые вопросы, Вы можете задать их нам снова, открыв новый тикет. "
+                 f"Спасибо, что обратились в техническую поддержку Foto-Mix."),
+            )
+            conn.commit()
+            _safe_notify('notify_ticket_auto_closed', cur, t['user_identifier'],
+                         t['ticket_number'], t['subject'])
+            conn.commit()
+            closed.append(t['ticket_number'])
+        return resp(200, {'success': True, 'closed_count': len(closed), 'closed': closed})
+    finally:
+        cur.close()
+        conn.close()
+
+
 def handler(event: dict, context) -> dict:
     """Тикеты техподдержки: список, создание, переписка, вложения, закрытие; админ-операции"""
     if event.get('httpMethod') == 'OPTIONS':
@@ -136,6 +212,15 @@ def handler(event: dict, context) -> dict:
     params = event.get('queryStringParameters') or {}
     action = params.get('action', 'list')
     headers = event.get('headers') or {}
+
+    # ---------- CRON: автозакрытие тикетов по таймауту ----------
+    # Защита токеном CRON_TOKEN, авторизация по X-User-Id не требуется.
+    if action == 'cron_auto_close':
+        cron_token = os.environ.get('CRON_TOKEN', '')
+        if cron_token and params.get('token', '') != cron_token:
+            return resp(403, {'error': 'Forbidden'})
+        return auto_close_stale_tickets()
+
     user_id_str = headers.get('X-User-Id') or headers.get('x-user-id') or ''
 
     if not user_id_str:
@@ -346,8 +431,10 @@ def handler(event: dict, context) -> dict:
                 (ticket_id,),
             )
             conn.commit()
+            user_info = get_ticket_user_info(cur, ticket)
             return resp(200, {
                 'ticket': ticket_to_dict(ticket),
+                'user_info': user_info,
                 'messages': [{
                     'id': m['id'], 'sender': m['sender'], 'sender_name': m.get('sender_name') or '',
                     'body': m.get('body') or '', 'attachments': m.get('attachments') or [],

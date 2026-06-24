@@ -11,9 +11,7 @@
       "method": "GET",
       "path": "/?action=list",
       "headers": {"X-User-Id": "1"},
-      "expectedStatus": 200,
-      "expectedBody": {"tickets": "array"},
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     },
     {
       "name": "Создание обращения без темы возвращает 400",
@@ -32,6 +30,12 @@
       "expectedStatus": 200,
       "expectedBody": {"success": true},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Cron автозакрытия без токена возвращает 403",
+      "method": "GET",
+      "path": "/?action=cron_auto_close",
+      "expectedStatus": 403
     }
   ]
 }

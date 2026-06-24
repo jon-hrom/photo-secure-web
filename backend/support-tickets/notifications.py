@@ -334,3 +334,24 @@ def notify_admin_reply(cur, user_identifier, ticket_number, subject, preview):
     html = _email_template(title, body, '/')
     contact = get_user_contacts(cur, user_identifier)
     notify_contact(cur, contact, user_identifier, title, body, '/', html)
+
+
+def notify_ticket_auto_closed(cur, user_identifier, ticket_number, subject):
+    """Тикет автоматически закрыт по таймауту -> уведомить пользователя и админов."""
+    title = f'Тикет {ticket_number} автоматически закрыт'
+    body = (
+        f'Тикет {ticket_number} был автоматически закрыт по истечению времени. '
+        f'Если возникнут новые вопросы, Вы можете задать их нам снова, открыв новый тикет. '
+        f'Спасибо, что обратились в техническую поддержку Foto-Mix.'
+    )
+    html = _email_template(title, body, '/')
+    # Пользователь
+    contact = get_user_contacts(cur, user_identifier)
+    notify_contact(cur, contact, user_identifier, title, body, '/', html)
+    # Админы
+    admin_title = f'Тикет {ticket_number} закрыт автоматически'
+    admin_body = f'Тема: {subject}. Тикет закрыт автоматически по истечению времени (нет ответа клиента).'
+    admin_html = _email_template(admin_title, admin_body, '/')
+    for admin in get_admins_contacts(cur):
+        admin_id = _field(admin, 'id', 0)
+        notify_contact(cur, admin, admin_id, admin_title, admin_body, '/', admin_html)
