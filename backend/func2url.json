@@ -1,4 +1,5 @@
 {
+  "yandex-auth-yandex-auth": "https://functions.poehali.dev/dffd90e0-d614-4267-a279-82e28f67b58a",
   "backfill-shot-date": "https://functions.poehali.dev/75988ac9-8a62-4dae-befe-71b4f6d8d691",
   "notifications-tick": "https://functions.poehali.dev/79d17544-9f53-446b-bf9f-474f171be865",
   "recurring-cron": "https://functions.poehali.dev/3ed78003-2909-425d-9e2c-ec1788b7ef66",
