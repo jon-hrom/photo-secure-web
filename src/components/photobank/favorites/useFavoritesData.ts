@@ -105,9 +105,27 @@ export function useFavoritesData(folderId: number | null, userId: number) {
       return;
     }
     
-    const galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
-    console.log('[FAVORITES] Gallery code:', galleryCode);
-    
+    let galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
+    console.log('[FAVORITES] Gallery code from localStorage:', galleryCode);
+
+    // Фолбэк: если кода нет локально (другой браузер/устройство) — берём его с сервера
+    if (!galleryCode) {
+      try {
+        const shareResp = await fetch(
+          `https://functions.poehali.dev/9eee0a77-78fd-4687-a47b-cae3dc4b46ab?folder_id=${folderId}`,
+          { headers: { 'X-User-Id': userId.toString() } }
+        );
+        const shareData = await shareResp.json();
+        if (shareResp.ok && shareData.exists && shareData.short_code) {
+          galleryCode = shareData.short_code;
+          localStorage.setItem(`folder_${folderId}_gallery_code`, galleryCode);
+          console.log('[FAVORITES] Gallery code from server:', galleryCode);
+        }
+      } catch (e) {
+        console.error('[FAVORITES] Failed to resolve gallery_code from server:', e);
+      }
+    }
+
     if (!galleryCode) {
       setError('Галерея не опубликована. Сначала поделитесь папкой с клиентом.');
       setLoading(false);
