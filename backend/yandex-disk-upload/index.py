@@ -35,9 +35,9 @@ def _resp(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _redirect_uri() -> str:
-    # Жёстко строчными буквами — Яндекс сверяет redirect_uri точно (регистр домена важен).
-    # Должен совпадать с Callback URL в приложении на oauth.yandex.ru.
-    return 'https://foto-mix.ru/yandex-disk/callback'
+    # Приложение типа "десктопное": Яндекс показывает страницу с кодом подтверждения,
+    # который клиент вводит вручную. Этот redirect_uri фиксирован самим Яндексом.
+    return 'https://oauth.yandex.ru/verification_code'
 
 
 def _get_s3_client():
@@ -91,12 +91,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         client_id = os.environ.get('YANDEX_DISK_CLIENT_ID', '')
         if not client_id:
             return _resp(500, {'error': 'YANDEX_DISK_CLIENT_ID not configured'})
-        code = qs.get('code', '')
         params = {
-            'response_type': 'token',
+            'response_type': 'code',
             'client_id': client_id,
             'redirect_uri': _redirect_uri(),
-            'state': code,
             'force_confirm': 'yes',
         }
         return _resp(200, {'auth_url': f'{YANDEX_OAUTH_AUTHORIZE}?{urllib.parse.urlencode(params)}'})
@@ -108,12 +106,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         except Exception:
             body = {}
         token = body.get('token', '')
+        auth_code = str(body.get('auth_code', '') or '').strip()
         share_code = body.get('code', '')
 
-        if not token:
-            return _resp(400, {'error': 'Не передан токен Яндекс.Диска'})
         if not share_code:
             return _resp(400, {'error': 'Не передан код галереи'})
+
+        # Обмен кода подтверждения Яндекса на токен доступа
+        if not token and auth_code:
+            client_id = os.environ.get('YANDEX_DISK_CLIENT_ID', '')
+            client_secret = os.environ.get('YANDEX_DISK_CLIENT_SECRET', '')
+            if not client_id or not client_secret:
+                return _resp(500, {'error': 'Яндекс.Диск не настроен'})
+            data = urllib.parse.urlencode({
+                'grant_type': 'authorization_code',
+                'code': auth_code,
+                'client_id': client_id,
+                'client_secret': client_secret,
+            }).encode()
+            try:
+                req = urllib.request.Request(YANDEX_OAUTH_TOKEN, data=data, method='POST')
+                req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+                with urllib.request.urlopen(req) as r:
+                    tok_data = json.loads(r.read().decode())
+                token = tok_data.get('access_token', '')
+            except urllib.error.HTTPError as e:
+                body_err = e.read().decode() if e.fp else ''
+                return _resp(400, {'error': f'Неверный код подтверждения: {body_err[:200]}'})
+
+        if not token:
+            return _resp(400, {'error': 'Не передан токен или код Яндекс.Диска'})
 
         dsn = os.environ.get('DATABASE_URL')
         conn = psycopg2.connect(dsn)

@@ -5,16 +5,18 @@ const YANDEX_DISK_URL = 'https://functions.poehali.dev/e4f749e4-5c96-48dd-9787-1
 
 export function useYandexDisk(code?: string) {
   const [savingToYandexDisk, setSavingToYandexDisk] = useState(false);
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
 
-  const uploadWithToken = useCallback(async (token: string) => {
-    if (!code) return;
+  const submitAuthCode = useCallback(async (authCode: string) => {
+    if (!code || !authCode.trim()) return;
+    setCodeDialogOpen(false);
     setSavingToYandexDisk(true);
     const t = toast.loading('Отправляем фото на ваш Яндекс.Диск...');
     try {
       const resp = await fetch(YANDEX_DISK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, code }),
+        body: JSON.stringify({ auth_code: authCode.trim(), code }),
       });
       const data = await resp.json();
       if (resp.ok && data.success) {
@@ -25,7 +27,7 @@ export function useYandexDisk(code?: string) {
       } else {
         toast.error(data.error || 'Не удалось загрузить фото на Яндекс.Диск', { id: t });
       }
-    } catch (e) {
+    } catch {
       toast.error('Ошибка соединения с Яндекс.Диском', { id: t });
     } finally {
       setSavingToYandexDisk(false);
@@ -45,29 +47,24 @@ export function useYandexDisk(code?: string) {
       const w = 640, h = 720;
       const left = window.screenX + (window.outerWidth - w) / 2;
       const top = window.screenY + (window.outerHeight - h) / 2;
-      const popup = window.open(
+      window.open(
         data.auth_url,
         'yandex-disk-auth',
         `width=${w},height=${h},left=${left},top=${top}`
       );
-      if (!popup) {
-        toast.error('Разрешите всплывающие окна, чтобы авторизоваться в Яндекс.Диске');
-        return;
-      }
 
-      const onMessage = (ev: MessageEvent) => {
-        if (ev.origin !== window.location.origin) return;
-        if (ev.data && ev.data.type === 'yandex-disk-token' && ev.data.token) {
-          window.removeEventListener('message', onMessage);
-          try { popup.close(); } catch { /* noop */ }
-          uploadWithToken(ev.data.token);
-        }
-      };
-      window.addEventListener('message', onMessage);
-    } catch (e) {
+      // Яндекс покажет клиенту код подтверждения — открываем окно ввода кода
+      setCodeDialogOpen(true);
+    } catch {
       toast.error('Не удалось начать загрузку на Яндекс.Диск');
     }
-  }, [code, uploadWithToken]);
+  }, [code]);
 
-  return { saveToYandexDisk, savingToYandexDisk };
+  return {
+    saveToYandexDisk,
+    savingToYandexDisk,
+    codeDialogOpen,
+    setCodeDialogOpen,
+    submitAuthCode,
+  };
 }

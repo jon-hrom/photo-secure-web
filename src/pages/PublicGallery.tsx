@@ -16,6 +16,7 @@ import { useGalleryState } from './gallery/hooks/useGalleryState';
 import { useGalleryHandlers } from './gallery/hooks/useGalleryHandlers';
 import { useSubfolderState } from './gallery/hooks/useSubfolderState';
 import { useYandexDisk } from './gallery/hooks/useYandexDisk';
+import YandexDiskCodeDialog from './gallery/components/YandexDiskCodeDialog';
 
 interface Photo {
   id: number;
@@ -126,7 +127,13 @@ export default function PublicGallery() {
     cancelDownload
   } = usePhotoDownloader(code, password, gallery?.folder_name);
 
-  const { saveToYandexDisk, savingToYandexDisk } = useYandexDisk(code);
+  const {
+    saveToYandexDisk,
+    savingToYandexDisk,
+    codeDialogOpen: yandexDiskCodeOpen,
+    setCodeDialogOpen: setYandexDiskCodeOpen,
+    submitAuthCode: submitYandexDiskCode,
+  } = useYandexDisk(code);
 
   const handlers = useGalleryHandlers({
     code,
@@ -430,6 +437,12 @@ export default function PublicGallery() {
           onCreated={handleListCreated}
         />
       )}
+
+      <YandexDiskCodeDialog
+        open={yandexDiskCodeOpen}
+        onOpenChange={setYandexDiskCodeOpen}
+        onSubmit={submitYandexDiskCode}
+      />
 
       {state.clientData?.upload_enabled && code && state.clientData?.client_id && (
         <ClientUploadModal
