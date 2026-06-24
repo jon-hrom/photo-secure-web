@@ -11,6 +11,7 @@ export function useYandexDisk(code?: string) {
   const [progress, setProgress] = useState(0);
   const [progressTotal, setProgressTotal] = useState(0);
   const [progressDone, setProgressDone] = useState(0);
+  const [authUrl, setAuthUrl] = useState('');
 
   const submitAuthCode = useCallback(async (authCode: string) => {
     if (!code || !authCode.trim()) return;
@@ -98,16 +99,9 @@ export function useYandexDisk(code?: string) {
         return;
       }
 
-      const w = 640, h = 720;
-      const left = window.screenX + (window.outerWidth - w) / 2;
-      const top = window.screenY + (window.outerHeight - h) / 2;
-      window.open(
-        data.auth_url,
-        'yandex-disk-auth',
-        `width=${w},height=${h},left=${left},top=${top}`
-      );
-
-      // Яндекс покажет клиенту код подтверждения — открываем окно ввода кода
+      // Сначала показываем наше окно с инструкцией и кнопкой "Открыть Яндекс",
+      // чтобы клиент не потерял поле для ввода кода.
+      setAuthUrl(data.auth_url);
       setCodeDialogOpen(true);
     } catch {
       toast.error('Не удалось начать загрузку на Яндекс.Диск');
@@ -123,5 +117,6 @@ export function useYandexDisk(code?: string) {
     progress,
     progressTotal,
     progressDone,
+    authUrl,
   };
 }

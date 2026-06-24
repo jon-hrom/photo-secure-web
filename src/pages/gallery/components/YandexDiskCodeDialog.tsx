@@ -9,15 +9,20 @@ interface YandexDiskCodeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (code: string) => void;
+  authUrl?: string;
 }
 
-export default function YandexDiskCodeDialog({ open, onOpenChange, onSubmit }: YandexDiskCodeDialogProps) {
+export default function YandexDiskCodeDialog({ open, onOpenChange, onSubmit, authUrl }: YandexDiskCodeDialogProps) {
   const [value, setValue] = useState('');
 
   const handleSubmit = () => {
     if (!value.trim()) return;
     onSubmit(value.trim());
     setValue('');
+  };
+
+  const openYandex = () => {
+    if (authUrl) window.open(authUrl, '_blank', 'noopener');
   };
 
   const handlePaste = async () => {
@@ -27,10 +32,10 @@ export default function YandexDiskCodeDialog({ open, onOpenChange, onSubmit }: Y
         setValue(text.trim());
         toast.success('Код вставлен');
       } else {
-        toast.error('Буфер обмена пуст — сначала скопируйте код');
+        toast.error('Буфер обмена пуст — сначала скопируйте код на странице Яндекса');
       }
     } catch {
-      toast.error('Не удалось прочитать буфер. Вставьте код вручную (зажмите поле → «Вставить»)');
+      toast.error('Не удалось прочитать буфер. Вставьте код вручную в поле');
     }
   };
 
@@ -40,20 +45,48 @@ export default function YandexDiskCodeDialog({ open, onOpenChange, onSubmit }: Y
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon name="HardDriveUpload" size={20} className="text-[#FC3F1D]" />
-            Подтверждение Яндекс.Диска
+            Сохранение на Яндекс.Диск
           </DialogTitle>
           <DialogDescription>
-            В открывшемся окне Яндекса разрешите доступ к Диску. Появится код подтверждения — скопируйте его и нажмите «Вставить из буфера».
+            Авторизуйтесь в Яндексе, скопируйте код подтверждения и вставьте его здесь.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3 pt-2">
+
+        <div className="space-y-4 pt-1">
+          <div className="space-y-2.5 text-sm">
+            <div className="flex gap-2.5">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#FC3F1D] text-white text-xs font-bold flex items-center justify-center">1</span>
+              <span className="text-gray-700 dark:text-gray-300">Откройте окно Яндекса и разрешите доступ к Диску</span>
+            </div>
+            <div className="flex gap-2.5">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#FC3F1D] text-white text-xs font-bold flex items-center justify-center">2</span>
+              <span className="text-gray-700 dark:text-gray-300">Скопируйте код подтверждения</span>
+            </div>
+            <div className="flex gap-2.5">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#FC3F1D] text-white text-xs font-bold flex items-center justify-center">3</span>
+              <span className="text-gray-700 dark:text-gray-300">Вернитесь сюда и вставьте код</span>
+            </div>
+          </div>
+
+          {authUrl && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openYandex}
+              className="w-full gap-2"
+            >
+              <Icon name="ExternalLink" size={16} />
+              Открыть окно Яндекса
+            </Button>
+          )}
+
           <div className="flex gap-2">
             <Input
               autoFocus
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
-              placeholder="Введите код подтверждения"
+              placeholder="Вставьте код подтверждения"
               className="flex-1"
             />
             <Button
@@ -67,6 +100,7 @@ export default function YandexDiskCodeDialog({ open, onOpenChange, onSubmit }: Y
               <span className="hidden sm:inline">Вставить</span>
             </Button>
           </div>
+
           <Button
             onClick={handleSubmit}
             disabled={!value.trim()}

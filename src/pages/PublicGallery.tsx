@@ -137,6 +137,7 @@ export default function PublicGallery() {
     progress: yandexDiskProgress,
     progressTotal: yandexDiskTotal,
     progressDone: yandexDiskDone,
+    authUrl: yandexDiskAuthUrl,
   } = useYandexDisk(code);
 
   const handlers = useGalleryHandlers({
@@ -355,6 +356,12 @@ export default function PublicGallery() {
           done={yandexDiskDone}
           total={yandexDiskTotal}
         />
+        <YandexDiskCodeDialog
+          open={yandexDiskCodeOpen}
+          onOpenChange={setYandexDiskCodeOpen}
+          onSubmit={submitYandexDiskCode}
+          authUrl={yandexDiskAuthUrl}
+        />
       </>
     );
   }
@@ -463,6 +470,7 @@ export default function PublicGallery() {
         open={yandexDiskCodeOpen}
         onOpenChange={setYandexDiskCodeOpen}
         onSubmit={submitYandexDiskCode}
+        authUrl={yandexDiskAuthUrl}
       />
 
       {state.clientData?.upload_enabled && code && state.clientData?.client_id && (
