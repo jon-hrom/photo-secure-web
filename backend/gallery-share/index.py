@@ -509,7 +509,8 @@ def handler(event: dict, context) -> dict:
 
             is_owner_lookup = False
             if not short_code and lookup_folder_id:
-                lookup_user_id = event.get('headers', {}).get('x-user-id')
+                _hdrs = event.get('headers', {}) or {}
+                lookup_user_id = _hdrs.get('x-user-id') or _hdrs.get('X-User-Id')
                 if not lookup_user_id:
                     cur.close()
                     conn.close()

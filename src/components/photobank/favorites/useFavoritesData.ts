@@ -52,6 +52,17 @@ export interface DownloadProgress {
   total: number;
 }
 
+function readStoredGalleryCode(fid: number): string | null {
+  const direct = localStorage.getItem(`folder_${fid}_gallery_code`);
+  if (direct) return direct;
+  const link = localStorage.getItem(`folder_${fid}_link`);
+  if (link) {
+    const code = link.split('/').pop();
+    if (code) return code;
+  }
+  return null;
+}
+
 export function useFavoritesData(folderId: number | null, userId: number) {
   const [clients, setClients] = useState<ClientData[]>([]);
   const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
@@ -112,10 +123,12 @@ export function useFavoritesData(folderId: number | null, userId: number) {
       return;
     }
     
-    let galleryCode = localStorage.getItem(`folder_${folderId}_gallery_code`);
+    let galleryCode = readStoredGalleryCode(folderId);
     console.log('[FAVORITES] Gallery code from localStorage:', galleryCode);
 
-    // Фолбэк: если кода нет локально (другой браузер/устройство) — берём его с сервера
+    // Фолбэк: если кода нет локально (другой браузер/устройство или подпапка) —
+    // спрашиваем сервер. Сервер сам поднимается к родительской папке и отдаёт
+    // её short_code, поэтому избранное работает на любом уровне вложенности.
     if (!galleryCode) {
       try {
         const shareResp = await fetch(
