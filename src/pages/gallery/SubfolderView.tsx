@@ -182,6 +182,12 @@ export const SubfolderPhotosView = ({
 }: SubfolderPhotosViewProps) => {
   const sfSecondaryText = isDarkTheme ? 'rgba(255,255,255,0.6)' : '#6b7280';
 
+  // Как на первом уровне: у авторизованного клиента фото, добавленные в избранное,
+  // скрываются из сетки (они "уехали" в избранное).
+  const visibleSubfolderPhotos = (state.clientData && state.clientData.client_id > 0)
+    ? subfolderPhotos.filter((p) => !state.clientFavoritePhotoIds.includes(p.id))
+    : subfolderPhotos;
+
   return (
     <div className="min-h-screen" style={galleryBgStyles}>
       {downloadingAll && downloadProgress && downloadProgress.show && cancelDownload && (
@@ -204,11 +210,11 @@ export const SubfolderPhotosView = ({
           </button>
           <div>
             <h2 className="font-semibold" style={{ color: galleryTextColor }}>{subfolderFolderName}</h2>
-            <p className="text-xs" style={{ color: sfSecondaryText }}>{subfolderPhotos.length} фото</p>
+            <p className="text-xs" style={{ color: sfSecondaryText }}>{visibleSubfolderPhotos.length} фото</p>
           </div>
         </div>
         <GalleryGrid
-          gallery={{ ...gallery, photos: subfolderPhotos, subfolders: [] }}
+          gallery={{ ...gallery, photos: visibleSubfolderPhotos, subfolders: [] }}
           downloadingAll={downloadingAll}
           onDownloadAll={downloadAll || (() => {})}
           onPhotoClick={state.setSelectedPhoto}
@@ -227,7 +233,7 @@ export const SubfolderPhotosView = ({
       </div>
       <GalleryModals
         selectedPhoto={state.selectedPhoto}
-        gallery={{ ...gallery, photos: subfolderPhotos, subfolders: [] }}
+        gallery={{ ...gallery, photos: visibleSubfolderPhotos, subfolders: [] }}
         clientData={state.clientData}
         clientFavoritePhotoIds={state.clientFavoritePhotoIds}
         viewingFavorites={state.viewingFavorites}

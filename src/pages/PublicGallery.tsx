@@ -150,13 +150,13 @@ export default function PublicGallery() {
   });
 
   // При переходе между уровнями (открытие/закрытие подпапки) закрываем
-  // окно входа и сопутствующие модалки — чтобы папка открывалась "чисто",
+  // окно входа и окно избранного — чтобы папка открывалась "чисто",
   // а окно авторизации появлялось только по клику на звёздочку.
+  // НЕ трогаем selectedPhoto, чтобы не мешать открытию фото на большой экран.
   const viewingSubfolderId = subfolder.viewingSubfolder?.id;
   useEffect(() => {
     state.setIsLoginModalOpen(false);
     state.setIsFavoritesModalOpen(false);
-    state.setSelectedPhoto(null);
     state.setPhotoToAdd(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewingSubfolderId]);
