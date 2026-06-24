@@ -160,8 +160,6 @@ export default function TicketDetail({ userId, userName, ticketId, mode, onBack,
   }
 
   const isClosed = ticket.status === 'closed';
-  const firstMessage = messages[0];
-  const rest = messages.slice(1);
 
   return (
     <div className="flex flex-col h-full">
@@ -237,7 +235,7 @@ export default function TicketDetail({ userId, userName, ticketId, mode, onBack,
             </div>
 
             <div className="space-y-5">
-              {[firstMessage, ...rest].filter(Boolean).map((m) => {
+              {messages.map((m) => {
                 const isAdmin = m.sender === 'admin';
                 return (
                   <div key={m.id} className="flex gap-3">
