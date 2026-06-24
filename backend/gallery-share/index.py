@@ -518,13 +518,31 @@ def handler(event: dict, context) -> dict:
                         'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                         'body': json.dumps({'error': 'Auth required'})
                     }
-                cur.execute(
-                    """SELECT short_code FROM t_p28211681_photo_secure_web.folder_short_links
-                       WHERE folder_id = %s AND user_id = %s
-                       ORDER BY created_at DESC LIMIT 1""",
-                    (lookup_folder_id, lookup_user_id)
-                )
-                row = cur.fetchone()
+                # Ищем ссылку по самой папке, а если её нет — поднимаемся
+                # к родительским папкам. Галерея публикуется на родительской
+                # папке, а фото и избранное могут лежать во вложенной.
+                current_folder_id = lookup_folder_id
+                row = None
+                for _ in range(10):
+                    cur.execute(
+                        """SELECT short_code FROM t_p28211681_photo_secure_web.folder_short_links
+                           WHERE folder_id = %s AND user_id = %s
+                           ORDER BY created_at DESC LIMIT 1""",
+                        (current_folder_id, lookup_user_id)
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        break
+                    cur.execute(
+                        """SELECT parent_folder_id FROM t_p28211681_photo_secure_web.photo_folders
+                           WHERE id = %s AND user_id = %s""",
+                        (current_folder_id, lookup_user_id)
+                    )
+                    parent_row = cur.fetchone()
+                    if not parent_row or not parent_row[0]:
+                        break
+                    current_folder_id = parent_row[0]
+
                 if row:
                     short_code = row[0]
                     is_owner_lookup = True
