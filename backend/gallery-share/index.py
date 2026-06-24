@@ -546,6 +546,77 @@ def handler(event: dict, context) -> dict:
                 if row:
                     short_code = row[0]
                     is_owner_lookup = True
+
+                    if not subfolder_id:
+                        cur.execute(
+                            """
+                            SELECT fsl.short_code, fsl.expires_at, fsl.download_disabled,
+                                   fsl.watermark_enabled, fsl.watermark_type, fsl.watermark_text,
+                                   fsl.watermark_image_url, fsl.watermark_frequency, fsl.watermark_size,
+                                   fsl.watermark_opacity, fsl.watermark_rotation, fsl.screenshot_protection,
+                                   fsl.favorite_config,
+                                   fsl.cover_photo_id, fsl.cover_orientation, fsl.cover_focus_x, fsl.cover_focus_y,
+                                   fsl.grid_gap, COALESCE(fsl.grid_size, 280) as grid_size,
+                                   fsl.bg_theme, fsl.bg_color, fsl.bg_image_url, fsl.text_color,
+                                   fsl.cover_text_position, fsl.cover_title, fsl.cover_font_size,
+                                   fsl.mobile_cover_photo_id, fsl.mobile_cover_focus_x, fsl.mobile_cover_focus_y,
+                                   COALESCE(fsl.client_upload_enabled, FALSE) as client_upload_enabled,
+                                   COALESCE(fsl.client_folders_visibility, FALSE) as client_folders_visibility
+                            FROM t_p28211681_photo_secure_web.folder_short_links fsl
+                            WHERE fsl.short_code = %s
+                            """,
+                            (short_code,)
+                        )
+                        link_row = cur.fetchone()
+                        cur.close()
+                        conn.close()
+                        if not link_row:
+                            return {
+                                'statusCode': 200,
+                                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                                'body': json.dumps({'exists': True, 'short_code': short_code})
+                            }
+                        fav_cfg = link_row[12]
+                        if isinstance(fav_cfg, str):
+                            try:
+                                fav_cfg = json.loads(fav_cfg)
+                            except Exception:
+                                fav_cfg = None
+                        return {
+                            'statusCode': 200,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({
+                                'exists': True,
+                                'short_code': link_row[0],
+                                'expires_at': link_row[1].isoformat() if link_row[1] else None,
+                                'download_disabled': link_row[2],
+                                'watermark': {
+                                    'enabled': link_row[3], 'type': link_row[4], 'text': link_row[5],
+                                    'image_url': link_row[6], 'frequency': link_row[7], 'size': link_row[8],
+                                    'opacity': link_row[9], 'rotation': link_row[10]
+                                },
+                                'screenshot_protection': link_row[11],
+                                'favorite_config': fav_cfg,
+                                'cover_photo_id': link_row[13],
+                                'cover_orientation': link_row[14],
+                                'cover_focus_x': float(link_row[15]) if link_row[15] is not None else None,
+                                'cover_focus_y': float(link_row[16]) if link_row[16] is not None else None,
+                                'grid_gap': link_row[17],
+                                'grid_size': link_row[18],
+                                'bg_theme': link_row[19],
+                                'bg_color': link_row[20],
+                                'bg_image_url': link_row[21],
+                                'text_color': link_row[22],
+                                'cover_text_position': link_row[23],
+                                'cover_title': link_row[24],
+                                'cover_font_size': link_row[25],
+                                'mobile_cover_photo_id': link_row[26],
+                                'mobile_cover_focus_x': float(link_row[27]) if link_row[27] is not None else None,
+                                'mobile_cover_focus_y': float(link_row[28]) if link_row[28] is not None else None,
+                                'client_upload_enabled': link_row[29],
+                                'client_folders_visibility': link_row[30]
+                            })
+                        }
                 else:
                     cur.close()
                     conn.close()

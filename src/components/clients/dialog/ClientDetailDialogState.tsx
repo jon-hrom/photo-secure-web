@@ -20,7 +20,8 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     shooting_time: '10:00',
     shooting_duration: 120,
     shooting_address: '',
-    add_to_calendar: false
+    add_to_calendar: false,
+    hourly_rate: ''
   });
   const [newPayment, setNewPayment] = useState({ 
     amount: '', 
@@ -157,7 +158,8 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
             shooting_time: saved.shooting_time || '10:00',
             shooting_duration: saved.shooting_duration || 120,
             shooting_address: saved.shooting_address || '',
-            add_to_calendar: false
+            add_to_calendar: false,
+            hourly_rate: saved.hourly_rate || ''
           });
         }
       }

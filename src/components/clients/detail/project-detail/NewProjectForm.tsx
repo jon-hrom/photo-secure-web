@@ -20,6 +20,7 @@ interface NewProjectData {
   shooting_duration?: number;
   shooting_address?: string;
   add_to_calendar?: boolean;
+  hourly_rate?: string;
 }
 
 interface NewProjectFormProps {
@@ -38,6 +39,30 @@ const NewProjectForm = ({
   handleAddProject,
 }: NewProjectFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const calcBudget = (durationMin?: number, rate?: string) => {
+    const rateNum = parseFloat((rate ?? '').replace(',', '.'));
+    if (!durationMin || !rateNum || isNaN(rateNum)) return null;
+    return Math.round((durationMin / 60) * rateNum);
+  };
+
+  const handleRateChange = (rate: string) => {
+    const budget = calcBudget(newProject.shooting_duration || 120, rate);
+    setNewProject({
+      ...newProject,
+      hourly_rate: rate,
+      ...(budget !== null ? { budget: String(budget) } : {}),
+    });
+  };
+
+  const handleDurationChange = (durationMin: number) => {
+    const budget = calcBudget(durationMin, newProject.hourly_rate);
+    setNewProject({
+      ...newProject,
+      shooting_duration: durationMin,
+      ...(budget !== null ? { budget: String(budget) } : {}),
+    });
+  };
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
@@ -118,10 +143,22 @@ const NewProjectForm = ({
             <Label className="text-xs">Длительность (минуты)</Label>
             <DurationSelect
               value={newProject.shooting_duration || 120}
-              onChange={(value) => setNewProject({ ...newProject, shooting_duration: value })}
+              onChange={handleDurationChange}
             />
           </div>
           <div className="space-y-1">
+            <Label className="text-xs">Стоимость часа (₽)</Label>
+            <Input
+              type="number"
+              value={newProject.hourly_rate || ''}
+              onChange={(e) => handleRateChange(e.target.value)}
+              placeholder="3000"
+              className="text-xs h-9"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <div className="space-y-1 md:col-span-3">
             <Label className="text-xs">Адрес съёмки</Label>
             <Input
               type="text"
