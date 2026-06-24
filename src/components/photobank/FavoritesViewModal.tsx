@@ -22,6 +22,7 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     allPhotos,
     loading,
     error,
+    downloadProgress,
     handleDownloadSinglePhoto,
     handleDownloadClientPhotos
   } = useFavoritesData(folderId, userId);
@@ -100,6 +101,7 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
             <FavoritesClientsList
               clients={clients}
               allPhotos={allPhotos}
+              downloadProgress={downloadProgress}
               onClientSelect={setSelectedClient}
               onPhotoSelect={(photo, client) => {
                 setSelectedClient(client);

@@ -1,11 +1,12 @@
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { resolveClientPhotos } from './useFavoritesData';
-import type { ClientData, Photo } from './useFavoritesData';
+import type { ClientData, Photo, DownloadProgress } from './useFavoritesData';
 
 interface FavoritesClientsListProps {
   clients: ClientData[];
   allPhotos: Photo[];
+  downloadProgress?: DownloadProgress | null;
   onClientSelect: (client: ClientData) => void;
   onPhotoSelect: (photo: Photo, client: ClientData) => void;
   onDownloadClient: (client: ClientData) => void;
@@ -14,6 +15,7 @@ interface FavoritesClientsListProps {
 export default function FavoritesClientsList({
   clients,
   allPhotos,
+  downloadProgress,
   onClientSelect,
   onPhotoSelect,
   onDownloadClient
@@ -24,6 +26,11 @@ export default function FavoritesClientsList({
         const displayPhotos = resolveClientPhotos(client, allPhotos);
 
         if (displayPhotos.length === 0) return null;
+
+        const isDownloading = downloadProgress?.clientId === client.client_id;
+        const progressPercent = isDownloading && downloadProgress.total > 0
+          ? Math.round((downloadProgress.current / downloadProgress.total) * 100)
+          : 0;
 
         return (
           <div
@@ -44,12 +51,33 @@ export default function FavoritesClientsList({
                   variant="outline"
                   size="sm"
                   onClick={() => onDownloadClient(client)}
+                  disabled={isDownloading}
                 >
-                  <Icon name="Download" size={16} />
-                  <span className="ml-2">Скачать все ({displayPhotos.length})</span>
+                  {isDownloading ? (
+                    <>
+                      <Icon name="Loader2" size={16} className="animate-spin" />
+                      <span className="ml-2">
+                        Архивирую {downloadProgress.current}/{downloadProgress.total}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="Download" size={16} />
+                      <span className="ml-2">Скачать все ({displayPhotos.length})</span>
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
+
+            {isDownloading && (
+              <div className="mb-3 h-1.5 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-4 gap-2">
               {displayPhotos.map(photo => (

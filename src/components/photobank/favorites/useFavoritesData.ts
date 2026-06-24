@@ -46,11 +46,18 @@ export function resolveClientPhotos(
     .filter((p): p is Photo => p !== undefined);
 }
 
+export interface DownloadProgress {
+  clientId: number;
+  current: number;
+  total: number;
+}
+
 export function useFavoritesData(folderId: number | null, userId: number) {
   const [clients, setClients] = useState<ClientData[]>([]);
   const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -219,6 +226,7 @@ export function useFavoritesData(folderId: number | null, userId: number) {
 
     const suggestedName = `${client.full_name}.zip`.replace(/[\\/:*?"<>|]/g, '_');
     const proxyBase = 'https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215';
+    const total = displayPhotos.length;
 
     // Для каждого фото берём прямой URL для архива.
     // Большие/RAW файлы (CR2/NEF/ARW) НЕЛЬЗЯ тянуть через прокси — он отдаёт
@@ -277,6 +285,8 @@ export function useFavoritesData(folderId: number | null, userId: number) {
           const { ZipWriter, HttpReader } = await import('@zip.js/zip.js');
           const zipWriter = new ZipWriter(writable);
 
+          setDownloadProgress({ clientId: client.client_id, current: 0, total });
+          let done = 0;
           for (const photo of displayPhotos) {
             try {
               const downloadUrl = await resolveDownloadUrl(photo);
@@ -284,12 +294,16 @@ export function useFavoritesData(folderId: number | null, userId: number) {
             } catch (photoError) {
               console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
             }
+            done += 1;
+            setDownloadProgress({ clientId: client.client_id, current: done, total });
           }
 
           await zipWriter.close();
+          setDownloadProgress(null);
           return;
         } catch (e) {
           console.error('[FAVORITES] Streamed archive failed:', e);
+          setDownloadProgress(null);
           alert('Ошибка при записи архива');
           return;
         }
@@ -301,6 +315,8 @@ export function useFavoritesData(folderId: number | null, userId: number) {
       const { ZipWriter, BlobWriter, HttpReader } = await import('@zip.js/zip.js');
       const zipWriter = new ZipWriter(new BlobWriter('application/zip'));
 
+      setDownloadProgress({ clientId: client.client_id, current: 0, total });
+      let done = 0;
       for (const photo of displayPhotos) {
         try {
           const downloadUrl = await resolveDownloadUrl(photo);
@@ -308,6 +324,8 @@ export function useFavoritesData(folderId: number | null, userId: number) {
         } catch (photoError) {
           console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
         }
+        done += 1;
+        setDownloadProgress({ clientId: client.client_id, current: done, total });
       }
 
       const blob = await zipWriter.close();
@@ -319,8 +337,10 @@ export function useFavoritesData(folderId: number | null, userId: number) {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      setDownloadProgress(null);
     } catch (e) {
       console.error('Download failed:', e);
+      setDownloadProgress(null);
       alert('Ошибка при скачивании архива');
     }
   };
@@ -330,6 +350,7 @@ export function useFavoritesData(folderId: number | null, userId: number) {
     allPhotos,
     loading,
     error,
+    downloadProgress,
     handleDownloadSinglePhoto,
     handleDownloadClientPhotos
   };
