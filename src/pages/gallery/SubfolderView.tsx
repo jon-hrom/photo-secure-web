@@ -188,6 +188,21 @@ export const SubfolderPhotosView = ({
     ? subfolderPhotos.filter((p) => !state.clientFavoritePhotoIds.includes(p.id))
     : subfolderPhotos;
 
+  // Полный пул фото для поиска избранного: фото подпапки + фото галереи 1 уровня
+  // (включая те, что уже в избранном), без дублей. Нужен, чтобы "Моё избранное"
+  // и просмотр избранного находили фото, отобранные внутри подпапки.
+  const favoritesPhotoPool = (() => {
+    const seen = new Set<number>();
+    const pool: Photo[] = [];
+    for (const p of [...subfolderPhotos, ...(gallery.photos || [])]) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        pool.push(p);
+      }
+    }
+    return pool;
+  })();
+
   return (
     <div className="min-h-screen" style={galleryBgStyles}>
       {downloadingAll && downloadProgress && downloadProgress.show && cancelDownload && (
@@ -262,6 +277,7 @@ export const SubfolderPhotosView = ({
         onAddToFavorites={handlers.handleAddToFavorites}
         isDarkTheme={isDarkTheme}
         loadClientFavorites={handlers.loadClientFavorites}
+        favoritesPhotoPool={favoritesPhotoPool}
       />
     </div>
   );

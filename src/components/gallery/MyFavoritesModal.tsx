@@ -17,6 +17,13 @@ interface Photo {
 interface FavoritePhoto {
   photo_id: number;
   added_at?: string;
+  file_name?: string;
+  photo_url?: string;
+  thumbnail_url?: string;
+  width?: number | null;
+  height?: number | null;
+  file_size?: number;
+  s3_key?: string;
 }
 
 interface MyFavoritesModalProps {
@@ -103,7 +110,22 @@ export default function MyFavoritesModal({
   };
 
   const displayPhotos = favoritePhotos
-    .map(fp => galleryPhotos.find(gp => gp.id === fp.photo_id))
+    .map(fp => {
+      // Приоритет — полные данные фото с сервера; иначе ищем в фото галереи
+      if (fp.photo_url) {
+        return {
+          id: fp.photo_id,
+          file_name: fp.file_name || '',
+          photo_url: fp.photo_url,
+          thumbnail_url: fp.thumbnail_url,
+          width: fp.width ?? undefined,
+          height: fp.height ?? undefined,
+          file_size: fp.file_size ?? 0,
+          s3_key: fp.s3_key,
+        } as Photo;
+      }
+      return galleryPhotos.find(gp => gp.id === fp.photo_id);
+    })
     .filter((p): p is Photo => p !== undefined);
 
   const handleNavigate = (direction: 'prev' | 'next') => {

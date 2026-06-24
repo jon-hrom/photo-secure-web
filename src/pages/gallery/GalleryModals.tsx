@@ -85,6 +85,9 @@ interface GalleryModalsProps {
   onAddToFavorites: (photo: Photo) => void;
   loadClientFavorites: (clientId: number) => void;
   isDarkTheme?: boolean;
+  // Полный пул фото (все уровни, включая избранные) для поиска избранного.
+  // Нужен в подпапках, где gallery.photos содержит только фото текущей папки.
+  favoritesPhotoPool?: Photo[];
 }
 
 export default function GalleryModals({
@@ -117,17 +120,23 @@ export default function GalleryModals({
   onRemoveFromFavorites,
   onDownloadPhoto,
   onAddToFavorites,
-  loadClientFavorites
+  loadClientFavorites,
+  favoritesPhotoPool
 }: GalleryModalsProps) {
   const visiblePhotos = (clientData && clientData.client_id > 0 && gallery)
     ? gallery.photos.filter((p: Photo) => !clientFavoritePhotoIds.includes(p.id))
     : gallery?.photos || [];
 
+  // Пул для избранного: либо полный список (передан из подпапки), либо фото галереи.
+  const favoritePool = favoritesPhotoPool && favoritesPhotoPool.length > 0
+    ? favoritesPhotoPool
+    : (gallery?.photos || []);
+
   return (
     <div className={isDarkTheme ? 'dark' : ''}>
       {selectedPhoto && (
         <GalleryPhotoViewer
-          photos={viewingFavorites ? gallery.photos.filter((p: Photo) => clientFavoritePhotoIds.includes(p.id)) : visiblePhotos}
+          photos={viewingFavorites ? favoritePool.filter((p: Photo) => clientFavoritePhotoIds.includes(p.id)) : visiblePhotos}
           initialPhotoId={selectedPhoto.id}
           onClose={() => {
             setSelectedPhoto(null);
@@ -176,7 +185,7 @@ export default function GalleryModals({
           onClose={() => setIsMyFavoritesOpen(false)}
           clientId={clientData.client_id}
           clientName={clientData.full_name || clientData.phone}
-          galleryPhotos={gallery?.photos || []}
+          galleryPhotos={favoritePool}
           onPhotoClick={(photo) => {
             setSelectedPhoto(photo);
             setViewingFavorites(true);

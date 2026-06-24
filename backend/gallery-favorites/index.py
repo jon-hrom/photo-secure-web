@@ -1040,18 +1040,39 @@ def handler(event: dict, context) -> dict:
                 }
             
             elif client_id:
+                # Возвращаем избранное вместе с полными данными фото (JOIN с photo_bank),
+                # чтобы клиент видел избранное с любого уровня вложенности папок,
+                # даже если фото нет в текущей сетке галереи.
                 cur.execute('''
-                    SELECT fp.photo_id, fp.added_at
+                    SELECT fp.photo_id, fp.added_at,
+                           pb.file_name, pb.s3_url, pb.thumbnail_s3_url,
+                           pb.width, pb.height, pb.file_size, pb.s3_key
                     FROM t_p28211681_photo_secure_web.favorite_photos fp
+                    LEFT JOIN t_p28211681_photo_secure_web.photo_bank pb
+                        ON pb.id = fp.photo_id AND pb.is_trashed = FALSE
                     WHERE fp.client_id = %s
                     ORDER BY fp.added_at DESC
                 ''', (client_id,))
                 
                 photos = []
                 for row in cur.fetchall():
+                    file_name = row[2]
+                    s3_url = row[3] or ''
+                    thumbnail_s3_url = row[4] or ''
+                    if not thumbnail_s3_url or thumbnail_s3_url.endswith('.CR2'):
+                        thumbnail_s3_url = s3_url
+                    photo_url = generate_presigned_url(s3_url) if s3_url else ''
+                    thumbnail_url = generate_presigned_url(thumbnail_s3_url) if thumbnail_s3_url else photo_url
                     photos.append({
                         'photo_id': row[0],
-                        'added_at': row[1].isoformat() if row[1] else None
+                        'added_at': row[1].isoformat() if row[1] else None,
+                        'file_name': file_name,
+                        'photo_url': photo_url,
+                        'thumbnail_url': thumbnail_url,
+                        'width': row[5],
+                        'height': row[6],
+                        'file_size': row[7],
+                        's3_key': row[8]
                     })
                 
                 return {
