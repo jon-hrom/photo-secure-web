@@ -306,7 +306,7 @@ def _email_template(title, body, url_path):
 def notify_new_ticket(cur, ticket_number, subject, user_name):
     """Новый тикет -> уведомить всех админов + копия на support@."""
     title = f'Новое обращение {ticket_number}'
-    body = f'{user_name or "Пользователь"}: {subject}'
+    body = f'{user_name or "Пользователь"}\nТема: {subject}'
     html = _email_template(title, body, '/')
     for admin in get_admins_contacts(cur):
         admin_id = _field(admin, 'id', 0)
@@ -330,7 +330,7 @@ def notify_user_reply(cur, user_identifier, ticket_number, subject):
 def notify_admin_reply(cur, user_identifier, ticket_number, subject, preview):
     """Поддержка ответила -> уведомить пользователя."""
     title = f'Поддержка ответила по {ticket_number}'
-    body = f'{subject}\n\n{preview or ""}'.strip()
+    body = f'Тема: {subject}\n\n{preview or ""}'.strip()
     html = _email_template(title, body, '/')
     contact = get_user_contacts(cur, user_identifier)
     notify_contact(cur, contact, user_identifier, title, body, '/', html)
