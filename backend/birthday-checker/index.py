@@ -240,6 +240,17 @@ def handler(event: dict, context):
         except Exception:
             body_early = {}
         if body_early.get('action') == 'cron_run':
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps({
+                    'disabled': True,
+                    'message': 'Birthday notifications are disabled',
+                    'users_checked': 0,
+                    'notifications_sent': 0,
+                }),
+                'isBase64Encoded': False,
+            }
             cron_token = os.environ.get('CRON_TOKEN', '')
             headers_in = event.get('headers', {}) or {}
             provided = headers_in.get('X-Cron-Token') or headers_in.get('x-cron-token') or ''
