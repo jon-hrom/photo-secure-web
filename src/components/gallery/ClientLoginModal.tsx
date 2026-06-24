@@ -78,15 +78,36 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
         })
       });
 
-      const result = await response.json();
+      let result = await response.json();
 
       if (!response.ok) {
         if (response.status === 404) {
-          setError('Клиент с таким ФИО не найден. Добавьте фото в избранное, чтобы создать профиль.');
+          // Клиента ещё нет — регистрируем нового и сразу входим
+          const regResponse = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'register_client',
+              gallery_code: galleryCode,
+              full_name: fullName.trim(),
+              phone: normalizedPhone,
+              email: email.trim() || null
+            })
+          });
+          const regResult = await regResponse.json();
+          if (!regResponse.ok || !regResult.client_id) {
+            throw new Error(regResult.error || 'Ошибка регистрации');
+          }
+          result = {
+            client_id: regResult.client_id,
+            full_name: fullName.trim(),
+            phone: normalizedPhone,
+            email: email.trim() || '',
+            upload_enabled: false
+          };
         } else {
           throw new Error(result.error || 'Ошибка входа');
         }
-        return;
       }
 
       onLogin({
@@ -124,7 +145,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
         </div>
 
         <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-          Введите данные для доступа к вашим избранным фото
+          Введите свои данные, чтобы отбирать фото в избранное. Если вы здесь впервые — профиль создастся автоматически.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -182,7 +203,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
           {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Введите данные, которые вы указали при добавлении фото в избранное
+            Если вы уже добавляли фото — укажите те же данные, чтобы открыть свой список избранного
           </p>
 
           <div className="flex gap-3 pt-4">
@@ -194,7 +215,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
               className="flex-1 bg-blue-600 hover:bg-blue-700"
               disabled={isLoading}
             >
-              {isLoading ? 'Вход...' : 'Войти'}
+              {isLoading ? 'Подождите...' : 'Продолжить'}
             </Button>
           </div>
         </form>

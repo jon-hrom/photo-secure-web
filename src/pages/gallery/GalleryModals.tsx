@@ -160,7 +160,10 @@ export default function GalleryModals({
       {isLoginModalOpen && code && (
         <ClientLoginModal
           isOpen={isLoginModalOpen}
-          onClose={() => setIsLoginModalOpen(false)}
+          onClose={() => {
+            setIsLoginModalOpen(false);
+            setPhotoToAdd(null);
+          }}
           onLogin={onClientLogin}
           galleryCode={code}
           favoriteConfig={gallery?.favorite_config}
