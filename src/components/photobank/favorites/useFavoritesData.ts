@@ -220,6 +220,29 @@ export function useFavoritesData(folderId: number | null, userId: number) {
     const suggestedName = `${client.full_name}.zip`.replace(/[\\/:*?"<>|]/g, '_');
     const proxyBase = 'https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215';
 
+    // Для каждого фото берём прямой URL для архива.
+    // Большие/RAW файлы (CR2/NEF/ARW) НЕЛЬЗЯ тянуть через прокси — он отдаёт
+    // файл в base64 и упирается в лимит функции, поэтому архив выходит пустым.
+    // Для них запрашиваем presigned URL и качаем напрямую из хранилища.
+    const resolveDownloadUrl = async (photo: Photo): Promise<string> => {
+      const isLargeFile = photo.file_name.toUpperCase().endsWith('.CR2') ||
+                         photo.file_name.toUpperCase().endsWith('.NEF') ||
+                         photo.file_name.toUpperCase().endsWith('.ARW');
+      if (!isLargeFile) {
+        return `${proxyBase}?photo_id=${photo.id}`;
+      }
+      try {
+        const resp = await fetch(`${proxyBase}?photo_id=${photo.id}&presigned=true`);
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.download_url) return data.download_url;
+        }
+      } catch (e) {
+        console.error(`[FAVORITES] presigned failed for ${photo.file_name}:`, e);
+      }
+      return `${proxyBase}?photo_id=${photo.id}`;
+    };
+
     // 1) СОВРЕМЕННЫЙ ПУТЬ: showSaveFilePicker — диалог открывается СРАЗУ,
     // а файлы скачиваются и пишутся в архив уже после выбора места.
     // Поддерживается в Chrome/Edge/Opera (desktop).
@@ -256,8 +279,8 @@ export function useFavoritesData(folderId: number | null, userId: number) {
 
           for (const photo of displayPhotos) {
             try {
-              const proxyUrl = `${proxyBase}?photo_id=${photo.id}`;
-              await zipWriter.add(photo.file_name, new HttpReader(proxyUrl));
+              const downloadUrl = await resolveDownloadUrl(photo);
+              await zipWriter.add(photo.file_name, new HttpReader(downloadUrl));
             } catch (photoError) {
               console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
             }
@@ -280,8 +303,8 @@ export function useFavoritesData(folderId: number | null, userId: number) {
 
       for (const photo of displayPhotos) {
         try {
-          const proxyUrl = `${proxyBase}?photo_id=${photo.id}`;
-          await zipWriter.add(photo.file_name, new HttpReader(proxyUrl));
+          const downloadUrl = await resolveDownloadUrl(photo);
+          await zipWriter.add(photo.file_name, new HttpReader(downloadUrl));
         } catch (photoError) {
           console.error(`Failed to add ${photo.file_name} to archive:`, photoError);
         }
