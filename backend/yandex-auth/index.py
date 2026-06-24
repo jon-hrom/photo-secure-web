@@ -107,9 +107,20 @@ def delete_session(state: str) -> None:
         conn.close()
 
 
+def normalize_phone(phone: Optional[str]) -> str:
+    """Оставляет только цифры телефона для сравнения (79991234567)."""
+    if not phone:
+        return ''
+    digits = ''.join(ch for ch in str(phone) if ch.isdigit())
+    if len(digits) == 11 and digits.startswith('8'):
+        digits = '7' + digits[1:]
+    return digits
+
+
 def upsert_yandex_user(yandex_id: str, email: str, name: str, picture: str,
-                       verified_email: bool, ip_address: str, user_agent: str) -> Dict[str, Any]:
-    """Создание/обновление Yandex пользователя с умным объединением по email."""
+                       verified_email: bool, ip_address: str, user_agent: str,
+                       phone: str = '') -> Dict[str, Any]:
+    """Создание/обновление Yandex пользователя с умным объединением по email и подтверждённому телефону."""
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -212,6 +223,56 @@ def upsert_yandex_user(yandex_id: str, email: str, name: str, picture: str,
                     'phone': existing_user.get('phone') if existing_user else None,
                     'user_email': existing_user.get('email') if existing_user else email
                 }
+
+            # 2.5) Объединение по ПОДТВЕРЖДЁННОМУ телефону (Яндекс отдал номер)
+            phone_norm = normalize_phone(phone)
+            if phone_norm and len(phone_norm) >= 10:
+                cur.execute(f"""
+                    SELECT id, two_factor_email, two_factor_sms, phone, email
+                    FROM {SCHEMA}.users
+                    WHERE phone_verified_at IS NOT NULL
+                      AND regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') = {escape_sql(phone_norm)}
+                      AND COALESCE(is_active, TRUE) = TRUE
+                    ORDER BY created_at ASC
+                    LIMIT 1
+                """)
+                phone_match = cur.fetchone()
+                if phone_match:
+                    user_id = phone_match['id']
+                    print(f"[YANDEX_AUTH] Found existing user by verified phone: user_id={user_id}")
+
+                    cur.execute(f"""
+                        UPDATE {SCHEMA}.users
+                        SET display_name = COALESCE(display_name, {escape_sql(name)}),
+                            avatar_url = COALESCE(avatar_url, {escape_sql(picture)}),
+                            last_login = CURRENT_TIMESTAMP,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = {user_id}
+                    """)
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.yandex_users
+                        (yandex_id, user_id, email, full_name, avatar_url, is_verified, is_active, last_login)
+                        VALUES ({escape_sql(yandex_id)}, {user_id}, {escape_sql(email)}, {escape_sql(name)},
+                                {escape_sql(picture)}, {escape_sql(verified_email)}, {escape_sql(True)}, CURRENT_TIMESTAMP)
+                        ON CONFLICT (yandex_id) DO UPDATE SET
+                            full_name = EXCLUDED.full_name,
+                            avatar_url = EXCLUDED.avatar_url,
+                            last_login = EXCLUDED.last_login
+                    """)
+                    if email:
+                        cur.execute(f"""
+                            INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
+                            VALUES ({user_id}, {escape_sql(email)}, 'yandex', {escape_sql(True)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                            ON CONFLICT DO NOTHING
+                        """)
+                    conn.commit()
+                    return {
+                        'user_id': user_id,
+                        'two_factor_email': phone_match.get('two_factor_email', False),
+                        'two_factor_sms': phone_match.get('two_factor_sms', False),
+                        'phone': phone_match.get('phone'),
+                        'user_email': phone_match.get('email') or email
+                    }
 
             # 3) Новый пользователь
             if not is_registration_enabled():
@@ -429,7 +490,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif avatar_id:
             avatar = f"https://avatars.yandex.net/get-yapic/{avatar_id}/islands-200"
 
-        print(f"[YANDEX_AUTH] User info: email={email}, id={yandex_id}")
+        phone = ''
+        default_phone = user_info.get('default_phone')
+        if isinstance(default_phone, dict):
+            phone = str(default_phone.get('number') or '')
+
+        print(f"[YANDEX_AUTH] User info: email={email}, id={yandex_id}, phone={'yes' if phone else 'no'}")
 
         request_context = event.get('requestContext', {})
         identity = request_context.get('identity', {})
@@ -443,7 +509,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             picture=avatar,
             verified_email=True,
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
+            phone=phone
         )
         user_id = user_data['user_id']
         print(f"[YANDEX_AUTH] User created/updated: user_id={user_id}")

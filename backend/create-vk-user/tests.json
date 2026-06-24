@@ -13,7 +13,7 @@
       },
       "expectedStatus": 200,
       "expectedBody": {
-        "user_id": "number"
+        "created": false
       },
       "bodyMatcher": "partial"
     }

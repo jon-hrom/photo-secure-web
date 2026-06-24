@@ -168,6 +168,41 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        # Объединение по ПОДТВЕРЖДЁННОМУ телефону: если VK прислал номер,
+        # который уже подтверждён у существующего аккаунта — привязываем VK к нему
+        phone_digits = ''.join(ch for ch in str(phone) if ch.isdigit()) if phone else ''
+        if len(phone_digits) == 11 and phone_digits.startswith('8'):
+            phone_digits = '7' + phone_digits[1:]
+        if len(phone_digits) >= 10:
+            cursor.execute(
+                f"""SELECT id FROM {SCHEMA}.users
+                    WHERE phone_verified_at IS NOT NULL
+                      AND regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') = %s
+                      AND COALESCE(is_active, TRUE) = TRUE
+                    ORDER BY created_at ASC LIMIT 1""",
+                (phone_digits,)
+            )
+            phone_match = cursor.fetchone()
+            if phone_match:
+                user_id = phone_match['id']
+                print(f"[VK_USER] Merged into existing user by verified phone: user_id={user_id}")
+                cursor.execute(
+                    f"UPDATE {SCHEMA}.users SET vk_id = %s, display_name = COALESCE(display_name, %s), is_active = TRUE, last_login = CURRENT_TIMESTAMP WHERE id = %s",
+                    (vk_id, full_name, user_id)
+                )
+                cursor.execute(
+                    f"INSERT INTO {SCHEMA}.vk_users (vk_sub, user_id, full_name, avatar_url, is_verified, email, phone_number, is_active, last_login) VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, CURRENT_TIMESTAMP) ON CONFLICT (user_id) DO UPDATE SET vk_sub = EXCLUDED.vk_sub, full_name = EXCLUDED.full_name, last_login = CURRENT_TIMESTAMP",
+                    (vk_id, user_id, full_name, avatar_url, is_verified, email if email else None, phone if phone else None)
+                )
+                conn.commit()
+                conn.close()
+                return {
+                    'statusCode': 200,
+                    'headers': headers,
+                    'body': json.dumps({'user_id': user_id, 'created': False}),
+                    'isBase64Encoded': False
+                }
+
         # Create new user
         cursor.execute(
             f"INSERT INTO {SCHEMA}.users (vk_id, email, phone, display_name, is_active, source, plan_id, registered_at, created_at, updated_at, last_login, role) VALUES (%s, %s, %s, %s, TRUE, 'vk', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'user') RETURNING id",
