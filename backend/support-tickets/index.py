@@ -214,10 +214,14 @@ def handler(event: dict, context) -> dict:
     headers = event.get('headers') or {}
 
     # ---------- CRON: автозакрытие тикетов по таймауту ----------
-    # Защита токеном CRON_TOKEN, авторизация по X-User-Id не требуется.
+    # Запускается при входе любого авторизованного пользователя (X-User-Id)
+    # либо внешним планировщиком с CRON_TOKEN. Сама функция проверяет по времени,
+    # какие тикеты пора закрыть, поэтому частые вызовы безопасны.
     if action == 'cron_auto_close':
         cron_token = os.environ.get('CRON_TOKEN', '')
-        if cron_token and params.get('token', '') != cron_token:
+        token_ok = bool(cron_token) and params.get('token', '') == cron_token
+        caller_id = headers.get('X-User-Id') or headers.get('x-user-id') or ''
+        if not token_ok and not caller_id:
             return resp(403, {'error': 'Forbidden'})
         return auto_close_stale_tickets()
 

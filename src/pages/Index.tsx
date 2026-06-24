@@ -155,6 +155,29 @@ const Index = () => {
   }, [isAuthenticated, userId]);
 
   useEffect(() => {
+    if (!isAuthenticated || !userId) return;
+    const TICKETS_CRON_URL = 'https://functions.poehali.dev/cf9dcf99-d8a6-4ca1-8876-5d24f420e72c?action=cron_auto_close';
+    const INTERVAL = 60 * 60 * 1000;
+    const runAutoClose = () => {
+      const last = localStorage.getItem('last_tickets_autoclose_cron');
+      const now = Date.now();
+      if (last && now - parseInt(last) < INTERVAL) return;
+      localStorage.setItem('last_tickets_autoclose_cron', now.toString());
+      fetch(TICKETS_CRON_URL, { headers: { 'X-User-Id': userId.toString() } })
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.closed_count > 0) {
+            console.log('[TICKETS_AUTOCLOSE] Closed:', data.closed_count, data.closed);
+          }
+        })
+        .catch(() => {});
+    };
+    runAutoClose();
+    const interval = setInterval(runAutoClose, INTERVAL);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, userId]);
+
+  useEffect(() => {
     settingsSync.onUpdate(() => {
       toast.info('Доступны обновления настроек', {
         description: 'Перезагрузите страницу, чтобы применить изменения',
