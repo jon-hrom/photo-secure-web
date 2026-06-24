@@ -239,8 +239,13 @@ def upsert_yandex_user(yandex_id: str, email: str, name: str, picture: str,
             """)
             if email:
                 cur.execute(f"""
-                    INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
-                    VALUES ({new_user_id}, {escape_sql(email)}, 'yandex', {escape_sql(True)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    SELECT 1 FROM {SCHEMA}.user_emails
+                    WHERE user_id = {new_user_id} AND is_primary = TRUE LIMIT 1
+                """)
+                has_primary = cur.fetchone()
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_primary, is_verified, verified_at, added_at, last_used_at)
+                    VALUES ({new_user_id}, {escape_sql(email)}, 'yandex', {escape_sql(not has_primary)}, {escape_sql(True)}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     ON CONFLICT DO NOTHING
                 """)
             conn.commit()

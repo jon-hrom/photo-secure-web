@@ -158,7 +158,7 @@ const ContactInfoCard = ({
               </Button>
             )}
           </div>
-          {settings.email_verified_at || settings.source === 'google' ? (
+          {settings.email_verified_at || settings.source === 'google' || settings.source === 'yandex' ? (
             <div className="flex items-center gap-2 text-xs md:text-sm text-green-600 bg-green-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg border border-green-200 animate-in fade-in slide-in-from-top-2 duration-500">
               <Icon name="CheckCircle2" size={14} className="md:w-4 md:h-4" />
               <span className="font-medium">Почта подтверждена</span>
