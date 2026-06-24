@@ -25,6 +25,8 @@ interface GalleryToolbarProps {
   onOpenUpload?: () => void;
   downloadingAll: boolean;
   onDownloadAll: () => void;
+  onSaveToYandexDisk?: () => void;
+  savingToYandexDisk?: boolean;
   onLogout?: () => void;
   onClientLogin?: () => void;
   clientFolders?: ClientFolder[];
@@ -54,6 +56,8 @@ export default function GalleryToolbar({
   onOpenUpload,
   downloadingAll,
   onDownloadAll,
+  onSaveToYandexDisk,
+  savingToYandexDisk = false,
   onLogout,
   onClientLogin,
   clientFolders = [],
@@ -182,6 +186,18 @@ export default function GalleryToolbar({
                     <Icon name={downloadingAll ? "Loader2" : "Download"} size={16} className={`flex-shrink-0 ${downloadingAll ? "animate-spin" : ""}`} />
                     <span className="hidden sm:inline pr-0.5">{downloadingAll ? 'Загрузка...' : 'Скачать всё'}</span>
                   </button>
+                  {onSaveToYandexDisk && (
+                    <button
+                      onClick={onSaveToYandexDisk}
+                      disabled={savingToYandexDisk}
+                      title="Сохранить все фото на свой Яндекс.Диск"
+                      className="flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-[#FC3F1D] text-white rounded-full sm:rounded-lg active:bg-[#d8330f] disabled:opacity-50 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                      style={{ minWidth: 40, minHeight: 40 }}
+                    >
+                      <Icon name={savingToYandexDisk ? "Loader2" : "HardDriveUpload"} size={16} className={`flex-shrink-0 ${savingToYandexDisk ? "animate-spin" : ""}`} />
+                      <span className="hidden sm:inline pr-0.5">{savingToYandexDisk ? 'Отправка...' : 'На Яндекс.Диск'}</span>
+                    </button>
+                  )}
                 </>
               )}
               <div className="flex items-center gap-1 px-2 rounded-lg flex-shrink-0" style={{

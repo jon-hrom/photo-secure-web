@@ -76,6 +76,8 @@ export interface GalleryGridProps {
   gallery: GalleryData;
   downloadingAll: boolean;
   onDownloadAll: () => void;
+  onSaveToYandexDisk?: () => void;
+  savingToYandexDisk?: boolean;
   onPhotoClick: (photo: Photo) => void;
   onDownloadPhoto: (photo: Photo) => void;
   onAddToFavorites: (photo: Photo) => void;
@@ -107,6 +109,8 @@ export default function GalleryGrid({
   gallery, 
   downloadingAll, 
   onDownloadAll, 
+  onSaveToYandexDisk,
+  savingToYandexDisk = false,
   onPhotoClick, 
   onDownloadPhoto,
   onAddToFavorites,
@@ -132,6 +136,8 @@ export default function GalleryGrid({
   onCancelListSelection,
   favoriteLists = [],
   onOpenFavoriteList,
+  onSaveToYandexDisk,
+  savingToYandexDisk = false,
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length, 'subfolders:', gallery.subfolders?.length || 0, gallery.subfolders);
 
@@ -305,6 +311,8 @@ export default function GalleryGrid({
         onOpenUpload={onOpenUpload}
         downloadingAll={downloadingAll}
         onDownloadAll={onDownloadAll}
+        onSaveToYandexDisk={onSaveToYandexDisk}
+        savingToYandexDisk={savingToYandexDisk}
         onLogout={onLogout}
         onClientLogin={onClientLogin}
         clientFolders={clientFolders}

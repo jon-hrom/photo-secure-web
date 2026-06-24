@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Auth URL generation",
+      "method": "GET",
+      "path": "/?action=auth_url&code=test123",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "auth_url": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Upload without token returns 400",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "code": "test123"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

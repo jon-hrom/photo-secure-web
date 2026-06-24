@@ -15,6 +15,7 @@ import { usePhotoDownloader } from './gallery/hooks/usePhotoDownloader';
 import { useGalleryState } from './gallery/hooks/useGalleryState';
 import { useGalleryHandlers } from './gallery/hooks/useGalleryHandlers';
 import { useSubfolderState } from './gallery/hooks/useSubfolderState';
+import { useYandexDisk } from './gallery/hooks/useYandexDisk';
 
 interface Photo {
   id: number;
@@ -124,6 +125,8 @@ export default function PublicGallery() {
     downloadAll,
     cancelDownload
   } = usePhotoDownloader(code, password, gallery?.folder_name);
+
+  const { saveToYandexDisk, savingToYandexDisk } = useYandexDisk(code);
 
   const handlers = useGalleryHandlers({
     code,
@@ -348,6 +351,8 @@ export default function PublicGallery() {
         gallery={{ ...gallery, photos: visiblePhotos }}
         downloadingAll={downloadingAll}
         onDownloadAll={downloadAll}
+        onSaveToYandexDisk={state.clientData?.client_id ? saveToYandexDisk : undefined}
+        savingToYandexDisk={savingToYandexDisk}
         onPhotoClick={state.setSelectedPhoto}
         onDownloadPhoto={downloadPhoto}
         onAddToFavorites={handlers.handleAddToFavorites}

@@ -1,4 +1,5 @@
 {
+  "yandex-disk-upload": "https://functions.poehali.dev/e4f749e4-5c96-48dd-9787-17c4179176bb",
   "yandex-auth": "https://functions.poehali.dev/e5943511-d507-4fb9-bbb0-2431e3eb0d9a",
   "backfill-shot-date": "https://functions.poehali.dev/75988ac9-8a62-4dae-befe-71b4f6d8d691",
   "notifications-tick": "https://functions.poehali.dev/79d17544-9f53-446b-bf9f-474f171be865",

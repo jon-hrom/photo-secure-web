@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import VKCallback from "./pages/VKCallback";
 import GoogleCallback from "./pages/GoogleCallback";
 import YandexCallback from "./pages/YandexCallback";
+import YandexDiskCallback from "./pages/YandexDiskCallback";
 import VKCallbackDirect from "./pages/VKCallbackDirect";
 import TelegramCallback from "./pages/TelegramCallback";
 import ClientPhotobook from "./pages/ClientPhotobook";
@@ -39,7 +40,7 @@ import NotificationsTicker from "./components/notifications/NotificationsTicker"
 
 const queryClient = new QueryClient();
 
-const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/privacy-policy', '/offer', '/personal-data', '/legal/', '/s/', '/g/', '/client/'];
+const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/yandex-disk/', '/privacy-policy', '/offer', '/personal-data', '/legal/', '/s/', '/g/', '/client/'];
 
 const LegalConsentGuard = () => {
   const { pathname } = useLocation();
@@ -186,6 +187,7 @@ const App = () => {
           <Route path="/auth/callback/yandex" element={<YandexCallback />} />
           <Route path="/auth/yandex/callback" element={<YandexCallback />} />
           <Route path="/auth/telegram/callback" element={<TelegramCallback />} />
+          <Route path="/yandex-disk/callback" element={<YandexDiskCallback />} />
           <Route path="/client/photobook/:id" element={<ClientPhotobook />} />
           <Route path="/privacy-policy" element={<LegalDocument fixedSlug="privacy-policy" />} />
           <Route path="/offer" element={<LegalDocument fixedSlug="offer" />} />

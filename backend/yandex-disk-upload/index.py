@@ -1,0 +1,208 @@
+"""
+Business: Загрузка всех фото галереи по общей ссылке напрямую на Яндекс.Диск клиента.
+Клиент авторизуется в своём Яндекс.Диске, фото копируются с нашего S3 в его облако
+методом upload-by-url (Яндекс сам скачивает файлы на большой скорости).
+Args: event с action (auth_url|upload), code (короткая ссылка галереи), token (OAuth Яндекс.Диска)
+Returns: HTTP JSON с auth_url либо со статистикой постановки фото в загрузку
+"""
+
+import json
+import os
+import urllib.request
+import urllib.error
+import urllib.parse
+from typing import Dict, Any, List
+import boto3
+from botocore.client import Config
+import psycopg2
+
+SCHEMA = 't_p28211681_photo_secure_web'
+YANDEX_OAUTH_AUTHORIZE = 'https://oauth.yandex.ru/authorize'
+YANDEX_OAUTH_TOKEN = 'https://oauth.yandex.ru/token'
+YANDEX_DISK_API = 'https://cloud-api.yandex.net/v1/disk'
+
+CORS_HEADERS = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
+    'Access-Control-Max-Age': '86400',
+}
+
+
+def _resp(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    return {'statusCode': status, 'headers': CORS_HEADERS, 'body': json.dumps(body), 'isBase64Encoded': False}
+
+
+def _redirect_uri() -> str:
+    site = os.environ.get('SITE_URL', 'https://foto-mix.ru').rstrip('/')
+    return f'{site}/yandex-disk/callback'
+
+
+def _get_s3_client():
+    return boto3.client(
+        's3',
+        endpoint_url='https://storage.yandexcloud.net',
+        aws_access_key_id=os.environ['YC_S3_KEY_ID'],
+        aws_secret_access_key=os.environ['YC_S3_SECRET'],
+        region_name='ru-central1',
+        config=Config(signature_version='s3v4'),
+    )
+
+
+def _presign(s3, key: str) -> str:
+    return s3.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': 'foto-mix', 'Key': key},
+        ExpiresIn=3600,
+    )
+
+
+def _yandex_disk_request(method: str, path: str, token: str, params: Dict[str, str] = None) -> Dict[str, Any]:
+    url = f'{YANDEX_DISK_API}{path}'
+    if params:
+        url += '?' + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, method=method)
+    req.add_header('Authorization', f'OAuth {token}')
+    try:
+        with urllib.request.urlopen(req) as r:
+            data = r.read().decode()
+            return {'status': r.status, 'data': json.loads(data) if data else {}}
+    except urllib.error.HTTPError as e:
+        body = e.read().decode() if e.fp else ''
+        try:
+            parsed = json.loads(body)
+        except Exception:
+            parsed = {'raw': body}
+        return {'status': e.code, 'data': parsed}
+
+
+def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    method = event.get('httpMethod', 'GET')
+    if method == 'OPTIONS':
+        return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': '', 'isBase64Encoded': False}
+
+    qs = event.get('queryStringParameters') or {}
+    action = qs.get('action', '')
+
+    # 1) Отдаём ссылку на авторизацию Яндекс.Диска
+    if action == 'auth_url':
+        client_id = os.environ.get('YANDEX_DISK_CLIENT_ID', '')
+        if not client_id:
+            return _resp(500, {'error': 'YANDEX_DISK_CLIENT_ID not configured'})
+        code = qs.get('code', '')
+        params = {
+            'response_type': 'token',
+            'client_id': client_id,
+            'redirect_uri': _redirect_uri(),
+            'state': code,
+            'force_confirm': 'yes',
+        }
+        return _resp(200, {'auth_url': f'{YANDEX_OAUTH_AUTHORIZE}?{urllib.parse.urlencode(params)}'})
+
+    # 2) Загрузка фото галереи на Диск клиента
+    if method == 'POST':
+        try:
+            body = json.loads(event.get('body', '{}') or '{}')
+        except Exception:
+            body = {}
+        token = body.get('token', '')
+        share_code = body.get('code', '')
+
+        if not token:
+            return _resp(400, {'error': 'Не передан токен Яндекс.Диска'})
+        if not share_code:
+            return _resp(400, {'error': 'Не передан код галереи'})
+
+        dsn = os.environ.get('DATABASE_URL')
+        conn = psycopg2.connect(dsn)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT fsl.folder_id, pf.folder_name, fsl.download_disabled
+                FROM {SCHEMA}.folder_short_links fsl
+                JOIN {SCHEMA}.photo_folders pf ON pf.id = fsl.folder_id
+                WHERE fsl.short_code = %s
+                """,
+                (share_code,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return _resp(404, {'error': 'Галерея не найдена'})
+            folder_id, folder_name, download_disabled = row
+            if download_disabled:
+                return _resp(403, {'error': 'Скачивание для этой галереи отключено'})
+
+            cur.execute(
+                f"""
+                SELECT s3_key, file_name FROM (
+                    SELECT DISTINCT ON (s3_key) s3_key, file_name, id
+                    FROM {SCHEMA}.photo_bank
+                    WHERE folder_id = %s AND s3_key IS NOT NULL AND is_trashed = false
+                    ORDER BY s3_key, id
+                ) sub
+                ORDER BY CAST(NULLIF(regexp_replace(file_name, '[^0-9]', '', 'g'), '') AS bigint) ASC NULLS LAST, file_name ASC
+                """,
+                (folder_id,),
+            )
+            photos: List = cur.fetchall()
+        finally:
+            conn.close()
+
+        if not photos:
+            return _resp(400, {'error': 'В галерее нет фото'})
+
+        # Папка назначения на Диске клиента
+        safe_name = ''.join(ch for ch in str(folder_name or 'Галерея') if ch not in '\\/:*?"<>|').strip() or 'Галерея'
+        disk_dir = f'/{safe_name}'
+        _yandex_disk_request('PUT', '/resources', token, {'path': disk_dir})
+
+        s3 = _get_s3_client()
+        queued = 0
+        failed = 0
+        errors: List[str] = []
+        used_names: Dict[str, int] = {}
+
+        for s3_key, file_name in photos:
+            try:
+                name = (file_name or '').strip() or s3_key.split('/')[-1]
+                # защита от одинаковых имён
+                if name in used_names:
+                    used_names[name] += 1
+                    dot = name.rfind('.')
+                    if dot > 0:
+                        name = f'{name[:dot]}_{used_names[name]}{name[dot:]}'
+                    else:
+                        name = f'{name}_{used_names[name]}'
+                else:
+                    used_names[name] = 0
+
+                source_url = _presign(s3, s3_key)
+                dest_path = f'{disk_dir}/{name}'
+                result = _yandex_disk_request('POST', '/resources/upload', token, {
+                    'path': dest_path,
+                    'url': source_url,
+                })
+                if result['status'] in (200, 201, 202):
+                    queued += 1
+                else:
+                    failed += 1
+                    if len(errors) < 5:
+                        errors.append(f"{name}: {result['data'].get('message', result['status'])}")
+            except Exception as e:
+                failed += 1
+                if len(errors) < 5:
+                    errors.append(f"{file_name}: {str(e)}")
+
+        return _resp(200, {
+            'success': queued > 0,
+            'folder_name': folder_name,
+            'disk_folder': disk_dir,
+            'total': len(photos),
+            'queued': queued,
+            'failed': failed,
+            'errors': errors,
+        })
+
+    return _resp(400, {'error': 'Unknown action'})
