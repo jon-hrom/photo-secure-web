@@ -96,8 +96,13 @@ const ProjectCard = ({
   const [isSaving, setIsSaving] = useState(false);
 
   const originalDraft = useMemo(() => buildDraftFromProject(project), [project]);
+  const isDirtyRef = useRef(false);
 
   useEffect(() => {
+    // Не перетираем несохранённые правки пользователя, когда приходит
+    // фоновое обновление данных клиента. Синхронизируем draft только если
+    // в карточке нет несохранённых изменений.
+    if (isDirtyRef.current) return;
     setDraft(buildDraftFromProject(project));
     setBudgetValue(String(project.budget));
   }, [
@@ -133,6 +138,7 @@ const ProjectCard = ({
   }, [draft, originalDraft]);
 
   useEffect(() => {
+    isDirtyRef.current = isDirty;
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
 
