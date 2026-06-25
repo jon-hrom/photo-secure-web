@@ -1566,7 +1566,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             shooting_duration = EXCLUDED.shooting_duration,
                             shooting_address = EXCLUDED.shooting_address,
                             add_to_calendar = EXCLUDED.add_to_calendar,
-                            hourly_rate = EXCLUDED.hourly_rate
+                            hourly_rate = COALESCE(EXCLUDED.hourly_rate, t_p28211681_photo_secure_web.client_projects.hourly_rate)
                     ''', (
                         project_id,
                         client_id,

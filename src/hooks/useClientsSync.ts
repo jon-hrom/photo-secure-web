@@ -83,6 +83,9 @@ export const useClientsSync = ({ isAuthenticated, userId }: UseClientsSyncProps)
             shooting_time: p.shooting_time,
             shooting_duration: p.shooting_duration,
             shooting_address: p.shooting_address,
+            hourly_rate: p.hourly_rate !== undefined && p.hourly_rate !== null
+              ? parseFloat(String(p.hourly_rate))
+              : undefined,
             add_to_calendar: p.add_to_calendar
           })),
           payments: (client.payments || []).map((pay: any) => ({
