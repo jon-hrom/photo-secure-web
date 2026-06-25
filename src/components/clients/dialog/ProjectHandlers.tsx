@@ -30,6 +30,9 @@ export const createAddProjectHandler = (
       shooting_time: newProject.shooting_time,
       shooting_duration: newProject.shooting_duration,
       shooting_address: newProject.shooting_address,
+      hourly_rate: newProject.hourly_rate !== undefined && newProject.hourly_rate !== ''
+        ? parseFloat(String(newProject.hourly_rate).replace(',', '.'))
+        : undefined,
       add_to_calendar: newProject.add_to_calendar
     };
 

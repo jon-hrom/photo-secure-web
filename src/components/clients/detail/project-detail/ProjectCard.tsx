@@ -35,6 +35,7 @@ type DraftFields = {
   shooting_time?: string;
   shooting_duration?: number;
   shooting_address?: string;
+  hourly_rate?: number;
   status: Project['status'];
 };
 
@@ -62,8 +63,14 @@ const buildDraftFromProject = (project: Project): DraftFields => ({
   shooting_time: project.shooting_time,
   shooting_duration: project.shooting_duration,
   shooting_address: project.shooting_address,
+  hourly_rate: project.hourly_rate,
   status: project.status,
 });
+
+const calcBudgetFromRate = (durationMin?: number, rate?: number) => {
+  if (!durationMin || !rate || isNaN(rate)) return null;
+  return Math.round((durationMin / 60) * rate);
+};
 
 const ProjectCard = ({
   project,
@@ -101,6 +108,7 @@ const ProjectCard = ({
     project.shooting_time,
     project.shooting_duration,
     project.shooting_address,
+    project.hourly_rate,
     project.status,
   ]);
 
@@ -119,6 +127,7 @@ const ProjectCard = ({
       (draft.shooting_time || '') !== (originalDraft.shooting_time || '') ||
       (draft.shooting_duration || 0) !== (originalDraft.shooting_duration || 0) ||
       (draft.shooting_address || '') !== (originalDraft.shooting_address || '') ||
+      (draft.hourly_rate || 0) !== (originalDraft.hourly_rate || 0) ||
       draft.status !== originalDraft.status
     );
   }, [draft, originalDraft]);
@@ -129,6 +138,31 @@ const ProjectCard = ({
 
   const updateDraft = (patch: Partial<DraftFields>) => {
     setDraft((prev) => ({ ...prev, ...patch }));
+  };
+
+  const handleRateChange = (rateStr: string) => {
+    const rate = rateStr === '' ? undefined : parseFloat(rateStr.replace(',', '.'));
+    setDraft((prev) => {
+      const newBudget = calcBudgetFromRate(prev.shooting_duration, rate);
+      const next = { ...prev, hourly_rate: rate };
+      if (newBudget !== null) {
+        next.budget = newBudget;
+        setBudgetValue(String(newBudget));
+      }
+      return next;
+    });
+  };
+
+  const handleDurationChange = (durationMin: number) => {
+    setDraft((prev) => {
+      const newBudget = calcBudgetFromRate(durationMin, prev.hourly_rate);
+      const next = { ...prev, shooting_duration: durationMin };
+      if (newBudget !== null) {
+        next.budget = newBudget;
+        setBudgetValue(String(newBudget));
+      }
+      return next;
+    });
   };
 
   const handleBudgetSave = () => {
@@ -157,6 +191,9 @@ const ProjectCard = ({
     }
     if ((draft.shooting_address || '') !== (originalDraft.shooting_address || '')) {
       updates.shooting_address = draft.shooting_address;
+    }
+    if ((draft.hourly_rate || 0) !== (originalDraft.hourly_rate || 0)) {
+      updates.hourly_rate = draft.hourly_rate;
     }
     if (draft.status !== originalDraft.status) updates.status = draft.status;
 
@@ -367,7 +404,7 @@ const ProjectCard = ({
               onChange={(styleId) => updateDraft({ shootingStyleId: styleId })}
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label className="text-xs">⏰ Время съёмки <span className="text-muted-foreground font-normal">({getUserTimezoneShort()})</span></Label>
               <Input
@@ -381,10 +418,28 @@ const ProjectCard = ({
               <Label className="text-xs">⏱️ Длительность (минуты)</Label>
               <DurationSelect
                 value={draft.shooting_duration || 120}
-                onChange={(value) => updateDraft({ shooting_duration: value })}
+                onChange={handleDurationChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">💰 Стоимость часа (₽)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="100"
+                value={draft.hourly_rate ?? ''}
+                onChange={(e) => handleRateChange(e.target.value)}
+                placeholder="3000"
+                className="text-xs sm:text-sm h-10 sm:h-9"
               />
             </div>
           </div>
+          {draft.hourly_rate ? (
+            <p className="text-[11px] text-muted-foreground -mt-1 flex items-center gap-1">
+              <Icon name="Info" size={12} className="text-primary shrink-0" />
+              Бюджет пересчитывается автоматически: {((draft.shooting_duration || 0) / 60).toFixed(1)} ч × {draft.hourly_rate} ₽
+            </p>
+          ) : null}
           <div className="space-y-2">
             <Label className="text-xs">📍 Адрес съёмки</Label>
             <Input

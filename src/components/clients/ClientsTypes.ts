@@ -36,6 +36,7 @@ export interface Project {
   shooting_time?: string;
   shooting_duration?: number;
   shooting_address?: string;
+  hourly_rate?: number;
   add_to_calendar?: boolean;
   google_event_id?: string;
   synced_at?: string;

@@ -21,6 +21,7 @@ interface ClientDetailProjectsProps {
     shooting_time?: string;
     shooting_duration?: number;
     shooting_address?: string;
+    hourly_rate?: string;
     add_to_calendar?: boolean;
   };
   setNewProject: (project: any) => void;

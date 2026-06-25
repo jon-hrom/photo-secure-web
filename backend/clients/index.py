@@ -509,7 +509,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Массовый запрос всех projects
                 cur.execute('''
-                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar
+                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate
                     FROM t_p28211681_photo_secure_web.client_projects 
                     WHERE client_id = ANY(%s)
                     ORDER BY created_at DESC
@@ -636,7 +636,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'shooting_time': p.get('shooting_time'),
                         'shooting_duration': p.get('shooting_duration'),
                         'shooting_address': p.get('shooting_address'),
-                        'add_to_calendar': p.get('add_to_calendar')
+                        'add_to_calendar': p.get('add_to_calendar'),
+                        'hourly_rate': float(p['hourly_rate']) if p.get('hourly_rate') is not None else None
                     } for p in raw_projects]
                     
                     # Конвертируем payments
@@ -1543,10 +1544,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     project_id = project.get('id')
                     is_new_project = project_id not in existing_ids
                     
+                    hourly_rate_raw = project.get('hourly_rate')
+                    try:
+                        hourly_rate_val = float(str(hourly_rate_raw).replace(',', '.')) if hourly_rate_raw not in (None, '') else None
+                    except (ValueError, TypeError):
+                        hourly_rate_val = None
+
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.client_projects 
-                        (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                             name = EXCLUDED.name,
                             status = EXCLUDED.status,
@@ -1558,7 +1565,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             shooting_time = EXCLUDED.shooting_time,
                             shooting_duration = EXCLUDED.shooting_duration,
                             shooting_address = EXCLUDED.shooting_address,
-                            add_to_calendar = EXCLUDED.add_to_calendar
+                            add_to_calendar = EXCLUDED.add_to_calendar,
+                            hourly_rate = EXCLUDED.hourly_rate
                     ''', (
                         project_id,
                         client_id,
@@ -1572,7 +1580,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         project.get('shooting_time'),
                         project.get('shooting_duration'),
                         project.get('shooting_address'),
-                        project.get('add_to_calendar')
+                        project.get('add_to_calendar'),
+                        hourly_rate_val
                     ))
                     
                     if is_new_project and start_date and project.get('shooting_time'):
