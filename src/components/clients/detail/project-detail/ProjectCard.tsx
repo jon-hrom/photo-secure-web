@@ -95,37 +95,21 @@ const ProjectCard = ({
   const budgetInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const originalDraft = useMemo(() => buildDraftFromProject(project), [project]);
   const isDirtyRef = useRef(false);
-  // Только что сохранённые значения, которые сервер может ещё не успеть вернуть
-  // в фоновом обновлении. Защищают поля от обнуления сразу после сохранения.
-  const justSavedRef = useRef<Partial<DraftFields> | null>(null);
+  // Только что сохранённое значение ставки. Сервер в фоновом ответе может
+  // временно прислать проект без неё — тогда держим сохранённое значение,
+  // чтобы поле не обнулялось и карточка не зацикливалась на "не сохранено".
+  const justSavedRateRef = useRef<number | null | undefined>(undefined);
 
-  useEffect(() => {
-    // Не перетираем несохранённые правки пользователя, когда приходит
-    // фоновое обновление данных клиента. Синхронизируем draft только если
-    // в карточке нет несохранённых изменений.
-    if (isDirtyRef.current) return;
-
-    const fromProject = buildDraftFromProject(project);
-    const saved = justSavedRef.current;
-
-    if (saved) {
-      // Пока сервер не подтвердил наши сохранённые значения — держим их,
-      // чтобы поля (ставка/бюджет) не обнулялись из-за задержки синхронизации.
-      const confirmed =
-        (saved.hourly_rate || 0) === (fromProject.hourly_rate || 0) &&
-        (saved.budget || 0) === (fromProject.budget || 0);
-      if (confirmed) {
-        justSavedRef.current = null;
-      } else {
-        if (saved.hourly_rate !== undefined) fromProject.hourly_rate = saved.hourly_rate;
-        if (saved.budget !== undefined) fromProject.budget = saved.budget;
-      }
+  // "Эталонный" проект с учётом только что сохранённой ставки — от него
+  // строится и draft, и сравнение isDirty, чтобы не было рассинхрона.
+  const originalDraft = useMemo<DraftFields>(() => {
+    const base = buildDraftFromProject(project);
+    if (justSavedRateRef.current !== undefined) {
+      base.hourly_rate = justSavedRateRef.current ?? undefined;
     }
-
-    setDraft(fromProject);
-    setBudgetValue(String(fromProject.budget));
+    return base;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     project.id,
     project.budget,
@@ -137,6 +121,20 @@ const ProjectCard = ({
     project.hourly_rate,
     project.status,
   ]);
+
+  useEffect(() => {
+    // Если сервер подтвердил нашу сохранённую ставку — снимаем защиту.
+    if (
+      justSavedRateRef.current !== undefined &&
+      (project.hourly_rate ?? undefined) === (justSavedRateRef.current ?? undefined)
+    ) {
+      justSavedRateRef.current = undefined;
+    }
+    // Не перетираем несохранённые правки пользователя при фоновом обновлении.
+    if (isDirtyRef.current) return;
+    setDraft(originalDraft);
+    setBudgetValue(String(originalDraft.budget));
+  }, [originalDraft, project.hourly_rate]);
 
   useEffect(() => {
     if (isEditingBudget && budgetInputRef.current) {
@@ -224,7 +222,7 @@ const ProjectCard = ({
     }
     if (draft.status !== originalDraft.status) updates.status = draft.status;
 
-    justSavedRef.current = { hourly_rate: draft.hourly_rate, budget: draft.budget };
+    justSavedRateRef.current = draft.hourly_rate ?? null;
     setIsSaving(true);
     try {
       await onSaveChanges(updates, notifyClient);
@@ -234,7 +232,7 @@ const ProjectCard = ({
   };
 
   const handleReset = () => {
-    justSavedRef.current = null;
+    justSavedRateRef.current = undefined;
     setDraft(originalDraft);
     setBudgetValue(String(originalDraft.budget));
     setIsEditingBudget(false);
