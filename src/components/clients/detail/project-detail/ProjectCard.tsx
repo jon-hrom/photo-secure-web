@@ -97,14 +97,35 @@ const ProjectCard = ({
 
   const originalDraft = useMemo(() => buildDraftFromProject(project), [project]);
   const isDirtyRef = useRef(false);
+  // Только что сохранённые значения, которые сервер может ещё не успеть вернуть
+  // в фоновом обновлении. Защищают поля от обнуления сразу после сохранения.
+  const justSavedRef = useRef<Partial<DraftFields> | null>(null);
 
   useEffect(() => {
     // Не перетираем несохранённые правки пользователя, когда приходит
     // фоновое обновление данных клиента. Синхронизируем draft только если
     // в карточке нет несохранённых изменений.
     if (isDirtyRef.current) return;
-    setDraft(buildDraftFromProject(project));
-    setBudgetValue(String(project.budget));
+
+    const fromProject = buildDraftFromProject(project);
+    const saved = justSavedRef.current;
+
+    if (saved) {
+      // Пока сервер не подтвердил наши сохранённые значения — держим их,
+      // чтобы поля (ставка/бюджет) не обнулялись из-за задержки синхронизации.
+      const confirmed =
+        (saved.hourly_rate || 0) === (fromProject.hourly_rate || 0) &&
+        (saved.budget || 0) === (fromProject.budget || 0);
+      if (confirmed) {
+        justSavedRef.current = null;
+      } else {
+        if (saved.hourly_rate !== undefined) fromProject.hourly_rate = saved.hourly_rate;
+        if (saved.budget !== undefined) fromProject.budget = saved.budget;
+      }
+    }
+
+    setDraft(fromProject);
+    setBudgetValue(String(fromProject.budget));
   }, [
     project.id,
     project.budget,
@@ -203,6 +224,7 @@ const ProjectCard = ({
     }
     if (draft.status !== originalDraft.status) updates.status = draft.status;
 
+    justSavedRef.current = { hourly_rate: draft.hourly_rate, budget: draft.budget };
     setIsSaving(true);
     try {
       await onSaveChanges(updates, notifyClient);
@@ -212,6 +234,7 @@ const ProjectCard = ({
   };
 
   const handleReset = () => {
+    justSavedRef.current = null;
     setDraft(originalDraft);
     setBudgetValue(String(originalDraft.budget));
     setIsEditingBudget(false);
@@ -435,7 +458,6 @@ const ProjectCard = ({
                 step="100"
                 value={draft.hourly_rate ?? ''}
                 onChange={(e) => handleRateChange(e.target.value)}
-                placeholder="3000"
                 className="text-xs sm:text-sm h-10 sm:h-9"
               />
             </div>
