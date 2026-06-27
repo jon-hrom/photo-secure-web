@@ -20,6 +20,10 @@ interface ProjectData {
   shooting_time: string;
   shooting_duration: number;
   shooting_address: string;
+  hourly_rate?: string;
+  photobook_count?: string;
+  photobook_price?: string;
+  photo_items?: { format: string; qty: string; price: string }[];
   timestamp?: number;
 }
 

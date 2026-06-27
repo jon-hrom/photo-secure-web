@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Client } from '@/components/clients/ClientsTypes';
 import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 import { todayLocalDate } from '@/utils/dateFormat';
@@ -51,6 +51,9 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
   });
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [localClient, setLocalClient] = useState(client);
+  // Чтобы черновик подгружался только один раз при открытии карточки,
+  // а не на каждое нажатие клавиши (иначе ввод "дёргается" и сбрасывается).
+  const restoredDraftKey = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchPhotographerData = async () => {
@@ -149,7 +152,11 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
         }, 3500);
       }
       
-      if (client?.id) {
+      // Подгружаем черновик только один раз на открытие конкретного клиента,
+      // чтобы автосейв (меняющий loadProjectData) не перезатирал ввод пользователя.
+      const draftKey = client?.id ? `open-${client.id}` : null;
+      if (client?.id && restoredDraftKey.current !== draftKey) {
+        restoredDraftKey.current = draftKey;
         const saved = loadProjectData(client.id);
         if (saved) {
           setNewProject({
@@ -162,10 +169,17 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
             shooting_duration: saved.shooting_duration || 120,
             shooting_address: saved.shooting_address || '',
             add_to_calendar: false,
-            hourly_rate: saved.hourly_rate || ''
+            hourly_rate: saved.hourly_rate || '',
+            photobook_count: saved.photobook_count ?? '',
+            photobook_price: saved.photobook_price ?? '',
+            photo_items: Array.isArray(saved.photo_items) ? saved.photo_items : []
           });
         }
       }
+    } else {
+      // Карточка закрыта — сбрасываем флаг, чтобы при следующем открытии
+      // черновик снова подгрузился один раз.
+      restoredDraftKey.current = null;
     }
   }, [open, client?.id, loadProjectData]);
 
