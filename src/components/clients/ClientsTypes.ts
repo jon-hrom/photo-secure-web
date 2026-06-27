@@ -37,9 +37,18 @@ export interface Project {
   shooting_duration?: number;
   shooting_address?: string;
   hourly_rate?: number;
+  photobook_count?: number;
+  photobook_price?: number;
+  photo_items?: PhotoItem[];
   add_to_calendar?: boolean;
   google_event_id?: string;
   synced_at?: string;
+}
+
+export interface PhotoItem {
+  format: string;
+  qty: number;
+  price: number;
 }
 
 export interface Document {

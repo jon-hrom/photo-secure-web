@@ -21,7 +21,10 @@ export const useClientDetailState = (client: Client | null, open: boolean) => {
     shooting_duration: 120,
     shooting_address: '',
     add_to_calendar: false,
-    hourly_rate: ''
+    hourly_rate: '',
+    photobook_count: '',
+    photobook_price: '',
+    photo_items: [] as { format: string; qty: string; price: string }[]
   });
   const [newPayment, setNewPayment] = useState({ 
     amount: '', 

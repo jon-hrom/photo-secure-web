@@ -172,6 +172,55 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
     if shooting_style:
         message_parts.append(f"🎨 Стиль съёмки: {shooting_style}")
     
+    # Детализация состава заказа: съёмка, фотокниги, печать фото
+    detail_lines = []
+
+    try:
+        rate = float(project_data.get('hourly_rate') or 0)
+    except (ValueError, TypeError):
+        rate = 0
+    if rate > 0 and duration_minutes:
+        shooting_sum = (float(duration_minutes) / 60.0) * rate
+        detail_lines.append(f"   • Съёмка ({duration_str}): {shooting_sum:,.0f} ₽")
+
+    try:
+        pb_count = int(project_data.get('photobook_count') or 0)
+    except (ValueError, TypeError):
+        pb_count = 0
+    try:
+        pb_price = float(project_data.get('photobook_price') or 0)
+    except (ValueError, TypeError):
+        pb_price = 0
+    if pb_count > 0 and pb_price > 0:
+        detail_lines.append(f"   • Фотокнига: {pb_count} × {pb_price:,.0f} ₽ = {pb_count * pb_price:,.0f} ₽")
+
+    photo_items = project_data.get('photo_items') or []
+    if isinstance(photo_items, str):
+        try:
+            photo_items = json.loads(photo_items)
+        except (ValueError, TypeError):
+            photo_items = []
+    if isinstance(photo_items, list):
+        for it in photo_items:
+            if not isinstance(it, dict):
+                continue
+            fmt = str(it.get('format', '')).strip()
+            try:
+                qty = int(it.get('qty') or 0)
+            except (ValueError, TypeError):
+                qty = 0
+            try:
+                price = float(it.get('price') or 0)
+            except (ValueError, TypeError):
+                price = 0
+            if fmt and (qty > 0 or price > 0):
+                detail_lines.append(f"   • Фото {fmt}: {qty} × {price:,.0f} ₽ = {qty * price:,.0f} ₽")
+
+    if detail_lines:
+        message_parts.append("")
+        message_parts.append("🧾 Состав заказа:")
+        message_parts.extend(detail_lines)
+
     budget = float(project_data.get('budget', 0))
     if budget > 0:
         if payment_data:

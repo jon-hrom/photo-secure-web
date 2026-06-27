@@ -114,13 +114,33 @@ export const sendProjectNotification = async (
     if (client.email) {
       const EMAIL_API = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0';
 
+      const breakdown: { label: string; amount: number }[] = [];
+      const rate = Number(project.hourly_rate) || 0;
+      const durationMin = Number(project.shooting_duration) || 0;
+      if (rate > 0 && durationMin > 0) {
+        breakdown.push({ label: `Съёмка (${Math.round((durationMin / 60) * 10) / 10} ч)`, amount: Math.round((durationMin / 60) * rate) });
+      }
+      const pbCount = Number(project.photobook_count) || 0;
+      const pbPrice = Number(project.photobook_price) || 0;
+      if (pbCount > 0 && pbPrice > 0) {
+        breakdown.push({ label: `Фотокнига ${pbCount} × ${pbPrice.toLocaleString('ru-RU')} ₽`, amount: pbCount * pbPrice });
+      }
+      (project.photo_items || []).forEach((it) => {
+        const qty = Number(it.qty) || 0;
+        const price = Number(it.price) || 0;
+        if (it.format && (qty > 0 || price > 0)) {
+          breakdown.push({ label: `Фото ${it.format} (${qty} × ${price.toLocaleString('ru-RU')} ₽)`, amount: qty * price });
+        }
+      });
+
       const htmlMessage = createBookingEmailTemplate(
         photographerName,
         formattedDate,
         project.name,
         styleName,
         project.description || '',
-        project.budget
+        project.budget,
+        breakdown
       );
 
       try {

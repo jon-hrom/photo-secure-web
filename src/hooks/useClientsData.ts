@@ -103,6 +103,13 @@ export const useClientsData = (
           hourly_rate: p.hourly_rate !== undefined && p.hourly_rate !== null
             ? parseFloat(String(p.hourly_rate))
             : undefined,
+          photobook_count: p.photobook_count !== undefined && p.photobook_count !== null
+            ? parseInt(String(p.photobook_count), 10)
+            : undefined,
+          photobook_price: p.photobook_price !== undefined && p.photobook_price !== null
+            ? parseFloat(String(p.photobook_price))
+            : undefined,
+          photo_items: Array.isArray(p.photo_items) ? p.photo_items : [],
           add_to_calendar: p.add_to_calendar
           };
         }),

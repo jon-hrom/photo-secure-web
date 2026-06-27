@@ -509,7 +509,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Массовый запрос всех projects
                 cur.execute('''
-                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate
+                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items
                     FROM t_p28211681_photo_secure_web.client_projects 
                     WHERE client_id = ANY(%s)
                     ORDER BY created_at DESC
@@ -637,7 +637,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'shooting_duration': p.get('shooting_duration'),
                         'shooting_address': p.get('shooting_address'),
                         'add_to_calendar': p.get('add_to_calendar'),
-                        'hourly_rate': float(p['hourly_rate']) if p.get('hourly_rate') is not None else None
+                        'hourly_rate': float(p['hourly_rate']) if p.get('hourly_rate') is not None else None,
+                        'photobook_count': int(p['photobook_count']) if p.get('photobook_count') is not None else None,
+                        'photobook_price': float(p['photobook_price']) if p.get('photobook_price') is not None else None,
+                        'photo_items': p.get('photo_items') if p.get('photo_items') is not None else []
                     } for p in raw_projects]
                     
                     # Конвертируем payments
@@ -1550,10 +1553,42 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     except (ValueError, TypeError):
                         hourly_rate_val = None
 
+                    photobook_count_raw = project.get('photobook_count')
+                    try:
+                        photobook_count_val = int(float(str(photobook_count_raw).replace(',', '.'))) if photobook_count_raw not in (None, '') else None
+                    except (ValueError, TypeError):
+                        photobook_count_val = None
+
+                    photobook_price_raw = project.get('photobook_price')
+                    try:
+                        photobook_price_val = float(str(photobook_price_raw).replace(',', '.')) if photobook_price_raw not in (None, '') else None
+                    except (ValueError, TypeError):
+                        photobook_price_val = None
+
+                    photo_items_raw = project.get('photo_items')
+                    photo_items_val = None
+                    if isinstance(photo_items_raw, list):
+                        cleaned_items = []
+                        for it in photo_items_raw:
+                            if not isinstance(it, dict):
+                                continue
+                            fmt = str(it.get('format', '')).strip()
+                            try:
+                                qty = int(float(str(it.get('qty', 0)).replace(',', '.')))
+                            except (ValueError, TypeError):
+                                qty = 0
+                            try:
+                                price = float(str(it.get('price', 0)).replace(',', '.'))
+                            except (ValueError, TypeError):
+                                price = 0.0
+                            if fmt and (qty > 0 or price > 0):
+                                cleaned_items.append({'format': fmt, 'qty': qty, 'price': price})
+                        photo_items_val = json.dumps(cleaned_items)
+
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.client_projects 
-                        (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
                         ON CONFLICT (id) DO UPDATE SET
                             name = EXCLUDED.name,
                             status = EXCLUDED.status,
@@ -1566,7 +1601,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             shooting_duration = EXCLUDED.shooting_duration,
                             shooting_address = EXCLUDED.shooting_address,
                             add_to_calendar = EXCLUDED.add_to_calendar,
-                            hourly_rate = COALESCE(EXCLUDED.hourly_rate, t_p28211681_photo_secure_web.client_projects.hourly_rate)
+                            hourly_rate = COALESCE(EXCLUDED.hourly_rate, t_p28211681_photo_secure_web.client_projects.hourly_rate),
+                            photobook_count = COALESCE(EXCLUDED.photobook_count, t_p28211681_photo_secure_web.client_projects.photobook_count),
+                            photobook_price = COALESCE(EXCLUDED.photobook_price, t_p28211681_photo_secure_web.client_projects.photobook_price),
+                            photo_items = COALESCE(EXCLUDED.photo_items, t_p28211681_photo_secure_web.client_projects.photo_items)
                     ''', (
                         project_id,
                         client_id,
@@ -1581,7 +1619,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         project.get('shooting_duration'),
                         project.get('shooting_address'),
                         project.get('add_to_calendar'),
-                        hourly_rate_val
+                        hourly_rate_val,
+                        photobook_count_val,
+                        photobook_price_val,
+                        photo_items_val
                     ))
                     
                     if is_new_project and start_date and project.get('shooting_time'):

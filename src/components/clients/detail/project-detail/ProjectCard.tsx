@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
-import { Project } from '@/components/clients/ClientsTypes';
+import { Project, PhotoItem } from '@/components/clients/ClientsTypes';
 import { ShootingStyleSelector } from '@/components/clients/dialog/ShootingStyleSelector';
 import { getShootingStyles } from '@/data/shootingStyles';
 import { getUserTimezoneShort } from '@/utils/regionTimezone';
@@ -36,8 +36,13 @@ type DraftFields = {
   shooting_duration?: number;
   shooting_address?: string;
   hourly_rate?: number;
+  photobook_count?: number;
+  photobook_price?: number;
+  photo_items: PhotoItem[];
   status: Project['status'];
 };
+
+const PHOTO_FORMAT_PRESETS = ['20×30 (A4)', '15×20', '10×15', '21×30 (A4)', '30×40', '13×18'];
 
 const toDateInputValue = (value?: string | null) => {
   if (!value || value === 'None' || value === 'null') return '';
@@ -64,12 +69,23 @@ const buildDraftFromProject = (project: Project): DraftFields => ({
   shooting_duration: project.shooting_duration,
   shooting_address: project.shooting_address,
   hourly_rate: project.hourly_rate,
+  photobook_count: project.photobook_count,
+  photobook_price: project.photobook_price,
+  photo_items: Array.isArray(project.photo_items) ? project.photo_items : [],
   status: project.status,
 });
 
-const calcBudgetFromRate = (durationMin?: number, rate?: number) => {
-  if (!durationMin || !rate || isNaN(rate)) return null;
-  return Math.round((durationMin / 60) * rate);
+// Полный пересчёт бюджета: съёмка + фотокниги + печать фото
+const calcFullBudget = (d: DraftFields): number => {
+  const rate = Number(d.hourly_rate) || 0;
+  const durationMin = Number(d.shooting_duration) || 0;
+  const shooting = rate > 0 ? (durationMin / 60) * rate : 0;
+  const books = (Number(d.photobook_count) || 0) * (Number(d.photobook_price) || 0);
+  const photos = (d.photo_items || []).reduce(
+    (s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0),
+    0
+  );
+  return Math.round(shooting + books + photos);
 };
 
 const ProjectCard = ({
@@ -152,6 +168,9 @@ const ProjectCard = ({
       (draft.shooting_duration || 0) !== (originalDraft.shooting_duration || 0) ||
       (draft.shooting_address || '') !== (originalDraft.shooting_address || '') ||
       (draft.hourly_rate || 0) !== (originalDraft.hourly_rate || 0) ||
+      (draft.photobook_count || 0) !== (originalDraft.photobook_count || 0) ||
+      (draft.photobook_price || 0) !== (originalDraft.photobook_price || 0) ||
+      JSON.stringify(draft.photo_items || []) !== JSON.stringify(originalDraft.photo_items || []) ||
       draft.status !== originalDraft.status
     );
   }, [draft, originalDraft]);
@@ -165,29 +184,37 @@ const ProjectCard = ({
     setDraft((prev) => ({ ...prev, ...patch }));
   };
 
-  const handleRateChange = (rateStr: string) => {
-    const rate = rateStr === '' ? undefined : parseFloat(rateStr.replace(',', '.'));
+  // Применяем изменение и пересчитываем бюджет от всех составляющих
+  const applyAndRecalc = (patch: Partial<DraftFields>) => {
     setDraft((prev) => {
-      const newBudget = calcBudgetFromRate(prev.shooting_duration, rate);
-      const next = { ...prev, hourly_rate: rate };
-      if (newBudget !== null) {
-        next.budget = newBudget;
-        setBudgetValue(String(newBudget));
-      }
+      const next = { ...prev, ...patch };
+      const newBudget = calcFullBudget(next);
+      next.budget = newBudget;
+      setBudgetValue(String(newBudget));
       return next;
     });
   };
 
+  const handleRateChange = (rateStr: string) => {
+    const rate = rateStr === '' ? undefined : parseFloat(rateStr.replace(',', '.'));
+    applyAndRecalc({ hourly_rate: rate });
+  };
+
   const handleDurationChange = (durationMin: number) => {
-    setDraft((prev) => {
-      const newBudget = calcBudgetFromRate(durationMin, prev.hourly_rate);
-      const next = { ...prev, shooting_duration: durationMin };
-      if (newBudget !== null) {
-        next.budget = newBudget;
-        setBudgetValue(String(newBudget));
-      }
-      return next;
-    });
+    applyAndRecalc({ shooting_duration: durationMin });
+  };
+
+  const updatePhotoItem = (index: number, patch: Partial<PhotoItem>) => {
+    const items = (draft.photo_items || []).map((it, i) => (i === index ? { ...it, ...patch } : it));
+    applyAndRecalc({ photo_items: items });
+  };
+
+  const addPhotoItem = () => {
+    applyAndRecalc({ photo_items: [...(draft.photo_items || []), { format: '', qty: 1, price: 0 }] });
+  };
+
+  const removePhotoItem = (index: number) => {
+    applyAndRecalc({ photo_items: (draft.photo_items || []).filter((_, i) => i !== index) });
   };
 
   const handleBudgetSave = () => {
@@ -219,6 +246,17 @@ const ProjectCard = ({
     }
     if ((draft.hourly_rate || 0) !== (originalDraft.hourly_rate || 0)) {
       updates.hourly_rate = draft.hourly_rate;
+    }
+    if ((draft.photobook_count || 0) !== (originalDraft.photobook_count || 0)) {
+      updates.photobook_count = draft.photobook_count;
+    }
+    if ((draft.photobook_price || 0) !== (originalDraft.photobook_price || 0)) {
+      updates.photobook_price = draft.photobook_price;
+    }
+    if (JSON.stringify(draft.photo_items || []) !== JSON.stringify(originalDraft.photo_items || [])) {
+      updates.photo_items = (draft.photo_items || []).filter(
+        (it) => it.format && ((Number(it.qty) || 0) > 0 || (Number(it.price) || 0) > 0)
+      );
     }
     if (draft.status !== originalDraft.status) updates.status = draft.status;
 
@@ -475,6 +513,120 @@ const ProjectCard = ({
               className="text-xs sm:text-sm h-10 sm:h-9"
             />
           </div>
+
+          <div className="rounded-lg border border-border/60 p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-medium">
+              <Icon name="BookOpen" size={14} />
+              Фотокнига
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Кол-во книг</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={draft.photobook_count ?? ''}
+                  onChange={(e) => applyAndRecalc({ photobook_count: e.target.value === '' ? undefined : parseInt(e.target.value, 10) || 0 })}
+                  placeholder="0"
+                  className="text-xs h-10 sm:h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Цена за книгу (₽)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={draft.photobook_price ?? ''}
+                  onChange={(e) => applyAndRecalc({ photobook_price: e.target.value === '' ? undefined : parseFloat(e.target.value.replace(',', '.')) || 0 })}
+                  placeholder="3000"
+                  className="text-xs h-10 sm:h-9"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border/60 p-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-medium">
+              <Icon name="Image" size={14} />
+              Печать фото
+            </div>
+            {(draft.photo_items || []).length > 0 && (
+              <div className="hidden md:grid grid-cols-[1fr_70px_90px_32px] gap-2 px-1">
+                <span className="text-[11px] text-muted-foreground">Формат</span>
+                <span className="text-[11px] text-muted-foreground">Кол-во</span>
+                <span className="text-[11px] text-muted-foreground">Цена/шт</span>
+                <span />
+              </div>
+            )}
+            {(draft.photo_items || []).map((item, idx) => (
+              <div
+                key={idx}
+                className="grid grid-cols-[1fr_60px_36px] md:grid-cols-[1fr_70px_90px_32px] gap-2 items-center"
+              >
+                <Input
+                  list="photo-format-presets-edit"
+                  value={item.format}
+                  onChange={(e) => updatePhotoItem(idx, { format: e.target.value })}
+                  placeholder="20×30 (A4)"
+                  className="text-xs h-10 sm:h-9"
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={item.qty}
+                  onChange={(e) => updatePhotoItem(idx, { qty: parseInt(e.target.value, 10) || 0 })}
+                  placeholder="шт"
+                  className="text-xs h-10 sm:h-9 px-2"
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={item.price}
+                  onChange={(e) => updatePhotoItem(idx, { price: parseFloat(e.target.value.replace(',', '.')) || 0 })}
+                  placeholder="₽"
+                  className="text-xs h-10 sm:h-9 px-2 hidden md:block"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removePhotoItem(idx)}
+                  className="h-10 w-10 sm:h-9 sm:w-9 text-destructive hover:text-destructive shrink-0"
+                >
+                  <Icon name="Trash2" size={15} />
+                </Button>
+                <Input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={item.price}
+                  onChange={(e) => updatePhotoItem(idx, { price: parseFloat(e.target.value.replace(',', '.')) || 0 })}
+                  placeholder="Цена за шт (₽)"
+                  className="text-xs h-10 px-2 col-span-3 md:hidden"
+                />
+              </div>
+            ))}
+            <datalist id="photo-format-presets-edit">
+              {PHOTO_FORMAT_PRESETS.map((f) => (
+                <option key={f} value={f} />
+              ))}
+            </datalist>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addPhotoItem}
+              className="w-full h-10 sm:h-9 border-dashed text-xs"
+            >
+              <Icon name="Plus" size={14} className="mr-1" />
+              Добавить формат фото
+            </Button>
+          </div>
+
           <div className="flex gap-2">
             <Select
               value={draft.status}

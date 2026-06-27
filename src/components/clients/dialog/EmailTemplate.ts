@@ -1,11 +1,25 @@
+export interface OrderBreakdownLine {
+  label: string;
+  amount: number;
+}
+
 export const createBookingEmailTemplate = (
   photographerName: string,
   formattedDate: string,
   projectName: string,
   styleName: string,
   description: string,
-  budget: number
+  budget: number,
+  breakdown: OrderBreakdownLine[] = []
 ): string => {
+  const breakdownHtml = breakdown.length > 0
+    ? `<div class="info-block" style="background: #2a2a2a;">
+      <div class="info-label">🧾 Состав заказа</div>
+      <div class="info-value" style="font-size: 15px;">
+        ${breakdown.map((l) => `${l.label}: ${l.amount.toLocaleString('ru-RU')} ₽`).join('<br>')}
+      </div>
+    </div>`
+    : '';
   return `
 <!DOCTYPE html>
 <html>
@@ -63,8 +77,10 @@ export const createBookingEmailTemplate = (
       <div class="info-value">${description}</div>
     </div>` : ''}
     
+    ${breakdownHtml}
+    
     <div class="price-block">
-      <div class="price">💰 ${budget} ₽</div>
+      <div class="price">💰 Итого: ${budget.toLocaleString('ru-RU')} ₽</div>
     </div>
     
     <div class="footer">

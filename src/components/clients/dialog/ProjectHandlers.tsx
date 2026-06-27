@@ -33,6 +33,21 @@ export const createAddProjectHandler = (
       hourly_rate: newProject.hourly_rate !== undefined && newProject.hourly_rate !== ''
         ? parseFloat(String(newProject.hourly_rate).replace(',', '.'))
         : undefined,
+      photobook_count: newProject.photobook_count !== undefined && newProject.photobook_count !== ''
+        ? parseInt(String(newProject.photobook_count), 10) || 0
+        : undefined,
+      photobook_price: newProject.photobook_price !== undefined && newProject.photobook_price !== ''
+        ? parseFloat(String(newProject.photobook_price).replace(',', '.'))
+        : undefined,
+      photo_items: Array.isArray(newProject.photo_items)
+        ? newProject.photo_items
+            .map((it: { format?: string; qty?: string | number; price?: string | number }) => ({
+              format: (it.format || '').trim(),
+              qty: parseInt(String(it.qty ?? '0'), 10) || 0,
+              price: parseFloat(String(it.price ?? '0').replace(',', '.')) || 0,
+            }))
+            .filter((it) => it.format && (it.qty > 0 || it.price > 0))
+        : undefined,
       add_to_calendar: newProject.add_to_calendar
     };
 
@@ -134,7 +149,11 @@ export const createAddProjectHandler = (
       shooting_time: '10:00',
       shooting_duration: 120,
       shooting_address: '',
-      add_to_calendar: false
+      add_to_calendar: false,
+      hourly_rate: '',
+      photobook_count: '',
+      photobook_price: '',
+      photo_items: []
     });
     toast.success('Проект сохранён' + (newProject.startDate ? ' и создана запись' : ''));
 

@@ -10,6 +10,12 @@ import { ShootingStyleSelector } from '@/components/clients/dialog/ShootingStyle
 import { getUserTimezoneShort } from '@/utils/regionTimezone';
 import DurationSelect from './DurationSelect';
 
+interface PhotoItemDraft {
+  format: string;
+  qty: string;
+  price: string;
+}
+
 interface NewProjectData {
   name: string;
   budget: string;
@@ -21,7 +27,17 @@ interface NewProjectData {
   shooting_address?: string;
   add_to_calendar?: boolean;
   hourly_rate?: string;
+  photobook_count?: string;
+  photobook_price?: string;
+  photo_items?: PhotoItemDraft[];
 }
+
+const PHOTO_FORMAT_PRESETS = ['20×30 (A4)', '15×20', '10×15', '21×30 (A4)', '30×40', '13×18'];
+
+const num = (v?: string) => {
+  const n = parseFloat((v ?? '').toString().replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+};
 
 interface NewProjectFormProps {
   isOpen: boolean;
@@ -40,29 +56,45 @@ const NewProjectForm = ({
 }: NewProjectFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const calcBudget = (durationMin?: number, rate?: string) => {
-    const rateNum = parseFloat((rate ?? '').replace(',', '.'));
-    if (!durationMin || !rateNum || isNaN(rateNum)) return null;
-    return Math.round((durationMin / 60) * rateNum);
+  const photoItems = newProject.photo_items ?? [];
+
+  // Полный пересчёт бюджета: съёмка + фотокниги + все строки фото
+  const calcTotalBudget = (p: NewProjectData): number => {
+    const durationMin = p.shooting_duration || 120;
+    const rate = num(p.hourly_rate);
+    const shooting = rate > 0 ? (durationMin / 60) * rate : 0;
+    const books = num(p.photobook_count) * num(p.photobook_price);
+    const photos = (p.photo_items ?? []).reduce(
+      (sum, it) => sum + num(it.qty) * num(it.price),
+      0
+    );
+    return Math.round(shooting + books + photos);
   };
 
-  const handleRateChange = (rate: string) => {
-    const budget = calcBudget(newProject.shooting_duration || 120, rate);
-    setNewProject({
-      ...newProject,
-      hourly_rate: rate,
-      ...(budget !== null ? { budget: String(budget) } : {}),
-    });
+  // Обновляем поля и автоматически пересчитываем бюджет
+  const update = (patch: Partial<NewProjectData>) => {
+    const next = { ...newProject, ...patch };
+    setNewProject({ ...next, budget: String(calcTotalBudget(next)) });
   };
 
-  const handleDurationChange = (durationMin: number) => {
-    const budget = calcBudget(durationMin, newProject.hourly_rate);
-    setNewProject({
-      ...newProject,
-      shooting_duration: durationMin,
-      ...(budget !== null ? { budget: String(budget) } : {}),
-    });
+  const handleRateChange = (rate: string) => update({ hourly_rate: rate });
+  const handleDurationChange = (durationMin: number) => update({ shooting_duration: durationMin });
+
+  const updatePhotoItem = (index: number, patch: Partial<PhotoItemDraft>) => {
+    const items = photoItems.map((it, i) => (i === index ? { ...it, ...patch } : it));
+    update({ photo_items: items });
   };
+
+  const addPhotoItem = () => {
+    update({ photo_items: [...photoItems, { format: '', qty: '1', price: '' }] });
+  };
+
+  const removePhotoItem = (index: number) => {
+    update({ photo_items: photoItems.filter((_, i) => i !== index) });
+  };
+
+  const booksTotal = num(newProject.photobook_count) * num(newProject.photobook_price);
+  const photosTotal = photoItems.reduce((s, it) => s + num(it.qty) * num(it.price), 0);
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
@@ -169,6 +201,129 @@ const NewProjectForm = ({
             />
           </div>
         </div>
+        <div className="rounded-lg border border-border/60 p-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-medium">
+            <Icon name="BookOpen" size={14} />
+            Фотокнига
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Кол-во книг</Label>
+              <Input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={newProject.photobook_count || ''}
+                onChange={(e) => update({ photobook_count: e.target.value })}
+                placeholder="0"
+                className="text-xs h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Цена за книгу (₽)</Label>
+              <Input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={newProject.photobook_price || ''}
+                onChange={(e) => update({ photobook_price: e.target.value })}
+                placeholder="3000"
+                className="text-xs h-9"
+              />
+            </div>
+          </div>
+          {booksTotal > 0 && (
+            <div className="text-xs text-muted-foreground text-right">
+              Фотокниги: {booksTotal.toLocaleString('ru-RU')} ₽
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-border/60 p-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-medium">
+            <Icon name="Image" size={14} />
+            Печать фото
+          </div>
+          {photoItems.length > 0 && (
+            <div className="hidden md:grid grid-cols-[1fr_70px_90px_32px] gap-2 px-1">
+              <span className="text-[11px] text-muted-foreground">Формат</span>
+              <span className="text-[11px] text-muted-foreground">Кол-во</span>
+              <span className="text-[11px] text-muted-foreground">Цена/шт</span>
+              <span />
+            </div>
+          )}
+          {photoItems.map((item, idx) => (
+            <div
+              key={idx}
+              className="grid grid-cols-[1fr_60px_36px] md:grid-cols-[1fr_70px_90px_32px] gap-2 items-center"
+            >
+              <Input
+                list="photo-format-presets"
+                value={item.format}
+                onChange={(e) => updatePhotoItem(idx, { format: e.target.value })}
+                placeholder="20×30 (A4)"
+                className="text-xs h-9"
+              />
+              <Input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={item.qty}
+                onChange={(e) => updatePhotoItem(idx, { qty: e.target.value })}
+                placeholder="шт"
+                className="text-xs h-9 px-2"
+              />
+              <Input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={item.price}
+                onChange={(e) => updatePhotoItem(idx, { price: e.target.value })}
+                placeholder="₽"
+                className="text-xs h-9 px-2 hidden md:block"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => removePhotoItem(idx)}
+                className="h-9 w-9 text-destructive hover:text-destructive shrink-0"
+              >
+                <Icon name="Trash2" size={15} />
+              </Button>
+              <Input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={item.price}
+                onChange={(e) => updatePhotoItem(idx, { price: e.target.value })}
+                placeholder="Цена за шт (₽)"
+                className="text-xs h-9 px-2 col-span-3 md:hidden"
+              />
+            </div>
+          ))}
+          <datalist id="photo-format-presets">
+            {PHOTO_FORMAT_PRESETS.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addPhotoItem}
+            className="w-full h-9 border-dashed text-xs"
+          >
+            <Icon name="Plus" size={14} className="mr-1" />
+            Добавить формат фото
+          </Button>
+          {photosTotal > 0 && (
+            <div className="text-xs text-muted-foreground text-right">
+              Печать фото: {photosTotal.toLocaleString('ru-RU')} ₽
+            </div>
+          )}
+        </div>
+
         <div className="space-y-1">
           <Label className="text-xs">Стиль съёмки</Label>
           <ShootingStyleSelector
