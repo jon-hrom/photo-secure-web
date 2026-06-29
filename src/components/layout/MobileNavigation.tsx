@@ -83,8 +83,6 @@ const MobileNavigation = ({ onNavigate, currentPage, unreadCount = 0, onOpenChat
     dragStartBottom.current = userBottomPosition;
     dragStartTime.current = Date.now();
     setIsDragging(false);
-    
-    document.body.style.overscrollBehavior = 'none';
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -109,8 +107,6 @@ const MobileNavigation = ({ onNavigate, currentPage, unreadCount = 0, onOpenChat
 
   const handleTouchEnd = () => {
     const touchDuration = Date.now() - dragStartTime.current;
-    
-    document.body.style.overscrollBehavior = '';
     
     if (!isDragging && touchDuration < 300) {
       handleMenuClick();

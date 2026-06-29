@@ -337,17 +337,17 @@ input[type="week"]::-webkit-calendar-picker-indicator:hover {
       BlinkMacSystemFont,
       "Segoe UI",
       sans-serif;
-    /* На мобильных запрещаем горизонтальный «увод» страницы,
-       чтобы вертикальный скролл пальцем работал по всей ширине экрана,
-       а не только у правого края. */
-    overflow-x: hidden;
     width: 100%;
-    -webkit-overflow-scrolling: touch;
   }
 
+  /* Горизонтальный «увод» страницы убираем через overflow-x: clip на html.
+     Важно: не используем overflow-x: hidden на body — иначе body становится
+     отдельным скролл-контейнером и вертикальный скролл на мобильных «залипает»
+     при докрутке до конца. Основным скролл-контейнером остаётся html (viewport). */
   html {
     @apply bg-background;
     width: 100%;
+    overflow-x: clip;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
