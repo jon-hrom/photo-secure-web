@@ -40,6 +40,7 @@ type DraftFields = {
   photobook_price?: number;
   photo_items: PhotoItem[];
   status: Project['status'];
+  cancel_reason?: string;
 };
 
 const PHOTO_FORMAT_PRESETS = ['20×30 (A4)', '15×20', '10×15', '21×30 (A4)', '30×40', '13×18'];
@@ -73,6 +74,7 @@ const buildDraftFromProject = (project: Project): DraftFields => ({
   photobook_price: project.photobook_price,
   photo_items: Array.isArray(project.photo_items) ? project.photo_items : [],
   status: project.status,
+  cancel_reason: project.cancel_reason,
 });
 
 // Полный пересчёт бюджета: съёмка + фотокниги + печать фото
@@ -109,6 +111,7 @@ const ProjectCard = ({
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetValue, setBudgetValue] = useState(String(project.budget));
   const budgetInputRef = useRef<HTMLInputElement>(null);
+  const reasonInputRef = useRef<HTMLTextAreaElement>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const isDirtyRef = useRef(false);
@@ -136,6 +139,7 @@ const ProjectCard = ({
     project.shooting_address,
     project.hourly_rate,
     project.status,
+    project.cancel_reason,
   ]);
 
   useEffect(() => {
@@ -171,9 +175,13 @@ const ProjectCard = ({
       (draft.photobook_count || 0) !== (originalDraft.photobook_count || 0) ||
       (draft.photobook_price || 0) !== (originalDraft.photobook_price || 0) ||
       JSON.stringify(draft.photo_items || []) !== JSON.stringify(originalDraft.photo_items || []) ||
-      draft.status !== originalDraft.status
+      draft.status !== originalDraft.status ||
+      (draft.cancel_reason || '') !== (originalDraft.cancel_reason || '')
     );
   }, [draft, originalDraft]);
+
+  const isCancelled = draft.status === 'cancelled';
+  const cancelReasonMissing = isCancelled && !(draft.cancel_reason || '').trim();
 
   useEffect(() => {
     isDirtyRef.current = isDirty;
@@ -229,6 +237,10 @@ const ProjectCard = ({
 
   const handleSave = async (notifyClient: boolean = false) => {
     if (!isDirty || isSaving) return;
+    if (cancelReasonMissing) {
+      reasonInputRef.current?.focus();
+      return;
+    }
     const updates: Partial<Project> = {};
     if (draft.budget !== originalDraft.budget) updates.budget = draft.budget;
     if (draft.startDate !== originalDraft.startDate) updates.startDate = draft.startDate;
@@ -259,6 +271,12 @@ const ProjectCard = ({
       );
     }
     if (draft.status !== originalDraft.status) updates.status = draft.status;
+    if (draft.status === 'cancelled') {
+      updates.status = 'cancelled';
+      updates.cancel_reason = (draft.cancel_reason || '').trim();
+    } else if ((draft.cancel_reason || '') !== (originalDraft.cancel_reason || '')) {
+      updates.cancel_reason = (draft.cancel_reason || '').trim();
+    }
 
     justSavedRateRef.current = draft.hourly_rate ?? null;
     setIsSaving(true);
@@ -376,12 +394,12 @@ const ProjectCard = ({
               <Button
                 variant="default"
                 size="sm"
-                disabled={!isDirty || isSaving}
+                disabled={!isDirty || isSaving || cancelReasonMissing}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleSave(true);
                 }}
-                title="Сохранить и отправить изменения клиенту"
+                title={cancelReasonMissing ? 'Укажите причину отмены' : 'Сохранить и отправить изменения клиенту'}
                 aria-label="Сохранить и отправить изменения клиенту"
                 className="h-auto min-h-[44px] py-1 px-2.5 whitespace-normal leading-[1.1] text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 max-w-[150px] sm:max-w-[170px]"
               >
@@ -644,6 +662,34 @@ const ProjectCard = ({
             </Select>
           </div>
 
+          {isCancelled && (
+            <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/60 dark:bg-red-950/30 p-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+              <Label className="text-xs font-medium text-red-700 dark:text-red-300 flex items-center gap-1.5">
+                <Icon name="MessageSquareWarning" size={14} />
+                Причина отмены съёмки <span className="text-red-500">*</span>
+              </Label>
+              <textarea
+                ref={reasonInputRef}
+                value={draft.cancel_reason || ''}
+                onChange={(e) => updateDraft({ cancel_reason: e.target.value })}
+                placeholder="Например: клиент перенёс на неопределённый срок, форс-мажор по погоде…"
+                rows={2}
+                className={`w-full text-xs sm:text-sm rounded-md border bg-background text-foreground p-2 resize-y focus:outline-none focus:ring-1 focus:ring-primary ${
+                  cancelReasonMissing ? 'border-red-500 ring-1 ring-red-500' : 'border-border'
+                }`}
+              />
+              {cancelReasonMissing && (
+                <p className="text-[11px] text-red-600 dark:text-red-400">Укажите причину — без неё нельзя сохранить отмену.</p>
+              )}
+              <p className="text-[11px] text-muted-foreground flex items-start gap-1.5 leading-snug">
+                <Icon name="PiggyBank" size={13} className="text-primary shrink-0 mt-0.5" />
+                <span>
+                  Оплаченная предоплата по проекту (<b className="text-foreground">{projectPaid.toLocaleString('ru-RU')} ₽</b>) перейдёт в <b className="text-foreground">резерв клиента</b> и сохранится на будущие съёмки.
+                </span>
+              </p>
+            </div>
+          )}
+
           {isDirty && (
             <div className="sticky bottom-0 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 bg-background/95 backdrop-blur border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <span className="text-[11px] sm:text-xs text-muted-foreground flex items-start gap-1.5 leading-snug">
@@ -656,7 +702,7 @@ const ProjectCard = ({
                 <Button variant="outline" size="sm" onClick={handleReset} disabled={isSaving}>
                   Отменить
                 </Button>
-                <Button size="sm" onClick={() => handleSave(false)} disabled={isSaving}>
+                <Button size="sm" onClick={() => handleSave(false)} disabled={isSaving || cancelReasonMissing}>
                   {isSaving ? (
                     <>
                       <Icon name="Loader2" size={14} className="mr-1.5 animate-spin" />

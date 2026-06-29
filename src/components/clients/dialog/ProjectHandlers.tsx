@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 import { Client, Project, Payment } from '@/components/clients/ClientsTypes';
-import { sendProjectNotification, sendProjectUpdateNotification } from './NotificationService';
+import { sendProjectNotification, sendProjectUpdateNotification, sendProjectCancellationNotification } from './NotificationService';
 import { todayLocalDate } from '@/utils/dateFormat';
 
 export const createAddProjectHandler = (
@@ -234,8 +234,23 @@ export const createUpdateProjectHandler = (
 
     onUpdate(updatedClient);
 
-    // Send update notification if important fields changed AND caller requested notification
-    if (notifyClient && oldProject && photographerName) {
+    // Отмена съёмки: особое заботливое уведомление клиенту и фотографу.
+    const becameCancelled = updates.status === 'cancelled' && oldProject?.status !== 'cancelled';
+    if (notifyClient && oldProject && becameCancelled) {
+      const updatedProject = updatedProjects.find(p => p.id === projectId);
+      if (updatedProject) {
+        // Ждём, пока проект сохранится в БД (предоплата перейдёт в резерв),
+        // чтобы уведомление показало корректную сумму резерва.
+        await new Promise((r) => setTimeout(r, 1200));
+        try {
+          await sendProjectCancellationNotification(localClient, updatedProject);
+          console.log('[PROJECT] Cancellation notification sent for project:', projectId);
+        } catch (error) {
+          console.error('[PROJECT] Error sending cancellation notification:', error);
+        }
+      }
+    } else if (notifyClient && oldProject && photographerName) {
+      // Send update notification if important fields changed AND caller requested notification
       const importantFieldsChanged = 
         updates.startDate !== undefined ||
         updates.shooting_time !== undefined ||

@@ -43,6 +43,7 @@ export interface Project {
   add_to_calendar?: boolean;
   google_event_id?: string;
   synced_at?: string;
+  cancel_reason?: string;
 }
 
 export interface PhotoItem {

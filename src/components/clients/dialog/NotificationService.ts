@@ -171,6 +171,32 @@ export const sendProjectNotification = async (
   return report;
 };
 
+export const sendProjectCancellationNotification = async (
+  client: Client,
+  project: Project
+): Promise<boolean> => {
+  const userId = localStorage.getItem('userId');
+  if (!userId) return false;
+  const SHOOTING_NOTIF_API = 'https://functions.poehali.dev/b2bd6fbd-f4a9-4bec-b6b7-0689b79375ae';
+  try {
+    const resp = await fetch(SHOOTING_NOTIF_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+      body: JSON.stringify({
+        project_id: project.id,
+        client_id: client.id,
+        notification_type: 'cancellation',
+        notify_client: !!(client.phone || client.telegram_chat_id),
+        notify_photographer: true,
+      }),
+    });
+    return resp.ok;
+  } catch (e) {
+    console.error('[Cancellation Notification] Error:', e);
+    return false;
+  }
+};
+
 export const sendProjectUpdateNotification = async (
   client: Client,
   oldProject: Project,

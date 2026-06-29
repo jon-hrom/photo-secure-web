@@ -538,6 +538,172 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
     return results if results else {'error': 'No contact methods available'}
 
 
+def _send_text_to_client(message: str, client_data: dict, photographer_data: dict, conn=None) -> dict:
+    """Базовая отправка произвольного текста клиенту (MAX/WhatsApp → Telegram) + лог в client_messages."""
+    instance_id = photographer_data.get('green_api_instance_id') or ''
+    token = photographer_data.get('green_api_token') or ''
+    creds = {'instance_id': instance_id, 'token': token} if instance_id and token else get_max_credentials()
+
+    results = {}
+    wa_status = None
+    wa_error = None
+    wa_id = None
+    tg_status = None
+    tg_error = None
+    tg_id = None
+
+    if creds.get('instance_id') and creds.get('token') and client_data.get('phone'):
+        try:
+            result = send_via_green_api(creds['instance_id'], creds['token'], client_data['phone'], message)
+            wa_id = result.get('idMessage')
+            results['whatsapp'] = {'success': True, 'message_id': wa_id}
+            wa_status = 'sent'
+        except Exception as e:
+            err = str(e)[:300]
+            results['whatsapp'] = {'error': err}
+            wa_status = 'failed'
+            wa_error = err
+    elif not creds.get('instance_id') or not creds.get('token'):
+        results['whatsapp'] = {'error': 'MAX/WhatsApp не подключён у фотографа'}
+        wa_status = 'failed'
+        wa_error = 'MAX/WhatsApp не подключён у фотографа'
+
+    tg_target = client_data.get('telegram_chat_id') or client_data.get('telegram_id')
+    if tg_target:
+        tg_result = send_via_telegram(str(tg_target), message)
+        results['telegram'] = tg_result
+        if tg_result.get('success') or tg_result.get('ok'):
+            tg_status = 'delivered'
+            tg_id = str(tg_result.get('message_id') or '') or None
+        else:
+            tg_status = 'failed'
+            tg_error = str(tg_result.get('error') or 'Не удалось отправить в Telegram')[:300]
+
+    if conn and client_data.get('id') and photographer_data.get('id'):
+        try:
+            with conn.cursor() as cur:
+                if wa_status is not None:
+                    cur.execute("""
+                        INSERT INTO t_p28211681_photo_secure_web.client_messages
+                        (client_id, photographer_id, sender_type, content, type, author, message_date,
+                         is_delivered, delivery_status, delivery_error, external_message_id)
+                        VALUES (%s, %s, 'photographer', %s, 'whatsapp', 'Система', NOW(), %s, %s, %s, %s)
+                    """, (int(client_data['id']), int(photographer_data['id']), message,
+                          wa_status in ('delivered', 'read'), wa_status, wa_error, wa_id))
+                if tg_status is not None:
+                    cur.execute("""
+                        INSERT INTO t_p28211681_photo_secure_web.client_messages
+                        (client_id, photographer_id, sender_type, content, type, author, message_date,
+                         is_delivered, delivery_status, delivery_error, external_message_id)
+                        VALUES (%s, %s, 'photographer', %s, 'telegram', 'Система', NOW(), %s, %s, %s, %s)
+                    """, (int(client_data['id']), int(photographer_data['id']), message,
+                          tg_status in ('delivered', 'read'), tg_status, tg_error, tg_id))
+                conn.commit()
+        except Exception as e:
+            print(f'[SHOOTING_NOTIF] cancel log error: {e}')
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+
+    return results if results else {'error': 'No contact methods available'}
+
+
+def _send_text_to_photographer(message: str, photographer_data: dict) -> dict:
+    """Базовая отправка произвольного текста фотографу (MAX/WhatsApp → Telegram)."""
+    instance_id = photographer_data.get('green_api_instance_id') or ''
+    token = photographer_data.get('green_api_token') or ''
+    creds = {'instance_id': instance_id, 'token': token} if instance_id and token else get_max_credentials()
+
+    results = {}
+    if creds.get('instance_id') and creds.get('token') and photographer_data.get('phone'):
+        try:
+            result = send_via_green_api(creds['instance_id'], creds['token'], photographer_data['phone'], message)
+            results['whatsapp'] = {'success': True, 'message_id': result.get('idMessage')}
+        except Exception as e:
+            results['whatsapp'] = {'error': str(e)[:300]}
+    elif not creds.get('instance_id') or not creds.get('token'):
+        results['whatsapp'] = {'error': 'MAX/WhatsApp не подключён'}
+
+    tg_chat = photographer_data.get('telegram_chat_id') or photographer_data.get('telegram_id')
+    if tg_chat:
+        results['telegram'] = send_via_telegram(str(tg_chat), message)
+
+    return results if results else {'error': 'No contact methods available'}
+
+
+def send_cancellation_to_client(project_data: dict, client_data: dict, photographer_data: dict, conn=None, reserve_amount: float = 0) -> dict:
+    """Заботливое сообщение клиенту об отмене съёмки."""
+    photographer_name = photographer_data.get('display_name') or photographer_data.get('email', 'Фотограф')
+    photographer_phone = photographer_data.get('phone', 'не указан')
+    client_name = client_data.get('name', '')
+    project_name = project_data.get('name', 'съёмка')
+    date_str = format_date_ru(project_data.get('startDate', '')) if project_data.get('startDate') else ''
+    reason = (project_data.get('cancel_reason') or '').strip()
+
+    greeting = f"Здравствуйте, {client_name}!" if client_name else "Здравствуйте!"
+    parts = [
+        greeting,
+        "",
+        f"К сожалению, фотосъёмка «{project_name}»{(' от ' + date_str) if date_str else ''} не состоится 😔",
+    ]
+    if reason:
+        parts.append(f"Причина: {reason}.")
+    parts.extend([
+        "",
+        "Нам очень жаль, что так вышло. Это не отменяет нашего желания поработать с вами — мы будем рады организовать съёмку в другой удобный для вас день.",
+    ])
+    if reserve_amount and reserve_amount > 0:
+        parts.extend([
+            "",
+            f"💼 Ваша предоплата {reserve_amount:,.0f} ₽ сохранена в резерве и будет учтена при следующей съёмке — ничего не потеряется.",
+        ])
+    parts.extend([
+        "",
+        f"Если захотите выбрать новую дату или у вас появятся вопросы — просто напишите фотографу.",
+        f"👤 Фотограф: {photographer_name}",
+        f"📞 Телефон: {photographer_phone}",
+        "",
+        "Спасибо за понимание и до новых встреч! 📷",
+        "",
+        "———",
+        "🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!",
+    ])
+    return _send_text_to_client("\n".join(parts), client_data, photographer_data, conn)
+
+
+def send_cancellation_to_photographer(project_data: dict, client_data: dict, photographer_data: dict, reserve_amount: float = 0) -> dict:
+    """Уведомление фотографу об отмене съёмки."""
+    client_name = client_data.get('name', 'Клиент')
+    client_phone = client_data.get('phone', 'не указан')
+    project_name = project_data.get('name', 'съёмка')
+    date_str = format_date_ru(project_data.get('startDate', '')) if project_data.get('startDate') else ''
+    reason = (project_data.get('cancel_reason') or '').strip()
+
+    parts = [
+        "⚠️ Съёмка отменена",
+        "",
+        f"🎬 Услуга: {project_name}",
+    ]
+    if date_str:
+        parts.append(f"📅 Дата: {date_str}")
+    parts.extend([
+        f"👤 Клиент: {client_name}",
+        f"📞 Телефон: {client_phone}",
+    ])
+    if reason:
+        parts.append("")
+        parts.append(f"📝 Причина: {reason}")
+    if reserve_amount and reserve_amount > 0:
+        parts.append("")
+        parts.append(f"💼 Предоплата {reserve_amount:,.0f} ₽ перенесена в резерв клиента.")
+    parts.extend([
+        "",
+        "Клиенту отправлено уведомление об отмене.",
+    ])
+    return _send_text_to_photographer("\n".join(parts), photographer_data)
+
+
 def handler(event: dict, context) -> dict:
     """
     Отправка уведомлений о съёмках через MAX мессенджер
@@ -582,6 +748,7 @@ def handler(event: dict, context) -> dict:
         client_id = body.get('client_id')
         notify_client = body.get('notify_client', True)
         notify_photographer = body.get('notify_photographer', True)
+        notification_type = body.get('notification_type', 'booking')
         
         if not project_id or not client_id:
             return {
@@ -676,16 +843,26 @@ def handler(event: dict, context) -> dict:
                     }
             
             results = {}
-            
-            # Отправляем уведомление клиенту
-            if notify_client:
-                client_result = send_client_notification(project_data, client_data, photographer_data, conn, payment_data)
-                results['client_notification'] = client_result
-            
-            # Отправляем уведомление фотографу
-            if notify_photographer:
-                photographer_result = send_photographer_notification(project_data, client_data, photographer_data, payment_data)
-                results['photographer_notification'] = photographer_result
+
+            if notification_type == 'cancellation':
+                # Сумма предоплаты, ушедшей в резерв (= оплачено по проекту)
+                reserve_amount = float(payment_data['prepaid']) if payment_data else 0.0
+                if notify_client:
+                    results['client_notification'] = send_cancellation_to_client(
+                        project_data, client_data, photographer_data, conn, reserve_amount)
+                if notify_photographer:
+                    results['photographer_notification'] = send_cancellation_to_photographer(
+                        project_data, client_data, photographer_data, reserve_amount)
+            else:
+                # Отправляем уведомление клиенту
+                if notify_client:
+                    client_result = send_client_notification(project_data, client_data, photographer_data, conn, payment_data)
+                    results['client_notification'] = client_result
+                
+                # Отправляем уведомление фотографу
+                if notify_photographer:
+                    photographer_result = send_photographer_notification(project_data, client_data, photographer_data, payment_data)
+                    results['photographer_notification'] = photographer_result
             
             return {
                 'statusCode': 200,

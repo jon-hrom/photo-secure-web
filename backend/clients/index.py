@@ -509,7 +509,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Массовый запрос всех projects
                 cur.execute('''
-                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items
+                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items, cancel_reason
                     FROM t_p28211681_photo_secure_web.client_projects 
                     WHERE client_id = ANY(%s)
                     ORDER BY created_at DESC
@@ -640,7 +640,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'hourly_rate': float(p['hourly_rate']) if p.get('hourly_rate') is not None else None,
                         'photobook_count': int(p['photobook_count']) if p.get('photobook_count') is not None else None,
                         'photobook_price': float(p['photobook_price']) if p.get('photobook_price') is not None else None,
-                        'photo_items': p.get('photo_items') if p.get('photo_items') is not None else []
+                        'photo_items': p.get('photo_items') if p.get('photo_items') is not None else [],
+                        'cancel_reason': p.get('cancel_reason')
                     } for p in raw_projects]
                     
                     # Конвертируем payments
@@ -1585,10 +1586,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 cleaned_items.append({'format': fmt, 'qty': qty, 'price': price})
                         photo_items_val = json.dumps(cleaned_items)
 
+                    cancel_reason_val = project.get('cancel_reason')
+                    if isinstance(cancel_reason_val, str):
+                        cancel_reason_val = cancel_reason_val.strip() or None
+
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.client_projects 
-                        (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                        (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items, cancel_reason)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)
                         ON CONFLICT (id) DO UPDATE SET
                             name = EXCLUDED.name,
                             status = EXCLUDED.status,
@@ -1604,7 +1609,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             hourly_rate = COALESCE(EXCLUDED.hourly_rate, t_p28211681_photo_secure_web.client_projects.hourly_rate),
                             photobook_count = COALESCE(EXCLUDED.photobook_count, t_p28211681_photo_secure_web.client_projects.photobook_count),
                             photobook_price = COALESCE(EXCLUDED.photobook_price, t_p28211681_photo_secure_web.client_projects.photobook_price),
-                            photo_items = COALESCE(EXCLUDED.photo_items, t_p28211681_photo_secure_web.client_projects.photo_items)
+                            photo_items = COALESCE(EXCLUDED.photo_items, t_p28211681_photo_secure_web.client_projects.photo_items),
+                            cancel_reason = EXCLUDED.cancel_reason
                     ''', (
                         project_id,
                         client_id,
@@ -1622,8 +1628,61 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         hourly_rate_val,
                         photobook_count_val,
                         photobook_price_val,
-                        photo_items_val
+                        photo_items_val,
+                        cancel_reason_val
                     ))
+
+                    # При отмене проекта переводим оплаченную предоплату в резерв клиента.
+                    # reserve_moved_at защищает от повторного перевода при повторных сохранениях.
+                    if project_status == 'cancelled' and project_id:
+                        try:
+                            cur.execute(
+                                'SELECT reserve_moved_at FROM t_p28211681_photo_secure_web.client_projects WHERE id = %s',
+                                (project_id,)
+                            )
+                            row = cur.fetchone()
+                            already_moved = bool(row and row.get('reserve_moved_at'))
+                            if not already_moved:
+                                cur.execute(
+                                    "SELECT COALESCE(SUM(amount), 0) AS paid FROM t_p28211681_photo_secure_web.client_payments WHERE project_id = %s AND status = 'completed'",
+                                    (project_id,)
+                                )
+                                paid_row = cur.fetchone()
+                                paid_sum = float(paid_row['paid']) if paid_row and paid_row.get('paid') is not None else 0.0
+                                if paid_sum > 0:
+                                    cur.execute(
+                                        'UPDATE t_p28211681_photo_secure_web.clients SET reserve_balance = COALESCE(reserve_balance, 0) + %s WHERE id = %s',
+                                        (paid_sum, client_id)
+                                    )
+                                    reason_text = (cancel_reason_val or '').strip()
+                                    desc = f'Отмена съёмки «{project_name}»'
+                                    if reason_text:
+                                        desc += f': {reason_text}'
+                                    cur.execute(
+                                        '''INSERT INTO t_p28211681_photo_secure_web.reserve_transactions
+                                           (client_id, user_id, amount, type, source_payment_id, target_project_id, description)
+                                           VALUES (%s, %s, %s, %s, %s, %s, %s)''',
+                                        (client_id, str(photographer_id), paid_sum, 'added', None, project_id, desc)
+                                    )
+                                # Помечаем, что перевод выполнен (даже если 0 — чтобы не пересчитывать)
+                                cur.execute(
+                                    'UPDATE t_p28211681_photo_secure_web.client_projects SET reserve_moved_at = CURRENT_TIMESTAMP WHERE id = %s',
+                                    (project_id,)
+                                )
+                                print(f'[CANCEL_RESERVE] Project {project_id}: moved {paid_sum} to reserve of client {client_id}')
+                        except Exception as e:
+                            print(f'[CANCEL_RESERVE] Error: {e}')
+
+                    # Если проект вернули из отмены в активный статус — сбрасываем флаг,
+                    # чтобы при повторной отмене предоплата снова ушла в резерв.
+                    if project_status != 'cancelled' and project_id:
+                        try:
+                            cur.execute(
+                                'UPDATE t_p28211681_photo_secure_web.client_projects SET reserve_moved_at = NULL WHERE id = %s AND reserve_moved_at IS NOT NULL',
+                                (project_id,)
+                            )
+                        except Exception as e:
+                            print(f'[CANCEL_RESERVE] Reset flag error: {e}')
                     
                     if is_new_project and start_date and project.get('shooting_time'):
                         # Уведомления о новом заказе отправляются из фронтенда через NotificationService.ts
