@@ -265,7 +265,10 @@ export const useClientsHandlers = ({
                   shooting_time: p.shooting_time,
                   shooting_duration: p.shooting_duration,
                   shooting_address: p.shooting_address,
-                  add_to_calendar: p.add_to_calendar
+                  add_to_calendar: p.add_to_calendar,
+                  cancel_reason: p.cancel_reason ?? undefined,
+                  endDate: p.end_date || p.endDate || undefined,
+                  dateHistory: p.dateHistory || p.date_history || undefined
                 })),
                 payments: (existingClientRaw.payments || []).map((pay: any) => ({
                   id: pay.id,

@@ -93,7 +93,10 @@ export const useClientsSync = ({ isAuthenticated, userId }: UseClientsSyncProps)
               ? parseFloat(String(p.photobook_price))
               : undefined,
             photo_items: Array.isArray(p.photo_items) ? p.photo_items : [],
-            add_to_calendar: p.add_to_calendar
+            add_to_calendar: p.add_to_calendar,
+            cancel_reason: p.cancel_reason ?? undefined,
+            endDate: p.end_date || p.endDate || undefined,
+            dateHistory: p.dateHistory || p.date_history || undefined
           })),
           payments: (client.payments || []).map((pay: any) => ({
             id: pay.id,

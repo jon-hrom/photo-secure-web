@@ -44,6 +44,12 @@ const ClientDetailOverview = ({
     ? completedRefunds.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
     : null;
 
+  // Сумма предоплат, перенесённых в финансовый резерв при отмене съёмок.
+  const cancelledProjectIds = new Set(projects.filter(p => p.status === 'cancelled').map(p => p.id));
+  const movedToReserve = reserveTransactions
+    .filter(tx => tx.amount > 0 && tx.targetProjectId != null && cancelledProjectIds.has(tx.targetProjectId))
+    .reduce((sum, tx) => sum + tx.amount, 0);
+
   const [animateKey, setAnimateKey] = useState(0);
 
   useEffect(() => {
@@ -95,6 +101,12 @@ const ClientDetailOverview = ({
                 <span className="text-orange-600"> (возвраты: −{totalRefunded.toLocaleString('ru-RU')} ₽)</span>
               )}
             </p>
+            {movedToReserve > 0 && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 flex items-center gap-1">
+                <Icon name="PiggyBank" size={12} className="shrink-0" />
+                {movedToReserve.toLocaleString('ru-RU')} ₽ перенесено в финансовый резерв (отмена съёмки)
+              </p>
+            )}
           </CardContent>
         </Card>
 
