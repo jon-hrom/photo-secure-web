@@ -40,7 +40,7 @@ const DashboardUpcomingBookings = ({
               <Icon name="CalendarDays" size={18} className="text-blue-600 dark:text-blue-400 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <div className="text-sm sm:text-lg font-bold">Ближайшие встречи</div>
+              <div className="text-sm sm:text-lg font-bold">Ближайшие встречи / съёмки</div>
               <div className="text-[10px] sm:text-xs text-blue-600/70 dark:text-blue-400/70 font-normal mt-0.5">
                 Следующие {bookings.length} бронирований
               </div>
@@ -48,7 +48,7 @@ const DashboardUpcomingBookings = ({
           </div>
         </CardTitle>
       </div>
-      <CardContent className="p-3 sm:p-5 space-y-2 sm:space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
+      <CardContent className="p-3 sm:p-5 space-y-2 sm:space-y-3 sm:max-h-96 sm:overflow-y-auto sm:overscroll-contain scrollbar-thin">
         {bookings.length === 0 ? (
           <div className="text-center py-6 sm:py-8 text-gray-500 dark:text-gray-400">
             <Icon name="CalendarX" size={40} className="mx-auto mb-2 sm:mb-3 text-gray-300 dark:text-gray-400 sm:w-12 sm:h-12" />
