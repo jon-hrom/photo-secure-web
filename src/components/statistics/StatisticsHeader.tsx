@@ -110,7 +110,7 @@ const StatisticsHeader = ({
 
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 no-print">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <Button
           variant="outline"
           size="icon"
@@ -119,15 +119,15 @@ const StatisticsHeader = ({
         >
           <Icon name="ArrowLeft" size={20} />
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold">Статистика</h1>
-          <p className="text-muted-foreground mt-1">Полный анализ вашего бизнеса</p>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold">Статистика</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Полный анализ вашего бизнеса</p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
         <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -147,15 +147,15 @@ const StatisticsHeader = ({
               type="date"
               value={customStartDate}
               onChange={(e) => setCustomStartDate(e.target.value)}
-              className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+              className="flex-1 min-w-0 sm:flex-none sm:w-auto px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
             />
             <input
               type="date"
               value={customEndDate}
               onChange={(e) => setCustomEndDate(e.target.value)}
-              className="px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
+              className="flex-1 min-w-0 sm:flex-none sm:w-auto px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
             />
-            <Button onClick={handleCustomPeriodApply} size="sm">
+            <Button onClick={handleCustomPeriodApply} size="sm" className="w-full sm:w-auto">
               Применить
             </Button>
           </>

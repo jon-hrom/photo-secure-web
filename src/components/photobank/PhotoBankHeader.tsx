@@ -86,21 +86,21 @@ const PhotoBankHeader = ({
   
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <Button 
             variant="ghost" 
             size="icon"
             onClick={onNavigateBack}
-            className="h-9 w-9 bg-purple-100 text-purple-700 hover:bg-purple-200 active:bg-purple-300 transition-all duration-200"
+            className="h-9 w-9 shrink-0 bg-purple-100 text-purple-700 hover:bg-purple-200 active:bg-purple-300 transition-all duration-200"
           >
             <Icon name="ArrowLeft" size={20} />
           </Button>
-          <h1 className="text-3xl font-bold">Мой фото банк</h1>
+          <h1 className="text-xl sm:text-3xl font-bold truncate">Мой фото банк</h1>
         </div>
         
         {(onGoBack || onGoForward) && (
-          <div className="flex items-center gap-1 border rounded-full p-1 bg-background shadow-sm">
+          <div className="flex items-center gap-1 border rounded-full p-1 bg-background shadow-sm shrink-0">
             <Button
               variant="ghost"
               size="sm"
