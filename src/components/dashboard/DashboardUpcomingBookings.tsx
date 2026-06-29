@@ -1,11 +1,12 @@
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
-import { Client, Booking } from '@/components/clients/ClientsTypes';
+import { Client, Booking, Project } from '@/components/clients/ClientsTypes';
 import { formatLocalDate } from '@/utils/dateFormat';
 
 interface BookingWithClient extends Booking {
   client: Client;
+  project?: Project;
 }
 
 interface DashboardUpcomingBookingsProps {
@@ -55,10 +56,65 @@ const DashboardUpcomingBookings = ({
             <p className="text-xs sm:text-sm">Нет предстоящих встреч</p>
           </div>
         ) : (
-          bookings.map((booking, index) => {
+          bookings.map((booking) => {
             const daysUntil = getDaysUntil(booking.date);
             const isUrgent = daysUntil <= 3;
-            
+            const isCancelled = booking.project?.status === 'cancelled';
+
+            if (isCancelled) {
+              return (
+                <div
+                  key={booking.id}
+                  onClick={() => onBookingClick?.(booking.client, booking)}
+                  className="group relative overflow-hidden rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-md hover:shadow-lg transition-all duration-300 border-2 border-red-400 dark:border-red-700 bg-gradient-to-br from-red-50 to-red-100/70 dark:from-red-950/60 dark:to-red-900/40 cursor-pointer"
+                >
+                  <div className="relative z-10 space-y-2">
+                    <div className="flex items-center justify-center gap-2 py-1">
+                      <Icon name="CalendarX2" size={22} className="text-red-600 dark:text-red-400 shrink-0" />
+                      <span className="text-base sm:text-xl font-extrabold tracking-wide text-red-600 dark:text-red-400 uppercase">
+                        Отмена съёмки
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white truncate line-through decoration-red-500/60">
+                          {booking.client.name}
+                        </p>
+                        {booking.client.phone && (
+                          <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">{booking.client.phone}</p>
+                        )}
+                      </div>
+                      <Badge className="text-[10px] sm:text-xs px-2 py-0.5 flex-shrink-0 bg-red-600 text-white border-red-600 hover:bg-red-600">
+                        Отменён
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-red-700/80 dark:text-red-300/80 flex-wrap">
+                      <div className="flex items-center gap-1">
+                        <Icon name="Calendar" size={10} className="flex-shrink-0 sm:w-3 sm:h-3" />
+                        <span className="font-medium">{formatDate(booking.date)}</span>
+                      </div>
+                      <span className="hidden sm:inline">•</span>
+                      <div className="flex items-center gap-1">
+                        <Icon name="Clock" size={10} className="flex-shrink-0 sm:w-3 sm:h-3" />
+                        <span className="font-medium">{booking.time}</span>
+                      </div>
+                      {booking.description && (
+                        <>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="truncate line-through decoration-red-500/40">{booking.description}</span>
+                        </>
+                      )}
+                    </div>
+                    {booking.project?.cancel_reason && (
+                      <p className="text-[10px] sm:text-xs text-red-700 dark:text-red-300 bg-red-100/70 dark:bg-red-950/50 rounded-md px-2 py-1">
+                        <span className="font-semibold">Причина: </span>{booking.project.cancel_reason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div 
                 key={booking.id}
