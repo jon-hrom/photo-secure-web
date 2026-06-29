@@ -343,12 +343,10 @@ input[type="week"]::-webkit-calendar-picker-indicator:hover {
     overflow-x: hidden;
     width: 100%;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
   }
 
   html {
     @apply bg-background;
-    overflow-x: hidden;
     width: 100%;
   }
 
