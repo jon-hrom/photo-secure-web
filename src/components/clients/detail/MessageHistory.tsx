@@ -337,6 +337,22 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                             <span className="ml-1 font-medium text-green-600 dark:text-green-400">{totalPaid.toLocaleString('ru-RU')} ₽</span>
                           </div>
                         )}
+                        {project.status === 'cancelled' && (
+                          <div className="mt-3 space-y-2">
+                            {project.cancel_reason && (
+                              <div className="text-sm rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-2 text-red-700 dark:text-red-300">
+                                <span className="font-medium">Причина отмены: </span>
+                                {project.cancel_reason}
+                              </div>
+                            )}
+                            {totalPaid > 0 && (
+                              <div className="text-xs flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
+                                <Icon name="PiggyBank" size={14} className="shrink-0" />
+                                Предоплата {totalPaid.toLocaleString('ru-RU')} ₽ перенесена в резерв клиента
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
