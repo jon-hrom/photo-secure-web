@@ -175,13 +175,13 @@ const MobileNavigation = ({ onNavigate, currentPage, unreadCount = 0, onOpenChat
       
       <nav 
         ref={navRef}
-        className="fixed left-0 right-0 z-50 md:hidden"
+        className="fixed left-0 right-0 z-50 md:hidden pointer-events-none"
         style={{
           bottom: `${bottomOffset}px`,
           transition: isDragging ? 'none' : 'bottom 0.3s ease-out'
         }}
       >
-        <div className="flex flex-col items-start justify-end pb-4 px-4 gap-2">
+        <div className="flex flex-col items-start justify-end pb-4 px-4 gap-2 pointer-events-none [&>*]:pointer-events-auto">
           {isExpanded && navItems.slice(1).reverse().map((item, index) => (
             <Button
               key={item.path}
