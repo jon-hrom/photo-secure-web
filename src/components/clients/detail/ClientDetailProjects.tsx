@@ -102,37 +102,52 @@ const ClientDetailProjects = ({
     async (projectId: number, updates: Partial<Project>, notifyClient: boolean = false) => {
       if (!updates || Object.keys(updates).length === 0) return;
 
-      const hasDateChange = 'startDate' in updates;
       const hasStatusChange = 'status' in updates;
       const hasStyleChange = 'shootingStyleId' in updates;
+      const hasDateChange = 'startDate' in updates;
+      const newStatus = updates.status;
 
+      // Стиль обрабатываем отдельным локальным обновлением (для пересборки селектора).
       const updatesForMain: Partial<Project> = { ...updates };
-      if (hasDateChange) delete updatesForMain.startDate;
-      if (hasStatusChange) delete updatesForMain.status;
       if (hasStyleChange) delete updatesForMain.shootingStyleId;
-
-      if (hasDateChange && updates.startDate !== undefined) {
-        updateProjectDate(projectId, updates.startDate as string);
-      }
       if (hasStyleChange && updates.shootingStyleId !== undefined) {
         handleShootingStyleChange(projectId, updates.shootingStyleId as string);
       }
 
-      if (Object.keys(updatesForMain).length > 0) {
-        await handleUpdateProject(projectId, updatesForMain, notifyClient);
-      } else if (notifyClient && (hasDateChange || hasStatusChange)) {
-        // если менялись только поля-триггеры (дата/статус) — всё равно отправим уведомление
-        const triggerUpdates: Partial<Project> = {};
-        if (hasDateChange) triggerUpdates.startDate = updates.startDate;
-        if (hasStatusChange) triggerUpdates.status = updates.status;
-        await handleUpdateProject(projectId, triggerUpdates, notifyClient);
+      // При смене даты дописываем историю переносов, не теряя её.
+      if (hasDateChange && updates.startDate !== undefined) {
+        const current = projects.find((p) => p.id === projectId);
+        if (current && current.startDate !== updates.startDate) {
+          updatesForMain.dateHistory = [
+            ...(current.dateHistory || []),
+            { oldDate: current.startDate, newDate: updates.startDate as string, changedAt: new Date().toISOString() },
+          ];
+        }
       }
 
-      if (hasStatusChange && updates.status !== undefined) {
-        await updateProjectStatus(projectId, updates.status);
+      // При завершении/отмене проставляем дату завершения и чистим событие календаря.
+      if (hasStatusChange && (newStatus === 'completed' || newStatus === 'cancelled')) {
+        if (!('endDate' in updatesForMain)) {
+          updatesForMain.endDate = new Date().toISOString();
+        }
+        try {
+          const CALENDAR_API = 'https://functions.poehali.dev/fc049737-8d51-4e98-95e4-c1dd7f6e6c2c';
+          const uid = localStorage.getItem('userId');
+          await fetch(CALENDAR_API, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'X-User-Id': uid || '' },
+            body: JSON.stringify({ project_id: projectId }),
+          });
+        } catch (e) {
+          console.error('[Project] calendar cleanup error', e);
+        }
       }
+
+      // Единый вызов сохранения со ВСЕМИ полями (status, cancel_reason, endDate и пр.),
+      // чтобы ничего не перетиралось повторным sync.
+      await handleUpdateProject(projectId, updatesForMain, notifyClient);
     },
-    [handleUpdateProject, updateProjectDate, updateProjectStatus, handleShootingStyleChange]
+    [handleUpdateProject, handleShootingStyleChange, projects]
   );
 
   const handleDirtyChange = useCallback(

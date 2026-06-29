@@ -239,9 +239,9 @@ export const createUpdateProjectHandler = (
     if (notifyClient && oldProject && becameCancelled) {
       const updatedProject = updatedProjects.find(p => p.id === projectId);
       if (updatedProject) {
-        // Ждём, пока проект сохранится в БД (предоплата перейдёт в резерв),
-        // чтобы уведомление показало корректную сумму резерва.
-        await new Promise((r) => setTimeout(r, 1200));
+        // Ждём, пока проект сохранится в БД (статус, причина, перевод предоплаты в резерв),
+        // чтобы уведомление прочитало актуальные данные и корректную сумму резерва.
+        await new Promise((r) => setTimeout(r, 2000));
         try {
           await sendProjectCancellationNotification(localClient, updatedProject);
           console.log('[PROJECT] Cancellation notification sent for project:', projectId);

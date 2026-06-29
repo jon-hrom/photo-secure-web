@@ -85,6 +85,18 @@ const ProjectArchiveDialog = ({ open, onOpenChange, project, client, payments }:
                 </div>
               )}
 
+              {project.status === 'cancelled' && project.cancel_reason && (
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5">
+                    <Icon name="MessageSquareWarning" size={14} className="text-red-500" />
+                    Причина отмены
+                  </p>
+                  <p className="text-sm rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 p-2 text-red-700 dark:text-red-300">
+                    {project.cancel_reason}
+                  </p>
+                </div>
+              )}
+
               <div className="pt-4 border-t">
                 <p className="text-sm text-muted-foreground mb-1">Дата начала</p>
                 <p className="text-sm font-medium">
