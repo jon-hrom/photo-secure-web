@@ -70,6 +70,8 @@ export interface StatisticsData {
   financial: {
     total_revenue: number;
     net_revenue?: number;
+    studio_revenue?: number;
+    photographer_revenue?: number;
     prev_revenue: number;
     revenue_growth: number;
     avg_check: number;

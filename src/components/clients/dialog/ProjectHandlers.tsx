@@ -33,6 +33,9 @@ export const createAddProjectHandler = (
       hourly_rate: newProject.hourly_rate !== undefined && newProject.hourly_rate !== ''
         ? parseFloat(String(newProject.hourly_rate).replace(',', '.'))
         : undefined,
+      studio_hourly_rate: newProject.studio_hourly_rate !== undefined && newProject.studio_hourly_rate !== ''
+        ? parseFloat(String(newProject.studio_hourly_rate).replace(',', '.'))
+        : undefined,
       photobook_count: newProject.photobook_count !== undefined && newProject.photobook_count !== ''
         ? parseInt(String(newProject.photobook_count), 10) || 0
         : undefined,
@@ -151,6 +154,7 @@ export const createAddProjectHandler = (
       shooting_address: '',
       add_to_calendar: false,
       hourly_rate: '',
+      studio_hourly_rate: '',
       photobook_count: '',
       photobook_price: '',
       photo_items: []

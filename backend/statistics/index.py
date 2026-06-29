@@ -329,19 +329,53 @@ def get_financial_stats(cur, photographer_id: str, date_filter: str, prev_date_f
         GROUP BY method
     ''')
     by_method = cur.fetchall()
-    
+
+    # Сумма за аренду студии в оплаченных платежах за период.
+    # Студия входит в бюджет клиента, но не является доходом фотографа.
+    # Берём долю студии в бюджете проекта и применяем к фактически оплаченным
+    # суммам по этому проекту в текущем и прошлом периодах.
+    cur.execute(f'''
+        SELECT
+            COALESCE(SUM(CASE WHEN pay.payment_date {date_filter} THEN pay.amount * studio.ratio END), 0) as studio_revenue,
+            COALESCE(SUM(CASE WHEN pay.payment_date {prev_date_filter} THEN pay.amount * studio.ratio END), 0) as prev_studio_revenue
+        FROM {SCHEMA}.client_payments pay
+        JOIN {SCHEMA}.clients c ON pay.client_id = c.id
+        JOIN (
+            SELECT cp.id,
+                CASE
+                    WHEN cp.budget IS NULL OR cp.budget <= 0 THEN 0
+                    ELSE LEAST(
+                        (COALESCE(cp.studio_hourly_rate, 0) * COALESCE(cp.shooting_duration, 0) / 60.0) / cp.budget,
+                        1
+                    )
+                END as ratio
+            FROM {SCHEMA}.client_projects cp
+            WHERE cp.studio_hourly_rate IS NOT NULL AND cp.studio_hourly_rate > 0
+        ) studio ON pay.project_id = studio.id
+        WHERE c.photographer_id = {photographer_id}
+          AND pay.status = 'completed'
+    ''')
+    studio_data = cur.fetchone()
+
     total_revenue = float(finance_data['total_revenue'])
     total_refunds = float(refunds_data['total_refunds'])
+    studio_revenue = round(float(studio_data['studio_revenue']), 2)
+    prev_studio_revenue = round(float(studio_data['prev_studio_revenue']), 2)
     net_revenue = total_revenue - total_refunds
+    # Чистый доход фотографа: за вычетом возвратов и аренды студии.
+    photographer_revenue = max(0.0, net_revenue - studio_revenue)
     prev_revenue = float(finance_data['prev_revenue'])
     prev_refunds = float(refunds_data['prev_refunds'])
     prev_net = prev_revenue - prev_refunds
+    prev_photographer = max(0.0, prev_net - prev_studio_revenue)
     
     return {
         'total_revenue': total_revenue,
         'net_revenue': net_revenue,
+        'studio_revenue': studio_revenue,
+        'photographer_revenue': photographer_revenue,
         'prev_revenue': prev_revenue,
-        'revenue_growth': calculate_growth(net_revenue, prev_net),
+        'revenue_growth': calculate_growth(photographer_revenue, prev_photographer),
         'avg_check': float(finance_data['avg_check']),
         'pending': {
             'amount': float(finance_data['pending_amount']),

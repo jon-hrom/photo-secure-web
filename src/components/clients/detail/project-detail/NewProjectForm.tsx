@@ -27,6 +27,7 @@ interface NewProjectData {
   shooting_address?: string;
   add_to_calendar?: boolean;
   hourly_rate?: string;
+  studio_hourly_rate?: string;
   photobook_count?: string;
   photobook_price?: string;
   photo_items?: PhotoItemDraft[];
@@ -63,12 +64,14 @@ const NewProjectForm = ({
     const durationMin = p.shooting_duration || 120;
     const rate = num(p.hourly_rate);
     const shooting = rate > 0 ? (durationMin / 60) * rate : 0;
+    const studioRate = num(p.studio_hourly_rate);
+    const studio = studioRate > 0 ? (durationMin / 60) * studioRate : 0;
     const books = num(p.photobook_count) * num(p.photobook_price);
     const photos = (p.photo_items ?? []).reduce(
       (sum, it) => sum + num(it.qty) * num(it.price),
       0
     );
-    return Math.round(shooting + books + photos);
+    return Math.round(shooting + studio + books + photos);
   };
 
   // Обновляем поля и автоматически пересчитываем бюджет
@@ -78,6 +81,7 @@ const NewProjectForm = ({
   };
 
   const handleRateChange = (rate: string) => update({ hourly_rate: rate });
+  const handleStudioRateChange = (rate: string) => update({ studio_hourly_rate: rate });
   const handleDurationChange = (durationMin: number) => update({ shooting_duration: durationMin });
 
   const updatePhotoItem = (index: number, patch: Partial<PhotoItemDraft>) => {
@@ -190,7 +194,21 @@ const NewProjectForm = ({
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-          <div className="space-y-1 md:col-span-3">
+          <div className="space-y-1">
+            <Label className="text-xs flex items-center gap-1">
+              <Icon name="Building2" size={12} className="text-muted-foreground" />
+              Стоимость студии/час (₽)
+            </Label>
+            <Input
+              type="number"
+              value={newProject.studio_hourly_rate || ''}
+              onChange={(e) => handleStudioRateChange(e.target.value)}
+              placeholder="1000"
+              className="text-xs h-9"
+            />
+            <p className="text-[10px] text-muted-foreground">Входит в бюджет, но не в доход фотографа</p>
+          </div>
+          <div className="space-y-1 md:col-span-2">
             <Label className="text-xs">Адрес съёмки</Label>
             <Input
               type="text"

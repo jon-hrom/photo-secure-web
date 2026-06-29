@@ -37,6 +37,7 @@ export interface Project {
   shooting_duration?: number;
   shooting_address?: string;
   hourly_rate?: number;
+  studio_hourly_rate?: number;
   photobook_count?: number;
   photobook_price?: number;
   photo_items?: PhotoItem[];

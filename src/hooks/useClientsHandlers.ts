@@ -268,7 +268,8 @@ export const useClientsHandlers = ({
                   add_to_calendar: p.add_to_calendar,
                   cancel_reason: p.cancel_reason ?? undefined,
                   endDate: p.end_date || p.endDate || undefined,
-                  dateHistory: p.dateHistory || p.date_history || undefined
+                  dateHistory: p.dateHistory || p.date_history || undefined,
+                  studio_hourly_rate: p.studio_hourly_rate ?? undefined
                 })),
                 payments: (existingClientRaw.payments || []).map((pay: any) => ({
                   id: pay.id,

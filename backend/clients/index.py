@@ -509,7 +509,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Массовый запрос всех projects
                 cur.execute('''
-                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items, cancel_reason
+                    SELECT client_id, id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items, cancel_reason, studio_hourly_rate
                     FROM t_p28211681_photo_secure_web.client_projects 
                     WHERE client_id = ANY(%s)
                     ORDER BY created_at DESC
@@ -638,6 +638,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'shooting_address': p.get('shooting_address'),
                         'add_to_calendar': p.get('add_to_calendar'),
                         'hourly_rate': float(p['hourly_rate']) if p.get('hourly_rate') is not None else None,
+                        'studio_hourly_rate': float(p['studio_hourly_rate']) if p.get('studio_hourly_rate') is not None else None,
                         'photobook_count': int(p['photobook_count']) if p.get('photobook_count') is not None else None,
                         'photobook_price': float(p['photobook_price']) if p.get('photobook_price') is not None else None,
                         'photo_items': p.get('photo_items') if p.get('photo_items') is not None else [],
@@ -1554,6 +1555,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     except (ValueError, TypeError):
                         hourly_rate_val = None
 
+                    studio_hourly_rate_raw = project.get('studio_hourly_rate')
+                    try:
+                        studio_hourly_rate_val = float(str(studio_hourly_rate_raw).replace(',', '.')) if studio_hourly_rate_raw not in (None, '') else None
+                    except (ValueError, TypeError):
+                        studio_hourly_rate_val = None
+
                     photobook_count_raw = project.get('photobook_count')
                     try:
                         photobook_count_val = int(float(str(photobook_count_raw).replace(',', '.'))) if photobook_count_raw not in (None, '') else None
@@ -1592,8 +1599,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.client_projects 
-                        (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items, cancel_reason)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)
+                        (id, client_id, name, status, budget, start_date, end_date, description, shooting_style_id, shooting_time, shooting_duration, shooting_address, add_to_calendar, hourly_rate, photobook_count, photobook_price, photo_items, cancel_reason, studio_hourly_rate)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
                         ON CONFLICT (id) DO UPDATE SET
                             name = EXCLUDED.name,
                             status = EXCLUDED.status,
@@ -1610,7 +1617,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             photobook_count = COALESCE(EXCLUDED.photobook_count, t_p28211681_photo_secure_web.client_projects.photobook_count),
                             photobook_price = COALESCE(EXCLUDED.photobook_price, t_p28211681_photo_secure_web.client_projects.photobook_price),
                             photo_items = COALESCE(EXCLUDED.photo_items, t_p28211681_photo_secure_web.client_projects.photo_items),
-                            cancel_reason = EXCLUDED.cancel_reason
+                            cancel_reason = EXCLUDED.cancel_reason,
+                            studio_hourly_rate = COALESCE(EXCLUDED.studio_hourly_rate, t_p28211681_photo_secure_web.client_projects.studio_hourly_rate)
                     ''', (
                         project_id,
                         client_id,
@@ -1629,7 +1637,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         photobook_count_val,
                         photobook_price_val,
                         photo_items_val,
-                        cancel_reason_val
+                        cancel_reason_val,
+                        studio_hourly_rate_val
                     ))
 
                     # При отмене проекта переводим оплаченную предоплату в резерв клиента.

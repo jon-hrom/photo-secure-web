@@ -36,6 +36,7 @@ type DraftFields = {
   shooting_duration?: number;
   shooting_address?: string;
   hourly_rate?: number;
+  studio_hourly_rate?: number;
   photobook_count?: number;
   photobook_price?: number;
   photo_items: PhotoItem[];
@@ -70,6 +71,7 @@ const buildDraftFromProject = (project: Project): DraftFields => ({
   shooting_duration: project.shooting_duration,
   shooting_address: project.shooting_address,
   hourly_rate: project.hourly_rate,
+  studio_hourly_rate: project.studio_hourly_rate,
   photobook_count: project.photobook_count,
   photobook_price: project.photobook_price,
   photo_items: Array.isArray(project.photo_items) ? project.photo_items : [],
@@ -82,12 +84,14 @@ const calcFullBudget = (d: DraftFields): number => {
   const rate = Number(d.hourly_rate) || 0;
   const durationMin = Number(d.shooting_duration) || 0;
   const shooting = rate > 0 ? (durationMin / 60) * rate : 0;
+  const studioRate = Number(d.studio_hourly_rate) || 0;
+  const studio = studioRate > 0 ? (durationMin / 60) * studioRate : 0;
   const books = (Number(d.photobook_count) || 0) * (Number(d.photobook_price) || 0);
   const photos = (d.photo_items || []).reduce(
     (s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0),
     0
   );
-  return Math.round(shooting + books + photos);
+  return Math.round(shooting + studio + books + photos);
 };
 
 const ProjectCard = ({
@@ -138,6 +142,7 @@ const ProjectCard = ({
     project.shooting_duration,
     project.shooting_address,
     project.hourly_rate,
+    project.studio_hourly_rate,
     project.status,
     project.cancel_reason,
   ]);
@@ -172,6 +177,7 @@ const ProjectCard = ({
       (draft.shooting_duration || 0) !== (originalDraft.shooting_duration || 0) ||
       (draft.shooting_address || '') !== (originalDraft.shooting_address || '') ||
       (draft.hourly_rate || 0) !== (originalDraft.hourly_rate || 0) ||
+      (draft.studio_hourly_rate || 0) !== (originalDraft.studio_hourly_rate || 0) ||
       (draft.photobook_count || 0) !== (originalDraft.photobook_count || 0) ||
       (draft.photobook_price || 0) !== (originalDraft.photobook_price || 0) ||
       JSON.stringify(draft.photo_items || []) !== JSON.stringify(originalDraft.photo_items || []) ||
@@ -206,6 +212,11 @@ const ProjectCard = ({
   const handleRateChange = (rateStr: string) => {
     const rate = rateStr === '' ? undefined : parseFloat(rateStr.replace(',', '.'));
     applyAndRecalc({ hourly_rate: rate });
+  };
+
+  const handleStudioRateChange = (rateStr: string) => {
+    const rate = rateStr === '' ? undefined : parseFloat(rateStr.replace(',', '.'));
+    applyAndRecalc({ studio_hourly_rate: rate });
   };
 
   const handleDurationChange = (durationMin: number) => {
@@ -258,6 +269,9 @@ const ProjectCard = ({
     }
     if ((draft.hourly_rate || 0) !== (originalDraft.hourly_rate || 0)) {
       updates.hourly_rate = draft.hourly_rate;
+    }
+    if ((draft.studio_hourly_rate || 0) !== (originalDraft.studio_hourly_rate || 0)) {
+      updates.studio_hourly_rate = draft.studio_hourly_rate;
     }
     if ((draft.photobook_count || 0) !== (originalDraft.photobook_count || 0)) {
       updates.photobook_count = draft.photobook_count;
@@ -522,6 +536,26 @@ const ProjectCard = ({
               Бюджет пересчитывается автоматически: {((draft.shooting_duration || 0) / 60).toFixed(1)} ч × {draft.hourly_rate} ₽
             </p>
           ) : null}
+          <div className="space-y-2">
+            <Label className="text-xs flex items-center gap-1">
+              <Icon name="Building2" size={13} className="text-muted-foreground" />
+              Стоимость студии/час (₽)
+            </Label>
+            <Input
+              type="number"
+              min="0"
+              step="100"
+              value={draft.studio_hourly_rate ?? ''}
+              onChange={(e) => handleStudioRateChange(e.target.value)}
+              placeholder="0"
+              className="text-xs sm:text-sm h-10 sm:h-9"
+            />
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <Icon name="Info" size={12} className="text-primary shrink-0" />
+              Входит в бюджет клиента, но не в доход фотографа
+              {draft.studio_hourly_rate ? ` · ${((draft.shooting_duration || 0) / 60).toFixed(1)} ч × ${draft.studio_hourly_rate} ₽` : ''}
+            </p>
+          </div>
           <div className="space-y-2">
             <Label className="text-xs">📍 Адрес съёмки</Label>
             <Input

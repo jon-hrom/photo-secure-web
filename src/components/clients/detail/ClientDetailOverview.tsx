@@ -34,12 +34,23 @@ const ClientDetailOverview = ({
   reserveTransactions = [],
 }: ClientDetailOverviewProps) => {
   const totalBudget = projects.reduce((sum, p) => sum + p.budget, 0);
+  // Сумма за аренду студии по всем активным проектам (studio_hourly_rate × длительность).
+  // Входит в бюджет клиента, но не считается доходом фотографа.
+  const studioTotal = projects
+    .filter(p => p.status !== 'cancelled')
+    .reduce((sum, p) => {
+      const rate = Number(p.studio_hourly_rate) || 0;
+      const hours = (Number(p.shooting_duration) || 0) / 60;
+      return sum + Math.round(rate * hours);
+    }, 0);
   const completedPayments = payments.filter(p => p.status === 'completed');
   const totalPaid = completedPayments.reduce((sum, p) => sum + p.amount, 0);
   const completedRefunds = refunds.filter(r => r.status === 'completed');
   const totalRefunded = completedRefunds.reduce((sum, r) => sum + r.amount, 0);
   const netPaid = totalPaid - totalRefunded;
   const totalRemaining = totalBudget - netPaid;
+  // Чистый доход фотографа = весь бюджет минус аренда студии (студия — расход, не доход).
+  const photographerIncome = Math.max(0, totalBudget - studioTotal);
   const lastRefund = completedRefunds.length > 0
     ? completedRefunds.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
     : null;
@@ -84,6 +95,24 @@ const ClientDetailOverview = ({
             <p className="text-xs text-muted-foreground mt-1">
               Проектов: {projects.length}
             </p>
+            {studioTotal > 0 && (
+              <div className="mt-2 pt-2 border-t border-border/60 space-y-0.5 text-xs">
+                <p className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Icon name="Camera" size={12} className="text-emerald-600 dark:text-emerald-400" />
+                    Доход фотографа
+                  </span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">{photographerIncome.toLocaleString('ru-RU')} ₽</span>
+                </p>
+                <p className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Icon name="Building2" size={12} className="text-blue-600 dark:text-blue-400" />
+                    За студию
+                  </span>
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">{studioTotal.toLocaleString('ru-RU')} ₽</span>
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

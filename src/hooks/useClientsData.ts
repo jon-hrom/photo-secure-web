@@ -103,6 +103,9 @@ export const useClientsData = (
           hourly_rate: p.hourly_rate !== undefined && p.hourly_rate !== null
             ? parseFloat(String(p.hourly_rate))
             : undefined,
+          studio_hourly_rate: p.studio_hourly_rate !== undefined && p.studio_hourly_rate !== null
+            ? parseFloat(String(p.studio_hourly_rate))
+            : undefined,
           photobook_count: p.photobook_count !== undefined && p.photobook_count !== null
             ? parseInt(String(p.photobook_count), 10)
             : undefined,

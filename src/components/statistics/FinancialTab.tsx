@@ -22,13 +22,17 @@ const FinancialTab = ({ data, formatCurrency }: StatisticsTabProps) => {
           </CardContent>
         </Card>
 
-        <Card className={data.financial.refunds && data.financial.refunds.total > 0 ? 'border-green-200' : ''}>
+        <Card className="border-green-200">
           <CardHeader className="pb-2">
-            <CardDescription>Чистый доход</CardDescription>
-            <CardTitle className="text-2xl sm:text-3xl text-green-600">{formatCurrency(data.financial.net_revenue ?? data.financial.total_revenue)}</CardTitle>
+            <CardDescription>Доход фотографа</CardDescription>
+            <CardTitle className="text-2xl sm:text-3xl text-green-600">
+              {formatCurrency(data.financial.photographer_revenue ?? data.financial.net_revenue ?? data.financial.total_revenue)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">За вычетом возвратов</p>
+            <p className="text-sm text-muted-foreground">
+              {safeNumber(data.financial.studio_revenue) > 0 ? 'За вычетом возвратов и студии' : 'За вычетом возвратов'}
+            </p>
           </CardContent>
         </Card>
 
@@ -83,6 +87,34 @@ const FinancialTab = ({ data, formatCurrency }: StatisticsTabProps) => {
                     : '0'}%
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">от общего дохода</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {safeNumber(data.financial.studio_revenue) > 0 && (
+        <Card className="border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Icon name="Building2" size={18} className="text-blue-600" />
+              Аренда студии за период
+            </CardTitle>
+            <CardDescription>Часть дохода, которая уходит на оплату студии и не является доходом фотографа</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="p-3 sm:p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">За студию</p>
+                <p className="text-2xl font-bold text-blue-600">{formatCurrency(safeNumber(data.financial.studio_revenue))}</p>
+              </div>
+              <div className="p-3 sm:p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Доход фотографа</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(data.financial.photographer_revenue ?? data.financial.net_revenue ?? data.financial.total_revenue)}</p>
+              </div>
+              <div className="p-3 sm:p-4 bg-muted/50 rounded-lg">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2">Получено всего</p>
+                <p className="text-2xl font-bold">{formatCurrency(data.financial.net_revenue ?? data.financial.total_revenue)}</p>
               </div>
             </div>
           </CardContent>
