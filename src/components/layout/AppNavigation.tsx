@@ -113,14 +113,14 @@ const AppNavigation = ({
 
   return (
     <nav className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-border/50 dark:border-gray-700/50 sticky top-0 z-50 shadow-lg animate-fade-in">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-3 group cursor-pointer">
-              <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
-                <Icon name="Camera" className="text-white" size={28} />
+      <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4">
+        <div className="flex items-center justify-between gap-1 sm:gap-2">
+          <div className="flex items-center space-x-1 sm:space-x-3 min-w-0">
+            <div className="flex items-center space-x-2 sm:space-x-3 group cursor-pointer min-w-0">
+              <div className="p-1.5 sm:p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300 shrink-0">
+                <Icon name="Camera" className="text-white" size={24} />
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-purple-500 to-secondary bg-clip-text text-transparent animate-glow">
+              <h1 className="hidden sm:block text-2xl font-bold bg-gradient-to-r from-primary via-purple-500 to-secondary bg-clip-text text-transparent animate-glow">
                 Foto-Mix
               </h1>
             </div>
@@ -193,11 +193,11 @@ const AppNavigation = ({
             </DropdownMenu>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-1 sm:space-x-3 shrink-0">
             <Button
               variant="ghost"
               onClick={() => setTopupOpen(true)}
-              className={`flex items-center gap-1.5 rounded-full px-3 transition-all duration-300 ${energyBalance < 10 ? 'hover:bg-red-500/10' : 'hover:bg-yellow-500/10'}`}
+              className={`flex items-center gap-1.5 rounded-full px-2 sm:px-3 transition-all duration-300 ${energyBalance < 10 ? 'hover:bg-red-500/10' : 'hover:bg-yellow-500/10'}`}
               title={energyBalance < 10 ? 'Энергия заканчивается!' : 'Энергия'}
             >
               <Icon
@@ -214,7 +214,7 @@ const AppNavigation = ({
               <Button
                 variant="ghost"
                 onClick={onOpenChat}
-                className="relative rounded-full hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-300"
+                className="relative rounded-full px-2 sm:px-3 hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-300"
                 title="Чат с клиентами"
               >
                 <Icon name="Mail" size={20} />

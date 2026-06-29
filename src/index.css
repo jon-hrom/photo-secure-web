@@ -337,10 +337,19 @@ input[type="week"]::-webkit-calendar-picker-indicator:hover {
       BlinkMacSystemFont,
       "Segoe UI",
       sans-serif;
+    /* На мобильных запрещаем горизонтальный «увод» страницы,
+       чтобы вертикальный скролл пальцем работал по всей ширине экрана,
+       а не только у правого края. */
+    overflow-x: hidden;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
 
   html {
     @apply bg-background;
+    overflow-x: hidden;
+    width: 100%;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
