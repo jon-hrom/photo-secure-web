@@ -46,9 +46,6 @@ export default function LoadingIndicators({
                   style={{ width: `${loadingProgress}%` }}
                 />
               </div>
-              <p className="text-sm text-gray-400 text-center">
-                Загружено {photosLoaded} из {totalPhotos} фото · В галерее {visiblePhotos}
-              </p>
             </div>
           </div>
         </div>
