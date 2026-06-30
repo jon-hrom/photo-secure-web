@@ -32,7 +32,9 @@ export default function FavoritesPhotoViewer({
       file_name: p.file_name,
       s3_url: p.photo_url,
       s3_key,
-      thumbnail_s3_url: p.thumbnail_url,
+      // Открываем среднее качество (preview ~2400px): чётче миниатюры,
+      // но быстрее оригинала. Оригинал подгрузится при зуме.
+      thumbnail_s3_url: p.preview_url || p.thumbnail_url,
       is_raw: false,
       file_size: 0,
       width: null,

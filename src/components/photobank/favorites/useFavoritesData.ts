@@ -13,6 +13,7 @@ interface ClientData {
     file_name?: string;
     photo_url?: string;
     thumbnail_url?: string;
+    preview_url?: string;
     width?: number | null;
     height?: number | null;
     file_size?: number;
@@ -25,6 +26,7 @@ interface Photo {
   file_name: string;
   photo_url: string;
   thumbnail_url?: string;
+  preview_url?: string;
   s3_key?: string;
 }
 
@@ -42,6 +44,7 @@ export function resolveClientPhotos(
           file_name: fp.file_name || '',
           photo_url: fp.photo_url,
           thumbnail_url: fp.thumbnail_url || fp.photo_url,
+          preview_url: fp.preview_url,
           s3_key: fp.s3_key,
         } as Photo;
       }
