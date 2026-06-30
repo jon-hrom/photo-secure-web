@@ -108,6 +108,10 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
                 userId={userId}
                 clientFoldersVisibility={linkSettings.clientFoldersVisibility}
                 onClientFoldersVisibilityChange={(value) => setLinkSettings(prev => ({ ...prev, clientFoldersVisibility: value }))}
+                coverSelectEnabled={linkSettings.coverSelectEnabled}
+                onCoverSelectChange={(value) => setLinkSettings(prev => ({ ...prev, coverSelectEnabled: value }))}
+                vignetteSelectEnabled={linkSettings.vignetteSelectEnabled}
+                onVignetteSelectChange={(value) => setLinkSettings(prev => ({ ...prev, vignetteSelectEnabled: value }))}
               />
             </div>
           ) : (

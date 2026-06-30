@@ -20,6 +20,8 @@ interface FavoriteListViewProps {
   textColor?: string;
   downloadPhoto?: (photo: Photo) => void;
   downloadDisabled?: boolean;
+  coverSelectEnabled?: boolean;
+  vignetteSelectEnabled?: boolean;
 }
 
 export default function FavoriteListView({
@@ -37,6 +39,8 @@ export default function FavoriteListView({
   textColor = '#111827',
   downloadPhoto,
   downloadDisabled = false,
+  coverSelectEnabled = false,
+  vignetteSelectEnabled = false,
 }: FavoriteListViewProps) {
   const [photoIds, setPhotoIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
@@ -306,30 +310,34 @@ export default function FavoriteListView({
         )}
       </div>
 
-      {!loading && photos.length > 0 && !selectionMode && (
+      {!loading && photos.length > 0 && !selectionMode && (coverSelectEnabled || vignetteSelectEnabled) && (
         <div className="flex items-center gap-2 px-3 pt-3">
-          <button
-            onClick={() => startSelection('cover')}
-            className="flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium flex-1 justify-center transition-colors"
-            style={{
-              background: coverPhotoId ? '#8b5cf6' : (isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'),
-              color: coverPhotoId ? '#ffffff' : textColor,
-            }}
-          >
-            <Icon name="Image" size={15} />
-            <span>Обложка{coverPhotoId ? ' ✓' : ''}</span>
-          </button>
-          <button
-            onClick={() => startSelection('vignette')}
-            className="flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium flex-1 justify-center transition-colors"
-            style={{
-              background: vignettePhotoId ? '#8b5cf6' : (isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'),
-              color: vignettePhotoId ? '#ffffff' : textColor,
-            }}
-          >
-            <Icon name="Sparkles" size={15} />
-            <span>Виньетка{vignettePhotoId ? ' ✓' : ''}</span>
-          </button>
+          {coverSelectEnabled && (
+            <button
+              onClick={() => startSelection('cover')}
+              className="flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium flex-1 justify-center transition-colors"
+              style={{
+                background: coverPhotoId ? '#8b5cf6' : (isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'),
+                color: coverPhotoId ? '#ffffff' : textColor,
+              }}
+            >
+              <Icon name="Image" size={15} />
+              <span>Обложка{coverPhotoId ? ' ✓' : ''}</span>
+            </button>
+          )}
+          {vignetteSelectEnabled && (
+            <button
+              onClick={() => startSelection('vignette')}
+              className="flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium flex-1 justify-center transition-colors"
+              style={{
+                background: vignettePhotoId ? '#8b5cf6' : (isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'),
+                color: vignettePhotoId ? '#ffffff' : textColor,
+              }}
+            >
+              <Icon name="Sparkles" size={15} />
+              <span>Виньетка{vignettePhotoId ? ' ✓' : ''}</span>
+            </button>
+          )}
         </div>
       )}
 

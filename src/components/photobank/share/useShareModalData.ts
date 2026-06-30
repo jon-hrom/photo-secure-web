@@ -73,7 +73,9 @@ export default function useShareModalData(folderId: number, folderName: string, 
     watermarkRotation: 0,
     screenshotProtection: false,
     clientUploadEnabled: false,
-    clientFoldersVisibility: false
+    clientFoldersVisibility: false,
+    coverSelectEnabled: false,
+    vignetteSelectEnabled: false
   });
 
   const [error, setError] = useState('');
@@ -153,7 +155,9 @@ export default function useShareModalData(folderId: number, folderName: string, 
           mobile_cover_focus_x: pd.mobileCoverFocusX,
           mobile_cover_focus_y: pd.mobileCoverFocusY,
           client_upload_enabled: ls.clientUploadEnabled,
-          client_folders_visibility: ls.clientFoldersVisibility
+          client_folders_visibility: ls.clientFoldersVisibility,
+          cover_select_enabled: ls.coverSelectEnabled,
+          vignette_select_enabled: ls.vignetteSelectEnabled
         })
       });
       console.log('[SHARE_MODAL] Настройки автосохранены');
@@ -241,6 +245,8 @@ export default function useShareModalData(folderId: number, folderName: string, 
       screenshotProtection: (data.screenshot_protection as boolean) || false,
       clientUploadEnabled: (data.client_upload_enabled as boolean) || false,
       clientFoldersVisibility: (data.client_folders_visibility as boolean) || false,
+      coverSelectEnabled: (data.cover_select_enabled as boolean) || false,
+      vignetteSelectEnabled: (data.vignette_select_enabled as boolean) || false,
       expiresIn: restoredExpiresIn,
       customDate: restoredCustomDate,
       watermarkEnabled: (wm?.enabled as boolean) || false,

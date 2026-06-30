@@ -20,9 +20,22 @@ interface FeaturesTabProps {
   userId: number;
   clientFoldersVisibility?: boolean;
   onClientFoldersVisibilityChange?: (value: boolean) => void;
+  coverSelectEnabled?: boolean;
+  onCoverSelectChange?: (value: boolean) => void;
+  vignetteSelectEnabled?: boolean;
+  onVignetteSelectChange?: (value: boolean) => void;
 }
 
-export default function FeaturesTab({ galleryCode, userId, clientFoldersVisibility = false, onClientFoldersVisibilityChange }: FeaturesTabProps) {
+export default function FeaturesTab({
+  galleryCode,
+  userId,
+  clientFoldersVisibility = false,
+  onClientFoldersVisibilityChange,
+  coverSelectEnabled = false,
+  onCoverSelectChange,
+  vignetteSelectEnabled = false,
+  onVignetteSelectChange,
+}: FeaturesTabProps) {
   const [clients, setClients] = useState<RegisteredClient[]>([]);
   const [loading, setLoading] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
@@ -143,6 +156,46 @@ export default function FeaturesTab({ galleryCode, userId, clientFoldersVisibili
           <Switch
             checked={clientFoldersVisibility}
             onCheckedChange={onClientFoldersVisibilityChange}
+          />
+        </div>
+      </div>
+
+      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center flex-shrink-0">
+              <Icon name="Image" size={20} className="text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900 dark:text-white text-sm">Выбрать обложку</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Клиент сможет в избранном отметить одно фото как обложку
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={coverSelectEnabled}
+            onCheckedChange={onCoverSelectChange}
+          />
+        </div>
+      </div>
+
+      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center flex-shrink-0">
+              <Icon name="Sparkles" size={20} className="text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900 dark:text-white text-sm">Выбрать виньетку</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Клиент сможет в избранном отметить одно фото как виньетку
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={vignetteSelectEnabled}
+            onCheckedChange={onVignetteSelectChange}
           />
         </div>
       </div>

@@ -64,6 +64,8 @@ interface GalleryData {
     is_own?: boolean;
   }>;
   client_folders_visibility?: boolean;
+  cover_select_enabled?: boolean;
+  vignette_select_enabled?: boolean;
   link_id?: number;
   subfolders?: Array<{
     id: number;

@@ -306,6 +306,8 @@ export default function PublicGallery() {
         textColor={galleryTextColor}
         downloadPhoto={downloadPhoto}
         downloadDisabled={gallery.download_disabled}
+        coverSelectEnabled={gallery.cover_select_enabled}
+        vignetteSelectEnabled={gallery.vignette_select_enabled}
       />
     );
   }
