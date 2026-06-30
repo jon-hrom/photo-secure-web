@@ -46,19 +46,68 @@ export default function FavoriteListView({
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(listName);
   const [savingName, setSavingName] = useState(false);
+  const [coverPhotoId, setCoverPhotoId] = useState<number | null>(null);
+  const [vignettePhotoId, setVignettePhotoId] = useState<number | null>(null);
+  const [selectionMode, setSelectionMode] = useState<'cover' | 'vignette' | null>(null);
+  const [pendingSelection, setPendingSelection] = useState<number | null>(null);
+  const [savingMarker, setSavingMarker] = useState(false);
 
   const loadPhotos = useCallback(async () => {
     setLoading(true);
     try {
       const resp = await fetch(`${FAVORITES_URL}?action=list_photos&list_id=${listId}`);
       const data = await resp.json();
-      if (resp.ok && Array.isArray(data.photo_ids)) setPhotoIds(data.photo_ids);
+      if (resp.ok && Array.isArray(data.photo_ids)) {
+        setPhotoIds(data.photo_ids);
+        setCoverPhotoId(data.cover_photo_id ?? null);
+        setVignettePhotoId(data.vignette_photo_id ?? null);
+      }
     } catch (e) {
       console.error('load list photos error', e);
     } finally {
       setLoading(false);
     }
   }, [listId]);
+
+  const startSelection = (type: 'cover' | 'vignette') => {
+    setSelectionMode(type);
+    setPendingSelection(type === 'cover' ? coverPhotoId : vignettePhotoId);
+    setMenuOpen(false);
+  };
+
+  const cancelSelection = () => {
+    setSelectionMode(null);
+    setPendingSelection(null);
+  };
+
+  const confirmSelection = async () => {
+    if (!selectionMode) return;
+    setSavingMarker(true);
+    try {
+      const resp = await fetch(FAVORITES_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set_list_marker',
+          list_id: listId,
+          gallery_code: shortCode,
+          client_id: clientId,
+          marker_type: selectionMode,
+          photo_id: pendingSelection,
+        }),
+      });
+      if (resp.ok) {
+        if (selectionMode === 'cover') setCoverPhotoId(pendingSelection);
+        else setVignettePhotoId(pendingSelection);
+        setSelectionMode(null);
+        setPendingSelection(null);
+      }
+    } catch (e) {
+      console.error('set marker error', e);
+    } finally {
+      setSavingMarker(false);
+    }
+  };
 
   useEffect(() => { loadPhotos(); }, [loadPhotos]);
 
@@ -257,6 +306,68 @@ export default function FavoriteListView({
         )}
       </div>
 
+      {!loading && photos.length > 0 && !selectionMode && (
+        <div className="flex items-center gap-2 px-3 pt-3">
+          <button
+            onClick={() => startSelection('cover')}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium flex-1 justify-center transition-colors"
+            style={{
+              background: coverPhotoId ? '#8b5cf6' : (isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'),
+              color: coverPhotoId ? '#ffffff' : textColor,
+            }}
+          >
+            <Icon name="Image" size={15} />
+            <span>Обложка{coverPhotoId ? ' ✓' : ''}</span>
+          </button>
+          <button
+            onClick={() => startSelection('vignette')}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium flex-1 justify-center transition-colors"
+            style={{
+              background: vignettePhotoId ? '#8b5cf6' : (isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'),
+              color: vignettePhotoId ? '#ffffff' : textColor,
+            }}
+          >
+            <Icon name="Sparkles" size={15} />
+            <span>Виньетка{vignettePhotoId ? ' ✓' : ''}</span>
+          </button>
+        </div>
+      )}
+
+      {selectionMode && (
+        <div
+          className="sticky z-20 flex items-center gap-2 px-3 py-2.5"
+          style={{
+            top: 'calc(env(safe-area-inset-top, 0px) + 60px)',
+            background: isDarkBg ? 'rgba(20,20,40,0.95)' : 'rgba(243,244,246,0.97)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" style={{ color: textColor }}>
+              {selectionMode === 'cover' ? 'Выберите фото для обложки' : 'Выберите фото для виньетки'}
+            </p>
+            <p className="text-xs" style={{ color: secondaryText }}>
+              {pendingSelection ? 'Фото выбрано' : 'Нажмите на фото'}
+            </p>
+          </div>
+          <button
+            onClick={cancelSelection}
+            className="px-3 h-9 rounded-full text-xs font-medium flex-shrink-0"
+            style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', color: textColor }}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={confirmSelection}
+            disabled={savingMarker}
+            className="flex items-center gap-1.5 px-4 h-9 rounded-full text-xs font-medium bg-purple-500 text-white active:bg-purple-700 flex-shrink-0 disabled:opacity-60"
+          >
+            {savingMarker ? <Icon name="Loader2" size={14} className="animate-spin" /> : <Icon name="Check" size={14} />}
+            <span>Подтвердить</span>
+          </button>
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center justify-center py-24">
           <Icon name="Loader2" size={32} className="animate-spin" style={{ color: textColor, opacity: 0.5 }} />
@@ -282,15 +393,27 @@ export default function FavoriteListView({
           className="columns-2 sm:columns-3 md:columns-4 px-2 pt-4 pb-8"
           style={{ columnGap: '8px' }}
         >
-          {photos.map((photo) => (
+          {photos.map((photo) => {
+            const isPending = selectionMode && pendingSelection === photo.id;
+            const isCover = coverPhotoId === photo.id;
+            const isVignette = vignettePhotoId === photo.id;
+            return (
             <div
               key={photo.id}
               className="relative group rounded-lg overflow-hidden cursor-pointer break-inside-avoid touch-manipulation"
               style={{
                 marginBottom: '8px',
                 background: isDarkBg ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+                outline: isPending ? '3px solid #8b5cf6' : 'none',
+                outlineOffset: isPending ? '-3px' : '0',
               }}
-              onClick={() => setViewerPhotoId(photo.id)}
+              onClick={() => {
+                if (selectionMode) {
+                  setPendingSelection(prev => prev === photo.id ? null : photo.id);
+                } else {
+                  setViewerPhotoId(photo.id);
+                }
+              }}
             >
               <img
                 src={photo.thumbnail_url || photo.photo_url}
@@ -298,21 +421,46 @@ export default function FavoriteListView({
                 className="w-full h-auto"
                 loading="lazy"
               />
-              <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleRemovePhoto(photo.id); }}
-                  disabled={removing.has(photo.id)}
-                  className="flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm hover:bg-red-500 transition-colors touch-manipulation"
-                  style={{ width: 28, height: 28 }}
-                  title="Убрать из списка"
-                >
-                  {removing.has(photo.id)
-                    ? <Icon name="Loader2" size={13} className="text-white animate-spin" />
-                    : <Icon name="X" size={14} className="text-white" />
-                  }
-                </button>
-              </div>
-              {!downloadDisabled && downloadPhoto && (
+              {selectionMode && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                  {isPending && (
+                    <div className="flex items-center justify-center rounded-full bg-purple-500" style={{ width: 36, height: 36 }}>
+                      <Icon name="Check" size={20} className="text-white" />
+                    </div>
+                  )}
+                </div>
+              )}
+              {!selectionMode && (isCover || isVignette) && (
+                <div className="absolute top-1.5 left-1.5 flex flex-col gap-1">
+                  {isCover && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-medium">
+                      <Icon name="Image" size={10} /> Обложка
+                    </span>
+                  )}
+                  {isVignette && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-medium">
+                      <Icon name="Sparkles" size={10} /> Виньетка
+                    </span>
+                  )}
+                </div>
+              )}
+              {!selectionMode && (
+                <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRemovePhoto(photo.id); }}
+                    disabled={removing.has(photo.id)}
+                    className="flex items-center justify-center rounded-full bg-black/60 backdrop-blur-sm hover:bg-red-500 transition-colors touch-manipulation"
+                    style={{ width: 28, height: 28 }}
+                    title="Убрать из списка"
+                  >
+                    {removing.has(photo.id)
+                      ? <Icon name="Loader2" size={13} className="text-white animate-spin" />
+                      : <Icon name="X" size={14} className="text-white" />
+                    }
+                  </button>
+                </div>
+              )}
+              {!selectionMode && !downloadDisabled && downloadPhoto && (
                 <button
                   onClick={(e) => { e.stopPropagation(); downloadPhoto(photo); }}
                   className="absolute bottom-1.5 right-1.5 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-blue-500 transition-colors touch-manipulation"
@@ -323,7 +471,8 @@ export default function FavoriteListView({
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

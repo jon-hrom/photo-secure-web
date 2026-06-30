@@ -135,6 +135,14 @@
       "path": "/?action=photographer_list_photos&list_id=1",
       "expectedStatus": 401,
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Set list marker - missing fields",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "set_list_marker"},
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
     }
   ]
 }

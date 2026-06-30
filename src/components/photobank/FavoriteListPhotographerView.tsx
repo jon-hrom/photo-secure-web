@@ -42,6 +42,8 @@ export default function FavoriteListPhotographerView({
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadCurrent, setDownloadCurrent] = useState('');
+  const [coverPhotoId, setCoverPhotoId] = useState<number | null>(null);
+  const [vignettePhotoId, setVignettePhotoId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -53,6 +55,8 @@ export default function FavoriteListPhotographerView({
       .then((data) => {
         const list: ListPhoto[] = (data?.photos || []).map((p: ListPhoto) => p);
         setPhotos(list);
+        setCoverPhotoId(data?.cover_photo_id ?? null);
+        setVignettePhotoId(data?.vignette_photo_id ?? null);
         if (initialPhotoId) {
           const found = list.find((p) => p.id === initialPhotoId);
           if (found) setViewPhoto(found);
@@ -233,8 +237,20 @@ export default function FavoriteListPhotographerView({
                     >
                       <Icon name="Download" size={13} />
                     </button>
-                    <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/55 text-white text-[10px] font-mono">
-                      #{p.id}
+                    <div className="absolute top-1 left-1 flex flex-col gap-1 items-start">
+                      <span className="px-1.5 py-0.5 rounded bg-black/55 text-white text-[10px] font-mono">
+                        #{p.id}
+                      </span>
+                      {coverPhotoId === p.id && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-600 text-white text-[10px] font-medium">
+                          <Icon name="Image" size={10} /> Обложка
+                        </span>
+                      )}
+                      {vignettePhotoId === p.id && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-600 text-white text-[10px] font-medium">
+                          <Icon name="Sparkles" size={10} /> Виньетка
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -816,6 +816,68 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'ok': True})
                 }
 
+            elif action == 'set_list_marker':
+                # Клиент отмечает в списке избранного одно фото как "обложку" (cover)
+                # или одну "виньетку" (vignette). По одному фото на каждую категорию.
+                # marker_type: 'cover' | 'vignette'; photo_id=None снимает отметку.
+                list_id = body.get('list_id')
+                gallery_code = body.get('gallery_code')
+                client_id = body.get('client_id')
+                marker_type = body.get('marker_type')
+                photo_id = body.get('photo_id')
+                if not list_id or not gallery_code or not client_id or marker_type not in ('cover', 'vignette'):
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'list_id, gallery_code, client_id, marker_type required'})
+                    }
+                cur.execute('''
+                    SELECT gallery_code, client_id FROM t_p28211681_photo_secure_web.favorite_lists
+                    WHERE id = %s
+                ''', (int(list_id),))
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        'statusCode': 404,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'List not found'})
+                    }
+                if row[0] != gallery_code or row[1] != int(client_id):
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                pid_val = None
+                if photo_id is not None:
+                    try:
+                        pid_val = int(photo_id)
+                    except (TypeError, ValueError):
+                        pid_val = None
+                    # Фото должно входить в этот список избранного
+                    if pid_val is not None:
+                        cur.execute('''
+                            SELECT 1 FROM t_p28211681_photo_secure_web.favorite_list_photos
+                            WHERE list_id = %s AND photo_id = %s
+                        ''', (int(list_id), pid_val))
+                        if not cur.fetchone():
+                            return {
+                                'statusCode': 400,
+                                'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                                'body': json.dumps({'error': 'Photo not in list'})
+                            }
+                column = 'cover_photo_id' if marker_type == 'cover' else 'vignette_photo_id'
+                cur.execute(f'''
+                    UPDATE t_p28211681_photo_secure_web.favorite_lists
+                    SET {column} = %s, updated_at = NOW() WHERE id = %s
+                ''', (pid_val, int(list_id)))
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'ok': True, 'marker_type': marker_type, 'photo_id': pid_val})
+                }
+
             else:
                 return {
                     'statusCode': 400,
@@ -870,10 +932,20 @@ def handler(event: dict, context) -> dict:
                     SELECT photo_id FROM t_p28211681_photo_secure_web.favorite_list_photos
                     WHERE list_id = %s ORDER BY added_at ASC
                 ''', (int(list_id),))
+                photo_ids_out = [r[0] for r in cur.fetchall()]
+                cur.execute('''
+                    SELECT cover_photo_id, vignette_photo_id
+                    FROM t_p28211681_photo_secure_web.favorite_lists WHERE id = %s
+                ''', (int(list_id),))
+                marker_row = cur.fetchone()
                 return {
                     'statusCode': 200,
                     'headers': {**cors_headers, 'Content-Type': 'application/json'},
-                    'body': json.dumps({'photo_ids': [r[0] for r in cur.fetchall()]})
+                    'body': json.dumps({
+                        'photo_ids': photo_ids_out,
+                        'cover_photo_id': marker_row[0] if marker_row else None,
+                        'vignette_photo_id': marker_row[1] if marker_row else None,
+                    })
                 }
 
             if action == 'photographer_list_photos':
@@ -892,7 +964,7 @@ def handler(event: dict, context) -> dict:
                         'body': json.dumps({'error': 'list_id required'})
                     }
                 cur.execute('''
-                    SELECT fl.parent_folder_id
+                    SELECT fl.parent_folder_id, fl.cover_photo_id, fl.vignette_photo_id
                     FROM t_p28211681_photo_secure_web.favorite_lists fl
                     WHERE fl.id = %s
                 ''', (int(list_id),))
@@ -904,6 +976,8 @@ def handler(event: dict, context) -> dict:
                         'body': json.dumps({'error': 'List not found'})
                     }
                 parent_folder_id = row[0]
+                marker_cover_id = row[1]
+                marker_vignette_id = row[2]
                 cur.execute('''
                     SELECT id FROM t_p28211681_photo_secure_web.photo_folders
                     WHERE id = %s AND user_id = %s
@@ -943,7 +1017,11 @@ def handler(event: dict, context) -> dict:
                 return {
                     'statusCode': 200,
                     'headers': {**cors_headers, 'Content-Type': 'application/json'},
-                    'body': json.dumps({'photos': photos_out})
+                    'body': json.dumps({
+                        'photos': photos_out,
+                        'cover_photo_id': marker_cover_id,
+                        'vignette_photo_id': marker_vignette_id,
+                    })
                 }
 
             if action == 'photographer_lists':
