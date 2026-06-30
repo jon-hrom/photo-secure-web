@@ -10,7 +10,7 @@ const SLUG_PATH: Record<string, string> = {
 
 const SLUG_LABEL: Record<string, string> = {
   'offer': 'оферта',
-  'privacy-policy': 'конфиденциальность',
+  'privacy-policy': 'рекламные сообщения',
   'personal-data': 'обработка пд',
 };
 
