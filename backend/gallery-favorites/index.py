@@ -764,10 +764,14 @@ def handler(event: dict, context) -> dict:
                     DELETE FROM t_p28211681_photo_secure_web.favorite_list_photos
                     WHERE list_id = %s AND photo_id = %s
                 ''', (int(list_id), int(photo_id)))
+                # Сбрасываем отметку обложки/виньетки, если удалили именно это фото.
                 cur.execute('''
                     UPDATE t_p28211681_photo_secure_web.favorite_lists
-                    SET updated_at = NOW() WHERE id = %s
-                ''', (int(list_id),))
+                    SET updated_at = NOW(),
+                        cover_photo_id = CASE WHEN cover_photo_id = %s THEN NULL ELSE cover_photo_id END,
+                        vignette_photo_id = CASE WHEN vignette_photo_id = %s THEN NULL ELSE vignette_photo_id END
+                    WHERE id = %s
+                ''', (int(photo_id), int(photo_id), int(list_id)))
                 conn.commit()
                 return {
                     'statusCode': 200,
@@ -1329,7 +1333,16 @@ def handler(event: dict, context) -> dict:
                 DELETE FROM t_p28211681_photo_secure_web.favorite_photos
                 WHERE client_id = %s AND photo_id = %s
             ''', (client_id, photo_id))
-            
+
+            # Если удалённое фото было выбрано как обложка или виньетка —
+            # сбрасываем отметку, иначе фотограф продолжит видеть "обложка ✓".
+            cur.execute('''
+                UPDATE t_p28211681_photo_secure_web.favorite_clients
+                SET cover_photo_id = CASE WHEN cover_photo_id = %s THEN NULL ELSE cover_photo_id END,
+                    vignette_photo_id = CASE WHEN vignette_photo_id = %s THEN NULL ELSE vignette_photo_id END
+                WHERE id = %s
+            ''', (photo_id, photo_id, client_id))
+
             conn.commit()
             
             return {
