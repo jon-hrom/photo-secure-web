@@ -816,6 +816,58 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'ok': True})
                 }
 
+            elif action == 'set_client_marker':
+                # Клиент в общем избранном отмечает одно фото как "обложку" (cover)
+                # или одну "виньетку" (vignette). По одному фото на категорию.
+                client_id = body.get('client_id')
+                gallery_code = body.get('gallery_code')
+                marker_type = body.get('marker_type')
+                photo_id = body.get('photo_id')
+                if not client_id or not gallery_code or marker_type not in ('cover', 'vignette'):
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'client_id, gallery_code, marker_type required'})
+                    }
+                cur.execute('''
+                    SELECT id FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE id = %s AND gallery_code = %s
+                ''', (int(client_id), gallery_code))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Access denied'})
+                    }
+                pid_val = None
+                if photo_id is not None:
+                    try:
+                        pid_val = int(photo_id)
+                    except (TypeError, ValueError):
+                        pid_val = None
+                    if pid_val is not None:
+                        cur.execute('''
+                            SELECT 1 FROM t_p28211681_photo_secure_web.favorite_photos
+                            WHERE client_id = %s AND photo_id = %s
+                        ''', (int(client_id), pid_val))
+                        if not cur.fetchone():
+                            return {
+                                'statusCode': 400,
+                                'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                                'body': json.dumps({'error': 'Photo not in favorites'})
+                            }
+                column = 'cover_photo_id' if marker_type == 'cover' else 'vignette_photo_id'
+                cur.execute(f'''
+                    UPDATE t_p28211681_photo_secure_web.favorite_clients
+                    SET {column} = %s WHERE id = %s
+                ''', (pid_val, int(client_id)))
+                conn.commit()
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'ok': True, 'marker_type': marker_type, 'photo_id': pid_val})
+                }
+
             elif action == 'set_list_marker':
                 # Клиент отмечает в списке избранного одно фото как "обложку" (cover)
                 # или одну "виньетку" (vignette). По одному фото на каждую категорию.
@@ -1139,7 +1191,8 @@ def handler(event: dict, context) -> dict:
                         pb.thumbnail_s3_key, pb.thumbnail_s3_url,
                         pb.grid_thumbnail_s3_key, pb.grid_thumbnail_s3_url,
                         COALESCE(pb.is_raw, FALSE),
-                        pb.width, pb.height, pb.file_size
+                        pb.width, pb.height, pb.file_size,
+                        fc.cover_photo_id, fc.vignette_photo_id
                     FROM t_p28211681_photo_secure_web.favorite_clients fc
                     LEFT JOIN t_p28211681_photo_secure_web.favorite_photos fp ON fc.id = fp.client_id
                     LEFT JOIN t_p28211681_photo_secure_web.photo_bank pb
@@ -1157,6 +1210,8 @@ def handler(event: dict, context) -> dict:
                             'full_name': row[1],
                             'phone': row[2],
                             'email': row[3],
+                            'cover_photo_id': row[17],
+                            'vignette_photo_id': row[18],
                             'photos': []
                         }
                     
@@ -1224,11 +1279,21 @@ def handler(event: dict, context) -> dict:
                         'file_size': row[12],
                         's3_key': row[3]
                     })
-                
+
+                cur.execute('''
+                    SELECT cover_photo_id, vignette_photo_id
+                    FROM t_p28211681_photo_secure_web.favorite_clients WHERE id = %s
+                ''', (client_id,))
+                marker_row = cur.fetchone()
+
                 return {
                     'statusCode': 200,
                     'headers': {**cors_headers, 'Content-Type': 'application/json'},
-                    'body': json.dumps({'photos': photos})
+                    'body': json.dumps({
+                        'photos': photos,
+                        'cover_photo_id': marker_row[0] if marker_row else None,
+                        'vignette_photo_id': marker_row[1] if marker_row else None,
+                    })
                 }
             
             else:

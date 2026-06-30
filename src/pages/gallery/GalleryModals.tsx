@@ -194,6 +194,9 @@ export default function GalleryModals({
           onPhotoRemoved={onRemoveFromFavorites}
           downloadDisabled={gallery?.download_disabled}
           isDarkTheme={isDarkTheme}
+          shortCode={code}
+          coverSelectEnabled={gallery?.cover_select_enabled}
+          vignetteSelectEnabled={gallery?.vignette_select_enabled}
         />
       )}
 

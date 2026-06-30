@@ -143,6 +143,14 @@
       "body": {"action": "set_list_marker"},
       "expectedStatus": 400,
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Set client marker - missing fields",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "set_client_marker"},
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
     }
   ]
 }

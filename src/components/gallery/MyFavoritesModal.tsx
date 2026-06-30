@@ -36,7 +36,12 @@ interface MyFavoritesModalProps {
   onPhotoRemoved?: (photoId: number) => void;
   downloadDisabled?: boolean;
   isDarkTheme?: boolean;
+  shortCode?: string;
+  coverSelectEnabled?: boolean;
+  vignetteSelectEnabled?: boolean;
 }
+
+const FAVORITES_URL = 'https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723';
 
 export default function MyFavoritesModal({ 
   isOpen, 
@@ -47,17 +52,63 @@ export default function MyFavoritesModal({
   onPhotoClick,
   onPhotoRemoved,
   downloadDisabled = false,
-  isDarkTheme = false
+  isDarkTheme = false,
+  shortCode = '',
+  coverSelectEnabled = false,
+  vignetteSelectEnabled = false,
 }: MyFavoritesModalProps) {
   const [favoritePhotos, setFavoritePhotos] = useState<FavoritePhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [coverPhotoId, setCoverPhotoId] = useState<number | null>(null);
+  const [vignettePhotoId, setVignettePhotoId] = useState<number | null>(null);
+  const [selectionMode, setSelectionMode] = useState<'cover' | 'vignette' | null>(null);
+  const [pendingSelection, setPendingSelection] = useState<number | null>(null);
+  const [savingMarker, setSavingMarker] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     loadFavorites();
   }, [isOpen, clientId]);
+
+  const startSelection = (type: 'cover' | 'vignette') => {
+    setSelectionMode(type);
+    setPendingSelection(type === 'cover' ? coverPhotoId : vignettePhotoId);
+  };
+
+  const cancelSelection = () => {
+    setSelectionMode(null);
+    setPendingSelection(null);
+  };
+
+  const confirmSelection = async () => {
+    if (!selectionMode) return;
+    setSavingMarker(true);
+    try {
+      const resp = await fetch(FAVORITES_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set_client_marker',
+          client_id: clientId,
+          gallery_code: shortCode,
+          marker_type: selectionMode,
+          photo_id: pendingSelection,
+        }),
+      });
+      if (resp.ok) {
+        if (selectionMode === 'cover') setCoverPhotoId(pendingSelection);
+        else setVignettePhotoId(pendingSelection);
+        setSelectionMode(null);
+        setPendingSelection(null);
+      }
+    } catch (e) {
+      console.error('set client marker error', e);
+    } finally {
+      setSavingMarker(false);
+    }
+  };
 
   const loadFavorites = async () => {
     setIsLoading(true);
@@ -75,6 +126,8 @@ export default function MyFavoritesModal({
       }
 
       setFavoritePhotos(result.photos || []);
+      setCoverPhotoId(result.cover_photo_id ?? null);
+      setVignettePhotoId(result.vignette_photo_id ?? null);
     } catch (error) {
       console.error('[MY_FAVORITES] Error loading:', error);
       setError(error instanceof Error ? error.message : 'Ошибка загрузки');
@@ -240,6 +293,51 @@ export default function MyFavoritesModal({
           </button>
         </div>
 
+        {!isLoading && !error && displayPhotos.length > 0 && (coverSelectEnabled || vignetteSelectEnabled) && (
+          selectionMode ? (
+            <div className={`flex items-center gap-2 px-3 sm:px-4 md:px-6 py-2.5 border-b ${isDarkTheme ? 'border-gray-700 bg-gray-800/50' : 'border-gray-100 bg-gray-50'}`}>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>
+                  {selectionMode === 'cover' ? 'Выберите фото для обложки' : 'Выберите фото для виньетки'}
+                </p>
+                <p className={`text-xs ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {pendingSelection ? 'Фото выбрано' : 'Нажмите на фото'}
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={cancelSelection} className="flex-shrink-0">Отмена</Button>
+              <Button size="sm" onClick={confirmSelection} disabled={savingMarker} className="gap-1.5 flex-shrink-0">
+                <Icon name={savingMarker ? 'Loader2' : 'Check'} size={14} className={savingMarker ? 'animate-spin' : ''} />
+                Подтвердить
+              </Button>
+            </div>
+          ) : (
+            <div className={`flex items-center gap-2 px-3 sm:px-4 md:px-6 py-3 border-b ${isDarkTheme ? 'border-gray-700' : 'border-gray-100'}`}>
+              {coverSelectEnabled && (
+                <button
+                  onClick={() => startSelection('cover')}
+                  className={`flex items-center justify-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium flex-1 transition-colors ${
+                    coverPhotoId ? 'bg-purple-500 text-white' : (isDarkTheme ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700')
+                  }`}
+                >
+                  <Icon name="Image" size={15} />
+                  Обложка{coverPhotoId ? ' ✓' : ''}
+                </button>
+              )}
+              {vignetteSelectEnabled && (
+                <button
+                  onClick={() => startSelection('vignette')}
+                  className={`flex items-center justify-center gap-1.5 px-3 h-9 rounded-full text-xs font-medium flex-1 transition-colors ${
+                    vignettePhotoId ? 'bg-purple-500 text-white' : (isDarkTheme ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700')
+                  }`}
+                >
+                  <Icon name="Sparkles" size={15} />
+                  Виньетка{vignettePhotoId ? ' ✓' : ''}
+                </button>
+              )}
+            </div>
+          )
+        )}
+
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 sm:py-12">
@@ -263,10 +361,15 @@ export default function MyFavoritesModal({
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-              {displayPhotos.map((photo) => (
+              {displayPhotos.map((photo) => {
+                const isPending = selectionMode && pendingSelection === photo.id;
+                const isCover = coverPhotoId === photo.id;
+                const isVignette = vignettePhotoId === photo.id;
+                return (
                 <div
                   key={photo.id}
                   className={`relative group rounded-md sm:rounded-lg overflow-hidden cursor-pointer aspect-square touch-manipulation ${isDarkTheme ? 'bg-gray-800' : 'bg-gray-100'}`}
+                  style={isPending ? { outline: '3px solid #8b5cf6', outlineOffset: '-3px' } : undefined}
                 >
                   <div 
                     className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 z-10 bg-black/60 backdrop-blur-sm text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded max-w-[calc(100%-1rem)] truncate cursor-pointer hover:bg-black/70 active:bg-black/80 transition-colors touch-manipulation"
@@ -289,9 +392,40 @@ export default function MyFavoritesModal({
                     alt={photo.file_name}
                     className="w-full h-full object-cover transition-transform group-hover:scale-105 active:scale-95"
                     onClick={() => {
-                      setSelectedPhoto(photo);
+                      if (selectionMode) {
+                        setPendingSelection(prev => prev === photo.id ? null : photo.id);
+                      } else {
+                        setSelectedPhoto(photo);
+                      }
                     }}
                   />
+                  {selectionMode && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center bg-black/20"
+                      onClick={() => setPendingSelection(prev => prev === photo.id ? null : photo.id)}
+                    >
+                      {isPending && (
+                        <div className="flex items-center justify-center rounded-full bg-purple-500 w-9 h-9">
+                          <Icon name="Check" size={20} className="text-white" />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {!selectionMode && (isCover || isVignette) && (
+                    <div className="absolute bottom-1.5 left-1.5 z-10 flex flex-col gap-1">
+                      {isCover && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-medium">
+                          <Icon name="Image" size={10} /> Обложка
+                        </span>
+                      )}
+                      {isVignette && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-medium">
+                          <Icon name="Sparkles" size={10} /> Виньетка
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {!selectionMode && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -302,6 +436,8 @@ export default function MyFavoritesModal({
                   >
                     <Icon name="Trash2" size={13} />
                   </button>
+                  )}
+                  {!selectionMode && (
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
@@ -349,8 +485,10 @@ export default function MyFavoritesModal({
                   >
                     <Icon name="Download" size={13} />
                   </button>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
