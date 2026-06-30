@@ -58,11 +58,12 @@ function buildListHtml(folderName: string, clients: ClientData[], allPhotos: Pho
 <meta charset="utf-8" />
 <title>${escapeHtml(folderName)}</title>
 <style>
-  body { font-family: 'Times New Roman', Georgia, serif; font-size: 13px; color: #000; margin: 24px; }
-  h1 { font-size: 16pt; font-weight: bold; text-transform: uppercase; text-align: center; margin: 0 0 20px; }
-  .client { padding: 10px 0; border-bottom: 1px solid #999; }
-  .client-name { font-size: 13pt; font-weight: bold; margin: 0 0 4px; }
-  .client-photos { font-size: 12pt; margin: 0; color: #222; }
+  @page { size: A4; margin: 15mm; }
+  body { font-family: 'Times New Roman', Georgia, serif; font-size: 13pt; line-height: 1.5; color: #000; margin: 0; }
+  h1 { font-size: 22pt; font-weight: bold; text-transform: uppercase; text-align: center; margin: 0 0 24px; }
+  .client { padding: 12px 0; border-bottom: 1px solid #999; }
+  .client-name { font-size: 16pt; font-weight: bold; margin: 0 0 6px; }
+  .client-photos { font-size: 13pt; margin: 0; color: #000; }
   .client-photos-label { font-weight: normal; color: #555; }
 </style>
 </head>
