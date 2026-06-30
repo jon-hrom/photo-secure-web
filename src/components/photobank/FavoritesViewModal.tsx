@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useFavoritesData, resolveClientPhotos } from './favorites/useFavoritesData';
 import FavoritesClientsList from './favorites/FavoritesClientsList';
 import FavoritesPhotoViewer from './favorites/FavoritesPhotoViewer';
+import { downloadFavoritesListDoc, printFavoritesList } from './favorites/favoritesListExport';
 import type { ClientData, Photo } from './favorites/useFavoritesData';
 
 interface FavoritesViewModalProps {
@@ -101,9 +102,33 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
               </p>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <Icon name="X" size={20} />
-          </Button>
+          <div className="flex items-center gap-2">
+            {clientsWithPhotos.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadFavoritesListDoc(folderName, clientsWithPhotos, allPhotos)}
+                  className="gap-1.5"
+                >
+                  <Icon name="FileText" size={16} />
+                  <span className="hidden sm:inline">Скачать списком</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => printFavoritesList(folderName, clientsWithPhotos, allPhotos)}
+                  className="gap-1.5"
+                >
+                  <Icon name="Printer" size={16} />
+                  <span className="hidden sm:inline">Печать</span>
+                </Button>
+              </>
+            )}
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <Icon name="X" size={20} />
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-hidden p-6">
