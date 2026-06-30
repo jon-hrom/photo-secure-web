@@ -8,6 +8,7 @@ interface Photo {
   file_name: string;
   photo_url: string;
   thumbnail_url?: string;
+  preview_url?: string;
   width?: number;
   height?: number;
   file_size: number;
@@ -20,6 +21,7 @@ interface FavoritePhoto {
   file_name?: string;
   photo_url?: string;
   thumbnail_url?: string;
+  preview_url?: string;
   width?: number | null;
   height?: number | null;
   file_size?: number;
@@ -171,6 +173,7 @@ export default function MyFavoritesModal({
           file_name: fp.file_name || '',
           photo_url: fp.photo_url,
           thumbnail_url: fp.thumbnail_url,
+          preview_url: fp.preview_url,
           width: fp.width ?? undefined,
           height: fp.height ?? undefined,
           file_size: fp.file_size ?? 0,
@@ -209,7 +212,9 @@ export default function MyFavoritesModal({
         file_name: p.file_name,
         s3_url: p.photo_url,
         s3_key: s3_key,
-        thumbnail_s3_url: p.thumbnail_url,
+        // Открываем среднее качество (preview ~2400px): заметно лучше сетки,
+        // но грузится быстрее оригинала. Оригинал подгрузится при зуме.
+        thumbnail_s3_url: p.preview_url || p.thumbnail_url,
         is_raw: false,
         file_size: p.file_size,
         width: p.width || null,

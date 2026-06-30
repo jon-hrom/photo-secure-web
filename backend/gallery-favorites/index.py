@@ -41,15 +41,20 @@ def generate_presigned_url(s3_url: str, expiration: int = 3600) -> str:
 
 def build_photo_urls(s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url,
                      grid_thumbnail_s3_key, grid_thumbnail_s3_url, is_raw):
-    '''Строит (photo_url, thumbnail_url) по ключам S3 — точно как в gallery-share.
+    '''Строит (photo_url, thumbnail_url, preview_url) по ключам S3.
+    - photo_url: оригинал (для скачивания / зума)
+    - thumbnail_url: мелкая сетка (grid_thumbnail) — для плиток
+    - preview_url: средний размер (~2400px, thumbnail_s3_key) — для открытия фото:
+      качество заметно выше сетки, но грузится быстрее оригинала.
     Для RAW (.CR2) превью берётся из thumbnail_s3_key, т.к. сам .CR2 браузер не покажет.'''
     use_poehali = bool(s3_url and 'cdn.poehali.dev' in s3_url)
 
     # Готовый CDN URL от poehali — presigned не нужен
     if use_poehali and s3_url:
         photo_url = s3_url
-        thumbnail_url = thumbnail_s3_url or grid_thumbnail_s3_url or s3_url
-        return photo_url, thumbnail_url
+        thumbnail_url = grid_thumbnail_s3_url or thumbnail_s3_url or s3_url
+        preview_url = thumbnail_s3_url or s3_url
+        return photo_url, thumbnail_url, preview_url
 
     yc_s3 = boto3.client(
         's3',
@@ -76,11 +81,12 @@ def build_photo_urls(s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url,
 
     if is_raw and thumbnail_s3_key:
         url = presign(thumbnail_s3_key)
-        return url, url
+        return url, url, url
 
     photo_url = presign(s3_key) or generate_presigned_url(s3_url)
     thumbnail_url = presign(grid_thumbnail_s3_key) or presign(thumbnail_s3_key) or photo_url
-    return photo_url, thumbnail_url
+    preview_url = presign(thumbnail_s3_key) or photo_url
+    return photo_url, thumbnail_url, preview_url
 
 def handler(event: dict, context) -> dict:
     '''API для работы с избранными фото клиентов галереи'''
@@ -1216,7 +1222,7 @@ def handler(event: dict, context) -> dict:
                         }
                     
                     if row[4]:
-                        photo_url, thumbnail_url = build_photo_urls(
+                        photo_url, thumbnail_url, preview_url = build_photo_urls(
                             s3_key=row[7], s3_url=row[8] or '',
                             thumbnail_s3_key=row[9], thumbnail_s3_url=row[10] or '',
                             grid_thumbnail_s3_key=row[11], grid_thumbnail_s3_url=row[12] or '',
@@ -1229,6 +1235,7 @@ def handler(event: dict, context) -> dict:
                             'file_name': row[6],
                             'photo_url': photo_url,
                             'thumbnail_url': thumbnail_url,
+                            'preview_url': preview_url,
                             'width': row[14],
                             'height': row[15],
                             'file_size': row[16],
@@ -1261,7 +1268,7 @@ def handler(event: dict, context) -> dict:
                 
                 photos = []
                 for row in cur.fetchall():
-                    photo_url, thumbnail_url = build_photo_urls(
+                    photo_url, thumbnail_url, preview_url = build_photo_urls(
                         s3_key=row[3], s3_url=row[4] or '',
                         thumbnail_s3_key=row[5], thumbnail_s3_url=row[6] or '',
                         grid_thumbnail_s3_key=row[7], grid_thumbnail_s3_url=row[8] or '',
@@ -1274,6 +1281,7 @@ def handler(event: dict, context) -> dict:
                         'file_name': row[2],
                         'photo_url': photo_url,
                         'thumbnail_url': thumbnail_url,
+                        'preview_url': preview_url,
                         'width': row[10],
                         'height': row[11],
                         'file_size': row[12],
