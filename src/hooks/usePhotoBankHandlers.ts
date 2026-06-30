@@ -173,8 +173,9 @@ export const usePhotoBankHandlers = (
       // Продолжаем без проверки дубликатов
     }
 
-    // Check file size limit (50 MB for images, no limit for videos)
-    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    // Лимит размера фото поднят до 500 МБ (загрузка идёт напрямую в S3,
+    // ограничения base64 больше нет). Видео — без лимита.
+    const MAX_FILE_SIZE = 500 * 1024 * 1024;
     const tooLargeFiles = mediaFiles.filter(file => {
       const isVideo = file.type.startsWith('video/');
       return !isVideo && file.size > MAX_FILE_SIZE;
@@ -182,7 +183,7 @@ export const usePhotoBankHandlers = (
     if (tooLargeFiles.length > 0) {
       toast({
         title: 'Файлы слишком большие',
-        description: `Макс. размер для фото: 50 МБ. Файлы: ${tooLargeFiles.map(f => f.name).join(', ')}`,
+        description: `Макс. размер для фото: 500 МБ. Файлы: ${tooLargeFiles.map(f => f.name).join(', ')}`,
         variant: 'destructive'
       });
       return;
@@ -199,11 +200,10 @@ export const usePhotoBankHandlers = (
     const DIRECT_UPLOAD_API = 'https://functions.poehali.dev/145813d2-d8f3-4a2b-b38e-08583a3153da';
     const cancelledRef = uploadCancelled;
 
-    // Список индексов RAW/видео файлов (для них нужны presigned URL)
-    const rawVideoIndexes: number[] = [];
-    mediaFiles.forEach((file, idx) => {
-      if (isRawFile(file.name) || file.type.startsWith('video/')) rawVideoIndexes.push(idx);
-    });
+    // ВСЕ файлы (фото, RAW, видео) грузим напрямую в S3 через presigned URL.
+    // Это убирает проблему с большими фото (9-30+ МБ): раньше обычные изображения
+    // отправлялись как base64 через JSON и упирались в лимит тела запроса.
+    const rawVideoIndexes: number[] = mediaFiles.map((_, idx) => idx);
 
     // Presigned URL кэш + ленивое (just-in-time) получение пачками.
     // КРИТИЧНО: URL живут 30 минут, поэтому НЕ получаем все сразу для 1000 файлов —
@@ -322,136 +322,55 @@ export const usePhotoBankHandlers = (
       
       console.log(`[UPLOAD] Processing file ${index + 1}/${mediaFiles.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
       
-      const isRaw = isRawFile(file.name);
-      const isVideo = file.type.startsWith('video/');
-      
-      if (isRaw || isVideo) {
-        const putToS3 = (uploadUrl: string) => new Promise<number>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
+      // Прямая загрузка в S3 по presigned URL — для ВСЕХ типов файлов.
+      // Без base64 и без сжатия: оригинал любого размера уходит напрямую.
+      const putToS3 = (uploadUrl: string) => new Promise<number>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
 
-          xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) {
-              const prev = fileLoaded.get(index) || 0;
-              if (e.loaded > prev) fileLoaded.set(index, e.loaded);
-              lastActiveName = file.name;
-              scheduleProgressUpdate();
-            }
-          });
+        // Таймаут под размер файла: 5 мин + 2 мин на каждый ГБ.
+        const sizeGb = file.size / (1024 * 1024 * 1024);
+        xhr.timeout = Math.round((5 * 60 + sizeGb * 120) * 1000);
 
-          xhr.addEventListener('load', () => resolve(xhr.status));
-          xhr.addEventListener('error', () => reject(new Error('Network error')));
-          xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
-
-          xhr.open('PUT', uploadUrl);
-          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-          xhr.send(file);
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const prev = fileLoaded.get(index) || 0;
+            if (e.loaded > prev) fileLoaded.set(index, e.loaded);
+            lastActiveName = file.name;
+            scheduleProgressUpdate();
+          }
         });
 
-        // Берём свежий URL (just-in-time). Если истёк (403/400) — обновляем и повторяем.
-        let { url, key } = await getPresignedForIndex(index);
-        let status = await putToS3(url);
-        if (status === 403 || status === 400) {
-          fileLoaded.set(index, 0);
-          ({ url, key } = await getPresignedForIndex(index, true));
-          status = await putToS3(url);
-        }
-        if (status < 200 || status >= 300) {
-          throw new Error('Failed to upload file to S3');
-        }
+        xhr.addEventListener('load', () => resolve(xhr.status));
+        xhr.addEventListener('error', () => reject(new Error('Network error')));
+        xhr.addEventListener('timeout', () => reject(new Error('Upload timeout')));
+        xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
 
-        const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
-        pendingDbWrites.push({
-          file_name: file.name,
-          s3_url: s3Url,
-          file_size: file.size,
-          content_type: file.type || 'application/octet-stream',
-        });
-        if (pendingDbWrites.length >= 20) {
-          await flushDbWrites();
-        }
-
-        fileLoaded.set(index, file.size);
-        completedCount++;
-        scheduleProgressUpdate();
-        return;
-      }
-          
-      lastActiveName = file.name;
-      scheduleProgressUpdate();
-
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = reject;
-        const reader = new FileReader();
-        reader.onload = (e) => { image.src = e.target?.result as string; };
-        reader.readAsDataURL(file);
+        xhr.open('PUT', uploadUrl);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.send(file);
       });
 
-      fileLoaded.set(index, Math.floor(file.size * 0.4));
-      scheduleProgressUpdate();
-      
-      const width = img.width;
-      const height = img.height;
-      
-      const MAX_SIZE_FOR_DIRECT = 2.5 * 1024 * 1024;
-      let base64Data: string;
-      
-      if (file.size > MAX_SIZE_FOR_DIRECT) {
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        
-        let quality = 0.85;
-        let blob: Blob;
-        
-        do {
-          blob = await new Promise<Blob>((resolve) => {
-            canvas.toBlob((b) => resolve(b!), 'image/jpeg', quality);
-          });
-          if (blob.size <= MAX_SIZE_FOR_DIRECT) break;
-          quality -= 0.05;
-        } while (quality > 0.5);
-        
-        const reader = new FileReader();
-        base64Data = await new Promise<string>((resolve) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } else {
-        const reader = new FileReader();
-        base64Data = await new Promise<string>((resolve) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+      // Берём свежий URL (just-in-time). Если истёк (403/400) — обновляем и повторяем.
+      let { url, key } = await getPresignedForIndex(index);
+      let status = await putToS3(url);
+      if (status === 403 || status === 400) {
+        fileLoaded.set(index, 0);
+        ({ url, key } = await getPresignedForIndex(index, true));
+        status = await putToS3(url);
+      }
+      if (status < 200 || status >= 300) {
+        throw new Error('Failed to upload file to S3');
       }
 
-      const res = await fetch(PHOTOBANK_FOLDERS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({
-          action: 'upload_direct',
-          folder_id: selectedFolder.id,
-          file_name: file.name,
-          file_data: base64Data,
-          width: Math.round(width),
-          height: Math.round(height),
-          content_type: file.type || 'image/jpeg'
-        })
+      const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
+      pendingDbWrites.push({
+        file_name: file.name,
+        s3_url: s3Url,
+        file_size: file.size,
+        content_type: file.type || 'application/octet-stream',
       });
-
-      if (res.status === 403) {
-        const errorData = await res.json();
-        if (errorData.requireEmailVerification) {
-          throw new Error('EMAIL_VERIFICATION_REQUIRED');
-        }
-      }
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Upload failed: ${res.status}`);
+      if (pendingDbWrites.length >= 20) {
+        await flushDbWrites();
       }
 
       fileLoaded.set(index, file.size);
@@ -524,6 +443,13 @@ export const usePhotoBankHandlers = (
         fetchPhotos(selectedFolder.id);
         fetchFolders();
         fetchStorageUsage();
+        // После догрузки перезагружаем страницу, чтобы гарантированно убрать
+        // предупреждение о недостающих кадрах и показать актуальный список.
+        if (!uploadCancelled) {
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        }
       }
     } catch (error: any) {
       toast({
