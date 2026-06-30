@@ -205,6 +205,40 @@ export default function FavoriteListPhotographerView({
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-4">
+            {!loading && photos.length > 0 && (coverPhotoId || vignettePhotoId) && (
+              <div className="mb-4 flex flex-wrap gap-2">
+                {([
+                  { id: coverPhotoId, label: 'Обложка', icon: 'Image' as const },
+                  { id: vignettePhotoId, label: 'Виньетка', icon: 'Sparkles' as const },
+                ]).filter(m => m.id).map((m) => {
+                  const photo = photos.find(p => p.id === m.id);
+                  return (
+                    <button
+                      key={m.label}
+                      onClick={() => { if (photo) setViewPhoto(photo); }}
+                      className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
+                    >
+                      {photo ? (
+                        <img src={photo.thumbnail_url} alt="" className="w-9 h-9 rounded object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-9 h-9 rounded bg-purple-200 dark:bg-purple-800 flex items-center justify-center flex-shrink-0">
+                          <Icon name={m.icon} size={16} className="text-purple-600 dark:text-purple-300" />
+                        </div>
+                      )}
+                      <div className="text-left min-w-0">
+                        <div className="flex items-center gap-1 text-xs font-semibold text-purple-700 dark:text-purple-300">
+                          <Icon name={m.icon} size={12} />
+                          {m.label}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate max-w-[160px]">
+                          {photo ? photo.file_name : `фото #${m.id}`}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {loading && (
               <div className="flex items-center justify-center py-20">
                 <Icon name="Loader2" size={28} className="animate-spin text-muted-foreground" />
