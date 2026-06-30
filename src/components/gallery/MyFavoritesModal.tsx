@@ -412,15 +412,15 @@ export default function MyFavoritesModal({
                     </div>
                   )}
                   {!selectionMode && (isCover || isVignette) && (
-                    <div className="absolute bottom-1.5 left-1.5 z-10 flex flex-col gap-1">
+                    <div className="absolute top-0 left-0 right-0 z-20 flex flex-col items-center gap-1 pt-1.5 px-1.5 pointer-events-none">
                       {isCover && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-medium">
-                          <Icon name="Image" size={10} /> Обложка
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold uppercase tracking-wide shadow-lg ring-2 ring-white/70 animate-pulse">
+                          <Icon name="Image" size={12} /> Обложка
                         </span>
                       )}
                       {isVignette && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-medium">
-                          <Icon name="Sparkles" size={10} /> Виньетка
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-fuchsia-500 to-purple-600 text-white text-[10px] sm:text-xs font-bold uppercase tracking-wide shadow-lg ring-2 ring-white/70 animate-pulse">
+                          <Icon name="Sparkles" size={12} /> Виньетка
                         </span>
                       )}
                     </div>

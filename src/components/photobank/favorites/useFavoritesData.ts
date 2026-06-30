@@ -5,6 +5,8 @@ interface ClientData {
   full_name: string;
   phone: string;
   email?: string;
+  cover_photo_id?: number | null;
+  vignette_photo_id?: number | null;
   photos: Array<{
     photo_id: number;
     added_at?: string;
