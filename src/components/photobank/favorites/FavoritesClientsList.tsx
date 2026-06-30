@@ -64,9 +64,21 @@ export default function FavoritesClientsList({
                   <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
                     {client.full_name}
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                    {client.phone} · {displayPhotos.length} фото
-                  </p>
+                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                      {client.phone} · {displayPhotos.length} фото
+                    </p>
+                    {client.cover_photo_id && (
+                      <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[10px] font-medium">
+                        <Icon name="Image" size={10} /> обложка ✓
+                      </span>
+                    )}
+                    {client.vignette_photo_id && (
+                      <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-[10px] font-medium">
+                        <Icon name="Sparkles" size={10} /> виньетка ✓
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
               <div className="flex gap-2 flex-shrink-0">
