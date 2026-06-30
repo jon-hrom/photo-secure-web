@@ -25,6 +25,7 @@ interface Photo {
   file_name: string;
   photo_url: string;
   thumbnail_url?: string;
+  s3_key?: string;
 }
 
 // Превращает избранные фото клиента в полноценные Photo:
@@ -41,6 +42,7 @@ export function resolveClientPhotos(
           file_name: fp.file_name || '',
           photo_url: fp.photo_url,
           thumbnail_url: fp.thumbnail_url || fp.photo_url,
+          s3_key: fp.s3_key,
         } as Photo;
       }
       return allPhotos.find((p) => p.id === fp.photo_id);

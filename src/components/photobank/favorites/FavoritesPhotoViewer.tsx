@@ -1,4 +1,3 @@
-import Icon from '@/components/ui/icon';
 import PhotoGridViewer from '../PhotoGridViewer';
 import { resolveClientPhotos } from './useFavoritesData';
 import type { ClientData, Photo } from './useFavoritesData';
@@ -21,65 +20,45 @@ export default function FavoritesPhotoViewer({
   onNavigate
 }: FavoritesPhotoViewerProps) {
   const displayPhotos = resolveClientPhotos(selectedClient, allPhotos);
-  
-  const currentIndex = displayPhotos.findIndex(p => p.id === selectedPhoto.id);
-  const canGoPrev = currentIndex > 0;
-  const canGoNext = currentIndex < displayPhotos.length - 1;
+
+  // PhotoGridViewer ждёт свой формат фото (s3_url / thumbnail_s3_url / s3_key и т.д.),
+  // поэтому приводим избранные фото клиента к этому виду.
+  const viewerPhotos = displayPhotos.map((p) => {
+    let s3_key = p.s3_key || p.photo_url.split('/bucket/')[1] || p.photo_url.split('/').slice(-3).join('/');
+    s3_key = s3_key.split('?')[0];
+
+    return {
+      id: p.id,
+      file_name: p.file_name,
+      s3_url: p.photo_url,
+      s3_key,
+      thumbnail_s3_url: p.thumbnail_url,
+      is_raw: false,
+      file_size: 0,
+      width: null,
+      height: null,
+      created_at: new Date().toISOString()
+    };
+  });
+
+  const viewerPhoto = viewerPhotos.find((p) => p.id === selectedPhoto.id) || null;
 
   return (
     <PhotoGridViewer
-      photos={displayPhotos}
-      selectedPhoto={selectedPhoto}
+      viewPhoto={viewerPhoto}
+      photos={viewerPhotos}
       onClose={onClose}
-      onPhotoSelect={() => {}}
-      renderHeader={() => (
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-white">
-            {selectedClient.full_name}
-          </h3>
-          <div className="flex gap-2">
-            <button
-              onClick={() => onDownload(selectedPhoto)}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              title="Скачать фото"
-            >
-              <Icon name="Download" size={20} className="text-white" />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <Icon name="X" size={20} className="text-white" />
-            </button>
-          </div>
-        </div>
-      )}
-      renderNavigation={() => (
-        <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-4 pointer-events-none">
-          <button
-            onClick={() => onNavigate('prev')}
-            disabled={!canGoPrev}
-            className={`p-3 rounded-full bg-black/50 backdrop-blur-sm transition-all pointer-events-auto ${
-              canGoPrev
-                ? 'hover:bg-black/70 text-white'
-                : 'opacity-30 cursor-not-allowed text-gray-500'
-            }`}
-          >
-            <Icon name="ChevronLeft" size={24} />
-          </button>
-          <button
-            onClick={() => onNavigate('next')}
-            disabled={!canGoNext}
-            className={`p-3 rounded-full bg-black/50 backdrop-blur-sm transition-all pointer-events-auto ${
-              canGoNext
-                ? 'hover:bg-black/70 text-white'
-                : 'opacity-30 cursor-not-allowed text-gray-500'
-            }`}
-          >
-            <Icon name="ChevronRight" size={24} />
-          </button>
-        </div>
-      )}
+      onNavigate={onNavigate}
+      onDownload={async () => {
+        onDownload(selectedPhoto);
+      }}
+      formatBytes={(bytes) => {
+        if (bytes === 0) return 'N/A';
+        const k = 1024;
+        const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+      }}
     />
   );
 }
