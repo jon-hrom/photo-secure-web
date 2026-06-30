@@ -19,7 +19,12 @@ function buildClientLines(clients: ClientData[], allPhotos: Photo[]): ClientLine
       const photos = resolveClientPhotos(client, allPhotos);
       return {
         fullName: client.full_name || 'Без имени',
-        numbers: photos.map((p) => photoNumber(p.file_name)),
+        numbers: photos.map((p) => {
+          const num = photoNumber(p.file_name);
+          if (client.cover_photo_id === p.id) return `(Обложка ${num})`;
+          if (client.vignette_photo_id === p.id) return `(Виньетка ${num})`;
+          return num;
+        }),
       };
     })
     .filter((c) => c.numbers.length > 0);
