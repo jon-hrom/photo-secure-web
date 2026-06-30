@@ -112,6 +112,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 timestamp += 1  # Уникальность ключа
                 
                 # Генерируем presigned URL
+                # 7 дней (604800 сек) — максимум для S3 Signature V4.
+                # Большой архив (5-100 ГБ) может грузиться много часов, поэтому
+                # даём максимальный запас, чтобы URL поздних файлов не протухли.
                 presigned_url = s3_client.generate_presigned_url(
                     'put_object',
                     Params={
@@ -119,7 +122,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'Key': s3_key,
                         'ContentType': content_type
                     },
-                    ExpiresIn=3600  # 1 час (URL берутся just-in-time, но даём запас на большие файлы)
+                    ExpiresIn=604800
                 )
                 
                 results.append({
@@ -135,7 +138,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'body': json.dumps({
                     'success': True,
                     'uploads': results,
-                    'expires_in': 3600
+                    'expires_in': 604800
                 }),
                 'isBase64Encoded': False
             }

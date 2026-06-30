@@ -204,7 +204,14 @@ export const useCameraUploadLogic = (
 
       const xhr = new XMLHttpRequest();
       let lastProgressUpdate = 0;
-      
+
+      // Динамический таймаут: 5 минут базово + по 2 минуты на каждый ГБ.
+      // Так огромные файлы (десятки ГБ) успевают загрузиться, но реально
+      // зависший аплоад не блокирует очередь навсегда.
+      const sizeGb = file.size / (1024 * 1024 * 1024);
+      const dynamicTimeout = Math.round((5 * 60 + sizeGb * 120) * 1000);
+      xhr.timeout = dynamicTimeout;
+
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
           const now = Date.now();
@@ -230,6 +237,7 @@ export const useCameraUploadLogic = (
           }
         };
         xhr.onerror = () => reject(new Error('Network error'));
+        xhr.ontimeout = () => reject(new Error('Upload timeout'));
         xhr.onabort = () => reject(new Error('Upload cancelled'));
 
         xhr.open('PUT', url!);
@@ -264,18 +272,28 @@ export const useCameraUploadLogic = (
           filesRef.current[idx2] = { ...filesRef.current[idx2], status: 'error', error: 'Отменено' };
         }
       } else {
-        const isNetworkError = error.message.includes('Network') || 
-                               error.message.includes('интернет') || 
+        const msg: string = error.message || '';
+        const isNetworkError = msg.includes('Network') ||
+                               msg.includes('интернет') ||
                                !navigator.onLine;
-        
-        if (isNetworkError && retryAttempt < MAX_RETRIES) {
-          console.log(`[CAMERA_UPLOAD] Retry ${retryAttempt + 1}/${MAX_RETRIES} for ${file.name}`);
+        const isTimeout = msg.includes('timeout');
+        // Протухший/некорректный presigned URL обычно отдаёт 403/400.
+        const isUrlError = msg.includes('Upload failed: 403') ||
+                           msg.includes('Upload failed: 400') ||
+                           msg.includes('Failed to get upload URL');
+        // Любую временную ошибку (сеть, таймаут, протухший URL) пробуем
+        // повторить, КАЖДЫЙ РАЗ запрашивая СВЕЖИЙ presigned URL.
+        const retriable = isNetworkError || isTimeout || isUrlError;
+
+        if (retriable && retryAttempt < MAX_RETRIES) {
+          console.log(`[CAMERA_UPLOAD] Retry ${retryAttempt + 1}/${MAX_RETRIES} for ${file.name} (${msg})`);
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-          await uploadFile(fileStatus, uploadUrl, s3Key, retryAttempt + 1, onPhotoAdded);
+          // При повторе НЕ передаём старый url/key — функция получит новый URL.
+          await uploadFile(fileStatus, undefined, undefined, retryAttempt + 1, onPhotoAdded);
         } else {
           const idx2 = filesRef.current.findIndex(f => f.file.name === file.name);
           if (idx2 >= 0) {
-            filesRef.current[idx2] = { ...filesRef.current[idx2], status: 'error', error: isNetworkError ? 'Ошибка сети' : error.message };
+            filesRef.current[idx2] = { ...filesRef.current[idx2], status: 'error', error: isNetworkError ? 'Ошибка сети' : (isTimeout ? 'Превышено время' : msg) };
           }
         }
       }

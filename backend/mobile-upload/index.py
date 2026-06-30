@@ -100,7 +100,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'Key': s3_key,
                         'ContentType': content_type
                     },
-                    ExpiresIn=900  # 15 минут
+                    ExpiresIn=604800  # 7 дней — запас для больших архивов
                 )
                 
                 return {
@@ -109,7 +109,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'body': json.dumps({
                         'url': presigned_url,
                         'key': s3_key,
-                        'expires_in': 900
+                        'expires_in': 604800
                     }),
                     'isBase64Encoded': False
                 }

@@ -84,6 +84,10 @@ export const useFastUploadLogic = (
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
+        // Таймаут под размер файла: 5 мин + 2 мин на ГБ.
+        const sizeGb = file.size / (1024 * 1024 * 1024);
+        xhr.timeout = Math.round((5 * 60 + sizeGb * 120) * 1000);
+
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) {
             const now = Date.now();
@@ -118,6 +122,7 @@ export const useFastUploadLogic = (
         };
 
         xhr.onerror = () => reject(new Error('Network error'));
+        xhr.ontimeout = () => reject(new Error('Upload timeout'));
         xhr.onabort = () => reject(new Error('Upload cancelled'));
 
         xhr.open('PUT', uploadInfo.url);
@@ -227,6 +232,35 @@ export const useFastUploadLogic = (
       } catch (error) {
         console.error('[FAST_UPLOAD] Batch failed:', error);
         toast.error('Ошибка получения URLs для загрузки');
+      }
+    }
+
+    // Повторные попытки для упавших файлов со СВЕЖИМИ presigned URL.
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const failed = filesRef.current.filter(f => f.status === 'error');
+      if (failed.length === 0) break;
+      console.log(`[FAST_UPLOAD] Retry pass ${attempt}: ${failed.length} files`);
+      await new Promise(r => setTimeout(r, 1500));
+
+      for (let i = 0; i < failed.length; i += BATCH_SIZE) {
+        const batch = failed.slice(i, i + BATCH_SIZE);
+        try {
+          const urlMap = await getBatchPresignedUrls(batch);
+          for (let j = 0; j < batch.length; j += MAX_CONCURRENT_UPLOADS) {
+            const concurrentBatch = batch.slice(j, j + MAX_CONCURRENT_UPLOADS);
+            await Promise.all(concurrentBatch.map(async (fileStatus) => {
+              const uploadInfo = urlMap.get(fileStatus.file.name);
+              if (!uploadInfo) return;
+              try {
+                await uploadFileToS3(fileStatus, uploadInfo);
+              } catch (e) {
+                console.error(`[FAST_UPLOAD] Retry failed for ${fileStatus.file.name}:`, e);
+              }
+            }));
+          }
+        } catch (e) {
+          console.error('[FAST_UPLOAD] Retry batch URLs failed:', e);
+        }
       }
     }
 

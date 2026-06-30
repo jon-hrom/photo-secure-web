@@ -11,7 +11,7 @@
       "expectedBody": {
         "url": "string",
         "key": "string",
-        "expires_in": 900
+        "expires_in": 604800
       },
       "bodyMatcher": "partial"
     },
