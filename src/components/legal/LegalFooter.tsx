@@ -7,6 +7,7 @@ const SLUG_PATH: Record<string, string> = {
   'privacy-policy': '/privacy-policy',
   'personal-data': '/personal-data',
   'confidentiality': '/confidentiality',
+  'cookie-policy': '/cookie-policy',
 };
 
 const SLUG_LABEL: Record<string, string> = {
@@ -14,6 +15,7 @@ const SLUG_LABEL: Record<string, string> = {
   'privacy-policy': 'рекламные сообщения',
   'personal-data': 'обработка пд',
   'confidentiality': 'политика конфиденциальности',
+  'cookie-policy': 'файлы cookie',
 };
 
 const LegalFooter = ({ className = '' }: { className?: string }) => {

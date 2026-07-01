@@ -32,6 +32,7 @@ import AdminCleanup from "./pages/AdminCleanup";
 import AdminPipelineEditor from "./pages/AdminPipelineEditor";
 import NewYearDecorations from "./components/NewYearDecorations";
 import LegalDocument from "./pages/LegalDocument";
+import CookieConsentBanner from "./components/legal/CookieConsentBanner";
 import ShortLink from "./pages/ShortLink";
 import PublicGallery from "./pages/PublicGallery";
 import { RetouchProvider } from "./contexts/RetouchContext";
@@ -41,7 +42,7 @@ import NotificationsTicker from "./components/notifications/NotificationsTicker"
 
 const queryClient = new QueryClient();
 
-const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/yandex-disk/', '/privacy-policy', '/offer', '/personal-data', '/confidentiality', '/legal/', '/s/', '/g/', '/client/'];
+const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/yandex-disk/', '/privacy-policy', '/offer', '/personal-data', '/confidentiality', '/cookie-policy', '/legal/', '/s/', '/g/', '/client/'];
 
 const LegalConsentGuard = () => {
   const { pathname } = useLocation();
@@ -56,6 +57,7 @@ const LegalConsentGuard = () => {
     pathname.startsWith('/offer') ||
     pathname.startsWith('/personal-data') ||
     pathname.startsWith('/confidentiality') ||
+    pathname.startsWith('/cookie-policy') ||
     pathname.startsWith('/legal/') ||
     pathname.startsWith('/s/') ||
     pathname.startsWith('/g/') ||
@@ -174,6 +176,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
         <LegalConsentGuard />
+        <CookieConsentBanner />
         <ActivityLogger />
         <ConditionalRetouchBar />
         <ConditionalTransfersWatcher />
@@ -205,6 +208,7 @@ const App = () => {
           <Route path="/offer" element={<LegalDocument fixedSlug="offer" />} />
           <Route path="/personal-data" element={<LegalDocument fixedSlug="personal-data" />} />
           <Route path="/confidentiality" element={<LegalDocument fixedSlug="confidentiality" />} />
+          <Route path="/cookie-policy" element={<LegalDocument fixedSlug="cookie-policy" />} />
           <Route path="/legal/:slug" element={<LegalDocument />} />
           <Route path="/s/:code" element={<ShortLink />} />
           <Route path="/g/:code" element={<PublicGallery />} />
