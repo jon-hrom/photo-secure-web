@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback, useRef, useEffect } from 'react';
 import CoverPreviewDesktop from './cover/CoverPreviewDesktop';
 import CoverControlsPanel from './cover/CoverControlsPanel';
 import CoverPreviewMobile from './cover/CoverPreviewMobile';
@@ -47,21 +47,36 @@ export default function CoverSettings({
   // Что подсвечивать в галерее web-обложки: выбранное фото либо дефолтное.
   const effectiveCoverSelectedId = settings.coverPhotoId || defaultCoverId;
 
-  const handleSelectCoverPhoto = (photoId: number) => {
-    onSettingsChange({ ...settings, coverPhotoId: photoId });
-    if (settings.bgTheme === 'auto') {
-      const photo = photos.find(p => p.id === photoId);
+  // Держим актуальные значения в refs, чтобы обработчики выбора были СТАБИЛЬНЫМИ
+  // (не пересоздавались на каждый рендер). Иначе memo на галерее не сработает и
+  // все миниатюры будут перерисовываться при перетаскивании точки центра кадра.
+  const settingsRef = useRef(settings);
+  const photosRef = useRef(photos);
+  const onSettingsChangeRef = useRef(onSettingsChange);
+  const extractDominantColorRef = useRef(extractDominantColor);
+  useEffect(() => {
+    settingsRef.current = settings;
+    photosRef.current = photos;
+    onSettingsChangeRef.current = onSettingsChange;
+    extractDominantColorRef.current = extractDominantColor;
+  });
+
+  const handleSelectCoverPhoto = useCallback((photoId: number) => {
+    const s = settingsRef.current;
+    onSettingsChangeRef.current({ ...s, coverPhotoId: photoId });
+    if (s.bgTheme === 'auto') {
+      const photo = photosRef.current.find(p => p.id === photoId);
       if (photo) {
-        extractDominantColor(photo).then(color => {
-          onSettingsChange({ ...settings, coverPhotoId: photoId, bgColor: color });
+        extractDominantColorRef.current(photo).then(color => {
+          onSettingsChangeRef.current({ ...settingsRef.current, coverPhotoId: photoId, bgColor: color });
         });
       }
     }
-  };
+  }, []);
 
-  const handleSelectMobileCoverPhoto = (photoId: number) => {
-    onSettingsChange({ ...settings, mobileCoverPhotoId: photoId });
-  };
+  const handleSelectMobileCoverPhoto = useCallback((photoId: number) => {
+    onSettingsChangeRef.current({ ...settingsRef.current, mobileCoverPhotoId: photoId });
+  }, []);
 
   const effectiveMobileSelectedId = settings.mobileCoverPhotoId
     ? settings.mobileCoverPhotoId

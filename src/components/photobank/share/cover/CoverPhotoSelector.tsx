@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Icon from '@/components/ui/icon';
 import { Photo } from './types';
 
@@ -10,7 +11,7 @@ interface CoverPhotoSelectorProps {
   accentColor?: string;
 }
 
-export default function CoverPhotoSelector({
+function CoverPhotoSelector({
   title,
   subtitle,
   photos,
@@ -65,3 +66,8 @@ export default function CoverPhotoSelector({
     </div>
   );
 }
+
+// memo: галерея из десятков миниатюр не должна перерисовываться при
+// перетаскивании точки центра кадра или автосохранении — только когда реально
+// меняются список фото или выбранное фото.
+export default memo(CoverPhotoSelector);
