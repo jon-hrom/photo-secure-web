@@ -189,6 +189,13 @@ export const useAuth = () => {
     clearUserSession();
     localStorage.removeItem('userName');
     localStorage.removeItem('userEmail');
+    // Сигнал остальным вкладкам: пользователь вышел — им тоже нужно разлогиниться.
+    // Событие 'storage' в других вкладках сработает на изменение этого ключа.
+    try {
+      localStorage.setItem('logout_broadcast', String(Date.now()));
+    } catch {
+      /* localStorage может быть недоступен */
+    }
     window.location.replace('/?logout=true');
   };
 
