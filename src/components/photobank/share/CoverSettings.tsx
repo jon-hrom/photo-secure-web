@@ -25,14 +25,27 @@ export default function CoverSettings({
   onModeChange,
   previewMode,
 }: CoverSettingsProps) {
+  // Единый источник для предпросмотра и галереи выбора: сортируем по имени файла
+  // и исключаем видео (.mp4) — иначе в галерее видео нет, а в превью оно попадало
+  // как "первое" фото, из-за чего обложка не совпадала с выбором.
   const sortedPhotos = useMemo(() => {
-    return [...photos].sort((a, b) =>
-      (a.file_name || '').localeCompare(b.file_name || '', 'ru', { numeric: true, sensitivity: 'base' })
-    );
+    return [...photos]
+      .filter(p => !p.file_name?.toLowerCase().endsWith('.mp4'))
+      .sort((a, b) =>
+        (a.file_name || '').localeCompare(b.file_name || '', 'ru', { numeric: true, sensitivity: 'base' })
+      );
   }, [photos]);
 
-  const coverPhoto = photos.find(p => p.id === settings.coverPhotoId) || sortedPhotos[0] || null;
-  const mobileCoverPhoto = photos.find(p => p.id === settings.mobileCoverPhotoId) || coverPhoto;
+  // Фото обложки по умолчанию (если пользователь ещё ничего не выбрал) —
+  // одно и то же и в предпросмотре, и для подсветки в галерее.
+  const defaultCoverPhoto = sortedPhotos[0] || null;
+  const defaultCoverId = defaultCoverPhoto?.id ?? null;
+
+  const coverPhoto = sortedPhotos.find(p => p.id === settings.coverPhotoId) || defaultCoverPhoto;
+  const mobileCoverPhoto = sortedPhotos.find(p => p.id === settings.mobileCoverPhotoId) || coverPhoto;
+
+  // Что подсвечивать в галерее web-обложки: выбранное фото либо дефолтное.
+  const effectiveCoverSelectedId = settings.coverPhotoId || defaultCoverId;
 
   const handleSelectCoverPhoto = (photoId: number) => {
     onSettingsChange({ ...settings, coverPhotoId: photoId });
@@ -52,7 +65,7 @@ export default function CoverSettings({
 
   const effectiveMobileSelectedId = settings.mobileCoverPhotoId
     ? settings.mobileCoverPhotoId
-    : (settings.coverPhotoId || sortedPhotos[0]?.id || null);
+    : (settings.coverPhotoId || defaultCoverId);
 
   const desktopRingClass = previewMode === 'desktop'
     ? 'rounded-xl p-3 border-2 border-blue-500/50 cursor-pointer'
@@ -87,7 +100,7 @@ export default function CoverSettings({
             <CoverPhotoSelector
               title="Фото для web-обложки"
               photos={sortedPhotos}
-              selectedPhotoId={settings.coverPhotoId}
+              selectedPhotoId={effectiveCoverSelectedId}
               onSelect={handleSelectCoverPhoto}
               accentColor="blue"
             />

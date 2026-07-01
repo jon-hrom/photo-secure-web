@@ -50,6 +50,8 @@ export default function CoverPhotoSelector({
                 src={photo.thumbnail_url || photo.photo_url}
                 alt={photo.file_name}
                 className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
               {isSelected && (
                 <div className={`absolute top-1 right-1 w-4 h-4 ${colorClasses.bg} rounded-full flex items-center justify-center`}>

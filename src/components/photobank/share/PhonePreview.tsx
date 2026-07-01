@@ -149,6 +149,8 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
                 src={photo.thumbnail_url || photo.photo_url}
                 alt=""
                 className="w-full h-auto block"
+                loading="lazy"
+                decoding="async"
               />
             </div>
           ))}
