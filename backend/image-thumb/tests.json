@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS возвращает 200",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Без url возвращает 400",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 400
+    },
+    {
+      "name": "Чужой хост запрещён",
+      "method": "GET",
+      "path": "/?url=https://example.com/a.jpg",
+      "expectedStatus": 400
+    },
+    {
+      "name": "POST не разрешён",
+      "method": "POST",
+      "path": "/",
+      "expectedStatus": 405
+    }
+  ]
+}

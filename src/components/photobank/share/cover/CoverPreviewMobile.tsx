@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getThumbUrl } from '@/utils/imageThumb';
 import { Photo, PageDesignSettings } from './types';
 
 interface CoverPreviewMobileProps {
@@ -17,7 +18,7 @@ export default function CoverPreviewMobile({
   const [isMobileDragging, setIsMobileDragging] = useState(false);
   const mobileCoverImageRef = useRef<HTMLDivElement>(null);
 
-  const mobileCoverUrl = mobileCoverPhoto?.thumbnail_url || mobileCoverPhoto?.photo_url;
+  const mobileCoverUrl = getThumbUrl(mobileCoverPhoto?.thumbnail_url || mobileCoverPhoto?.photo_url, 600);
 
   const calcPosition = useCallback((clientX: number, clientY: number) => {
     if (!mobileCoverImageRef.current) return;

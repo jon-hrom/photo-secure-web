@@ -1,4 +1,5 @@
 import Icon from '@/components/ui/icon';
+import { getThumbUrl } from '@/utils/imageThumb';
 import { Photo, PageDesignSettings } from './cover/types';
 import { PreviewMode } from './PageDesignTab';
 
@@ -17,7 +18,7 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
     : desktopCoverPhoto;
   const isDesktop = previewMode === 'desktop';
   const activeCoverPhoto = isDesktop ? desktopCoverPhoto : mobileCoverPhoto;
-  const coverUrl = activeCoverPhoto?.thumbnail_url || activeCoverPhoto?.photo_url;
+  const coverUrl = getThumbUrl(activeCoverPhoto?.thumbnail_url || activeCoverPhoto?.photo_url, 600);
   const focusX = isDesktop ? settings.coverFocusX : settings.mobileCoverFocusX;
   const focusY = isDesktop ? settings.coverFocusY : settings.mobileCoverFocusY;
 
@@ -146,7 +147,7 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
               }}
             >
               <img
-                src={photo.thumbnail_url || (/\.(cr2|cr3|nef|arw|dng|orf|rw2|raw|raf)$/i.test(photo.file_name || '') ? '' : photo.photo_url)}
+                src={getThumbUrl(photo.thumbnail_url || (/\.(cr2|cr3|nef|arw|dng|orf|rw2|raw|raf)$/i.test(photo.file_name || '') ? '' : photo.photo_url), 200)}
                 alt=""
                 className="w-full h-auto block"
                 loading="lazy"

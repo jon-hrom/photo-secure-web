@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import Icon from '@/components/ui/icon';
+import { getThumbUrl } from '@/utils/imageThumb';
 import { Photo } from './types';
 
 interface CoverPhotoSelectorProps {
@@ -37,10 +38,11 @@ function CoverPhotoSelector({
       >
         {photos.filter(p => !p.file_name?.toLowerCase().endsWith('.mp4')).map(photo => {
           const isSelected = selectedPhotoId === photo.id;
-          // В мелкую плитку грузим только миниатюру. Полноразмерный оригинал
-          // (особенно RAW/.CR2) не подставляем — он тяжёлый и не рендерится как картинка.
+          // В мелкую плитку грузим лёгкое превью (~150px), а не оригинал на 15+ МБ.
+          // RAW/.CR2 не рендерятся как картинка — для них нужен готовый thumbnail.
           const isRaw = /\.(cr2|cr3|nef|arw|dng|orf|rw2|raw|raf)$/i.test(photo.file_name || '');
-          const thumbSrc = photo.thumbnail_url || (isRaw ? '' : photo.photo_url);
+          const source = photo.thumbnail_url || (isRaw ? '' : photo.photo_url);
+          const thumbSrc = source ? getThumbUrl(source, 150) : '';
           return (
             <button
               key={photo.id}

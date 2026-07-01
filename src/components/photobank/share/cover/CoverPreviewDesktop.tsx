@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Icon from '@/components/ui/icon';
+import { getThumbUrl } from '@/utils/imageThumb';
 import { Photo, PageDesignSettings } from './types';
 
 interface CoverPreviewDesktopProps {
@@ -21,7 +22,7 @@ export default function CoverPreviewDesktop({
   const coverImageRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  const coverUrl = coverPhoto?.thumbnail_url || coverPhoto?.photo_url;
+  const coverUrl = getThumbUrl(coverPhoto?.thumbnail_url || coverPhoto?.photo_url, 800);
 
   const calcFocusPosition = useCallback((clientX: number, clientY: number) => {
     if (!coverImageRef.current) return;

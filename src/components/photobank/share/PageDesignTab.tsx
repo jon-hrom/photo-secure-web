@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import BackgroundSettings from './BackgroundSettings';
 import CoverSettings from './CoverSettings';
 import PhonePreview from './PhonePreview';
+import { getThumbUrl } from '@/utils/imageThumb';
 import { Photo, PageDesignSettings } from './cover/types';
 
 export type PreviewMode = 'desktop' | 'mobile';
@@ -48,7 +49,9 @@ export default function PageDesignTab({
         resolve(`#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`);
       };
       img.onerror = () => resolve('#2d2d3a');
-      img.src = photo.thumbnail_url || photo.photo_url;
+      // Считаем цвет по лёгкому превью (~100px), а не по оригиналу на 15+ МБ —
+      // иначе клик по фото "думает" секундами, пока грузится тяжёлый файл.
+      img.src = getThumbUrl(photo.thumbnail_url || photo.photo_url, 100);
     });
   }, []);
 
