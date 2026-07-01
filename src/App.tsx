@@ -40,7 +40,7 @@ import NotificationsTicker from "./components/notifications/NotificationsTicker"
 
 const queryClient = new QueryClient();
 
-const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/yandex-disk/', '/privacy-policy', '/offer', '/personal-data', '/legal/', '/s/', '/g/', '/client/'];
+const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/yandex-disk/', '/privacy-policy', '/offer', '/personal-data', '/confidentiality', '/legal/', '/s/', '/g/', '/client/'];
 
 const LegalConsentGuard = () => {
   const { pathname } = useLocation();
@@ -54,6 +54,7 @@ const LegalConsentGuard = () => {
     pathname.startsWith('/privacy-policy') ||
     pathname.startsWith('/offer') ||
     pathname.startsWith('/personal-data') ||
+    pathname.startsWith('/confidentiality') ||
     pathname.startsWith('/legal/') ||
     pathname.startsWith('/s/') ||
     pathname.startsWith('/g/') ||
@@ -192,6 +193,7 @@ const App = () => {
           <Route path="/privacy-policy" element={<LegalDocument fixedSlug="privacy-policy" />} />
           <Route path="/offer" element={<LegalDocument fixedSlug="offer" />} />
           <Route path="/personal-data" element={<LegalDocument fixedSlug="personal-data" />} />
+          <Route path="/confidentiality" element={<LegalDocument fixedSlug="confidentiality" />} />
           <Route path="/legal/:slug" element={<LegalDocument />} />
           <Route path="/s/:code" element={<ShortLink />} />
           <Route path="/g/:code" element={<PublicGallery />} />
