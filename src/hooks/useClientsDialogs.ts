@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Client, Booking } from '@/components/clients/ClientsTypes';
 import { useUnsavedClientData } from '@/hooks/useUnsavedClientData';
 
@@ -39,20 +39,25 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
     birthdate: '',
   });
 
+  // Восстанавливаем черновик в форму ТОЛЬКО один раз (при первом появлении данных),
+  // а не при каждом обновлении loadClientData. Иначе при возврате во вкладку браузера
+  // перезагрузка черновика затирала только что введённые поля (телефон, ВК),
+  // которые ещё не успели сохраниться из-за debounce.
+  const draftRestoredRef = useRef(false);
   useEffect(() => {
-    if (userId) {
-      const saved = loadClientData();
-      if (saved) {
-        setNewClient({
-          name: saved.name || '',
-          phone: saved.phone || '',
-          email: saved.email || '',
-          address: saved.address || '',
-          vkProfile: saved.vkProfile || '',
-          vkUsername: saved.vkUsername || '',
-          birthdate: saved.birthdate || '',
-        });
-      }
+    if (!userId || draftRestoredRef.current) return;
+    const saved = loadClientData();
+    if (saved) {
+      draftRestoredRef.current = true;
+      setNewClient({
+        name: saved.name || '',
+        phone: saved.phone || '',
+        email: saved.email || '',
+        address: saved.address || '',
+        vkProfile: saved.vkProfile || '',
+        vkUsername: saved.vkUsername || '',
+        birthdate: saved.birthdate || '',
+      });
     }
   }, [userId, loadClientData]);
 
@@ -183,12 +188,15 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
 
   const handleClearSavedData = () => {
     clearClientData();
+    draftRestoredRef.current = true; // не восстанавливать очищенный черновик
     setNewClient({
       name: '',
       phone: '',
       email: '',
       address: '',
       vkProfile: '',
+      vkUsername: '',
+      birthdate: '',
     });
     setIsUnsavedDataDialogOpen(false);
     setIsAddDialogOpen(true);
@@ -196,6 +204,7 @@ export const useClientsDialogs = (userId?: string | null, clients?: Client[]) =>
 
   const handleClientCreated = (createdClient?: Client) => {
     clearClientData();
+    draftRestoredRef.current = true; // клиент создан — черновик восстанавливать не нужно
     setNewClient({
       name: '',
       phone: '',
