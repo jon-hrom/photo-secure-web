@@ -12,7 +12,7 @@ import UnsavedProjectDialog from '@/components/clients/UnsavedProjectDialog';
 import OverpaymentDialog from '@/components/clients/dialog/OverpaymentDialog';
 import UseReserveDialog from '@/components/clients/dialog/UseReserveDialog';
 import { OverpaymentRequest } from '@/components/clients/dialog/PaymentHandlers';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { todayLocalDate } from '@/utils/dateFormat';
 import { toast } from 'sonner';
 
@@ -85,15 +85,22 @@ const ClientDetailDialog = ({ open, onOpenChange, client, onUpdate, shouldOpenNe
     clearOpenCardData
   } = useClientDetailState(client, open);
 
+  // Держим актуальную ссылку на loadProjectData без включения её в зависимости,
+  // чтобы проверка черновика НЕ срабатывала при каждом наборе символа в форме.
+  const loadProjectDataRef = useRef(loadProjectData);
+  useEffect(() => {
+    loadProjectDataRef.current = loadProjectData;
+  }, [loadProjectData]);
+
   useEffect(() => {
     if (open && client?.id && activeTab === 'projects') {
-      const saved = loadProjectData(client.id);
+      const saved = loadProjectDataRef.current(client.id);
       if (saved && (saved.name || saved.budget || saved.description) && !shouldShowProjectWarning) {
         setIsUnsavedProjectDialogOpen(true);
         setShouldShowProjectWarning(true);
       }
     }
-  }, [open, client?.id, activeTab, loadProjectData, shouldShowProjectWarning]);
+  }, [open, client?.id, activeTab, shouldShowProjectWarning]);
 
   useEffect(() => {
     if (!open) {
