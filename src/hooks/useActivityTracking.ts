@@ -68,9 +68,12 @@ export const useActivityTracking = ({
       if (savedSession) {
         try {
           const session = JSON.parse(savedSession);
+          // Продлеваем сессию по реальной активности: обновляем и метку активности,
+          // и абсолютное время истечения expiresAt (по нему проверяется вход после перезагрузки).
           localStorage.setItem('authSession', JSON.stringify({
             ...session,
             lastActivity: now,
+            expiresAt: now + SESSION_TIMEOUT,
           }));
         } catch (error) {
           console.error('Ошибка обновления активности:', error);

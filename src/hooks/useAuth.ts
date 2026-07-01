@@ -37,6 +37,20 @@ getSessionTimeout().then(timeout => {
   console.log('[AUTH] Session timeout loaded:', SESSION_TIMEOUT / 60000, 'minutes');
 });
 
+// Единая проверка истечения сессии.
+// Работает даже если SESSION_TIMEOUT ещё не загрузился с сервера:
+// приоритет у абсолютной метки expiresAt, сохранённой при логине.
+const isSessionExpired = (session: { lastActivity?: number; expiresAt?: number } | null): boolean => {
+  if (!session) return true;
+  const now = Date.now();
+  if (typeof session.expiresAt === 'number' && session.expiresAt > 0) {
+    return now >= session.expiresAt;
+  }
+  const last = session.lastActivity || 0;
+  if (!last) return true;
+  return now - last > SESSION_TIMEOUT;
+};
+
 export const useAuth = () => {
   const [currentPage, setCurrentPage] = useState<'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin'>('auth');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -109,6 +123,7 @@ export const useAuth = () => {
       isAdmin: isUserAdmin,
       currentPage: 'dashboard',
       lastActivity: Date.now(),
+      expiresAt: Date.now() + SESSION_TIMEOUT,
     }));
 
     try {
@@ -185,7 +200,32 @@ export const useAuth = () => {
         setLoading(false);
         return;
       }
-      
+
+      // ЕДИНАЯ ПРОВЕРКА ИСТЕЧЕНИЯ: если сохранённая сессия просрочена —
+      // сразу чистим всё и показываем логин, не восстанавливая ни OAuth, ни password-сессию.
+      // Работает для всех типов входа и не зависит от асинхронной загрузки таймаута.
+      const vkSessionInUrl = urlParams.get('vk_session');
+      if (!vkSessionInUrl) {
+        const rawSession = localStorage.getItem('authSession');
+        if (rawSession) {
+          try {
+            const parsed = JSON.parse(rawSession);
+            if (isSessionExpired(parsed)) {
+              console.log('⏰ Сессия истекла — выход на страницу входа');
+              clearUserSession();
+              handleLogout();
+              setLoading(false);
+              return;
+            }
+          } catch {
+            clearUserSession();
+            handleLogout();
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       const vkSessionId = urlParams.get('vk_session');
       
       if (vkSessionId) {
@@ -349,10 +389,9 @@ export const useAuth = () => {
           const savedSession = localStorage.getItem('authSession');
           if (savedSession) {
             const session = JSON.parse(savedSession);
-            const timeSinceLastActivity = Date.now() - (session.lastActivity || 0);
-            
-            if (timeSinceLastActivity > SESSION_TIMEOUT) {
+            if (isSessionExpired(session)) {
               console.log('⏰ Session expired. Logging out...');
+              clearUserSession();
               handleLogout();
               setLoading(false);
               alert('Сессия истекла. Пожалуйста, войдите снова.');
@@ -422,6 +461,25 @@ export const useAuth = () => {
             setIsAdmin(isUserAdmin);
             setCurrentPage('dashboard');
             lastActivityRef.current = Date.now();
+
+            // Обновляем/создаём authSession с абсолютным сроком истечения,
+            // чтобы OAuth-сессия корректно проверялась на просрочку при перезагрузке.
+            try {
+              const prev = JSON.parse(localStorage.getItem('authSession') || '{}');
+              const nowTs = Date.now();
+              localStorage.setItem('authSession', JSON.stringify({
+                ...prev,
+                isAuthenticated: true,
+                userId: uid,
+                userEmail: dbData.email || userData.email || prev.userEmail || '',
+                isAdmin: isUserAdmin,
+                currentPage: 'dashboard',
+                lastActivity: nowTs,
+                expiresAt: nowTs + SESSION_TIMEOUT,
+              }));
+            } catch (e) {
+              console.warn('[AUTH] Не удалось обновить authSession для OAuth:', e);
+            }
             
             if (dbData.email) {
               setUserEmail(dbData.email);
@@ -457,9 +515,8 @@ export const useAuth = () => {
         try {
           const session = JSON.parse(savedSession);
           const now = Date.now();
-          const timeSinceLastActivity = now - (session.lastActivity || 0);
-          
-          if (timeSinceLastActivity < SESSION_TIMEOUT) {
+
+          if (!isSessionExpired(session)) {
             setIsAuthenticated(session.isAuthenticated);
             setUserId(session.userId);
             setUserEmail(session.userEmail);
@@ -469,10 +526,12 @@ export const useAuth = () => {
           } else {
             console.log('[AUTH] Session timeout, clearing');
             clearUserSession();
+            handleLogout();
           }
         } catch (error) {
           console.error('Ошибка восстановления сессии:', error);
           clearUserSession();
+          handleLogout();
         }
       }
     };
@@ -570,10 +629,12 @@ export const useAuth = () => {
       if (savedSession) {
         try {
           const session = JSON.parse(savedSession);
+          // Сохраняем только текущую страницу. НЕ продлеваем срок жизни сессии
+          // при простой навигации — иначе истёкшая сессия «оживала» бы при рендере.
+          // Продление делает useActivityTracking по реальным действиям пользователя.
           localStorage.setItem('authSession', JSON.stringify({
             ...session,
             currentPage,
-            lastActivity: Date.now(),
           }));
         } catch (error) {
           console.error('Ошибка обновления сессии:', error);
