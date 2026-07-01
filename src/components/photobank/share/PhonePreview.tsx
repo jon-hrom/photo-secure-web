@@ -146,7 +146,7 @@ export default function PhonePreview({ settings, photos, folderName, previewMode
               }}
             >
               <img
-                src={photo.thumbnail_url || photo.photo_url}
+                src={photo.thumbnail_url || (/\.(cr2|cr3|nef|arw|dng|orf|rw2|raw|raf)$/i.test(photo.file_name || '') ? '' : photo.photo_url)}
                 alt=""
                 className="w-full h-auto block"
                 loading="lazy"
