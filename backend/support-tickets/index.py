@@ -291,8 +291,10 @@ def handler(event: dict, context) -> dict:
 
         # ---------- USER: количество непрочитанных по всем тикетам ----------
         if method == 'GET' and action == 'unread':
+            # Закрытые обращения не учитываем: по ним пользователь уже не ждёт ответа,
+            # иначе счётчик на конверте "зависает" и не сбрасывается.
             cur.execute(
-                f"SELECT COALESCE(SUM(user_unread_count), 0) AS cnt FROM {SCHEMA}.support_tickets WHERE user_identifier = %s",
+                f"SELECT COALESCE(SUM(user_unread_count), 0) AS cnt FROM {SCHEMA}.support_tickets WHERE user_identifier = %s AND status != 'closed'",
                 (user_identifier,),
             )
             return resp(200, {'unread_count': cur.fetchone()['cnt']})
@@ -375,7 +377,8 @@ def handler(event: dict, context) -> dict:
         if method == 'POST' and action == 'close':
             ticket_id = body.get('ticket_id')
             cur.execute(
-                f"UPDATE {SCHEMA}.support_tickets SET status = 'closed', closed_at = NOW(), updated_at = NOW() "
+                f"UPDATE {SCHEMA}.support_tickets SET status = 'closed', closed_at = NOW(), updated_at = NOW(), "
+                f"user_unread_count = 0, admin_unread_count = 0 "
                 f"WHERE id = %s AND user_identifier = %s RETURNING *",
                 (ticket_id, user_identifier),
             )
@@ -450,7 +453,7 @@ def handler(event: dict, context) -> dict:
             if not admin:
                 return resp(403, {'error': 'Нет доступа'})
             cur.execute(
-                f"SELECT COALESCE(SUM(admin_unread_count), 0) AS cnt FROM {SCHEMA}.support_tickets"
+                f"SELECT COALESCE(SUM(admin_unread_count), 0) AS cnt FROM {SCHEMA}.support_tickets WHERE status != 'closed'"
             )
             return resp(200, {'unread_count': cur.fetchone()['cnt']})
 
@@ -500,8 +503,11 @@ def handler(event: dict, context) -> dict:
                 return resp(400, {'error': 'Неверный статус'})
             cur.execute(
                 f"UPDATE {SCHEMA}.support_tickets SET status = %s, updated_at = NOW(), "
-                f"closed_at = CASE WHEN %s = 'closed' THEN NOW() ELSE NULL END WHERE id = %s RETURNING *",
-                (new_status, new_status, ticket_id),
+                f"closed_at = CASE WHEN %s = 'closed' THEN NOW() ELSE NULL END, "
+                f"user_unread_count = CASE WHEN %s = 'closed' THEN 0 ELSE user_unread_count END, "
+                f"admin_unread_count = CASE WHEN %s = 'closed' THEN 0 ELSE admin_unread_count END "
+                f"WHERE id = %s RETURNING *",
+                (new_status, new_status, new_status, new_status, ticket_id),
             )
             ticket = cur.fetchone()
             if not ticket:

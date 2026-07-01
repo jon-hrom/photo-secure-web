@@ -36,6 +36,15 @@
       "method": "GET",
       "path": "/?action=cron_auto_close",
       "expectedStatus": 403
+    },
+    {
+      "name": "Счётчик непрочитанных пользователя",
+      "method": "GET",
+      "path": "/?action=unread",
+      "headers": {"X-User-Id": "1"},
+      "expectedStatus": 200,
+      "expectedBody": {"unread_count": 0},
+      "bodyMatcher": "partial"
     }
   ]
 }
