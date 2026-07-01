@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 import { useState, useEffect, type CSSProperties } from 'react';
 import { extractDominantColor } from '@/utils/dominantColor';
+import { getThumbUrl } from '@/utils/imageThumb';
 
 interface Photo {
   id: number;
@@ -164,7 +165,9 @@ const PhotoGridCard = ({
                 </div>
               )}
               <img
-                src={fixDoubleSpacesInUrl(photo.thumbnail_s3_url || photo.s3_url)}
+                src={photo.is_video
+                  ? fixDoubleSpacesInUrl(photo.thumbnail_s3_url || photo.s3_url)
+                  : getThumbUrl(fixDoubleSpacesInUrl(photo.thumbnail_s3_url || photo.s3_url), 500)}
                 alt={photo.file_name}
                 className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${imageLoaded && !imageError ? 'opacity-100' : 'opacity-0'}`}
                 loading="lazy"
