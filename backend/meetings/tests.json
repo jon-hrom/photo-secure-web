@@ -1,0 +1,38 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET without auth",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401
+    },
+    {
+      "name": "POST without auth",
+      "method": "POST",
+      "path": "/",
+      "body": {"client_id": 1, "meeting_date": "2030-01-01"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "POST missing fields",
+      "method": "POST",
+      "path": "/",
+      "headers": {"X-User-Id": "999999"},
+      "body": {"name": "Встреча"},
+      "expectedStatus": 400
+    },
+    {
+      "name": "GET with auth returns list",
+      "method": "GET",
+      "path": "/",
+      "headers": {"X-User-Id": "999999"},
+      "expectedStatus": 200
+    }
+  ]
+}

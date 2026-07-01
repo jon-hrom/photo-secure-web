@@ -427,6 +427,206 @@ def determine_pending_reminders(hours_until: float, already_sent: set, is_today:
     return pending
 
 
+# ============ ВСТРЕЧИ (client_meetings) ============
+
+def log_meeting_reminder(conn, meeting_id, reminder_type, success=True, error_message=None):
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.meeting_reminders_log
+                (meeting_id, reminder_type, sent_to, channel, success, error_message)
+                VALUES ({escape_sql(meeting_id)}, {escape_sql(reminder_type)}, 'both', 'both', {escape_sql(success)}, {escape_sql(error_message)})
+            """)
+            conn.commit()
+    except Exception as e:
+        print(f"[MEETING_LOG_ERROR] {e}")
+        conn.rollback()
+
+
+def get_sent_meeting_reminders(cur, meeting_id):
+    cur.execute(f"""
+        SELECT reminder_type FROM {SCHEMA}.meeting_reminders_log
+        WHERE meeting_id = {escape_sql(meeting_id)} AND success = TRUE
+    """)
+    return set(row['reminder_type'] for row in cur.fetchall())
+
+
+def send_meeting_reminder(reminder_type: str, meeting: dict, client: dict, photographer: dict,
+                          creds: dict, tz_label: str, hours_until: float) -> dict:
+    """Напоминание о встрече. reminder_type: 24h/today/5h/1h/custom."""
+    time_str = format_time(meeting.get('meeting_time'))
+    if tz_label:
+        time_str = f"{time_str} ({tz_label})"
+    address = meeting.get('address') or 'не указано'
+    topic = meeting.get('name') or 'Встреча'
+    photographer_name = photographer.get('display_name') or photographer.get('email', 'Фотограф')
+    photographer_phone = photographer.get('phone', 'не указан')
+    client_name = client.get('name') or 'Клиент'
+    client_phone = client.get('phone') or 'не указан'
+
+    real_time_text = format_time_until(hours_until) if hours_until is not None else None
+
+    if reminder_type == 'custom':
+        title = 'Напоминание о встрече'
+        time_text = real_time_text or 'скоро'
+    elif reminder_type in ('24h', 'today'):
+        title = 'Напоминание о встрече'
+        time_text = 'сегодня' if reminder_type == 'today' else 'завтра'
+    elif reminder_type == '5h':
+        title = f"Встреча {real_time_text or 'через 5 часов'}"
+        time_text = real_time_text or 'через 5 часов'
+    else:
+        title = f"Встреча {real_time_text or 'через 1 час'}"
+        time_text = real_time_text or 'через 1 час'
+
+    auto_disclaimer = "\n\n———\n🤖 Сообщение сформировано автоматической системой Foto-mix.ru, отвечать не нужно!"
+
+    client_msg = f"""⏰ {title}!
+
+🤝 Встреча с фотографом {photographer_name} {time_text}!
+
+📌 Тема: {topic}
+🕐 Время: {time_str}
+📍 Место: {address}
+
+👤 Фотограф: {photographer_name}
+📞 Телефон: {photographer_phone}{auto_disclaimer}"""
+
+    photographer_msg = f"""⏰ {title}!
+
+🤝 У вас встреча с клиентом {time_text}!
+
+📌 Тема: {topic}
+🕐 Время: {time_str}
+📍 Место: {address}
+
+👤 Клиент: {client_name}
+📞 Телефон: {client_phone}{auto_disclaimer}"""
+
+    results = {'client': {}, 'photographer': {}}
+
+    # Клиенту напоминаем только о самой встрече (не о custom — оно личное для фотографа)
+    if reminder_type != 'custom':
+        if client.get('phone') and creds.get('instance_id') and creds.get('token'):
+            try:
+                send_via_green_api(creds['instance_id'], creds['token'], client['phone'], client_msg)
+                results['client']['whatsapp'] = True
+            except Exception as e:
+                results['client']['whatsapp_error'] = str(e)
+        client_tg = client.get('telegram_chat_id') or client.get('telegram_id')
+        if client_tg:
+            r = send_via_telegram(client_tg, client_msg)
+            results['client']['telegram'] = r.get('success', False)
+        if client.get('email'):
+            results['client']['email'] = send_via_email(
+                client['email'], f"⏰ {title} — {time_str}",
+                build_email_html(f"🤝 {title}", [
+                    f"Встреча с фотографом <b>{photographer_name}</b> <b>{time_text}</b>!",
+                    f"📌 <b>Тема:</b> {topic}",
+                    f"🕐 <b>Время:</b> {time_str}",
+                    f"📍 <b>Место:</b> {address}",
+                    f"📞 <b>Телефон:</b> {photographer_phone}",
+                ]))
+
+    if photographer.get('phone') and creds.get('instance_id') and creds.get('token'):
+        try:
+            send_via_green_api(creds['instance_id'], creds['token'], photographer['phone'], photographer_msg)
+            results['photographer']['whatsapp'] = True
+        except Exception as e:
+            results['photographer']['whatsapp_error'] = str(e)
+    photographer_tg = photographer.get('telegram_chat_id') or photographer.get('telegram_id')
+    if photographer_tg:
+        r = send_via_telegram(photographer_tg, photographer_msg)
+        results['photographer']['telegram'] = r.get('success', False)
+    if photographer.get('email'):
+        results['photographer']['email'] = send_via_email(
+            photographer['email'], f"⏰ {title} — {time_str}",
+            build_email_html(f"🤝 {title}", [
+                f"У вас встреча с клиентом <b>{time_text}</b>!",
+                f"📌 <b>Тема:</b> {topic}",
+                f"🕐 <b>Время:</b> {time_str}",
+                f"📍 <b>Место:</b> {address}",
+                f"👤 <b>Клиент:</b> {client_name}",
+                f"📞 <b>Телефон:</b> {client_phone}",
+            ]))
+
+    return results
+
+
+def process_meetings(conn, creds, results):
+    """Проходит по ближайшим встречам и отправляет напоминания 24h/5h/1h + custom."""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT
+                m.id as meeting_id, m.name, m.meeting_date, m.meeting_time,
+                m.duration, m.address, m.description, m.custom_reminder_at, m.status,
+                c.id as client_id, c.name as client_name,
+                c.phone as client_phone, c.telegram_chat_id as client_telegram_id, c.email as client_email,
+                u.id as photographer_id, u.display_name as photographer_name,
+                u.email as photographer_email, u.phone as photographer_phone,
+                u.telegram_chat_id as photographer_telegram_id, u.region as photographer_region
+            FROM {SCHEMA}.client_meetings m
+            JOIN {SCHEMA}.clients c ON m.client_id = c.id
+            JOIN {SCHEMA}.users u ON m.photographer_id = u.id
+            WHERE m.meeting_date IS NOT NULL
+              AND m.meeting_time IS NOT NULL
+              AND m.status = 'new'
+              AND m.meeting_date >= CURRENT_DATE - INTERVAL '1 day'
+              AND m.meeting_date <= CURRENT_DATE + INTERVAL '3 days'
+        """)
+        meetings = cur.fetchall()
+        print(f"[CRON] Found {len(meetings)} meetings to check")
+
+        for m in meetings:
+            region = m.get('photographer_region') or ''
+            now_local = get_photographer_now(region)
+            tz_label = get_tz_label(region)
+            meeting_dt = datetime.combine(m['meeting_date'], m['meeting_time'])
+            hours_until = (meeting_dt - now_local).total_seconds() / 3600
+            results['projects_checked'] += 1
+
+            already_sent = get_sent_meeting_reminders(cur, m['meeting_id'])
+            date_only = m['meeting_date']
+            is_today = date_only == now_local.date()
+            pending = determine_pending_reminders(hours_until, already_sent, is_today=is_today,
+                                                  now_local=now_local, shooting_dt=meeting_dt)
+
+            # Кастомное напоминание фотографу в заданное им время
+            custom_at = m.get('custom_reminder_at')
+            if custom_at and 'custom' not in already_sent:
+                if custom_at <= now_local:
+                    pending.append('custom')
+
+            if not pending:
+                continue
+
+            client_data = {
+                'id': m['client_id'], 'name': m['client_name'], 'phone': m['client_phone'],
+                'telegram_chat_id': m['client_telegram_id'], 'email': m['client_email']
+            }
+            photographer_data = {
+                'id': m['photographer_id'], 'display_name': m['photographer_name'],
+                'email': m['photographer_email'], 'phone': m['photographer_phone'],
+                'telegram_chat_id': m['photographer_telegram_id']
+            }
+            meeting_data = dict(m)
+
+            for rtype in pending:
+                try:
+                    res = send_meeting_reminder(rtype, meeting_data, client_data, photographer_data,
+                                                creds, tz_label, hours_until)
+                    log_meeting_reminder(conn, m['meeting_id'], rtype, True)
+                    results['reminders_sent'].append({
+                        'meeting_id': m['meeting_id'], 'name': m['name'],
+                        'reminder_type': rtype, 'timezone': tz_label,
+                        'hours_until': round(hours_until, 1), 'result': res
+                    })
+                    print(f"[SENT] meeting {rtype} for #{m['meeting_id']} '{m['name']}'")
+                except Exception as e:
+                    log_meeting_reminder(conn, m['meeting_id'], rtype, False, str(e))
+                    print(f"[ERROR] meeting {rtype} for #{m['meeting_id']}: {e}")
+
+
 def format_project_notification_for_client(project_data, photographer_data, payment_data=None):
     date_str = project_data.get('start_date', '')
     if date_str and hasattr(date_str, 'strftime'):
@@ -884,6 +1084,14 @@ def handler(event, context):
                     except Exception as e:
                         log_reminder(conn, proj['project_id'], reminder_type, 'both', False, str(e))
                         print(f"[ERROR] {reminder_type} for project {proj['project_id']}: {e}")
+
+        # Напоминания о встречах (client_meetings)
+        try:
+            process_meetings(conn, creds, results)
+        except Exception as e:
+            print(f"[MEETINGS_ERROR] {e}")
+            import traceback
+            print(traceback.format_exc())
 
         conn.close()
         now_utc = datetime.now(timezone.utc)

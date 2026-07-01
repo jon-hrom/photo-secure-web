@@ -10,8 +10,21 @@ import DashboardCalendar from '@/components/dashboard/DashboardCalendar';
 import DashboardBookingDetailsDialog from '@/components/dashboard/DashboardBookingDetailsDialog';
 import DashboardProjectDetailsDialog from '@/components/dashboard/DashboardProjectDetailsDialog';
 import DashboardUpcomingBookings from '@/components/dashboard/DashboardUpcomingBookings';
-import { Client } from '@/components/clients/ClientsTypes';
+import { Client, Project, Booking } from '@/components/clients/ClientsTypes';
 import { isAdminUser } from '@/utils/adminCheck';
+import { fetchMeetings, Meeting } from '@/components/clients/dialog/MeetingService';
+
+interface UpcomingItem {
+  id: number;
+  kind: 'shooting' | 'meeting';
+  date: Date;
+  fullDateTime: Date;
+  time: string;
+  description: string;
+  client: Client;
+  project?: Project;
+  meeting?: Meeting;
+}
 
 interface DashboardProps {
   userRole: 'user' | 'admin' | 'guest';
@@ -37,12 +50,13 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
   const [balance] = useState(0);
 
   const [storageUsage, setStorageUsage] = useState({ usedGb: 0, limitGb: 5, percent: 0, plan_name: 'Старт', plan_id: 1 });
-  const [selectedClient, setSelectedClient] = useState<any>(null);
-  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<UpcomingItem | Booking | null>(null);
   const [isBookingDetailsOpen, setIsBookingDetailsOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isProjectDetailsOpen, setIsProjectDetailsOpen] = useState(false);
-  const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
+  const [upcomingBookings, setUpcomingBookings] = useState<UpcomingItem[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -52,42 +66,65 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
   }, []);
 
   useEffect(() => {
+    fetchMeetings().then(setMeetings).catch(() => setMeetings([]));
+  }, [propUserId, propClients.length]);
+
+  useEffect(() => {
     const now = new Date();
-    
-    const projectBookings = propClients
-      .flatMap((client: Client) => 
-        (client.projects || []).map(project => {
-          if (!project.startDate || !project.shooting_time) return null;
-          
+
+    const shootingItems: UpcomingItem[] = propClients.flatMap((client: Client) =>
+      (client.projects || [])
+        .filter((project) => project.startDate && project.shooting_time && project.status !== 'completed')
+        .map((project) => {
           const shootingDate = new Date(project.startDate);
           shootingDate.setHours(0, 0, 0, 0);
-          
-          // Создаём полную дату со временем
-          const [hours, minutes] = project.shooting_time.split(':').map(Number);
+          const [hours, minutes] = (project.shooting_time as string).split(':').map(Number);
           const fullDateTime = new Date(project.startDate);
           fullDateTime.setHours(hours, minutes, 0, 0);
-          
           return {
             id: project.id,
+            kind: 'shooting' as const,
             date: shootingDate,
-            fullDateTime: fullDateTime,
-            time: project.shooting_time,
+            fullDateTime,
+            time: project.shooting_time as string,
             description: project.name,
             client,
-            project
+            project,
           };
         })
-      )
-      .filter((b: any) => {
-        if (!b) return false;
-        // Проверяем, что событие ещё не прошло по времени
-        return b.fullDateTime >= now;
+    );
+
+    const clientById = new Map(propClients.map((c) => [c.id, c]));
+    const meetingItems: UpcomingItem[] = meetings
+      .filter((m) => m.status === 'new' && m.meeting_date && m.meeting_time)
+      .map((m) => {
+        const client = clientById.get(m.client_id);
+        if (!client) return null;
+        const mDate = new Date(m.meeting_date);
+        mDate.setHours(0, 0, 0, 0);
+        const [h, min] = (m.meeting_time as string).split(':').map(Number);
+        const fullDateTime = new Date(m.meeting_date);
+        fullDateTime.setHours(h, min, 0, 0);
+        return {
+          id: 1_000_000_000 + m.id,
+          kind: 'meeting' as const,
+          date: mDate,
+          fullDateTime,
+          time: (m.meeting_time as string).slice(0, 5),
+          description: m.name || 'Встреча',
+          client,
+          meeting: m,
+        };
       })
-      .sort((a: any, b: any) => a.fullDateTime.getTime() - b.fullDateTime.getTime())
+      .filter((x): x is UpcomingItem => x !== null);
+
+    const merged = [...shootingItems, ...meetingItems]
+      .filter((b) => b.fullDateTime >= now)
+      .sort((a, b) => a.fullDateTime.getTime() - b.fullDateTime.getTime())
       .slice(0, 5);
 
-    setUpcomingBookings(projectBookings);
-  }, [propClients]);
+    setUpcomingBookings(merged);
+  }, [propClients, meetings]);
 
 
 

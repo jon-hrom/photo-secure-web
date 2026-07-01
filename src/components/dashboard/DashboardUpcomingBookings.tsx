@@ -7,6 +7,7 @@ import { formatLocalDate } from '@/utils/dateFormat';
 interface BookingWithClient extends Booking {
   client: Client;
   project?: Project;
+  kind?: 'shooting' | 'meeting';
 }
 
 interface DashboardUpcomingBookingsProps {
@@ -145,16 +146,27 @@ const DashboardUpcomingBookings = ({
                         )}
                       </div>
                     </div>
-                    <Badge 
-                      variant="secondary" 
-                      className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 flex-shrink-0 group-hover:scale-110 transition-transform duration-300 ${
-                        isUrgent 
-                          ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800' 
-                          : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                      }`}
-                    >
-                      {daysUntil === 0 ? 'Сегодня' : daysUntil === 1 ? 'Завтра' : `${daysUntil} дн.`}
-                    </Badge>
+                    <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                      <Badge
+                        className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wide px-1.5 sm:px-2 py-0.5 border-0 text-white ${
+                          booking.kind === 'meeting'
+                            ? 'bg-violet-500 hover:bg-violet-500'
+                            : 'bg-sky-500 hover:bg-sky-500'
+                        }`}
+                      >
+                        {booking.kind === 'meeting' ? 'Встреча' : 'Съёмка'}
+                      </Badge>
+                      <Badge
+                        variant="secondary"
+                        className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 group-hover:scale-110 transition-transform duration-300 ${
+                          isUrgent
+                            ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
+                            : 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                        }`}
+                      >
+                        {daysUntil === 0 ? 'Сегодня' : daysUntil === 1 ? 'Завтра' : `${daysUntil} дн.`}
+                      </Badge>
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-gray-600 dark:text-gray-300 flex-wrap">

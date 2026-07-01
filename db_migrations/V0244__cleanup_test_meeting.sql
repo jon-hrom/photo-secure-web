@@ -1,0 +1,1 @@
+UPDATE t_p28211681_photo_secure_web.client_meetings SET status = 'cancelled', name = '__TEST_CLEANUP__' WHERE id = 1 AND name = 'Тестовая встреча';

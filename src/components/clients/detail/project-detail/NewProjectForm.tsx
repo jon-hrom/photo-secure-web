@@ -40,12 +40,25 @@ const num = (v?: string) => {
   return isNaN(n) ? 0 : n;
 };
 
+export interface NewMeetingDraft {
+  name: string;
+  meeting_date: string;
+  meeting_time: string;
+  duration: number;
+  address: string;
+  description: string;
+  custom_reminder_at: string;
+}
+
 interface NewProjectFormProps {
   isOpen: boolean;
   onToggle: () => void;
   newProject: NewProjectData;
   setNewProject: (project: NewProjectData) => void;
   handleAddProject: () => Promise<void> | void;
+  newMeeting?: NewMeetingDraft;
+  setNewMeeting?: (m: NewMeetingDraft) => void;
+  handleAddMeeting?: () => Promise<void> | void;
 }
 
 const NewProjectForm = ({
@@ -54,8 +67,13 @@ const NewProjectForm = ({
   newProject,
   setNewProject,
   handleAddProject,
+  newMeeting,
+  setNewMeeting,
+  handleAddMeeting,
 }: NewProjectFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mode, setMode] = useState<'shooting' | 'meeting'>('shooting');
+  const meetingEnabled = !!(newMeeting && setNewMeeting && handleAddMeeting);
 
   const photoItems = newProject.photo_items ?? [];
 
@@ -104,11 +122,19 @@ const NewProjectForm = ({
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await handleAddProject();
+      if (mode === 'meeting' && handleAddMeeting) {
+        await handleAddMeeting();
+      } else {
+        await handleAddProject();
+      }
       onToggle();
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const updateMeeting = (patch: Partial<NewMeetingDraft>) => {
+    if (newMeeting && setNewMeeting) setNewMeeting({ ...newMeeting, ...patch });
   };
 
   if (!isOpen) {
@@ -133,6 +159,113 @@ const NewProjectForm = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 py-3 pb-20 max-h-[60vh] md:max-h-none overflow-y-auto md:overflow-visible">
+        {meetingEnabled && (
+          <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg mb-1">
+            <button
+              type="button"
+              onClick={() => setMode('shooting')}
+              className={`flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-medium transition-all ${
+                mode === 'shooting'
+                  ? 'bg-sky-500 text-white shadow'
+                  : 'text-muted-foreground hover:bg-background'
+              }`}
+            >
+              <Icon name="Camera" size={15} />
+              Съёмка
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('meeting')}
+              className={`flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-medium transition-all ${
+                mode === 'meeting'
+                  ? 'bg-violet-500 text-white shadow'
+                  : 'text-muted-foreground hover:bg-background'
+              }`}
+            >
+              <Icon name="Handshake" size={15} />
+              Встреча
+            </button>
+          </div>
+        )}
+
+        {mode === 'meeting' && newMeeting ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="space-y-1 md:col-span-3">
+                <Label className="text-xs">Название встречи</Label>
+                <Input
+                  value={newMeeting.name}
+                  onChange={(e) => updateMeeting({ name: e.target.value })}
+                  placeholder="Обсуждение съёмки"
+                  className="text-xs h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Дата встречи *</Label>
+                <Input
+                  type="date"
+                  min="2020-01-01"
+                  max="2099-12-31"
+                  value={newMeeting.meeting_date}
+                  onChange={(e) => updateMeeting({ meeting_date: e.target.value })}
+                  className="text-xs h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Время <span className="text-muted-foreground font-normal">({getUserTimezoneShort()})</span></Label>
+                <Input
+                  type="time"
+                  value={newMeeting.meeting_time}
+                  onChange={(e) => updateMeeting({ meeting_time: e.target.value })}
+                  className="text-xs h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Длительность (минуты)</Label>
+                <DurationSelect
+                  value={newMeeting.duration || 60}
+                  onChange={(d) => updateMeeting({ duration: d })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Адрес встречи</Label>
+              <Input
+                type="text"
+                value={newMeeting.address}
+                onChange={(e) => updateMeeting({ address: e.target.value })}
+                placeholder="Кафе на Тверской, Москва"
+                className="text-xs h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Описание</Label>
+              <Textarea
+                value={newMeeting.description}
+                onChange={(e) => updateMeeting({ description: e.target.value })}
+                placeholder="О чём встреча..."
+                rows={2}
+                className="text-xs"
+              />
+            </div>
+            <div className="rounded-lg border border-border/60 p-3 space-y-1">
+              <Label className="text-xs flex items-center gap-1.5">
+                <Icon name="BellRing" size={13} className="text-violet-500" />
+                Доп. напоминание фотографу
+              </Label>
+              <Input
+                type="datetime-local"
+                value={newMeeting.custom_reminder_at}
+                onChange={(e) => updateMeeting({ custom_reminder_at: e.target.value })}
+                className="text-xs h-9"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Кроме стандартных (за сутки и за 5 часов) — придёт вам в указанное время
+              </p>
+            </div>
+          </div>
+        ) : mode === 'shooting' ? (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div className="space-y-1">
             <Label className="text-xs">Название проекта *</Label>
@@ -374,10 +507,16 @@ const NewProjectForm = ({
             Добавить в Google Calendar
           </Label>
         </div>
+        </>
+        ) : null}
         <div className="sticky bottom-0 -mx-3 px-3 pt-3 pb-3 bg-background border-t md:border-0 md:static md:mx-0 md:px-0 md:pt-2 md:pb-0 z-10">
           <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full md:w-auto h-11 md:h-9 text-sm md:text-xs shadow-lg md:shadow-none">
             <Icon name={isSubmitting ? "Loader2" : "Save"} size={16} className={`mr-2${isSubmitting ? " animate-spin" : ""}`} />
-            {isSubmitting ? "Сохраняем и отправляем..." : "Сохранить проект и отправить уведомления"}
+            {isSubmitting
+              ? "Сохраняем и отправляем..."
+              : mode === 'meeting'
+                ? "Сохранить встречу и отправить уведомления"
+                : "Сохранить проект и отправить уведомления"}
           </Button>
         </div>
       </CardContent>

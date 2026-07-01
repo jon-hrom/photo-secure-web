@@ -5,9 +5,11 @@ import Icon from '@/components/ui/icon';
 import { Client, Project, Payment } from '@/components/clients/ClientsTypes';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import ProjectCard from './project-detail/ProjectCard';
-import NewProjectForm from './project-detail/NewProjectForm';
+import NewProjectForm, { NewMeetingDraft } from './project-detail/NewProjectForm';
 import { toast } from 'sonner';
 import { sendProjectNotification } from '@/components/clients/dialog/NotificationService';
+import { createMeeting } from '@/components/clients/dialog/MeetingService';
+import { todayLocalDate } from '@/utils/dateFormat';
 
 interface ClientDetailProjectsProps {
   projects: Project[];
@@ -24,7 +26,7 @@ interface ClientDetailProjectsProps {
     hourly_rate?: string;
     add_to_calendar?: boolean;
   };
-  setNewProject: (project: any) => void;
+  setNewProject: (project: Record<string, unknown>) => void;
   handleAddProject: () => Promise<void> | void;
   handleDeleteProject: (projectId: number) => void;
   handleUpdateProject: (projectId: number, updates: Partial<Project>, notifyClient?: boolean) => void;
@@ -70,6 +72,40 @@ const ClientDetailProjects = ({
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [highlightArchive, setHighlightArchive] = useState(false);
   const archiveRef = useRef<HTMLDivElement>(null);
+
+  const emptyMeeting: NewMeetingDraft = {
+    name: 'Встреча',
+    meeting_date: todayLocalDate(),
+    meeting_time: '12:00',
+    duration: 60,
+    address: '',
+    description: '',
+    custom_reminder_at: '',
+  };
+  const [newMeeting, setNewMeeting] = useState<NewMeetingDraft>(emptyMeeting);
+
+  const handleAddMeeting = useCallback(async () => {
+    if (!client) {
+      toast.error('Не удалось определить клиента');
+      return;
+    }
+    if (!newMeeting.meeting_date) {
+      toast.error('Укажите дату встречи');
+      return;
+    }
+    const notifyToast = toast.loading('Создаём встречу и отправляем уведомления...');
+    const result = await createMeeting(client.id, newMeeting, !!client.phone || !!client.telegram_chat_id, true);
+    toast.dismiss(notifyToast);
+    if (result.ok) {
+      toast.success('Встреча создана', {
+        description: 'Уведомления отправлены клиенту и вам',
+        duration: 6000,
+      });
+      setNewMeeting(emptyMeeting);
+    } else {
+      toast.error('Не удалось создать встречу', { description: result.error });
+    }
+  }, [client, newMeeting]);
 
   const activeProjects = projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
   const archivedProjects = projects.filter(p => p.status === 'completed' || p.status === 'cancelled');
@@ -430,6 +466,9 @@ const ClientDetailProjects = ({
           newProject={newProject}
           setNewProject={setNewProject}
           handleAddProject={handleAddProject}
+          newMeeting={newMeeting}
+          setNewMeeting={setNewMeeting}
+          handleAddMeeting={handleAddMeeting}
         />
       </div>
     </>
