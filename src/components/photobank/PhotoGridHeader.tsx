@@ -262,9 +262,6 @@ const PhotoGridHeader = ({
                 <p className="text-sm font-medium">
                   Загружается {uploadProgress.current} из {uploadProgress.total}
                 </p>
-                <p className="text-xs text-muted-foreground truncate max-w-[300px]">
-                  {uploadProgress.currentFileName}
-                </p>
               </div>
             </div>
             <Button 
