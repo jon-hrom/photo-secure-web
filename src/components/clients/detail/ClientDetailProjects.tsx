@@ -5,10 +5,11 @@ import Icon from '@/components/ui/icon';
 import { Client, Project, Payment } from '@/components/clients/ClientsTypes';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import ProjectCard from './project-detail/ProjectCard';
+import MeetingCard from './project-detail/MeetingCard';
 import NewProjectForm, { NewMeetingDraft } from './project-detail/NewProjectForm';
 import { toast } from 'sonner';
 import { sendProjectNotification } from '@/components/clients/dialog/NotificationService';
-import { createMeeting } from '@/components/clients/dialog/MeetingService';
+import { createMeeting, fetchMeetings, updateMeeting, deleteMeeting, Meeting } from '@/components/clients/dialog/MeetingService';
 import { todayLocalDate } from '@/utils/dateFormat';
 
 interface ClientDetailProjectsProps {
@@ -83,6 +84,17 @@ const ClientDetailProjects = ({
     custom_reminder_at: '',
   };
   const [newMeeting, setNewMeeting] = useState<NewMeetingDraft>(emptyMeeting);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+
+  const reloadMeetings = useCallback(async () => {
+    if (!client) return;
+    const list = await fetchMeetings(client.id);
+    setMeetings(list);
+  }, [client]);
+
+  useEffect(() => {
+    reloadMeetings();
+  }, [reloadMeetings]);
 
   const handleAddMeeting = useCallback(async () => {
     if (!client) {
@@ -102,10 +114,57 @@ const ClientDetailProjects = ({
         duration: 6000,
       });
       setNewMeeting(emptyMeeting);
+      reloadMeetings();
     } else {
       toast.error('Не удалось создать встречу', { description: result.error });
     }
-  }, [client, newMeeting]);
+  }, [client, newMeeting, reloadMeetings]);
+
+  const handleMeetingSave = useCallback(async (id: number, updates: Partial<Meeting>) => {
+    const notifyToast = toast.loading('Сохраняем и уведомляем клиента...');
+    const ok = await updateMeeting(id, {
+      ...updates,
+      notification_type: 'reschedule',
+      notify_client: !!(client?.phone || client?.telegram_chat_id),
+    });
+    toast.dismiss(notifyToast);
+    if (ok) {
+      toast.success('Встреча обновлена');
+      reloadMeetings();
+    } else {
+      toast.error('Не удалось обновить встречу');
+    }
+  }, [client, reloadMeetings]);
+
+  const handleMeetingCancel = useCallback(async (id: number, reason: string) => {
+    const notifyToast = toast.loading('Отменяем встречу...');
+    const ok = await updateMeeting(id, {
+      status: 'cancelled',
+      cancel_reason: reason,
+      notification_type: 'cancellation',
+      notify_client: !!(client?.phone || client?.telegram_chat_id),
+    });
+    toast.dismiss(notifyToast);
+    if (ok) {
+      toast.success('Встреча отменена, клиент уведомлён');
+      reloadMeetings();
+    } else {
+      toast.error('Не удалось отменить встречу');
+    }
+  }, [client, reloadMeetings]);
+
+  const handleMeetingDelete = useCallback(async (id: number) => {
+    const ok = await deleteMeeting(id);
+    if (ok) {
+      toast.success('Встреча удалена');
+      reloadMeetings();
+    } else {
+      toast.error('Не удалось удалить встречу');
+    }
+  }, [reloadMeetings]);
+
+  const activeMeetings = meetings.filter((m) => m.status !== 'cancelled');
+  const cancelledMeetings = meetings.filter((m) => m.status === 'cancelled');
 
   const activeProjects = projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
   const archivedProjects = projects.filter(p => p.status === 'completed' || p.status === 'cancelled');
@@ -452,6 +511,39 @@ const ClientDetailProjects = ({
                     </div>
                   )}
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {(activeMeetings.length > 0 || cancelledMeetings.length > 0) && (
+        <div className="mt-6 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-violet-600 dark:text-violet-400">
+            <Icon name="Handshake" size={16} />
+            Встречи
+            <Badge variant="secondary" className="text-xs">{activeMeetings.length}</Badge>
+          </div>
+          {activeMeetings.map((m) => (
+            <MeetingCard
+              key={`meeting-${m.id}`}
+              meeting={m}
+              onSave={handleMeetingSave}
+              onCancel={handleMeetingCancel}
+              onDelete={handleMeetingDelete}
+            />
+          ))}
+          {cancelledMeetings.length > 0 && (
+            <div className="pt-1 space-y-2">
+              <div className="text-xs text-muted-foreground">Отменённые встречи</div>
+              {cancelledMeetings.map((m) => (
+                <MeetingCard
+                  key={`meeting-${m.id}`}
+                  meeting={m}
+                  onSave={handleMeetingSave}
+                  onCancel={handleMeetingCancel}
+                  onDelete={handleMeetingDelete}
+                />
               ))}
             </div>
           )}

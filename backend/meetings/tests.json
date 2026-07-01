@@ -33,6 +33,20 @@
       "path": "/",
       "headers": {"X-User-Id": "999999"},
       "expectedStatus": 200
+    },
+    {
+      "name": "DELETE without id",
+      "method": "DELETE",
+      "path": "/",
+      "headers": {"X-User-Id": "999999"},
+      "expectedStatus": 400
+    },
+    {
+      "name": "DELETE nonexistent meeting ok",
+      "method": "DELETE",
+      "path": "/?id=999999999",
+      "headers": {"X-User-Id": "999999"},
+      "expectedStatus": 200
     }
   ]
 }

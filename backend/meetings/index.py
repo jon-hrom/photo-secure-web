@@ -148,6 +148,26 @@ def build_client_cancel_message(meeting: dict, photographer: dict) -> str:
     return "\n".join(lines)
 
 
+def build_client_reschedule_message(meeting: dict, photographer: dict) -> str:
+    photographer_name = photographer.get('display_name') or photographer.get('email') or 'Фотограф'
+    photographer_phone = photographer.get('phone') or 'не указан'
+    lines = [
+        "🔄 Встреча перенесена",
+        "",
+        f"📌 Тема: {meeting.get('name') or 'Встреча'}",
+        f"📅 Новая дата: {format_date_ru(meeting.get('meeting_date'))}",
+        f"🕐 Время: {format_time(meeting.get('meeting_time'))}",
+    ]
+    if meeting.get('address'):
+        lines.append(f"📍 Место встречи: {meeting.get('address')}")
+    lines.extend([
+        "",
+        f"👤 Фотограф: {photographer_name}",
+        f"📞 Телефон: {photographer_phone}",
+    ])
+    return "\n".join(lines)
+
+
 def build_photographer_message(meeting: dict, client: dict) -> str:
     lines = [
         "🤝 Новая встреча с клиентом!",
@@ -372,13 +392,37 @@ def handler(event: dict, context) -> dict:
                 photographer = load_photographer(cur, photographer_id)
 
             results = {}
-            if notification_type == 'cancellation' and notify_client and client and (client.get('phone') or client.get('telegram_chat_id')):
-                msg = build_client_cancel_message(meeting, photographer)
-                results['client_notification'] = notify_channels(
-                    client.get('phone'), client.get('telegram_chat_id'), photographer, msg
-                )
+            can_notify = client and (client.get('phone') or client.get('telegram_chat_id'))
+            if notify_client and can_notify:
+                if notification_type == 'cancellation':
+                    msg = build_client_cancel_message(meeting, photographer)
+                    results['client_notification'] = notify_channels(
+                        client.get('phone'), client.get('telegram_chat_id'), photographer, msg
+                    )
+                elif notification_type == 'reschedule':
+                    msg = build_client_reschedule_message(meeting, photographer)
+                    results['client_notification'] = notify_channels(
+                        client.get('phone'), client.get('telegram_chat_id'), photographer, msg
+                    )
 
             return resp(200, {'ok': True, 'meeting': serialize_meeting(meeting), 'results': results})
+
+        if method == 'DELETE':
+            params = event.get('queryStringParameters') or {}
+            meeting_id = params.get('id') or (json.loads(event.get('body') or '{}').get('id'))
+            if not meeting_id:
+                return resp(400, {'error': 'meeting id required'})
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    DELETE FROM {SCHEMA}.meeting_reminders_log
+                    WHERE meeting_id = {escape_sql(meeting_id)}
+                """)
+                cur.execute(f"""
+                    DELETE FROM {SCHEMA}.client_meetings
+                    WHERE id = {escape_sql(meeting_id)} AND photographer_id = {escape_sql(photographer_id)}
+                """)
+                conn.commit()
+            return resp(200, {'ok': True})
 
         return resp(405, {'error': 'Method not allowed'})
     except Exception as e:

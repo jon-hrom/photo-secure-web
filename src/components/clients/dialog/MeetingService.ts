@@ -98,6 +98,20 @@ export const updateMeeting = async (
   }
 };
 
+export const deleteMeeting = async (id: number): Promise<boolean> => {
+  const userId = localStorage.getItem('userId');
+  if (!userId) return false;
+  try {
+    const resp = await fetch(`${MEETINGS_API}?id=${id}`, {
+      method: 'DELETE',
+      headers: { 'X-User-Id': userId },
+    });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+};
+
 export const notifyMeetingResult = (result: CreateMeetingResult) => {
   if (result.ok) {
     toast.success('Встреча создана', {
