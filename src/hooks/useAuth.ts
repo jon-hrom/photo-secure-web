@@ -175,12 +175,21 @@ export const useAuth = () => {
     setIsVerified(false);
     setIsAdmin(false);
     setCurrentPage('auth');
-    localStorage.removeItem('authSession');
-    localStorage.removeItem('vk_user');
-    localStorage.removeItem('google_user');
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('vk_user_id');
-    localStorage.removeItem('vk_access_token');
+    // Полная централизованная очистка всех ключей авторизации
+    // (authSession, userId, vk/google/yandex, admin_viewing и т.д.)
+    clearUserSession();
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+  };
+
+  // Выход по кнопке «Выйти» на сайте: полностью стираем данные и делаем
+  // жёсткую перезагрузку на страницу входа. location.replace убирает текущую
+  // запись из истории, поэтому кнопка «Назад» не вернёт страницу прошлого пользователя.
+  const handleManualLogout = () => {
+    clearUserSession();
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    window.location.replace('/?logout=true');
   };
 
   useEffect(() => {
@@ -672,5 +681,6 @@ export const useAuth = () => {
     lastActivityRef,
     handleLoginSuccess,
     handleLogout,
+    handleManualLogout,
   };
 };

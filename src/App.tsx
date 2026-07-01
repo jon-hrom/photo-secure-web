@@ -118,6 +118,24 @@ const ActivityLogger = () => {
   return null;
 };
 
+// Защита от bfcache (back-forward cache браузера).
+// Когда пользователь нажимает «Назад», браузер может восстановить страницу
+// из кэша БЕЗ перезагрузки JS — тогда в памяти остаётся состояние предыдущего
+// пользователя (например, вышедшего админа). Чтобы это исключить, при восстановлении
+// из bfcache принудительно перезагружаем страницу — это заново проверит сессию.
+const BFCacheGuard = () => {
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+  return null;
+};
+
 const App = () => {
   const [newYearMode, setNewYearMode] = useState(false);
 
@@ -175,6 +193,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+        <BFCacheGuard />
         <LegalConsentGuard />
         <CookieConsentBanner />
         <ActivityLogger />

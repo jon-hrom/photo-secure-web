@@ -46,6 +46,7 @@ const Index = () => {
     lastActivityRef,
     handleLoginSuccess,
     handleLogout,
+    handleManualLogout,
   } = useAuth();
 
   const { clients, setClients, clientsLoading, lastSyncTime } = useClientsSync({
@@ -331,7 +332,7 @@ const Index = () => {
         verificationChecked={verificationChecked}
         hasEmail={hasEmail}
         hasVerifiedPhone={hasVerifiedPhone}
-        onLogout={handleLogout}
+        onLogout={handleManualLogout}
       />
     </>
   );
