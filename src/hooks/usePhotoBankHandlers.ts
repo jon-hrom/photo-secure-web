@@ -277,15 +277,30 @@ export const usePhotoBankHandlers = (
     const flushDbWrites = async () => {
       if (pendingDbWrites.length === 0 || !selectedFolder) return;
       const writes = pendingDbWrites.splice(0, pendingDbWrites.length);
-      await fetch(PHOTOBANK_FOLDERS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({
-          action: 'upload_photos_batch',
-          folder_id: selectedFolder.id,
-          photos: writes,
-        }),
-      });
+      // Запись метаданных в БД с повторами: файл уже в S3, потеря записи = «пропуск» в папке.
+      let lastErr: unknown = null;
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        try {
+          const res = await fetch(PHOTOBANK_FOLDERS_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+            body: JSON.stringify({
+              action: 'upload_photos_batch',
+              folder_id: selectedFolder.id,
+              photos: writes,
+            }),
+          });
+          if (res.ok) return;
+          lastErr = new Error(`DB batch write responded ${res.status}`);
+        } catch (err) {
+          lastErr = err;
+        }
+        if (attempt < 4) await new Promise((r) => setTimeout(r, attempt * 800));
+      }
+      // Вернём записи в очередь, чтобы финальный flush мог попробовать ещё раз
+      pendingDbWrites.unshift(...writes);
+      console.error('[UPLOAD] Failed to write photo batch to DB after retries', lastErr);
+      throw new Error('Failed to save photos to database');
     };
 
     const totalBytes = mediaFiles.reduce((sum, f) => sum + (f.size || 1), 0);
@@ -350,15 +365,46 @@ export const usePhotoBankHandlers = (
         xhr.send(file);
       });
 
-      // Берём свежий URL (just-in-time). Если истёк (403/400) — обновляем и повторяем.
-      let { url, key } = await getPresignedForIndex(index);
-      let status = await putToS3(url);
-      if (status === 403 || status === 400) {
-        fileLoaded.set(index, 0);
-        ({ url, key } = await getPresignedForIndex(index, true));
-        status = await putToS3(url);
+      // Берём свежий URL (just-in-time) и грузим с повторами.
+      // До 4 попыток: обрыв сети, таймаут, истёкший URL (403/400) и серверные ошибки (5xx)
+      // не должны терять файл целиком — повторяем со свежим presigned URL.
+      const MAX_ATTEMPTS = 4;
+      let key = '';
+      let lastError: unknown = null;
+      let uploaded = false;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        if (cancelledRef || uploadCancelled) {
+          throw new Error('Upload cancelled');
+        }
+        // На повторах всегда берём свежий URL (мог истечь или быть частично использован)
+        const forceFresh = attempt > 1;
+        try {
+          const presigned = await getPresignedForIndex(index, forceFresh);
+          key = presigned.key;
+          fileLoaded.set(index, 0);
+          const status = await putToS3(presigned.url);
+          if (status >= 200 && status < 300) {
+            uploaded = true;
+            break;
+          }
+          // 403/400 — истёкший URL; 5xx — временная ошибка сервера S3: повторяем
+          lastError = new Error(`S3 responded ${status}`);
+        } catch (err) {
+          const msg = (err as Error)?.message;
+          if (msg === 'Upload cancelled' || msg === 'EMAIL_VERIFICATION_REQUIRED') {
+            throw err;
+          }
+          lastError = err;
+        }
+        if (attempt < MAX_ATTEMPTS) {
+          // Небольшая нарастающая пауза перед повтором (0.8с, 1.6с, 2.4с)
+          await new Promise((r) => setTimeout(r, attempt * 800));
+        }
       }
-      if (status < 200 || status >= 300) {
+
+      if (!uploaded) {
+        console.error(`[UPLOAD] File ${index + 1} (${file.name}) failed after ${MAX_ATTEMPTS} attempts`, lastError);
         throw new Error('Failed to upload file to S3');
       }
 
@@ -370,7 +416,13 @@ export const usePhotoBankHandlers = (
         content_type: file.type || 'application/octet-stream',
       });
       if (pendingDbWrites.length >= 20) {
-        await flushDbWrites();
+        // Промежуточная запись не должна ронять уже загруженный в S3 файл:
+        // при неудаче записи вернутся в очередь и допишутся финальным flush.
+        try {
+          await flushDbWrites();
+        } catch (dbErr) {
+          console.warn('[UPLOAD] Промежуточная запись в БД не удалась, отложено до финала', dbErr);
+        }
       }
 
       fileLoaded.set(index, file.size);
