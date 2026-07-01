@@ -1,0 +1,31 @@
+{
+  "tests": [
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Log activity event",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "log",
+        "user_id": 1,
+        "event_type": "page_view",
+        "action_name": "open_page",
+        "page_path": "/test"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Deny non-admin users list",
+      "method": "GET",
+      "path": "/?action=users",
+      "expectedStatus": 403
+    }
+  ]
+}

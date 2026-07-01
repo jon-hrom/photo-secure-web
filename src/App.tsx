@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import LegalConsentModal from "@/components/login/LegalConsentModal";
 import { fetchPendingDocs } from "@/lib/legalApi";
+import { logPageView } from "@/lib/activityLog";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import VKCallback from "./pages/VKCallback";
@@ -106,6 +107,15 @@ const ConditionalNotificationsTicker = () => {
   return <NotificationsTicker />;
 };
 
+const ActivityLogger = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (!localStorage.getItem('userId')) return;
+    logPageView(pathname, document.title);
+  }, [pathname]);
+  return null;
+};
+
 const App = () => {
   const [newYearMode, setNewYearMode] = useState(false);
 
@@ -164,6 +174,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
         <LegalConsentGuard />
+        <ActivityLogger />
         <ConditionalRetouchBar />
         <ConditionalTransfersWatcher />
         <ConditionalNotificationsTicker />

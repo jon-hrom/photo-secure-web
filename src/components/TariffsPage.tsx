@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Plan } from './tariffs/types';
 import PlanGrid from './tariffs/PlanGrid';
 import SubscribeDialog from './tariffs/SubscribeDialog';
+import { logClick } from '@/lib/activityLog';
 
 interface TariffsPageProps {
   userId?: string | number | null;
@@ -139,6 +140,11 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
     setIsApplying(true);
     try {
       const robokassaUrl = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
+
+      logClick(
+        `Оформление тарифа «${selectedPlan.plan_name}» — ${Math.floor(amountToPay)} ₽ / ${promoDuration} мес.${autoRenew ? ' (автопродление)' : ''}`,
+        { plan_id: selectedPlan.plan_id, auto_renew: autoRenew, recurring_consent: recurringConsent },
+      );
 
       // Логируем согласие на автосписания (в фоне, не блокируя переход)
       if (autoRenew && recurringConsent) {

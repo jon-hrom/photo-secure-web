@@ -19,6 +19,7 @@ import NotificationMonitor from '@/components/admin/NotificationMonitor';
 import AdminBiometricSettings from '@/components/admin/AdminBiometricSettings';
 import AdminRetouchSettings from '@/components/admin/AdminRetouchSettings';
 import AdminPersonalData from '@/components/admin/AdminPersonalData';
+import AdminUserAudit from '@/components/admin/AdminUserAudit';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
@@ -460,6 +461,18 @@ const AdminPanelTabs = ({
         </AccordionTrigger>
         <AccordionContent className="px-4 sm:px-6 pb-4">
           <AdminPersonalData />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="user-audit" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="FileSearch" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">История и согласия пользователей</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
+          <AdminUserAudit />
         </AccordionContent>
       </AccordionItem>
     </Accordion>
