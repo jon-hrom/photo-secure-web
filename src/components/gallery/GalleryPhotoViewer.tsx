@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getThumbUrl } from '@/utils/imageThumb';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import VideoPlayer from '@/components/photobank/VideoPlayer';
@@ -237,16 +238,16 @@ export default function GalleryPhotoViewer({
 
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-  // На мобильных показываем thumbnail (2000px), оригинал грузим только при зуме
-  // На десктопе сразу показываем оригинал
+  // Листаем на лёгком превью; как только пользователь приближает фото —
+  // подгружаем оригинал в полном качестве (и на мобиле, и на десктопе).
   useEffect(() => {
-    if (zoom > 0 && currentPhoto?.thumbnail_url && !fullImageLoaded && isMobile) {
+    if (zoom > 0 && !fullImageLoaded && currentPhoto) {
       setShowFullImage(true);
       const img = new Image();
       img.onload = () => setFullImageLoaded(true);
       img.src = currentPhoto.photo_url;
     }
-  }, [zoom, currentPhoto, fullImageLoaded, isMobile]);
+  }, [zoom, currentPhoto, fullImageLoaded]);
 
   // Preload adjacent thumbnails
   useEffect(() => {
@@ -254,9 +255,7 @@ export default function GalleryPhotoViewer({
       i => i >= 0 && i < photos.length
     );
     preloadIndexes.forEach(i => {
-      const src = isMobile
-        ? (photos[i].thumbnail_url || photos[i].photo_url)
-        : photos[i].photo_url;
+      const src = photos[i].thumbnail_url || getThumbUrl(photos[i].photo_url, 1600);
       const img = new Image();
       img.src = src;
     });
@@ -264,11 +263,13 @@ export default function GalleryPhotoViewer({
 
   if (!currentPhoto) return null;
 
-  // Мобильные: thumbnail_url (2000px) → при зуме оригинал
-  // Десктоп: сразу оригинал
-  const displaySrc = isMobile
-    ? ((!currentPhoto.thumbnail_url || showFullImage) ? currentPhoto.photo_url : currentPhoto.thumbnail_url)
-    : currentPhoto.photo_url;
+  // Лёгкое превью для листания без зума (быстрая подгрузка).
+  // Если готового thumbnail нет — ужимаем оригинал на лету до ~1600px.
+  const previewSrc = currentPhoto.thumbnail_url || getThumbUrl(currentPhoto.photo_url, 1600);
+
+  // При листании показываем лёгкое превью, оригинал грузим только при зуме
+  // (showFullImage выставляется, когда пользователь приближает фото).
+  const displaySrc = showFullImage ? currentPhoto.photo_url : previewSrc;
 
   if (currentPhoto.is_video) {
     console.log('[GALLERY_PHOTO_VIEWER] Opening video:', currentPhoto);

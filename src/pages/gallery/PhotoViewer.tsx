@@ -1,4 +1,5 @@
 import Icon from '@/components/ui/icon';
+import { getThumbUrl } from '@/utils/imageThumb';
 
 interface Photo {
   id: number;
@@ -165,7 +166,7 @@ export default function PhotoViewer({
             style={{ cursor: currentCursor, touchAction: 'none' }}
           >
             <img
-              src={selectedPhoto.photo_url}
+              src={zoom > 0 ? selectedPhoto.photo_url : getThumbUrl(selectedPhoto.photo_url, 1600)}
               alt={selectedPhoto.file_name}
               className="object-contain select-none touch-manipulation"
               style={{
