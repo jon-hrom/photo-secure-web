@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getThumbUrl } from '@/utils/imageThumb';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Icon from '@/components/ui/icon';
@@ -107,6 +108,23 @@ const PhotoGridViewer = ({
     onNavigate
   });
 
+  // Предзагрузка соседних фото (лёгкие превью) — чтобы листание было мгновенным
+  useEffect(() => {
+    if (!viewPhoto) return;
+    const idx = photos.findIndex((p) => p.id === viewPhoto.id);
+    if (idx === -1) return;
+    [idx - 1, idx + 1]
+      .filter((i) => i >= 0 && i < photos.length)
+      .forEach((i) => {
+        const p = photos[i];
+        if (p.is_video) return;
+        const src = p.thumbnail_s3_url || getThumbUrl(p.s3_url, 1600);
+        if (!src) return;
+        const img = new Image();
+        img.src = src;
+      });
+  }, [viewPhoto, photos]);
+
   if (!viewPhoto) return null;
 
   if (viewPhoto.is_video) {
@@ -174,7 +192,7 @@ const PhotoGridViewer = ({
                 {/* Thumbnail или s3_url для быстрой навигации (показывается при zoom = 0) */}
                 {zoom === 0 && (
                   <img
-                    src={viewPhoto.thumbnail_s3_url || viewPhoto.s3_url || viewPhoto.data_url || ''}
+                    src={viewPhoto.thumbnail_s3_url || getThumbUrl(viewPhoto.s3_url, 1600) || viewPhoto.data_url || ''}
                     alt={viewPhoto.file_name}
                     className="object-contain cursor-zoom-in select-none touch-manipulation absolute inset-0"
                     style={{

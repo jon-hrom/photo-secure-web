@@ -3,6 +3,7 @@ import heic2any from "heic2any";
 import Icon from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { formatBytes } from "./types";
+import { getThumbUrl } from "@/utils/imageThumb";
 import type { ClientPhoto } from "./types";
 
 const isHeicUrl = (photo: ClientPhoto) => {
@@ -173,7 +174,7 @@ const ClientUploadPhotoGrid = ({
               onClick={() => onOpenLightbox(photoIdx)}
             >
               <img
-                src={photo.thumbnail_s3_url || photo.s3_url}
+                src={photo.thumbnail_s3_url || getThumbUrl(photo.s3_url, 500)}
                 alt={photo.file_name}
                 loading="lazy"
                 className="w-full h-full object-cover transition-transform group-hover:scale-105"

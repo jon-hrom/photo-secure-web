@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import heic2any from "heic2any";
 import { Button } from "@/components/ui/button";
 import Icon from "@/components/ui/icon";
+import { getThumbUrl } from "@/utils/imageThumb";
 import type { ClientPhoto } from "./types";
 
 const isHeicFile = (name: string) => {
@@ -66,6 +67,29 @@ const ClientUploadLightbox = ({ photos, startIndex, onClose }: ClientUploadLight
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose, goPrev, goNext]);
+
+  // Для обычных фото при листании показываем лёгкое превью (быстро),
+  // для HEIC — сконвертированный displayUrl (getThumbUrl не поможет).
+  const viewUrl = !photo
+    ? displayUrl
+    : isHeicFile(photo.file_name)
+      ? displayUrl
+      : (photo.thumbnail_s3_url || getThumbUrl(photo.s3_url, 1600) || photo.s3_url);
+
+  // Предзагрузка соседних превью — для мгновенного листания
+  useEffect(() => {
+    if (!photo) return;
+    [index - 1, index + 1]
+      .map((i) => (i + photos.length) % photos.length)
+      .forEach((i) => {
+        const p = photos[i];
+        if (!p || isHeicFile(p.file_name)) return;
+        const src = p.thumbnail_s3_url || getThumbUrl(p.s3_url, 1600);
+        if (!src) return;
+        const img = new Image();
+        img.src = src;
+      });
+  }, [index, photos, photo]);
 
   if (!photo) return null;
 
@@ -137,7 +161,7 @@ const ClientUploadLightbox = ({ photos, startIndex, onClose }: ClientUploadLight
         </div>
       ) : (
         <img
-          src={displayUrl}
+          src={viewUrl}
           alt={photo.file_name}
           className="max-h-[85vh] max-w-[90vw] object-contain select-none"
           onClick={(e) => e.stopPropagation()}
