@@ -162,7 +162,7 @@ const SubscribeDialog = ({
                         Я согласен на автоматические списания согласно{' '}
                         <a href="/offer" target="_blank" rel="noreferrer" className="text-primary underline hover:no-underline font-medium">оферте</a>{' '}
                         (п.&nbsp;5.5) и{' '}
-                        <a href="/privacy" target="_blank" rel="noreferrer" className="text-primary underline hover:no-underline font-medium">политике конфиденциальности</a>.
+                        <a href="/privacy-policy" target="_blank" rel="noreferrer" className="text-primary underline hover:no-underline font-medium">политике конфиденциальности</a>.
                       </label>
                     </div>
                   )}
