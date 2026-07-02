@@ -2,9 +2,8 @@ import Icon from '@/components/ui/icon';
 
 interface LoadingIndicatorsProps {
   loadingProgress: number;
-  photosLoaded: number;
-  totalPhotos: number;
-  visiblePhotos: number;
+  showProgress?: boolean;
+  downloadingAll?: boolean;
   downloadProgress: {
     show: boolean;
     current: number;
@@ -16,15 +15,13 @@ interface LoadingIndicatorsProps {
 
 export default function LoadingIndicators({
   loadingProgress,
-  photosLoaded,
-  totalPhotos,
-  visiblePhotos,
+  showProgress = true,
   downloadProgress,
   onCancelDownload
 }: LoadingIndicatorsProps) {
   return (
     <>
-      {loadingProgress > 0 && loadingProgress < 100 && (
+      {showProgress && loadingProgress < 100 && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
           <div className="bg-[#111111] rounded-lg shadow-lg p-8 max-w-md w-full mx-4 border border-gray-800">
             <div className="flex items-center gap-3 mb-4">

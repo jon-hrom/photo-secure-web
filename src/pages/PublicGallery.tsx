@@ -180,24 +180,37 @@ export default function PublicGallery() {
     ? gallery.photos.filter((p: Photo) => !state.clientFavoritePhotoIds.includes(p.id))
     : gallery?.photos || [];
 
-  const actualProgress = visiblePhotos.length > 0
-    ? Math.min((photosLoaded / visiblePhotos.length) * 100, 100)
+  // Оверлей "Подождите" ждёт только ПЕРВЫЕ несколько фото (видимый экран),
+  // а не все фото галереи. Остальные подгружаются лениво при прокрутке,
+  // поэтому ждать их полную загрузку нельзя — прогресс завис бы навсегда.
+  const loadThreshold = Math.min(visiblePhotos.length, 8);
+
+  const actualProgress = loadThreshold > 0
+    ? Math.min((photosLoaded / loadThreshold) * 100, 100)
     : loadingProgress;
 
   useEffect(() => {
-    if (visiblePhotos.length > 0 && photosLoaded >= visiblePhotos.length) {
-      setTimeout(() => state.setShowProgress(false), 500);
-      
+    if (loadThreshold > 0 && photosLoaded >= loadThreshold) {
+      setTimeout(() => state.setShowProgress(false), 300);
+
       if (!state.clientData && code) {
         const welcomeShown = localStorage.getItem(`welcome_shown_${code}`);
         if (!welcomeShown) {
           setTimeout(() => state.setIsWelcomeModalOpen(true), 800);
         }
       }
-    } else if (visiblePhotos.length > 0 && photosLoaded < visiblePhotos.length) {
+    } else if (loadThreshold > 0 && photosLoaded < loadThreshold) {
       state.setShowProgress(true);
     }
-  }, [photosLoaded, visiblePhotos.length, state.clientData, code, state.setShowProgress, state.setIsWelcomeModalOpen]);
+  }, [photosLoaded, loadThreshold, state.clientData, code, state.setShowProgress, state.setIsWelcomeModalOpen]);
+
+  // Аварийный предохранитель: если по какой-то причине фото не досчитались
+  // (кэш, ошибки загрузки, ленивая подгрузка) — скрываем оверлей через 4 сек.
+  useEffect(() => {
+    if (!state.showProgress) return;
+    const timer = setTimeout(() => state.setShowProgress(false), 4000);
+    return () => clearTimeout(timer);
+  }, [state.showProgress, state.setShowProgress]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Б';
