@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import GalleryPhotoCard from './GalleryPhotoCard';
+import { getThumbUrl } from '@/utils/imageThumb';
 import { Photo, WatermarkSettings } from '../GalleryGrid';
 
 interface GalleryJustifiedLayoutProps {
@@ -136,7 +137,7 @@ export default function GalleryJustifiedLayout({
       if (cancelled) return;
       while (active < CONCURRENCY && idx < missing.length) {
         const p = missing[idx++];
-        const src = p.thumbnail_url || p.photo_url;
+        const src = p.thumbnail_url || getThumbUrl(p.photo_url, 200);
         if (!src) continue;
         active++;
         const img = new Image();

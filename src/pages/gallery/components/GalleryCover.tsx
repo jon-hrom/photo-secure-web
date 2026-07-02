@@ -1,4 +1,5 @@
 import Icon from '@/components/ui/icon';
+import { getThumbUrl } from '@/utils/imageThumb';
 import type { Photo, GalleryData } from '../GalleryGrid';
 
 interface GalleryCoverProps {
@@ -32,7 +33,7 @@ export default function GalleryCover({
       }}
     >
       <img
-        src={coverPhoto.photo_url}
+        src={coverPhoto.thumbnail_url || getThumbUrl(coverPhoto.photo_url, 1400)}
         alt={gallery.folder_name}
         className={`w-full h-full ${isMobile ? 'object-cover' : 'object-contain'}`}
         style={{ objectPosition: `${focusX * 100}% ${focusY * 100}%` }}

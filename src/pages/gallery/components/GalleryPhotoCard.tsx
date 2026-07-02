@@ -1,5 +1,6 @@
 import React from 'react';
 import Icon from '@/components/ui/icon';
+import { getThumbUrl } from '@/utils/imageThumb';
 import type { Photo, WatermarkSettings } from '../GalleryGrid';
 
 interface GalleryPhotoCardProps {
@@ -82,10 +83,10 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
         </>
       ) : (
         <img
-          src={photo.grid_thumbnail_url || photo.thumbnail_url || photo.photo_url}
+          src={photo.grid_thumbnail_url || photo.thumbnail_url || getThumbUrl(photo.photo_url, 600)}
           alt={photo.file_name}
           className="w-full h-auto transition-transform group-hover:scale-105"
-          loading="eager"
+          loading="lazy"
           decoding="async"
           onContextMenu={(e) => screenshotProtection && e.preventDefault()}
           draggable={false}
