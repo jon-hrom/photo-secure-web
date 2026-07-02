@@ -7,18 +7,15 @@
       "expectedStatus": 200
     },
     {
-      "name": "Log activity event",
+      "name": "Verify wrong panel password",
       "method": "POST",
       "path": "/",
       "body": {
-        "action": "log",
-        "user_id": 1,
-        "event_type": "page_view",
-        "action_name": "open_page",
-        "page_path": "/test"
+        "action": "audit_verify",
+        "password": "definitely-wrong-password-xyz"
       },
       "expectedStatus": 200,
-      "expectedBody": {"ok": true},
+      "expectedBody": {"ok": false},
       "bodyMatcher": "partial"
     },
     {

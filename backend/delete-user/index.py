@@ -140,6 +140,46 @@ def delete_s3_objects(keys: List[str]) -> int:
     return deleted
 
 
+def delete_audit_log(user_id: int) -> int:
+    """Удаляет папку самописца uploads/{user_id}/audit/ из S3 (bucket foto-mix)."""
+    key_id = os.environ.get('YC_S3_KEY_ID')
+    secret = os.environ.get('YC_S3_SECRET')
+    if not key_id or not secret:
+        return 0
+    try:
+        from botocore.client import Config
+        s3 = boto3.client(
+            's3',
+            endpoint_url='https://storage.yandexcloud.net',
+            region_name='ru-central1',
+            aws_access_key_id=key_id,
+            aws_secret_access_key=secret,
+            config=Config(signature_version='s3v4'),
+        )
+        prefix = f'uploads/{int(user_id)}/audit/'
+        keys: List[str] = []
+        token = None
+        while True:
+            kwargs = {'Bucket': 'foto-mix', 'Prefix': prefix}
+            if token:
+                kwargs['ContinuationToken'] = token
+            resp = s3.list_objects_v2(**kwargs)
+            for obj in resp.get('Contents', []):
+                keys.append(obj['Key'])
+            if resp.get('IsTruncated'):
+                token = resp.get('NextContinuationToken')
+            else:
+                break
+        if not keys:
+            return 0
+        s3.delete_objects(Bucket='foto-mix', Delete={'Objects': [{'Key': k} for k in keys]})
+        print(f'Deleted {len(keys)} audit objects for user {user_id}')
+        return len(keys)
+    except Exception as e:
+        print(f'audit delete error: {str(e)}')
+        return 0
+
+
 def purge_user_data(cur, user_id: int) -> Dict[str, int]:
     uid = int(user_id)
 
@@ -159,6 +199,9 @@ def purge_user_data(cur, user_id: int) -> Dict[str, int]:
 
     deleted_s3 = delete_s3_objects(s3_keys)
     print(f'Deleted {deleted_s3} S3 objects for user {uid}')
+
+    # Удаляем "самописец" (аудит-лог) пользователя из S3-папки с его фото
+    delete_audit_log(uid)
 
     # Дополнительная очистка таблиц, ссылающихся на пользователя НЕ через FK
     # (например, по email или другим логическим связям)
