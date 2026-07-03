@@ -228,8 +228,14 @@ def handler(event: dict, context) -> dict:
             'InvId': str(robokassa_inv_id),
             'Culture': 'ru',
             'Description': description,
-            'IncCurrLabel': 'SBPQRcode',
         }
+        # Способ оплаты:
+        #   'sbp'  → сразу открыть оплату по СБП (метка мерчанта из ЛК Robokassa)
+        #   'card' → страница оплаты картой (без метки)
+        #   иначе  → стандартная страница выбора способа оплаты Robokassa
+        if payment_method == 'sbp':
+            sbp_label = str(os.environ.get('ROBOKASSA_SBP_LABEL', 'SBP')).strip() or 'SBP'
+            other_params['IncCurrLabel'] = sbp_label
         if user_email:
             other_params['Email'] = user_email
         if auto_renew:

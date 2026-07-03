@@ -26,7 +26,7 @@ interface SubscribeDialogProps {
   setRecurringConsent: (v: boolean) => void;
   onPromoApplied: (discount: number, finalPrice: number, duration: number, code?: string) => void;
   onPromoRemoved: () => void;
-  onApplyTariff: () => void;
+  onApplyTariff: (paymentMethod?: 'sbp' | 'card') => void;
 }
 
 const SubscribeDialog = ({
@@ -177,19 +177,31 @@ const SubscribeDialog = ({
               )}
 
               {selectedPlan.price_rub > 0 && promoDiscount === 0 && (
-                <Button 
-                  className="w-full" 
-                  size="lg"
-                  onClick={onApplyTariff}
-                  disabled={isApplying || (autoRenew && !recurringConsent)}
-                >
-                  {isApplying ? (
-                    <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
-                  ) : (
+                <div className="space-y-2">
+                  <Button
+                    className="w-full bg-[#1DB954] hover:bg-[#1AA34A] text-white"
+                    size="lg"
+                    onClick={() => onApplyTariff('sbp')}
+                    disabled={isApplying || (autoRenew && !recurringConsent)}
+                  >
+                    {isApplying ? (
+                      <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <span className="mr-2 font-bold text-lg leading-none">⚡</span>
+                    )}
+                    {isApplying ? 'Обработка...' : 'Оплатить через СБП'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                    onClick={() => onApplyTariff('card')}
+                    disabled={isApplying || (autoRenew && !recurringConsent)}
+                  >
                     <Icon name="CreditCard" className="mr-2 h-5 w-5" />
-                  )}
-                  {isApplying ? 'Обработка...' : 'Оплатить и применить тариф'}
-                </Button>
+                    Оплатить картой
+                  </Button>
+                </div>
               )}
 
               {selectedPlan.price_rub > 0 && promoDiscount > 0 && (
@@ -209,18 +221,28 @@ const SubscribeDialog = ({
                     </p>
                   </div>
 
-                  <Button 
-                    className="w-full" 
+                  <Button
+                    className="w-full bg-[#1DB954] hover:bg-[#1AA34A] text-white"
                     size="lg"
-                    onClick={onApplyTariff}
+                    onClick={() => onApplyTariff('sbp')}
                     disabled={isApplying || (autoRenew && !recurringConsent)}
                   >
                     {isApplying ? (
                       <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
                     ) : (
-                      <Icon name="Sparkles" className="mr-2 h-5 w-5" />
+                      <span className="mr-2 font-bold text-lg leading-none">⚡</span>
                     )}
-                    {isApplying ? 'Обработка...' : 'Оплатить и применить тариф'}
+                    {isApplying ? 'Обработка...' : 'Оплатить через СБП'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                    onClick={() => onApplyTariff('card')}
+                    disabled={isApplying || (autoRenew && !recurringConsent)}
+                  >
+                    <Icon name="CreditCard" className="mr-2 h-5 w-5" />
+                    Оплатить картой
                   </Button>
                 </div>
               )}

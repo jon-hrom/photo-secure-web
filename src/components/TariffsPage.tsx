@@ -189,7 +189,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
     setAppliedPromoCode('');
   };
 
-  const handleApplyTariff = async () => {
+  const handleApplyTariff = async (paymentMethod: 'sbp' | 'card' = 'sbp') => {
     if (!selectedPlan || !userId) return;
 
     // Сумма к оплате: с учётом промокода, если применён
@@ -262,6 +262,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
           duration_months: promoDuration,
           amount: amountToPay,
           auto_renew: autoRenew,
+          payment_method: paymentMethod,
           success_url: `${window.location.origin}/tariffs?payment=success`,
           fail_url: `${window.location.origin}/tariffs?payment=fail`,
         }),
