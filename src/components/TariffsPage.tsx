@@ -93,8 +93,8 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
     }
   };
 
-  const currentPlan = plans.find((p) => p.plan_id === currentPlanId) || null;
-  const isOnPaidPlan = !!(currentPlan && currentPlan.price_rub > 0);
+  const currentPlan = plans.find((p) => Number(p.plan_id) === Number(currentPlanId)) || null;
+  const isOnPaidPlan = !!(currentPlan && Number(currentPlan.price_rub) > 0);
 
   const handleSelectPlan = (plan: Plan) => {
     if (!userId) {
@@ -103,7 +103,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
     }
 
     // Переход на бесплатный тариф, когда пользователь сейчас на платном — с подтверждением
-    if (plan.price_rub === 0 && isOnPaidPlan) {
+    if (Number(plan.price_rub) === 0 && (isOnPaidPlan || !!resumablePaid)) {
       setDowngradePlan(plan);
       setIsDowngradeOpen(true);
       return;

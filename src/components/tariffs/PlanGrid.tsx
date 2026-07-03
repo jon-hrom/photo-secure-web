@@ -33,8 +33,8 @@ const PlanGrid = ({ plans, currentPlanId, isOnPaidPlan, onSelectPlan }: PlanGrid
             <PlanCard
               key={plan.plan_id}
               plan={plan}
-              isCurrent={currentPlanId === plan.plan_id}
-              isDowngrade={!!isOnPaidPlan && plan.price_rub === 0 && currentPlanId !== plan.plan_id}
+              isCurrent={Number(currentPlanId) === Number(plan.plan_id)}
+              isDowngrade={!!isOnPaidPlan && Number(plan.price_rub) === 0 && Number(currentPlanId) !== Number(plan.plan_id)}
               onSelect={onSelectPlan}
             />
           ))}
