@@ -1,6 +1,15 @@
 export const ROBOKASSA_URL = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
 export const APPLY_TARIFF_URL = 'https://functions.poehali.dev/7565304f-3423-48fd-a77c-95c59c65714d';
 export const STORAGE_ADMIN_URL = 'https://functions.poehali.dev/81fe316e-43c6-4e9f-93e2-63032b5c552c';
+export const SUBSCRIPTION_URL = 'https://functions.poehali.dev/fbfc26c3-5cb7-4b8f-aeb7-891bbf9a0015';
+
+export interface ResumablePaid {
+  plan_id: number;
+  plan_name: string;
+  expires_at: string;
+  quota_gb: number | null;
+  max_clients: number | null;
+}
 
 export interface Plan {
   plan_id: number;

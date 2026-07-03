@@ -72,11 +72,47 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             """)
             rec = cur.fetchone()
 
+            # Текущий фактический тариф пользователя
+            cur.execute(f"""
+                SELECT plan_id FROM {SCHEMA}.users WHERE id = {user_id}
+            """)
+            urow = cur.fetchone()
+            current_plan_id = int(urow['plan_id']) if urow and urow.get('plan_id') is not None else None
+
+            # Оплаченный платный тариф с НЕистёкшим сроком, к которому можно
+            # вернуться бесплатно (клиент оплатил, но временно ушёл на другой/бесплатный).
+            cur.execute(f"""
+                SELECT us.plan_id, sp.name AS plan_name, us.expires_at, us.custom_quota_gb,
+                       sp.quota_gb, sp.max_clients
+                FROM {SCHEMA}.user_subscriptions us
+                LEFT JOIN {SCHEMA}.storage_plans sp ON sp.id = us.plan_id
+                WHERE us.user_id = {user_id}
+                  AND us.status = 'active'
+                  AND us.payment_status = 'completed'
+                  AND us.price_paid_rub > 0
+                  AND us.expires_at IS NOT NULL
+                  AND us.expires_at > CURRENT_TIMESTAMP
+                ORDER BY us.expires_at DESC
+                LIMIT 1
+            """)
+            paid = cur.fetchone()
+            resumable_paid = None
+            if paid and paid['plan_id'] != current_plan_id:
+                resumable_paid = {
+                    'plan_id': int(paid['plan_id']),
+                    'plan_name': paid['plan_name'],
+                    'expires_at': paid['expires_at'],
+                    'quota_gb': float(paid['quota_gb']) if paid.get('quota_gb') is not None else None,
+                    'max_clients': int(paid['max_clients']) if paid.get('max_clients') is not None else None,
+                }
+
             return resp(200, {
                 'success': True,
                 'subscription': dict(sub) if sub else None,
                 'recurring': dict(rec) if rec else None,
-                'auto_renew': bool(rec) ,
+                'auto_renew': bool(rec),
+                'current_plan_id': current_plan_id,
+                'resumable_paid': resumable_paid,
             })
 
         if method == 'POST':

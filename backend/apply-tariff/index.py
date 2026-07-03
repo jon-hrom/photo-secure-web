@@ -63,6 +63,99 @@ CORS_HEADERS = {
     'Content-Type': 'application/json'
 }
 
+def resume_paid_plan(user_id: Any, plan_id: Any) -> Dict[str, Any]:
+    """Бесплатно возвращает пользователя на ранее оплаченный платный тариф.
+
+    Разрешено только если есть активная подписка на этот план с payment_status='completed',
+    price_paid_rub > 0 и не истёкшим expires_at. Повторная оплата не требуется —
+    доступ восстанавливается до конца уже оплаченного периода.
+    """
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'SELECT id FROM {SCHEMA}.users WHERE id = {int(user_id)}')
+            if not cur.fetchone():
+                return {
+                    'statusCode': 404,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Пользователь не найден'}),
+                    'isBase64Encoded': False,
+                }
+
+            # Ищем оплаченную неистёкшую подписку именно на этот план
+            cur.execute(f'''
+                SELECT us.id, us.expires_at, us.custom_quota_gb,
+                       sp.name AS plan_name, sp.quota_gb, sp.max_clients
+                FROM {SCHEMA}.user_subscriptions us
+                LEFT JOIN {SCHEMA}.storage_plans sp ON sp.id = us.plan_id
+                WHERE us.user_id = {int(user_id)}
+                  AND us.plan_id = {int(plan_id)}
+                  AND us.status = 'active'
+                  AND us.payment_status = 'completed'
+                  AND us.price_paid_rub > 0
+                  AND us.expires_at IS NOT NULL
+                  AND us.expires_at > CURRENT_TIMESTAMP
+                ORDER BY us.expires_at DESC
+                LIMIT 1
+            ''')
+            sub = cur.fetchone()
+            if not sub:
+                return {
+                    'statusCode': 400,
+                    'headers': CORS_HEADERS,
+                    'body': json.dumps({'error': 'Нет оплаченного тарифа для возврата или срок уже истёк'}),
+                    'isBase64Encoded': False,
+                }
+
+            quota = sub['custom_quota_gb'] if sub.get('custom_quota_gb') is not None else sub['quota_gb']
+
+            # Возвращаем пользователя на этот тариф (лимиты и текущий план)
+            cur.execute(f'''
+                UPDATE {SCHEMA}.users
+                SET plan_id = {int(plan_id)},
+                    custom_quota_gb = {escape_sql_string(quota)}
+                WHERE id = {int(user_id)}
+            ''')
+            conn.commit()
+
+            notify_tariff(user_id, {
+                'plan_name': sub['plan_name'],
+                'duration_months': 0,
+                'price_paid': 0,
+                'discount_percent': 0,
+                'promo_code': None,
+                'quota_gb': float(sub['quota_gb']) if sub.get('quota_gb') is not None else None,
+                'max_clients': int(sub['max_clients']) if sub.get('max_clients') is not None else None,
+            })
+
+            return {
+                'statusCode': 200,
+                'headers': CORS_HEADERS,
+                'body': json.dumps({
+                    'success': True,
+                    'plan_name': sub['plan_name'],
+                    'expires_at': sub['expires_at'].isoformat() if sub.get('expires_at') else None,
+                    'price_paid': 0,
+                    'payment_required': False,
+                    'message': f'Тариф "{sub["plan_name"]}" восстановлен до конца оплаченного периода!',
+                }, default=str),
+                'isBase64Encoded': False,
+            }
+    except Exception as e:
+        conn.rollback()
+        print(f'[ERROR] resume_paid_plan failed: {e}')
+        import traceback
+        traceback.print_exc()
+        return {
+            'statusCode': 500,
+            'headers': CORS_HEADERS,
+            'body': json.dumps({'error': f'Ошибка возврата тарифа: {str(e)}'}),
+            'isBase64Encoded': False,
+        }
+    finally:
+        conn.close()
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Публичный эндпоинт для применения тарифа пользователем"""
     method = event.get('httpMethod', 'POST')
@@ -97,8 +190,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     plan_id = body.get('plan_id')
     promo_code = body.get('promo_code', '').strip().upper()
     duration_months = body.get('duration_months', 1)
+    action = body.get('action', '')
     
-    print(f'[APPLY_TARIFF] user_id={user_id}, plan_id={plan_id}, promo_code={promo_code}, duration={duration_months}')
+    print(f'[APPLY_TARIFF] user_id={user_id}, plan_id={plan_id}, promo_code={promo_code}, duration={duration_months}, action={action}')
     
     if not user_id or not plan_id:
         return {
@@ -107,6 +201,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({'error': 'user_id и plan_id обязательны'}),
             'isBase64Encoded': False
         }
+
+    # Бесплатный возврат на ранее ОПЛАЧЕННЫЙ платный тариф, срок которого не истёк.
+    # Клиент временно ушёл на бесплатный/другой тариф и хочет вернуться без повторной оплаты.
+    if action == 'resume':
+        return resume_paid_plan(user_id, plan_id)
     
     conn = get_db_connection()
     try:

@@ -18,6 +18,21 @@
         "error": "string"
       },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Resume for non-existent user returns 404",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "resume",
+        "user_id": 999999999,
+        "plan_id": 2
+      },
+      "expectedStatus": 404,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
     }
   ]
 }
