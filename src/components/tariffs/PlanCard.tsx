@@ -7,10 +7,11 @@ import { Plan, getPlanFeatures } from './types';
 interface PlanCardProps {
   plan: Plan;
   isCurrent: boolean;
+  isDowngrade?: boolean;
   onSelect: (plan: Plan) => void;
 }
 
-const PlanCard = ({ plan, isCurrent, onSelect }: PlanCardProps) => {
+const PlanCard = ({ plan, isCurrent, isDowngrade, onSelect }: PlanCardProps) => {
   const features = getPlanFeatures(plan);
   const isPopular = !isCurrent && (
     plan.plan_name.toLowerCase().includes('проф') ||
@@ -73,7 +74,9 @@ const PlanCard = ({ plan, isCurrent, onSelect }: PlanCardProps) => {
             className="w-full h-8 text-xs"
             onClick={() => onSelect(plan)}
           >
-            {plan.price_rub === 0 ? 'Начать бесплатно' : 'Выбрать тариф'}
+            {plan.price_rub === 0
+              ? (isDowngrade ? 'Применить (бесплатно)' : 'Начать бесплатно')
+              : 'Выбрать тариф'}
           </Button>
         )}
       </CardContent>

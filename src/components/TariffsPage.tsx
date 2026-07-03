@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { Plan } from './tariffs/types';
 import PlanGrid from './tariffs/PlanGrid';
 import SubscribeDialog from './tariffs/SubscribeDialog';
+import ResumePaidBanner, { ResumablePaid } from './tariffs/ResumePaidBanner';
+import DowngradeConfirmDialog from './tariffs/DowngradeConfirmDialog';
 import { logClick } from '@/lib/activityLog';
 
 interface TariffsPageProps {
@@ -12,6 +14,10 @@ interface TariffsPageProps {
 const STORAGE_ADMIN_URL = 'https://functions.poehali.dev/81fe316e-43c6-4e9f-93e2-63032b5c552c';
 
 const STORAGE_URL = 'https://functions.poehali.dev/1fc7f0b4-e29b-473f-be56-8185fa395985';
+
+const APPLY_TARIFF_URL = 'https://functions.poehali.dev/7565304f-3423-48fd-a77c-95c59c65714d';
+
+const SUBSCRIPTION_URL = 'https://functions.poehali.dev/fbfc26c3-5cb7-4b8f-aeb7-891bbf9a0015';
 
 const TariffsPage = ({ userId }: TariffsPageProps) => {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -26,6 +32,22 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
   const [appliedPromoCode, setAppliedPromoCode] = useState<string>('');
   const [autoRenew, setAutoRenew] = useState(false);
   const [recurringConsent, setRecurringConsent] = useState(false);
+  const [resumablePaid, setResumablePaid] = useState<ResumablePaid | null>(null);
+  const [resuming, setResuming] = useState(false);
+  const [isDowngradeOpen, setIsDowngradeOpen] = useState(false);
+  const [downgradePlan, setDowngradePlan] = useState<Plan | null>(null);
+  const [downgrading, setDowngrading] = useState(false);
+
+  const loadSubscription = (uid: string | number) => {
+    fetch(SUBSCRIPTION_URL, { headers: { 'X-User-Id': String(uid) } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        if (d.current_plan_id != null) setCurrentPlanId(d.current_plan_id);
+        setResumablePaid(d.resumable_paid ?? null);
+      })
+      .catch(() => {});
+  };
 
   useEffect(() => {
     loadPlans();
@@ -34,6 +56,7 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => { if (d?.plan_id) setCurrentPlanId(d.plan_id); })
         .catch(() => {});
+      loadSubscription(userId);
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -70,9 +93,19 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
     }
   };
 
+  const currentPlan = plans.find((p) => p.plan_id === currentPlanId) || null;
+  const isOnPaidPlan = !!(currentPlan && currentPlan.price_rub > 0);
+
   const handleSelectPlan = (plan: Plan) => {
     if (!userId) {
       toast.error('Войдите в систему, чтобы выбрать тариф');
+      return;
+    }
+
+    // Переход на бесплатный тариф, когда пользователь сейчас на платном — с подтверждением
+    if (plan.price_rub === 0 && isOnPaidPlan) {
+      setDowngradePlan(plan);
+      setIsDowngradeOpen(true);
       return;
     }
 
@@ -83,6 +116,63 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
     setAutoRenew(false);
     setRecurringConsent(false);
     setIsPromoDialogOpen(true);
+  };
+
+  const handleConfirmDowngrade = async () => {
+    if (!userId || !downgradePlan) return;
+    setDowngrading(true);
+    try {
+      const response = await fetch(APPLY_TARIFF_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: Number(userId),
+          plan_id: downgradePlan.plan_id,
+          promo_code: '',
+          duration_months: 1,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast.success(data.message || 'Вы перешли на бесплатный тариф');
+        setIsDowngradeOpen(false);
+        setDowngradePlan(null);
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast.error(data.error || 'Не удалось переключить тариф');
+        setDowngrading(false);
+      }
+    } catch {
+      toast.error('Ошибка переключения тарифа');
+      setDowngrading(false);
+    }
+  };
+
+  const handleResumePaid = async () => {
+    if (!userId || !resumablePaid) return;
+    setResuming(true);
+    try {
+      const response = await fetch(APPLY_TARIFF_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'resume',
+          user_id: Number(userId),
+          plan_id: resumablePaid.plan_id,
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast.success(data.message || 'Тариф восстановлен');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast.error(data.error || 'Не удалось вернуть тариф');
+        setResuming(false);
+      }
+    } catch {
+      toast.error('Ошибка возврата тарифа');
+      setResuming(false);
+    }
   };
 
   const handlePromoApplied = (discount: number, finalPrice: number, duration: number, code?: string) => {
@@ -200,10 +290,29 @@ const TariffsPage = ({ userId }: TariffsPageProps) => {
 
   return (
     <div className="space-y-6">
+      {resumablePaid && (
+        <ResumePaidBanner
+          resumable={resumablePaid}
+          resuming={resuming}
+          onResume={handleResumePaid}
+        />
+      )}
+
       <PlanGrid
         plans={plans}
         currentPlanId={currentPlanId}
+        isOnPaidPlan={isOnPaidPlan}
         onSelectPlan={handleSelectPlan}
+      />
+
+      <DowngradeConfirmDialog
+        open={isDowngradeOpen}
+        onOpenChange={(o) => { setIsDowngradeOpen(o); if (!o) setDowngrading(false); }}
+        freePlan={downgradePlan}
+        paidPlanName={currentPlan?.plan_name}
+        paidExpiresAt={resumablePaid?.expires_at}
+        processing={downgrading}
+        onConfirm={handleConfirmDowngrade}
       />
 
       <SubscribeDialog

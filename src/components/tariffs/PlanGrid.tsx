@@ -5,10 +5,11 @@ import PlanCard from './PlanCard';
 interface PlanGridProps {
   plans: Plan[];
   currentPlanId: number | null;
+  isOnPaidPlan?: boolean;
   onSelectPlan: (plan: Plan) => void;
 }
 
-const PlanGrid = ({ plans, currentPlanId, onSelectPlan }: PlanGridProps) => {
+const PlanGrid = ({ plans, currentPlanId, isOnPaidPlan, onSelectPlan }: PlanGridProps) => {
   return (
     <>
       <div className="flex items-center justify-between">
@@ -33,6 +34,7 @@ const PlanGrid = ({ plans, currentPlanId, onSelectPlan }: PlanGridProps) => {
               key={plan.plan_id}
               plan={plan}
               isCurrent={currentPlanId === plan.plan_id}
+              isDowngrade={!!isOnPaidPlan && plan.price_rub === 0 && currentPlanId !== plan.plan_id}
               onSelect={onSelectPlan}
             />
           ))}
