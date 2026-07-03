@@ -29,6 +29,7 @@ interface Plan {
   plan_name: string;
   quota_gb: number;
   price_rub: number;
+  duration_days?: number;
   is_active: boolean;
   visible_to_users: boolean;
   created_at: string;
@@ -112,7 +113,7 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
                       />
                     </div>
                     <div>
-                      <Label>Цена (₽/месяц)</Label>
+                      <Label>Цена (₽ за весь срок)</Label>
                       <Input
                         type="number"
                         value={editingPlan?.price_rub || ''}
@@ -121,6 +122,48 @@ export const PlansTab = ({ plans, onSavePlan, onDeletePlan, onSetDefaultPlan }: 
                       />
                     </div>
                   </div>
+
+                  {/* Срок действия тарифа: Месяц (30 дней) или произвольное число дней */}
+                  <div>
+                    <Label className="flex items-center gap-2">
+                      <Icon name="CalendarClock" className="h-4 w-4 text-muted-foreground" />
+                      Срок действия тарифа
+                    </Label>
+                    <div className="flex gap-2 mt-1.5">
+                      <Button
+                        type="button"
+                        variant={((editingPlan?.duration_days ?? 30) === 30) ? 'default' : 'outline'}
+                        className="flex-1"
+                        onClick={() => setEditingPlan({ ...editingPlan, duration_days: 30 })}
+                      >
+                        Месяц (30 дней)
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={((editingPlan?.duration_days ?? 30) !== 30) ? 'default' : 'outline'}
+                        className="flex-1"
+                        onClick={() => setEditingPlan({ ...editingPlan, duration_days: (editingPlan?.duration_days && editingPlan.duration_days !== 30) ? editingPlan.duration_days : 7 })}
+                      >
+                        Задать дни
+                      </Button>
+                    </div>
+                    {((editingPlan?.duration_days ?? 30) !== 30) && (
+                      <div className="mt-2">
+                        <Label className="text-xs text-muted-foreground">Количество дней</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={editingPlan?.duration_days ?? ''}
+                          onChange={(e) => setEditingPlan({ ...editingPlan, duration_days: Math.max(1, Number(e.target.value) || 1) })}
+                          placeholder="7"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Цена указывается за весь этот срок. Автосписание и напоминание за 3 дня работают по нему же.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <Label>Описание</Label>
                     <Input

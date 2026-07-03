@@ -235,10 +235,17 @@ def charge_recurring(cur, conn, sub, merchant_login, password_1) -> bool:
     previous_inv_id = int(sub['first_inv_id'])
     amount_str = f"{amount:.2f}"
 
-    cur.execute(f"SELECT name FROM {SCHEMA}.storage_plans WHERE id = %s", (plan_id,))
+    cur.execute(f"SELECT name, COALESCE(duration_days, 30) AS duration_days FROM {SCHEMA}.storage_plans WHERE id = %s", (plan_id,))
     prow = cur.fetchone()
     plan_name = prow['name'] if prow else 'Подписка'
-    description = f'Автопродление тарифа "{plan_name}" на {duration_months} мес.'
+    plan_duration_days = int(prow['duration_days']) if prow and prow.get('duration_days') else 30
+    if plan_duration_days == 30:
+        period_txt = '1 мес.'
+    elif plan_duration_days % 30 == 0:
+        period_txt = f'{plan_duration_days // 30} мес.'
+    else:
+        period_txt = f'{plan_duration_days} дн.'
+    description = f'Автопродление тарифа "{plan_name}" на {period_txt}'
 
     new_inv_id = gen_inv_id(cur)
     order_number = f"FM-{datetime.now().strftime('%Y%m%d')}-{new_inv_id}"
@@ -279,10 +286,10 @@ def charge_recurring(cur, conn, sub, merchant_login, password_1) -> bool:
     if not success:
         return False
 
-    # Сдвигаем дату следующего списания. Фактическая активация периода — через ResultURL webhook.
-    next_charge = sub['next_charge_at'] + timedelta(days=30 * duration_months)
+    # Сдвигаем дату следующего списания на срок тарифа (в днях). Активация периода — через ResultURL webhook.
+    next_charge = sub['next_charge_at'] + timedelta(days=plan_duration_days)
     if next_charge < datetime.now():
-        next_charge = datetime.now() + timedelta(days=30 * duration_months)
+        next_charge = datetime.now() + timedelta(days=plan_duration_days)
     cur.execute(f"""
         UPDATE {SCHEMA}.recurring_subscriptions
         SET next_charge_at = %s, last_charged_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP

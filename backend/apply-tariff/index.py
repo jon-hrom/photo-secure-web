@@ -222,7 +222,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Получаем информацию о тарифе
             cur.execute(f'''
-                SELECT id, name as plan_name, quota_gb, monthly_price_rub as price_rub, max_clients
+                SELECT id, name as plan_name, quota_gb, monthly_price_rub as price_rub, max_clients,
+                       COALESCE(duration_days, 30) as duration_days
                 FROM {SCHEMA}.storage_plans 
                 WHERE id = {plan_id} AND is_active = TRUE
             ''')
@@ -236,7 +237,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            base_price = float(plan['price_rub']) * duration_months
+            # Срок действия тарифа в днях (админ задаёт: 30 = месяц). Цена указана за весь срок.
+            plan_duration_days = int(plan['duration_days'] or 30)
+            # Стандартный срок подписки для этого тарифа
+            plan_default_expires = datetime.now() + timedelta(days=plan_duration_days)
+            # Цена — за весь срок (без умножения на месяцы)
+            base_price = float(plan['price_rub'])
             final_price = base_price
             discount_percent = 0
             promo_code_id = None
@@ -314,8 +320,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     subscription_expires_at = promo['valid_until']
                     duration_months = max(1, int((subscription_expires_at - datetime.now()).days / 30))
                 else:
-                    # plan_default - используем стандартный срок (duration_months из параметра)
-                    subscription_expires_at = datetime.now() + timedelta(days=30 * duration_months)
+                    # plan_default - используем срок тарифа (в днях, задаётся админом)
+                    subscription_expires_at = plan_default_expires
                 
                 print(f'[APPLY_TARIFF] Promo applied: type={promo["discount_type"]}, value={discount_value}, discount={discount_percent}%, final={final_price}, duration_type={duration_type}, expires={subscription_expires_at}')
             
@@ -326,7 +332,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 if promo_code_id and subscription_expires_at:
                     expires_at = subscription_expires_at
                 else:
-                    expires_at = datetime.now() + timedelta(days=30 * duration_months)
+                    expires_at = plan_default_expires
                 cur.execute(f'''
                     INSERT INTO {SCHEMA}.user_subscriptions 
                     (user_id, plan_id, expires_at, promo_code_id, discount_percent, price_paid_rub, payment_status, status)
@@ -394,7 +400,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if promo_code_id and subscription_expires_at:
                 expires_at = subscription_expires_at
             else:
-                expires_at = datetime.now() + timedelta(days=30 * duration_months)
+                expires_at = plan_default_expires
             cur.execute(f'''
                 INSERT INTO {SCHEMA}.user_subscriptions 
                 (user_id, plan_id, expires_at, promo_code_id, discount_percent, price_paid_rub, payment_status, created_at)

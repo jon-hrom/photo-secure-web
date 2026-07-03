@@ -3,6 +3,7 @@ export interface Plan {
   plan_name: string;
   quota_gb: number;
   price_rub: number;
+  duration_days?: number;
   is_active: boolean;
   visible_to_users: boolean;
   created_at: string;

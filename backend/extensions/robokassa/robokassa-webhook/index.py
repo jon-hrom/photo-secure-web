@@ -48,14 +48,16 @@ def activate_subscription(cur, order):
     """
     order_id, user_id, plan_id, duration_months, amount, auto_renew, inv_id, user_email = order
 
-    cur.execute(f"SELECT name, quota_gb FROM {SCHEMA}.storage_plans WHERE id = %s", (plan_id,))
+    cur.execute(f"SELECT name, quota_gb, COALESCE(duration_days, 30) FROM {SCHEMA}.storage_plans WHERE id = %s", (plan_id,))
     plan = cur.fetchone()
     if not plan:
         return
     quota_gb = float(plan[1])
+    plan_duration_days = int(plan[2] or 30)
 
     duration_months = int(duration_months or 1)
-    expires_at = datetime.now() + timedelta(days=30 * duration_months)
+    # Срок действия тарифа задаётся админом в днях (30 = месяц). Цена — за весь срок.
+    expires_at = datetime.now() + timedelta(days=plan_duration_days)
     amount = float(amount)
 
     # Цена фиксируется на оплаченный период (п.5.6 оферты): locked_price_rub = фактически оплаченная сумма

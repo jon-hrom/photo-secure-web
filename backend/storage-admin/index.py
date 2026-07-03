@@ -376,6 +376,7 @@ def list_plans(event: Dict[str, Any]) -> Dict[str, Any]:
                     name as plan_name, 
                     quota_gb, 
                     monthly_price_rub as price_rub, 
+                    duration_days,
                     is_active, 
                     created_at, 
                     visible_to_users, 
@@ -424,6 +425,7 @@ def list_plans_public(event: Dict[str, Any]) -> Dict[str, Any]:
                     name as plan_name, 
                     quota_gb, 
                     monthly_price_rub as price_rub, 
+                    duration_days,
                     is_active, 
                     max_clients, 
                     description,
@@ -463,6 +465,13 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
     plan_name = body.get('plan_name')
     quota_gb = body.get('quota_gb')
     price_rub = body.get('price_rub', 0)
+    duration_days = body.get('duration_days', 30)
+    try:
+        duration_days = int(duration_days)
+    except (TypeError, ValueError):
+        duration_days = 30
+    if duration_days < 1:
+        duration_days = 1
     is_active = body.get('is_active', True)
     visible_to_users = body.get('visible_to_users', False)
     max_clients = body.get('max_clients')
@@ -494,7 +503,7 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
             
             query = f'''
                 INSERT INTO {SCHEMA}.storage_plans (
-                    name, quota_gb, monthly_price_rub, is_active, visible_to_users, 
+                    name, quota_gb, monthly_price_rub, duration_days, is_active, visible_to_users, 
                     max_clients, description, stats_enabled, track_storage_usage,
                     track_client_count, track_booking_analytics, track_revenue,
                     track_upload_history, track_download_stats
@@ -503,6 +512,7 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
                     {escape_sql_string(plan_name)}, 
                     {quota_gb}, 
                     {price_rub}, 
+                    {duration_days}, 
                     {is_active}, 
                     {visible_to_users}, 
                     {max_clients_val}, 
@@ -516,7 +526,7 @@ def create_plan(event: Dict[str, Any]) -> Dict[str, Any]:
                     {track_download_stats}
                 )
                 RETURNING 
-                    id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, 
+                    id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, duration_days,
                     is_active, visible_to_users, created_at, max_clients, description,
                     stats_enabled, track_storage_usage, track_client_count, 
                     track_booking_analytics, track_revenue, track_upload_history, track_download_stats
@@ -566,6 +576,14 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
         updates.append(f'quota_gb = {body["quota_gb"]}')
     if 'price_rub' in body and body['price_rub'] is not None:
         updates.append(f'monthly_price_rub = {body["price_rub"]}')
+    if 'duration_days' in body and body['duration_days'] is not None:
+        try:
+            _dd = int(body['duration_days'])
+        except (TypeError, ValueError):
+            _dd = 30
+        if _dd < 1:
+            _dd = 1
+        updates.append(f'duration_days = {_dd}')
     if 'is_active' in body and body['is_active'] is not None:
         updates.append(f'is_active = {escape_sql_string(body["is_active"])}')
     if 'visible_to_users' in body and body['visible_to_users'] is not None:
@@ -607,7 +625,7 @@ def update_plan(event: Dict[str, Any]) -> Dict[str, Any]:
                 SET {', '.join(updates)}
                 WHERE id = {plan_id}
                 RETURNING 
-                    id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, 
+                    id as plan_id, name as plan_name, quota_gb, monthly_price_rub as price_rub, duration_days,
                     is_active, visible_to_users, created_at, max_clients, description,
                     stats_enabled, track_storage_usage, track_client_count, 
                     track_booking_analytics, track_revenue, track_upload_history, track_download_stats
