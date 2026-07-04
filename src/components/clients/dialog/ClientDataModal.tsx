@@ -312,13 +312,29 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
 
           <div className="space-y-1.5">
             <Label htmlFor="cd-phone" className="text-sm">Телефон *</Label>
-            <Input
-              id="cd-phone"
-              value={form.phone || ''}
-              onChange={(e) => setForm({ ...form, phone: formatPhoneNumber(e.target.value) })}
-              maxLength={18}
-              className="h-10 text-sm sm:text-base"
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                id="cd-phone"
+                value={form.phone || ''}
+                onChange={(e) => setForm({ ...form, phone: formatPhoneNumber(e.target.value) })}
+                maxLength={18}
+                className="h-10 text-sm sm:text-base flex-1"
+              />
+              <a
+                href={form.phone ? `tel:${String(form.phone).replace(/[^\d+]/g, '')}` : undefined}
+                onClick={(e) => { if (!form.phone) e.preventDefault(); }}
+                aria-disabled={!form.phone}
+                className={`inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-md text-sm font-medium shrink-0 transition-colors ${
+                  form.phone
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-muted text-muted-foreground pointer-events-none opacity-60'
+                }`}
+                title="Позвонить клиенту"
+              >
+                <Icon name="PhoneCall" size={16} />
+                <span className="hidden xs:inline sm:inline">Позвонить</span>
+              </a>
+            </div>
             <p className="text-[11px] text-muted-foreground">Формат: +7 (999) 123-45-67</p>
           </div>
 
