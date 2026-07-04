@@ -103,6 +103,16 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
         <div className="flex items-center gap-1 min-w-0 max-w-full">
           <Icon name="Phone" size={14} className="shrink-0" />
           <span className="truncate">{formatPhoneNumber(client.phone)}</span>
+          {client.phone && (
+            <a
+              href={`tel:${String(client.phone).replace(/[^\d+]/g, '')}`}
+              className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors shrink-0"
+              title="Позвонить клиенту"
+            >
+              <Icon name="PhoneCall" size={12} />
+              <span className="hidden sm:inline">Позвонить</span>
+            </a>
+          )}
         </div>
         {client.email && (
           <div className="flex items-center gap-1 min-w-0 max-w-full">
