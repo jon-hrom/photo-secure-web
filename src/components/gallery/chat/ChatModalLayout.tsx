@@ -37,7 +37,7 @@ const ChatModalLayout = forwardRef<HTMLDivElement, ChatModalLayoutProps>(functio
 
         <div
           ref={containerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/30"
+          className="flex-1 overflow-y-auto p-4 space-y-1.5 bg-muted/30"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {children}
@@ -78,7 +78,7 @@ const ChatModalLayout = forwardRef<HTMLDivElement, ChatModalLayoutProps>(functio
 
         <div
           ref={containerRef}
-          className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 sm:space-y-3 overscroll-contain"
+          className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-1.5 overscroll-contain"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {children}

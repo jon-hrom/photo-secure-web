@@ -198,7 +198,7 @@ export default function ChatMessage({
         <div
           {...(isRemoved ? {} : longPressHandlers)}
           onClick={handleBubbleClick}
-          className={`relative inline-block w-auto max-w-full rounded-lg px-3 py-2 select-none break-words ${
+          className={`relative inline-block w-auto max-w-full rounded-lg px-2.5 py-1.5 select-none break-words ${
             isRemoved ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 italic' : bubbleBase
           } ${isSelected ? 'ring-2 ring-blue-400 ring-offset-1' : ''} ${highlight ? 'ring-2 ring-yellow-400' : ''} cursor-pointer`}
           style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
@@ -279,7 +279,7 @@ export default function ChatMessage({
                 );
               })()}
               {message.message && (
-                <p className="whitespace-pre-wrap break-words">
+                <p className="whitespace-pre-wrap break-words text-sm leading-snug">
                   {renderMessageText(message.message)}
                 </p>
               )}
@@ -312,13 +312,13 @@ export default function ChatMessage({
               )}
             </>
           )}
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-1.5 mt-0.5">
             {message.is_edited && !isRemoved && (
-              <span className={`text-[11px] ${isMyMessage && !isEmbedded ? 'text-blue-100' : 'text-gray-500'} italic`}>
+              <span className={`text-[10px] ${isMyMessage && !isEmbedded ? 'text-blue-100' : 'text-gray-500'} italic`}>
                 ред.
               </span>
             )}
-            <p className={`text-xs ${
+            <p className={`text-[10px] ${
               isEmbedded
                 ? isMyMessage ? 'opacity-80' : 'text-muted-foreground'
                 : isMyMessage ? 'text-blue-100' : 'text-gray-500'
