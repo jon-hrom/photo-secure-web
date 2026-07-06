@@ -88,7 +88,7 @@ export interface StatisticsData {
     by_method: Array<{ method: string; count: number; total: number }>;
   };
   charts: {
-    projects_timeline: Array<{ period: string; count: number }>;
+    projects_timeline: Array<{ period: string; count: number; project_names?: string[] }>;
     revenue_timeline: Array<{ period: string; revenue: number }>;
     clients_timeline: Array<{ period: string; count: number }>;
   };

@@ -401,11 +401,12 @@ def get_charts_data(cur, photographer_id: str, period: str, date_filter: str) ->
     else:
         date_trunc = 'month'
     
-    # График проектов по времени
+    # График проектов по времени (+ названия проектов за период)
     cur.execute(f'''
         SELECT 
             DATE_TRUNC('{date_trunc}', cp.created_at) as period,
-            COUNT(*) as count
+            COUNT(*) as count,
+            ARRAY_AGG(cp.name ORDER BY cp.created_at) as project_names
         FROM {SCHEMA}.client_projects cp
         JOIN {SCHEMA}.clients c ON cp.client_id = c.id
         WHERE c.photographer_id = {photographer_id}

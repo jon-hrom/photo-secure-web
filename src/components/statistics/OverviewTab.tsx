@@ -16,8 +16,111 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { COLORS, CustomTooltip, safeNumber, safeToFixed, StatisticsTabProps } from './statisticsShared';
+import { getShootingStyles } from '@/data/shootingStyles';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+// Подсказка для столбцов «Динамика проектов» — показывает названия проектов за дату
+const ProjectsBarTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null;
+  const item = payload[0].payload || {};
+  const names: string[] = item.project_names || [];
+  return (
+    <div className="bg-popover border border-border rounded-lg shadow-lg p-3 max-w-[260px]">
+      {label && <p className="text-sm font-medium text-foreground mb-1">{label}</p>}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#8B5CF6' }} />
+        <span className="text-sm text-muted-foreground">Проектов:</span>
+        <span className="text-sm font-semibold text-foreground">{item.count}</span>
+      </div>
+      {names.length > 0 && (
+        <ul className="space-y-0.5 border-t border-border pt-2">
+          {names.map((n, i) => (
+            <li key={i} className="text-xs text-foreground flex gap-1.5">
+              <span className="text-muted-foreground">{i + 1}.</span>
+              <span className="break-words">{n}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+// Выноска с названием категории (стиля съёмки) от сектора круга
+const renderCategoryLabel = (props: any) => {
+  const { cx, cy, midAngle, outerRadius, fill, displayName, count } = props;
+  const RAD = Math.PI / 180;
+  const sin = Math.sin(-midAngle * RAD);
+  const cos = Math.cos(-midAngle * RAD);
+  const sx = cx + (outerRadius + 2) * cos;
+  const sy = cy + (outerRadius + 2) * sin;
+  const mx = cx + (outerRadius + 16) * cos;
+  const my = cy + (outerRadius + 16) * sin;
+  const ex = mx + (cos >= 0 ? 1 : -1) * 14;
+  const ey = my;
+  const anchor = cos >= 0 ? 'start' : 'end';
+  const shortName =
+    displayName && displayName.length > 22 ? `${displayName.slice(0, 20)}…` : displayName;
+
+  return (
+    <g>
+      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" strokeWidth={1.5} />
+      <circle cx={ex} cy={ey} r={2.5} fill={fill} stroke="none" />
+      <text
+        x={ex + (cos >= 0 ? 6 : -6)}
+        y={ey}
+        textAnchor={anchor}
+        dominantBaseline="central"
+        className="fill-foreground"
+        fontSize={11}
+      >
+        {shortName}
+      </text>
+      <text
+        x={ex + (cos >= 0 ? 6 : -6)}
+        y={ey + 13}
+        textAnchor={anchor}
+        dominantBaseline="central"
+        fill={fill}
+        fontSize={11}
+        fontWeight={600}
+      >
+        {count} шт.
+      </text>
+    </g>
+  );
+};
+
+const CategoryTooltip = ({ active, payload }: any) => {
+  if (!active || !payload || !payload.length) return null;
+  const item = payload[0].payload || {};
+  return (
+    <div className="bg-popover border border-border rounded-lg shadow-lg p-3 max-w-[240px]">
+      <p className="text-sm font-medium text-foreground mb-1 break-words">{item.displayName}</p>
+      <div className="flex items-center gap-2">
+        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: payload[0].color }} />
+        <span className="text-sm text-muted-foreground">Проектов:</span>
+        <span className="text-sm font-semibold text-foreground">{item.count}</span>
+      </div>
+    </div>
+  );
+};
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const OverviewTab = ({ data, formatCurrency }: StatisticsTabProps) => {
+  const styles = getShootingStyles();
+  const styleName = (id: string): string => {
+    if (!id || id === 'Не указано') return 'Не указано';
+    const found = styles.find((s) => String(s.id) === String(id));
+    return found ? found.name : `Категория ${id}`;
+  };
+
+  const categoryData = data.projects.by_category.map((c) => ({
+    ...c,
+    displayName: styleName(c.category),
+  }));
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -88,13 +191,13 @@ const OverviewTab = ({ data, formatCurrency }: StatisticsTabProps) => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={data.charts.projects_timeline}>
+              <BarChart data={data.charts.projects_timeline} barCategoryGap="10%">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="period" />
                 <YAxis />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<ProjectsBarTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }} />
                 <Legend />
-                <Bar dataKey="count" fill="#8B5CF6" name="Проекты" />
+                <Bar dataKey="count" fill="#8B5CF6" name="Проекты" barSize={14} radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -141,23 +244,24 @@ const OverviewTab = ({ data, formatCurrency }: StatisticsTabProps) => {
             <CardTitle>Проекты по категориям</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
+            <ResponsiveContainer width="100%" height={320}>
+              <PieChart margin={{ top: 20, right: 90, bottom: 20, left: 90 }}>
                 <Pie
-                  data={data.projects.by_category}
+                  data={categoryData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ category, count }) => `${category}: ${count}`}
-                  outerRadius={100}
+                  label={renderCategoryLabel}
+                  outerRadius={80}
                   fill="#8884d8"
                   dataKey="count"
+                  isAnimationActive={false}
                 >
-                  {data.projects.by_category.map((entry, index) => (
+                  {categoryData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CategoryTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
