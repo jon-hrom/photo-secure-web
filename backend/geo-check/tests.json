@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "name": "Возвращает информацию о стране",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"is_russia": "boolean"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

@@ -33,6 +33,7 @@ import AdminPipelineEditor from "./pages/AdminPipelineEditor";
 import NewYearDecorations from "./components/NewYearDecorations";
 import LegalDocument from "./pages/LegalDocument";
 import CookieConsentBanner from "./components/legal/CookieConsentBanner";
+import VpnWarningBanner from "./components/VpnWarningBanner";
 import ShortLink from "./pages/ShortLink";
 import PublicGallery from "./pages/PublicGallery";
 import { RetouchProvider } from "./contexts/RetouchContext";
@@ -196,6 +197,7 @@ const App = () => {
         <BFCacheGuard />
         <LegalConsentGuard />
         <CookieConsentBanner />
+        <VpnWarningBanner />
         <ActivityLogger />
         <ConditionalRetouchBar />
         <ConditionalTransfersWatcher />
