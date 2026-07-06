@@ -99,15 +99,11 @@ export default function GalleryJustifiedLayout({
     });
   }, [photos]);
 
-  const RAW_EXTS = ['.cr2', '.nef', '.arw', '.dng', '.orf', '.raf', '.rw2', '.cr3'];
-  const isRaw = (p: Photo) => RAW_EXTS.some(ext => p.file_name.toLowerCase().endsWith(ext));
-  const allRaw = sortedPhotos.length > 0 && sortedPhotos.every(isRaw);
-
-  // Для RAW-файлов без метаданных — определяем ориентацию по thumbnail
+  // Для любых фото без метаданных width/height — определяем реальные пропорции
+  // по thumbnail, чтобы justified-ряды не "плыли" и не появлялись пробелы.
   const [detectedRatios, setDetectedRatios] = useState<Record<number, number>>({});
 
   useEffect(() => {
-    if (!allRaw) return;
     const missing = sortedPhotos.filter(p => !p.width || !p.height);
     if (missing.length === 0) return;
 
@@ -137,7 +133,7 @@ export default function GalleryJustifiedLayout({
       if (cancelled) return;
       while (active < CONCURRENCY && idx < missing.length) {
         const p = missing[idx++];
-        const src = p.thumbnail_url || getThumbUrl(p.photo_url, 200);
+        const src = p.grid_thumbnail_url || p.thumbnail_url || getThumbUrl(p.photo_url, 400);
         if (!src) continue;
         active++;
         const img = new Image();
@@ -159,7 +155,7 @@ export default function GalleryJustifiedLayout({
       cancelled = true;
       if (flushTimer) clearTimeout(flushTimer);
     };
-  }, [allRaw, sortedPhotos]);
+  }, [sortedPhotos]);
 
   const getAR = (p: Photo): number => {
     if (p.width && p.height) return p.width / p.height;
@@ -260,7 +256,8 @@ export default function GalleryJustifiedLayout({
                       screenshotProtection={screenshotProtection} downloadDisabled={downloadDisabled}
                       watermark={watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
                       onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
-                      isSelected={selectedIds.has(photo.id)} onToggleSelect={onToggleSelect} isLandscape={isL} />
+                      isSelected={selectedIds.has(photo.id)} onToggleSelect={onToggleSelect} isLandscape={isL}
+                      heightPx={row.height} />
                   </div>
                 );
               }
@@ -272,7 +269,8 @@ export default function GalleryJustifiedLayout({
                     screenshotProtection={screenshotProtection} downloadDisabled={downloadDisabled}
                     watermark={watermark} onPhotoClick={onPhotoClick} onDownloadPhoto={onDownloadPhoto}
                     onAddToFavorites={onAddToFavorites} onPhotoLoad={onPhotoLoad} selectionMode={selectionMode}
-                    isSelected={selectedIds.has(photo.id)} onToggleSelect={onToggleSelect} isLandscape={isL} />
+                    isSelected={selectedIds.has(photo.id)} onToggleSelect={onToggleSelect} isLandscape={isL}
+                    heightPx={row.height} />
                 </div>
               );
             })}

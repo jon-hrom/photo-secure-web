@@ -19,6 +19,7 @@ interface GalleryPhotoCardProps {
   isSelected?: boolean;
   onToggleSelect?: (photo: Photo) => void;
   isLandscape?: boolean;
+  heightPx?: number;
 }
 
 const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>(({
@@ -36,14 +37,20 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
   selectionMode = false,
   isSelected = false,
   onToggleSelect,
-  isLandscape = false
+  isLandscape = false,
+  heightPx
 }, ref) => {
+  const fixedHeight = typeof heightPx === 'number' && heightPx > 0;
+  const imgClass = fixedHeight
+    ? 'w-full h-full object-cover transition-transform group-hover:scale-105'
+    : 'w-full h-auto transition-transform group-hover:scale-105';
   return (
     <div
       ref={ref}
       className="group relative rounded-md sm:rounded-lg overflow-hidden cursor-pointer touch-manipulation"
       style={{ 
         marginBottom: `${gridGap}px`,
+        height: fixedHeight ? `${heightPx}px` : undefined,
         opacity: 0,
         transform: 'translateY(12px)',
         transition: `opacity 0.25s ease, transform 0.25s ease`,
@@ -60,7 +67,7 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
             <img
               src={photo.thumbnail_url}
               alt={photo.file_name}
-              className="w-full h-auto transition-transform group-hover:scale-105"
+              className={imgClass}
               loading="eager"
               decoding="async"
               onContextMenu={(e) => screenshotProtection && e.preventDefault()}
@@ -71,7 +78,7 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
           ) : (
             <video
               src={`${photo.photo_url}#t=0.1`}
-              className="w-full h-auto transition-transform group-hover:scale-105"
+              className={imgClass}
               preload="metadata"
               onContextMenu={(e) => screenshotProtection && e.preventDefault()}
               onLoadedData={() => onPhotoLoad?.()}
@@ -85,7 +92,7 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
         <img
           src={photo.grid_thumbnail_url || photo.thumbnail_url || getThumbUrl(photo.photo_url, 600)}
           alt={photo.file_name}
-          className="w-full h-auto transition-transform group-hover:scale-105"
+          className={imgClass}
           loading="lazy"
           decoding="async"
           onContextMenu={(e) => screenshotProtection && e.preventDefault()}
