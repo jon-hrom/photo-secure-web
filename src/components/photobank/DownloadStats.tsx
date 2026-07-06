@@ -418,7 +418,6 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
                   <th className="text-left p-3 font-medium text-sm">Дата и время</th>
                   <th className="text-left p-3 font-medium text-sm">Тип</th>
                   <th className="text-left p-3 font-medium text-sm">Название</th>
-                  <th className="text-left p-3 font-medium text-sm">IP адрес</th>
                   <th className="text-left p-3 font-medium text-sm">Устройство</th>
                 </tr>
               </thead>
@@ -443,9 +442,6 @@ const DownloadStats = ({ userId }: DownloadStatsProps) => {
                     </td>
                     <td className="p-3 text-sm max-w-xs truncate">
                       {log.folder_name || log.photo_name || '—'}
-                    </td>
-                    <td className="p-3 text-sm text-muted-foreground">
-                      {formatIP(log.client_ip)}
                     </td>
                     <td className="p-3 text-sm text-muted-foreground max-w-xs truncate" title={log.user_agent}>
                       {log.user_agent ? (
