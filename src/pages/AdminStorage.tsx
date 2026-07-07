@@ -127,7 +127,22 @@ const AdminStorage = () => {
     console.log('[FETCH] Fresh data fetched and cached');
   };
 
-  const refetchPlans = () => api.fetchPlans(setPlans);
+  const refetchPlans = () => api.fetchPlans((p) => {
+    setPlans(p);
+    // Обновляем данные тарифов в кэше, чтобы после сохранения
+    // и повторного входа не показывались устаревшие значения.
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        cached.plans = p;
+        cached.timestamp = Date.now();
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+      }
+    } catch {
+      localStorage.removeItem(CACHE_KEY);
+    }
+  });
   const refetchUsers = () => api.fetchUsers(setUsers);
   const refetchStats = () => api.fetchStats(setUsageStats, setRevenueStats, setLoading, setCloudStorageStats, setCloudStorageSummary);
   const refetchPromoCodes = () => api.fetchPromoCodes(setPromoCodes);
