@@ -42,6 +42,7 @@ interface StatisticsData {
   financial: {
     total_revenue: number;
     prev_revenue: number;
+    prev_photographer_revenue?: number;
     revenue_growth: number;
     avg_check: number;
     pending: {
@@ -166,6 +167,7 @@ const StatisticsPage = () => {
           revenue_growth: normalizeNumber(result.financial?.revenue_growth),
           total_revenue: normalizeNumber(result.financial?.total_revenue),
           prev_revenue: normalizeNumber(result.financial?.prev_revenue),
+          prev_photographer_revenue: normalizeNumber(result.financial?.prev_photographer_revenue),
           avg_check: normalizeNumber(result.financial?.avg_check),
           pending: {
             amount: normalizeNumber(result.financial?.pending?.amount),

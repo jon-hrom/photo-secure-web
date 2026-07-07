@@ -382,6 +382,7 @@ def get_financial_stats(cur, photographer_id: str, date_filter: str, prev_date_f
         'studio_revenue': studio_revenue,
         'photographer_revenue': photographer_revenue,
         'prev_revenue': prev_revenue,
+        'prev_photographer_revenue': prev_photographer,
         'revenue_growth': calculate_growth(photographer_revenue, prev_photographer),
         'avg_check': float(finance_data['avg_check']),
         'pending': {

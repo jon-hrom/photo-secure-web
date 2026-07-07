@@ -2,7 +2,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import Icon from '@/components/ui/icon';
 import { safeNumber, safeToFixed, StatisticsTabProps } from './statisticsShared';
 
+const PREV_PERIOD_LABELS: Record<string, string> = {
+  day: 'Предыдущий день',
+  week: 'Прошлая неделя',
+  month: 'Прошлый месяц',
+  quarter: 'Прошлый квартал',
+  year: 'Прошлый год',
+};
+
+const CURR_PERIOD_LABELS: Record<string, string> = {
+  day: 'Сегодня',
+  week: 'Эта неделя',
+  month: 'Этот месяц',
+  quarter: 'Этот квартал',
+  year: 'Этот год',
+};
+
 const FinancialTab = ({ data, formatCurrency }: StatisticsTabProps) => {
+  const current = data.financial.photographer_revenue ?? data.financial.net_revenue ?? data.financial.total_revenue;
+  const previous = data.financial.prev_photographer_revenue ?? data.financial.prev_revenue ?? 0;
+  const diff = current - previous;
+  const growth = safeNumber(data.financial.revenue_growth);
+  const isUp = growth >= 0;
+  const currLabel = CURR_PERIOD_LABELS[data.period] ?? 'Текущий период';
+  const prevLabel = PREV_PERIOD_LABELS[data.period] ?? 'Прошлый период';
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -56,6 +79,37 @@ const FinancialTab = ({ data, formatCurrency }: StatisticsTabProps) => {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Сравнение с прошлым периодом</CardTitle>
+          <CardDescription>Чистый доход фотографа</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">{prevLabel}</p>
+              <p className="text-xl sm:text-2xl font-bold">{formatCurrency(previous)}</p>
+            </div>
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">{currLabel}</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600">{formatCurrency(current)}</p>
+            </div>
+            <div className={`p-4 rounded-lg ${isUp ? 'bg-green-50 dark:bg-green-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
+              <p className="text-sm text-muted-foreground mb-1">Изменение</p>
+              <div className="flex items-center gap-2">
+                <Icon name={isUp ? 'TrendingUp' : 'TrendingDown'} size={22} className={isUp ? 'text-green-600' : 'text-red-600'} />
+                <span className={`text-xl sm:text-2xl font-bold ${isUp ? 'text-green-600' : 'text-red-600'}`}>
+                  {isUp ? '+' : ''}{safeToFixed(growth, 1)}%
+                </span>
+              </div>
+              <p className={`text-sm mt-1 ${isUp ? 'text-green-600' : 'text-red-600'}`}>
+                {diff >= 0 ? '+' : '−'}{formatCurrency(Math.abs(diff))}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {data.financial.refunds && data.financial.refunds.total > 0 && (
         <Card className="border-orange-200">

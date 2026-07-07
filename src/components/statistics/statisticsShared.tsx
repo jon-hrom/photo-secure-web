@@ -83,6 +83,7 @@ export interface StatisticsData {
     studio_revenue?: number;
     photographer_revenue?: number;
     prev_revenue: number;
+    prev_photographer_revenue?: number;
     revenue_growth: number;
     avg_check: number;
     pending: {
