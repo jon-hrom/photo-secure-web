@@ -264,6 +264,21 @@ const OverviewTab = ({ data, formatCurrency }: StatisticsTabProps) => {
                 <Tooltip content={<CategoryTooltip />} />
               </PieChart>
             </ResponsiveContainer>
+
+            {categoryData.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+                {categoryData.map((item, index) => (
+                  <div key={item.category} className="flex items-center gap-2 text-sm">
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    />
+                    <span className="text-foreground">{item.displayName}</span>
+                    <span className="text-muted-foreground">— {item.count} шт.</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
