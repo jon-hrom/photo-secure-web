@@ -1,6 +1,29 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { COLORS, safeToFixed, StatisticsTabProps } from './statisticsShared';
+import { getShootingStyles } from '@/data/shootingStyles';
+
+const STATUS_LABELS: Record<string, string> = {
+  new: 'Новые',
+  in_progress: 'В работе',
+  completed: 'Завершённые',
+  cancelled: 'Отменённые',
+};
+
+const getStatusLabel = (status: string) => STATUS_LABELS[status] || status;
+
+const getCategoryLabel = (category: string) => {
+  if (!category || category === 'Не указано') return 'Не указано';
+  const style = getShootingStyles().find((s) => s.id === category);
+  return style ? style.name : category;
+};
+
+const getCategoryColor = (category: string) => {
+  if (!category || category === 'Не указано') return '#9CA3AF';
+  const num = parseInt(category, 10);
+  const idx = Number.isNaN(num) ? category.length : num;
+  return COLORS[idx % COLORS.length];
+};
 
 export const ClientsTab = ({ data }: StatisticsTabProps) => {
   return (
@@ -65,7 +88,7 @@ export const ProjectsTab = ({ data, formatCurrency }: StatisticsTabProps) => {
             <div className="space-y-3">
               {data.projects.by_status.map((item) => (
                 <div key={item.status} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="font-medium">{item.status}</span>
+                  <span className="font-medium">{getStatusLabel(item.status)}</span>
                   <span className="text-2xl font-bold text-primary">{item.count}</span>
                 </div>
               ))}
@@ -79,11 +102,11 @@ export const ProjectsTab = ({ data, formatCurrency }: StatisticsTabProps) => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data.projects.by_category.map((item, index) => (
+              {data.projects.by_category.map((item) => (
                 <div key={item.category} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="font-medium">{item.category}</span>
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: getCategoryColor(item.category) }} />
+                    <span className="font-medium">{getCategoryLabel(item.category)}</span>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-primary">{item.count}</p>
