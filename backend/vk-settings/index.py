@@ -2,6 +2,7 @@ import json
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from crypto_utils import encrypt_token, decrypt_token
 
 def handler(event: dict, context):
     '''Управление настройками ВКонтакте для отправки уведомлений клиентам'''
@@ -57,7 +58,13 @@ def handler(event: dict, context):
                 return {
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps(dict(settings)),
+                    'body': json.dumps({
+                        'vk_user_token': bool((settings.get('vk_user_token') or '')),
+                        'vk_group_token': bool((settings.get('vk_group_token') or '')),
+                        'vk_group_id': settings.get('vk_group_id') or '',
+                        'vk_user_name': settings.get('vk_user_name') or '',
+                        'vk_user_id': settings.get('vk_user_id') or ''
+                    }),
                     'isBase64Encoded': False
                 }
             else:
@@ -65,8 +72,8 @@ def handler(event: dict, context):
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({
-                        'vk_user_token': '',
-                        'vk_group_token': '',
+                        'vk_user_token': False,
+                        'vk_group_token': False,
                         'vk_group_id': '',
                         'vk_user_name': '',
                         'vk_user_id': ''
@@ -78,7 +85,6 @@ def handler(event: dict, context):
             body = json.loads(event.get('body', '{}'))
             
             vk_user_token_raw = body.get('vk_user_token', '').strip()
-            print(f'[VK_SETTINGS] Raw token input: {vk_user_token_raw[:50]}...')
             
             # Извлекаем access_token из разных форматов
             vk_user_token = vk_user_token_raw
@@ -86,31 +92,23 @@ def handler(event: dict, context):
             
             # Формат 1: https://oauth.vk.com/blank.html#access_token=vk1.a.xxx&expires_in=0&user_id=123
             if '#access_token=' in vk_user_token_raw:
-                print('[VK_SETTINGS] Format 1 detected: URL with #access_token')
                 fragment = vk_user_token_raw.split('#', 1)[1]
                 params = fragment.split('&')
                 
                 for param in params:
                     if param.startswith('access_token='):
                         vk_user_token = param.split('=', 1)[1]
-                        print(f'[VK_SETTINGS] Extracted token: {vk_user_token[:30]}...')
                     elif param.startswith('user_id='):
                         vk_user_id_value = param.split('=', 1)[1]
-                        print(f'[VK_SETTINGS] Extracted user_id: {vk_user_id_value}')
             
             # Формат 2: vk1.a.xxx&expires_in=0&user_id=123
             elif '&expires_in=' in vk_user_token_raw:
-                print('[VK_SETTINGS] Format 2 detected: token with &expires_in')
                 parts = vk_user_token_raw.split('&')
                 vk_user_token = parts[0]
-                print(f'[VK_SETTINGS] Extracted token: {vk_user_token[:30]}...')
                 
                 for part in parts:
                     if part.startswith('user_id='):
                         vk_user_id_value = part.split('=', 1)[1]
-                        print(f'[VK_SETTINGS] Extracted user_id: {vk_user_id_value}')
-            else:
-                print('[VK_SETTINGS] Format 3 detected: clean token')
             
             vk_group_token = body.get('vk_group_token', '').strip()
             vk_group_id = body.get('vk_group_id', '').strip()
@@ -119,7 +117,6 @@ def handler(event: dict, context):
             # Пустой vk_user_token допускается только при отключении (когда явно передают пустую строку)
             # и при сохранении только групповых настроек. Если токен непустой — проверяем формат.
             if vk_user_token and not vk_user_token.startswith('vk1.'):
-                print(f'[VK_SETTINGS] ERROR: Invalid token format: {vk_user_token[:20]}')
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -135,14 +132,17 @@ def handler(event: dict, context):
                 (user_id,)
             )
             existing = cur.fetchone() or {}
+            existing_user_token = decrypt_token(existing.get('vk_user_token') or '')
+            existing_group_token = decrypt_token(existing.get('vk_group_token') or '')
 
-            new_user_token = vk_user_token if 'vk_user_token' in body else (existing.get('vk_user_token') or '')
-            new_group_token = vk_group_token if 'vk_group_token' in body else (existing.get('vk_group_token') or '')
+            new_user_token = vk_user_token if 'vk_user_token' in body else existing_user_token
+            new_group_token = vk_group_token if 'vk_group_token' in body else existing_group_token
             new_group_id = vk_group_id if 'vk_group_id' in body else (existing.get('vk_group_id') or '')
             new_user_name = vk_user_name if 'vk_user_name' in body else (existing.get('vk_user_name') or '')
             new_user_id = vk_user_id_value if vk_user_id_value else (existing.get('vk_user_id') or '')
 
-            print(f'[VK_SETTINGS] Saving settings for user_id={user_id}, vk_user_id={new_user_id}')
+            enc_user_token = encrypt_token(new_user_token)
+            enc_group_token = encrypt_token(new_group_token)
 
             cur.execute(f'''
                 INSERT INTO {schema}.vk_settings 
@@ -156,7 +156,7 @@ def handler(event: dict, context):
                     vk_user_name = EXCLUDED.vk_user_name,
                     vk_user_id = EXCLUDED.vk_user_id,
                     updated_at = CURRENT_TIMESTAMP
-            ''', (user_id, new_user_token, new_group_token, new_group_id, new_user_name, new_user_id))
+            ''', (user_id, enc_user_token, enc_group_token, new_group_id, new_user_name, new_user_id))
             conn.commit()
             
             return {

@@ -4,6 +4,7 @@ import random
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
+from crypto_utils import decrypt_token
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = os.environ.get('MAIN_DB_SCHEMA', 't_p28211681_photo_secure_web')
@@ -90,7 +91,7 @@ def handler(event: dict, context):
         )
         settings = cur.fetchone()
         group_token = (settings.get('vk_group_token') if settings else '') or ''
-        group_token = group_token.strip()
+        group_token = decrypt_token(group_token).strip()
 
         cur.execute(
             f'SELECT name, vk_client_id, vk_profile, vk_username '

@@ -3,6 +3,7 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import requests
+from crypto_utils import decrypt_token
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = os.environ.get('MAIN_DB_SCHEMA', 't_p28211681_photo_secure_web')
@@ -83,14 +84,14 @@ def handler(event: dict, context):
 
     if target == 'group':
         group_id = (settings.get('vk_group_id') or '').strip().lstrip('-')
-        group_token = (settings.get('vk_group_token') or '').strip()
+        group_token = decrypt_token(settings.get('vk_group_token') or '').strip()
         if not group_id or not group_token:
             return resp(400, {'error': 'Не указан ID группы или токен сообщества в настройках'})
         access_token = group_token
         owner_id = -int(group_id)
         from_group = 1
     else:
-        user_token = (settings.get('vk_user_token') or '').strip()
+        user_token = decrypt_token(settings.get('vk_user_token') or '').strip()
         vk_uid = (settings.get('vk_user_id') or '').strip()
         if not user_token or not vk_uid:
             return resp(400, {'error': 'ВКонтакте не подключён (нет токена пользователя)'})

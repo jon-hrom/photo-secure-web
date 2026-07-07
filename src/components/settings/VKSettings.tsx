@@ -45,14 +45,14 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
 
       if (response.ok) {
         const data = await response.json();
-        const hasToken = data.vk_user_token && data.vk_user_token.length > 0;
+        const hasToken = !!data.vk_user_token;
         setStatus({
           connected: hasToken,
           vk_user_name: data.vk_user_name,
           vk_user_id: data.vk_user_id
         });
         setGroupId(data.vk_group_id || '');
-        setGroupConnected(!!(data.vk_group_token && data.vk_group_token.length > 0 && data.vk_group_id));
+        setGroupConnected(!!(data.vk_group_token && data.vk_group_id));
       }
     } catch (error) {
       console.error('Error checking VK connection:', error);
