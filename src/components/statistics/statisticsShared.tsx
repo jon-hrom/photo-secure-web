@@ -1,5 +1,15 @@
 export const COLORS = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444'];
 
+export const PROJECT_STATUS_LABELS: Record<string, string> = {
+  new: 'Новый',
+  in_progress: 'В работе',
+  completed: 'Завершён',
+  cancelled: 'Отменён',
+};
+
+export const getProjectStatusLabel = (status: string): string =>
+  PROJECT_STATUS_LABELS[status] || status;
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const CustomTooltip = ({ active, payload, label, formatter }: any) => {
   if (!active || !payload || !payload.length) return null;

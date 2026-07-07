@@ -1,16 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
-import { COLORS, safeToFixed, StatisticsTabProps } from './statisticsShared';
+import { COLORS, safeToFixed, StatisticsTabProps, getProjectStatusLabel } from './statisticsShared';
 import { getShootingStyles } from '@/data/shootingStyles';
-
-const STATUS_LABELS: Record<string, string> = {
-  new: 'Новые',
-  in_progress: 'В работе',
-  completed: 'Завершённые',
-  cancelled: 'Отменённые',
-};
-
-const getStatusLabel = (status: string) => STATUS_LABELS[status] || status;
 
 const getCategoryLabel = (category: string) => {
   if (!category || category === 'Не указано') return 'Не указано';
@@ -88,7 +79,7 @@ export const ProjectsTab = ({ data, formatCurrency }: StatisticsTabProps) => {
             <div className="space-y-3">
               {data.projects.by_status.map((item) => (
                 <div key={item.status} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="font-medium">{getStatusLabel(item.status)}</span>
+                  <span className="font-medium">{getProjectStatusLabel(item.status)}</span>
                   <span className="text-2xl font-bold text-primary">{item.count}</span>
                 </div>
               ))}

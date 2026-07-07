@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatisticsTabProps } from './statisticsShared';
+import { StatisticsTabProps, getProjectStatusLabel } from './statisticsShared';
 
 const TopsTab = ({ data, formatCurrency }: StatisticsTabProps) => {
   return (
@@ -47,7 +47,7 @@ const TopsTab = ({ data, formatCurrency }: StatisticsTabProps) => {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-primary">{formatCurrency(project.total_amount)}</p>
-                    <p className="text-xs text-muted-foreground">{project.status}</p>
+                    <p className="text-xs text-muted-foreground">{getProjectStatusLabel(project.status)}</p>
                   </div>
                 </div>
               ))}
