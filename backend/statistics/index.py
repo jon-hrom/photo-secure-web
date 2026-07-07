@@ -453,37 +453,48 @@ def get_charts_data(cur, photographer_id: str, period: str, date_filter: str) ->
 def get_tops(cur, photographer_id: str, date_filter: str) -> Dict[str, Any]:
     '''Топ клиентов и проектов'''
     
-    # Топ-5 клиентов по доходу
+    # Топ-5 клиентов по доходу.
+    # Платежи и проекты считаем отдельными подзапросами, чтобы избежать
+    # задвоения сумм при нескольких проектах у одного клиента.
     cur.execute(f'''
         SELECT 
             c.id,
             c.name,
             c.phone,
-            COALESCE(SUM(pay.amount), 0) as total_spent,
-            COUNT(DISTINCT cp.id) as projects_count
+            COALESCE((
+                SELECT SUM(pay.amount)
+                FROM {SCHEMA}.client_payments pay
+                WHERE pay.client_id = c.id
+                  AND pay.status = 'completed'
+                  AND pay.payment_date {date_filter}
+            ), 0) as total_spent,
+            COALESCE((
+                SELECT COUNT(*)
+                FROM {SCHEMA}.client_projects cp
+                WHERE cp.client_id = c.id
+                  AND cp.created_at {date_filter}
+            ), 0) as projects_count
         FROM {SCHEMA}.clients c
-        LEFT JOIN {SCHEMA}.client_projects cp ON c.id = cp.client_id
-        LEFT JOIN {SCHEMA}.client_payments pay ON c.id = pay.client_id AND pay.status = 'completed'
         WHERE c.photographer_id = {photographer_id}
-        GROUP BY c.id, c.name, c.phone
         ORDER BY total_spent DESC
         LIMIT 5
     ''')
     top_clients = cur.fetchall()
     
-    # Топ-5 самых крупных заказов
+    # Топ-5 самых крупных заказов (по фактически оплаченным суммам за период)
     cur.execute(f'''
         SELECT 
             cp.id,
             cp.name as project_name,
             c.name as client_name,
-            COALESCE(SUM(pay.amount), 0) as total_amount,
+            COALESCE(SUM(CASE WHEN pay.status = 'completed' THEN pay.amount END), 0) as total_amount,
             cp.status,
             cp.created_at
         FROM {SCHEMA}.client_projects cp
         JOIN {SCHEMA}.clients c ON cp.client_id = c.id
         LEFT JOIN {SCHEMA}.client_payments pay ON cp.id = pay.project_id
         WHERE c.photographer_id = {photographer_id}
+          AND cp.created_at {date_filter}
         GROUP BY cp.id, cp.name, c.name, cp.status, cp.created_at
         ORDER BY total_amount DESC
         LIMIT 5
