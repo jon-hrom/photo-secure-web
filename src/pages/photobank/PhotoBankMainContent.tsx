@@ -1,4 +1,6 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
+import { toast } from 'sonner';
+import VKPostModal from '@/components/photobank/VKPostModal';
 import PhotoBankStorageIndicator from '@/components/photobank/PhotoBankStorageIndicator';
 import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
 import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
@@ -127,6 +129,21 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
     onNavigateRoot,
   } = props;
 
+  const [vkPostOpen, setVkPostOpen] = useState(false);
+  const [vkPhotoUrls, setVkPhotoUrls] = useState<string[]>([]);
+
+  const handleOpenVKPost = () => {
+    const urls = (photos as { id: number; s3_url: string; is_video?: boolean; is_raw?: boolean }[])
+      .filter((p) => selectedPhotos.has(p.id) && p.s3_url && !p.is_video && !p.is_raw)
+      .map((p) => p.s3_url);
+    if (urls.length === 0) {
+      toast.error('Выберите хотя бы одно фото (без видео и RAW)');
+      return;
+    }
+    setVkPhotoUrls(urls);
+    setVkPostOpen(true);
+  };
+
   const clientUploadSlot: ReactNode = userId && selectedFolder ? (
     <>
       <FavoriteListsViewer
@@ -189,6 +206,7 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
         onGoForward={handleGoForward}
         onDeleteSelectedPhotos={handleDeleteSelectedPhotos}
         onRestoreSelectedPhotos={handleRestoreSelectedPhotos}
+        onPublishToVK={handleOpenVKPost}
         onShowStats={() => setShowStats(true)}
         onShowAllChats={() => setFolderChatsId(-1)}
         totalUnreadMessages={folders.reduce((sum, f) => sum + (f.unread_messages_count || 0), 0)}
@@ -276,6 +294,13 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
           />
         </>
       )}
+
+      <VKPostModal
+        open={vkPostOpen}
+        onClose={() => setVkPostOpen(false)}
+        photoUrls={vkPhotoUrls}
+        userId={userId}
+      />
     </div>
   );
 };

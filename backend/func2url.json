@@ -1,4 +1,6 @@
 {
+  "vk-notify": "https://functions.poehali.dev/9e969787-1b8b-439d-8e29-8031cab6fc89",
+  "vk-post": "https://functions.poehali.dev/3a680e97-242d-4947-a2ee-778e1066cdf3",
   "geo-check": "https://functions.poehali.dev/21c968c3-577d-4286-9a9b-99053e0a915c",
   "image-thumb": "https://functions.poehali.dev/4af7dbda-63cb-4107-add3-fb5cb1b87da1",
   "admin-user-audit": "https://functions.poehali.dev/2016162f-bf9b-41e9-a0eb-e2e4c8249795",

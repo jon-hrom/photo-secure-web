@@ -46,6 +46,7 @@ interface PhotoBankHeaderProps {
   isAdmin?: boolean;
   onDeleteSelectedPhotos?: () => void;
   onRestoreSelectedPhotos?: () => void;
+  onPublishToVK?: () => void;
   onShowStats?: () => void;
   onShowAllChats?: () => void;
   totalUnreadMessages?: number;
@@ -75,6 +76,7 @@ const PhotoBankHeader = ({
   isAdmin = false,
   onDeleteSelectedPhotos,
   onRestoreSelectedPhotos,
+  onPublishToVK,
   onShowStats,
   onShowAllChats,
   totalUnreadMessages = 0,
@@ -159,6 +161,17 @@ const PhotoBankHeader = ({
                 >
                   <Icon name="Plus" size={14} className="md:w-4 md:h-4 shrink-0" />
                   <span className="text-[8px] md:text-sm md:ml-1.5 leading-[1.1] text-center md:text-left max-w-[68px] md:max-w-none">Добавить в макет ({selectedPhotos.size})</span>
+                </Button>
+              )}
+              {!isTechRejectsFolder && onPublishToVK && (
+                <Button 
+                  variant="outline"
+                  onClick={onPublishToVK}
+                  disabled={selectedPhotos.size === 0}
+                  className="h-[72px] w-[72px] md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-0 p-1.5 md:px-4 bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border-blue-200 text-blue-900 hover:text-blue-950"
+                >
+                  <Icon name="Share2" size={14} className="md:w-4 md:h-4 shrink-0" />
+                  <span className="text-[8px] md:text-sm md:ml-1.5 leading-[1.1] text-center md:text-left max-w-[68px] md:max-w-none">В ВКонтакте ({selectedPhotos.size})</span>
                 </Button>
               )}
               <Button 

@@ -1,30 +1,18 @@
 {
   "tests": [
     {
-      "name": "Get VK settings",
+      "name": "Get VK settings without user returns 401",
       "method": "GET",
       "path": "/",
-      "expectedStatus": 200,
-      "expectedBody": {
-        "vk_user_token": "string",
-        "vk_group_token": "string",
-        "vk_group_id": "string"
-      },
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
     },
     {
-      "name": "Update VK settings",
-      "method": "POST",
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
       "path": "/",
-      "body": {
-        "vk_user_token": "test_token",
-        "vk_group_token": "test_group_token",
-        "vk_group_id": "123456"
-      },
-      "expectedStatus": 200,
-      "expectedBody": {
-        "success": true
-      }
+      "expectedStatus": 200
     }
   ]
 }

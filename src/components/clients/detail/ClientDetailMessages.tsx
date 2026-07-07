@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
 const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
+const VK_NOTIFY_URL = 'https://functions.poehali.dev/9e969787-1b8b-439d-8e29-8031cab6fc89';
 
 interface Template {
   template_type: string;
@@ -110,6 +111,7 @@ const ClientDetailMessages = ({
 }: ClientDetailMessagesProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sendingViaMax, setSendingViaMax] = useState(false);
+  const [sendingViaVk, setSendingViaVk] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [resendingIds, setResendingIds] = useState<Set<number>>(new Set());
@@ -268,6 +270,38 @@ const ClientDetailMessages = ({
       toast.error('Не удалось отправить сообщение');
     } finally {
       setSendingViaMax(false);
+    }
+  };
+
+  const handleSendViaVk = async () => {
+    if (!clientId || !newMessage.content.trim()) {
+      toast.error('Не указан клиент или сообщение пусто');
+      return;
+    }
+    setSendingViaVk(true);
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(VK_NOTIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '1' },
+        body: JSON.stringify({ client_id: clientId, message: newMessage.content }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Сообщение отправлено в ВКонтакте');
+        onMessageChange('content', '');
+        setSelectedTemplate('');
+        window.location.reload();
+      } else if (data.need_permission) {
+        toast.error(data.error, { duration: 8000 });
+      } else {
+        toast.error(data.error || 'Ошибка отправки');
+      }
+    } catch (error) {
+      console.error('[ClientDetailMessages] VK Error:', error);
+      toast.error('Не удалось отправить сообщение в ВК');
+    } finally {
+      setSendingViaVk(false);
     }
   };
 
@@ -478,6 +512,23 @@ const ClientDetailMessages = ({
                     <span className="text-white font-bold text-[10px]">M</span>
                   </div>
                   <span>Отправить через MAX</span>
+                </>
+              )}
+            </Button>
+          )}
+
+          {clientId && (
+            <Button
+              onClick={handleSendViaVk}
+              disabled={!newMessage.content.trim() || sendingViaVk}
+              className="w-full rounded-full bg-[#0077FF] hover:bg-[#0066DD]"
+            >
+              {sendingViaVk ? (
+                <Icon name="Loader2" size={18} className="mr-2 animate-spin" />
+              ) : (
+                <>
+                  <Icon name="Send" size={16} className="mr-2" />
+                  <span>Отправить в ВКонтакте</span>
                 </>
               )}
             </Button>

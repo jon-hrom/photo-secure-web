@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "No user id returns 401",
+      "method": "POST",
+      "path": "/",
+      "body": {"message": "test"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Empty payload returns 400",
+      "method": "POST",
+      "path": "/",
+      "headers": {"X-User-Id": "1"},
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

@@ -112,11 +112,13 @@ def handler(event: dict, context):
             else:
                 print('[VK_SETTINGS] Format 3 detected: clean token')
             
-            vk_group_token = body.get('vk_group_token', '')
-            vk_group_id = body.get('vk_group_id', '')
+            vk_group_token = body.get('vk_group_token', '').strip()
+            vk_group_id = body.get('vk_group_id', '').strip()
             vk_user_name = body.get('vk_user_name', '')
-            
-            if not vk_user_token or not vk_user_token.startswith('vk1.'):
+
+            # Пустой vk_user_token допускается только при отключении (когда явно передают пустую строку)
+            # и при сохранении только групповых настроек. Если токен непустой — проверяем формат.
+            if vk_user_token and not vk_user_token.startswith('vk1.'):
                 print(f'[VK_SETTINGS] ERROR: Invalid token format: {vk_user_token[:20]}')
                 return {
                     'statusCode': 400,
@@ -124,9 +126,24 @@ def handler(event: dict, context):
                     'body': json.dumps({'error': 'Некорректный формат токена'}),
                     'isBase64Encoded': False
                 }
-            
-            print(f'[VK_SETTINGS] Saving token for user_id={user_id}, vk_user_id={vk_user_id_value}')
-            
+
+            # Собираем список обновляемых полей — обновляем только переданные ключи,
+            # чтобы сохранение группы не затирало токен пользователя и наоборот.
+            cur.execute(
+                f'SELECT vk_user_token, vk_group_token, vk_group_id, vk_user_name, vk_user_id '
+                f'FROM {schema}.vk_settings WHERE user_id = %s',
+                (user_id,)
+            )
+            existing = cur.fetchone() or {}
+
+            new_user_token = vk_user_token if 'vk_user_token' in body else (existing.get('vk_user_token') or '')
+            new_group_token = vk_group_token if 'vk_group_token' in body else (existing.get('vk_group_token') or '')
+            new_group_id = vk_group_id if 'vk_group_id' in body else (existing.get('vk_group_id') or '')
+            new_user_name = vk_user_name if 'vk_user_name' in body else (existing.get('vk_user_name') or '')
+            new_user_id = vk_user_id_value if vk_user_id_value else (existing.get('vk_user_id') or '')
+
+            print(f'[VK_SETTINGS] Saving settings for user_id={user_id}, vk_user_id={new_user_id}')
+
             cur.execute(f'''
                 INSERT INTO {schema}.vk_settings 
                 (user_id, vk_user_token, vk_group_token, vk_group_id, vk_user_name, vk_user_id, updated_at)
@@ -139,7 +156,7 @@ def handler(event: dict, context):
                     vk_user_name = EXCLUDED.vk_user_name,
                     vk_user_id = EXCLUDED.vk_user_id,
                     updated_at = CURRENT_TIMESTAMP
-            ''', (user_id, vk_user_token, vk_group_token, vk_group_id, vk_user_name, vk_user_id_value))
+            ''', (user_id, new_user_token, new_group_token, new_group_id, new_user_name, new_user_id))
             conn.commit()
             
             return {

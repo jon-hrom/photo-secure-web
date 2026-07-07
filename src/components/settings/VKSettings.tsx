@@ -20,6 +20,10 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [token, setToken] = useState('');
   const [saving, setSaving] = useState(false);
+  const [groupId, setGroupId] = useState('');
+  const [groupToken, setGroupToken] = useState('');
+  const [savingGroup, setSavingGroup] = useState(false);
+  const [groupConnected, setGroupConnected] = useState(false);
 
   useEffect(() => {
     checkConnection();
@@ -47,6 +51,8 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
           vk_user_name: data.vk_user_name,
           vk_user_id: data.vk_user_id
         });
+        setGroupId(data.vk_group_id || '');
+        setGroupConnected(!!(data.vk_group_token && data.vk_group_token.length > 0 && data.vk_group_id));
       }
     } catch (error) {
       console.error('Error checking VK connection:', error);
@@ -125,6 +131,42 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
       }
     } catch (error) {
       toast.error('Ошибка при отключении');
+    }
+  };
+
+  const handleSaveGroup = async () => {
+    const effectiveUserId = userId || localStorage.getItem('userId');
+    if (!effectiveUserId) {
+      toast.error('Не удалось определить пользователя');
+      return;
+    }
+    if (!groupId.trim()) {
+      toast.error('Укажите ID сообщества');
+      return;
+    }
+
+    setSavingGroup(true);
+    try {
+      const payload: Record<string, string> = { vk_group_id: groupId.trim() };
+      if (groupToken.trim()) payload.vk_group_token = groupToken.trim();
+
+      const response = await fetch(VK_SETTINGS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': effectiveUserId },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        await checkConnection();
+        setGroupToken('');
+        toast.success('Сообщество сохранено');
+      } else {
+        toast.error('Не удалось сохранить сообщество');
+      }
+    } catch (error) {
+      toast.error('Ошибка при сохранении');
+    } finally {
+      setSavingGroup(false);
     }
   };
 
@@ -293,6 +335,67 @@ const VKSettings = ({ userId }: { userId: string | null }) => {
             )}
           </div>
         )}
+
+        <div className="pt-4 mt-2 border-t border-border space-y-3">
+          <div className="flex items-center gap-2">
+            <Icon name="Users" size={20} className="text-blue-600" />
+            <div>
+              <p className="font-semibold">Сообщество ВКонтакте</p>
+              <p className="text-sm text-muted-foreground">
+                Для публикации постов с фото в группу и уведомлений клиентам в личку
+              </p>
+            </div>
+            {groupConnected && (
+              <span className="ml-auto inline-flex items-center gap-1 text-sm text-green-600">
+                <Icon name="CheckCircle2" size={16} /> Подключено
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="vk-group-id">ID или короткое имя сообщества</Label>
+            <Input
+              id="vk-group-id"
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              placeholder="Например: 123456789 или mystudio"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="vk-group-token">
+              Токен сообщества {groupConnected && <span className="text-muted-foreground">(оставьте пустым, чтобы не менять)</span>}
+            </Label>
+            <Input
+              id="vk-group-token"
+              type="password"
+              value={groupToken}
+              onChange={(e) => setGroupToken(e.target.value)}
+              placeholder="vk1.a.xxxxxxxxxxxx"
+            />
+            <p className="text-xs text-muted-foreground">
+              Управление → Работа с API → Ключи доступа → создать ключ с правами «Сообщения» и «Управление»
+            </p>
+          </div>
+
+          <Button
+            onClick={handleSaveGroup}
+            disabled={savingGroup || !groupId.trim()}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+          >
+            {savingGroup ? (
+              <>
+                <Icon name="Loader2" size={20} className="mr-2 animate-spin" />
+                Сохранение...
+              </>
+            ) : (
+              <>
+                <Icon name="Save" size={20} className="mr-2" />
+                Сохранить сообщество
+              </>
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
