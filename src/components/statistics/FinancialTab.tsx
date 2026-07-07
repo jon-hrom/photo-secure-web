@@ -18,12 +18,26 @@ const CURR_PERIOD_LABELS: Record<string, string> = {
   year: 'Этот год',
 };
 
+const formatGrowth = (growth: number, current: number, previous: number): string => {
+  // При околонулевой базе прошлого периода процент становится бессмысленно
+  // огромным — показываем более понятную формулировку.
+  if (previous <= 0) {
+    return current > 0 ? 'новый доход' : '—';
+  }
+  if (Math.abs(growth) >= 500) {
+    const times = current / previous;
+    return `в ${times.toFixed(1).replace('.0', '')} раза`;
+  }
+  return `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
+};
+
 const FinancialTab = ({ data, formatCurrency }: StatisticsTabProps) => {
   const current = data.financial.photographer_revenue ?? data.financial.net_revenue ?? data.financial.total_revenue;
   const previous = data.financial.prev_photographer_revenue ?? data.financial.prev_revenue ?? 0;
   const diff = current - previous;
   const growth = safeNumber(data.financial.revenue_growth);
   const isUp = growth >= 0;
+  const growthLabel = formatGrowth(growth, current, previous);
   const currLabel = CURR_PERIOD_LABELS[data.period] ?? 'Текущий период';
   const prevLabel = PREV_PERIOD_LABELS[data.period] ?? 'Прошлый период';
   return (
@@ -37,8 +51,8 @@ const FinancialTab = ({ data, formatCurrency }: StatisticsTabProps) => {
           <CardContent>
             <div className="flex items-center gap-2 text-sm">
               <Icon name={safeNumber(data.financial.revenue_growth) >= 0 ? 'TrendingUp' : 'TrendingDown'} size={16} className={safeNumber(data.financial.revenue_growth) >= 0 ? 'text-green-600' : 'text-red-600'} />
-              <span className={safeNumber(data.financial.revenue_growth) >= 0 ? 'text-green-600' : 'text-red-600'}>
-                {safeNumber(data.financial.revenue_growth) >= 0 ? '+' : ''}{safeToFixed(data.financial.revenue_growth, 1)}%
+              <span className={isUp ? 'text-green-600' : 'text-red-600'}>
+                {growthLabel}
               </span>
               <span className="text-muted-foreground">к прошлому периоду</span>
             </div>
@@ -100,7 +114,7 @@ const FinancialTab = ({ data, formatCurrency }: StatisticsTabProps) => {
               <div className="flex items-center gap-2">
                 <Icon name={isUp ? 'TrendingUp' : 'TrendingDown'} size={22} className={isUp ? 'text-green-600' : 'text-red-600'} />
                 <span className={`text-xl sm:text-2xl font-bold ${isUp ? 'text-green-600' : 'text-red-600'}`}>
-                  {isUp ? '+' : ''}{safeToFixed(growth, 1)}%
+                  {growthLabel}
                 </span>
               </div>
               <p className={`text-sm mt-1 ${isUp ? 'text-green-600' : 'text-red-600'}`}>
