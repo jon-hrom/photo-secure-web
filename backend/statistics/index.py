@@ -217,17 +217,17 @@ def get_general_stats(cur, photographer_id: str, date_filter: str, prev_date_fil
 def get_clients_stats(cur, photographer_id: str, date_filter: str) -> Dict[str, Any]:
     '''Статистика по клиентам'''
     
-    # Новые vs постоянные клиенты
+    # Новые vs постоянные клиенты.
+    # Количество проектов считаем без JOIN с платежами, чтобы избежать
+    # задвоения при нескольких платежах по проекту.
     cur.execute(f'''
         SELECT 
             c.id,
             c.name,
             c.created_at,
-            COUNT(cp.id) as projects_count,
-            COALESCE(SUM(pay.amount), 0) as total_spent
+            COUNT(cp.id) as projects_count
         FROM {SCHEMA}.clients c
         LEFT JOIN {SCHEMA}.client_projects cp ON c.id = cp.client_id
-        LEFT JOIN {SCHEMA}.client_payments pay ON c.id = pay.client_id AND pay.status = 'completed'
         WHERE c.photographer_id = {photographer_id}
         GROUP BY c.id, c.name, c.created_at
     ''')
@@ -251,15 +251,22 @@ def get_clients_stats(cur, photographer_id: str, date_filter: str) -> Dict[str, 
 def get_projects_stats(cur, photographer_id: str, date_filter: str) -> Dict[str, Any]:
     '''Статистика по проектам'''
     
-    # Проекты по категориям (используем shooting_style_id)
+    # Проекты по категориям (используем shooting_style_id).
+    # Платежи предагрегируем по проекту (paid), чтобы несколько платежей
+    # по одному проекту не задваивали количество проектов в категории.
     cur.execute(f'''
         SELECT 
             COALESCE(cp.shooting_style_id, 'Не указано') as category,
             COUNT(cp.id) as count,
-            COALESCE(SUM(pay.amount), 0) as revenue
+            COALESCE(SUM(paid.amount), 0) as revenue
         FROM {SCHEMA}.client_projects cp
         JOIN {SCHEMA}.clients c ON cp.client_id = c.id
-        LEFT JOIN {SCHEMA}.client_payments pay ON cp.id = pay.project_id AND pay.status = 'completed'
+        LEFT JOIN (
+            SELECT project_id, SUM(amount) as amount
+            FROM {SCHEMA}.client_payments
+            WHERE status = 'completed'
+            GROUP BY project_id
+        ) paid ON paid.project_id = cp.id
         WHERE c.photographer_id = {photographer_id}
           AND cp.created_at {date_filter}
         GROUP BY cp.shooting_style_id
