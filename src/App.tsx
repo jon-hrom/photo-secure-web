@@ -10,7 +10,6 @@ import { logPageView } from "@/lib/activityLog";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import VKCallback from "./pages/VKCallback";
-import GoogleCallback from "./pages/GoogleCallback";
 import YandexCallback from "./pages/YandexCallback";
 import YandexDiskCallback from "./pages/YandexDiskCallback";
 import VKCallbackDirect from "./pages/VKCallbackDirect";
@@ -219,7 +218,6 @@ const App = () => {
           <Route path="/face-blur" element={<FaceBlurEditor />} />
           <Route path="/vk-callback" element={<VKCallbackDirect />} />
           <Route path="/auth/callback/vkid" element={<VKCallback />} />
-          <Route path="/auth/callback/google" element={<GoogleCallback />} />
           <Route path="/auth/callback/yandex" element={<YandexCallback />} />
           <Route path="/auth/yandex/callback" element={<YandexCallback />} />
           <Route path="/auth/telegram/callback" element={<TelegramCallback />} />

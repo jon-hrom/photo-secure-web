@@ -15,7 +15,6 @@ import ContactInfoCard from '@/components/settings/ContactInfoCard';
 import TelegramVerificationCard from '@/components/settings/TelegramVerificationCard';
 import EmailVerificationDialog from '@/components/EmailVerificationDialog';
 import PhoneVerificationDialog from '@/components/PhoneVerificationDialog';
-import GoogleCalendarConnect from '@/components/settings/GoogleCalendarConnect';
 import VKSettings from '@/components/settings/VKSettings';
 import BiometricSettingsCard from '@/components/settings/BiometricSettingsCard';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
@@ -329,8 +328,6 @@ const Settings = () => {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
-                <GoogleCalendarConnect />
-
                 {settings && (
                   <VKSettings userId={settings.id?.toString() || null} />
                 )}

@@ -7,13 +7,12 @@ interface OAuthProvidersProps {
   authProviders: {
     yandex: boolean;
     vk: boolean;
-    google: boolean;
     telegram?: boolean;
   };
   isBlocked: boolean;
   privacyAccepted: boolean;
   onLoginSuccess: (userId: number, email?: string) => void;
-  onOAuthLogin: (provider: 'yandex' | 'vk' | 'google') => void;
+  onOAuthLogin: (provider: 'yandex' | 'vk') => void;
 }
 
 const OAuthProviders = ({ 
@@ -23,9 +22,7 @@ const OAuthProviders = ({
   onLoginSuccess, 
   onOAuthLogin 
 }: OAuthProvidersProps) => {
-  const [googleButtonText, setGoogleButtonText] = useState<'full' | 'short' | 'letter'>('full');
   const [yandexButtonText, setYandexButtonText] = useState<'full' | 'short' | 'letter'>('full');
-  const googleButtonRef = useRef<HTMLButtonElement>(null);
   const yandexButtonRef = useRef<HTMLButtonElement>(null);
 
   const playSuccessSound = () => {
@@ -47,26 +44,13 @@ const OAuthProviders = ({
     oscillator.stop(audioContext.currentTime + 0.4);
   };
 
-  const handleOAuthClick = (provider: 'yandex' | 'vk' | 'google') => {
+  const handleOAuthClick = (provider: 'yandex' | 'vk') => {
     playSuccessSound();
     onOAuthLogin(provider);
   };
 
   useEffect(() => {
     const checkButtonWidths = () => {
-      if (googleButtonRef.current) {
-        const buttonWidth = googleButtonRef.current.offsetWidth;
-        const availableWidth = buttonWidth - 48;
-        
-        if (availableWidth >= 140) {
-          setGoogleButtonText('full');
-        } else if (availableWidth >= 60) {
-          setGoogleButtonText('short');
-        } else {
-          setGoogleButtonText('letter');
-        }
-      }
-
       if (yandexButtonRef.current) {
         const buttonWidth = yandexButtonRef.current.offsetWidth;
         const availableWidth = buttonWidth - 48;
@@ -89,7 +73,7 @@ const OAuthProviders = ({
       clearTimeout(timer);
       window.removeEventListener('resize', checkButtonWidths);
     };
-  }, [authProviders.google, authProviders.yandex]);
+  }, [authProviders.yandex]);
 
   const handleTelegramLogin = () => {
     const botUsername = 'FotooMixx_bot';
@@ -97,7 +81,7 @@ const OAuthProviders = ({
     window.open(telegramUrl, '_blank');
   };
 
-  if (!authProviders.yandex && !authProviders.vk && !authProviders.google && !authProviders.telegram) {
+  if (!authProviders.yandex && !authProviders.vk && !authProviders.telegram) {
     return null;
   }
 
@@ -134,7 +118,7 @@ const OAuthProviders = ({
         </div>
       )}
 
-      {(authProviders.yandex || authProviders.google) && (
+      {authProviders.yandex && (
         <div className="flex justify-center gap-3">
           {authProviders.yandex && (
             <Button
@@ -162,38 +146,6 @@ const OAuthProviders = ({
               {yandexButtonText === 'letter' && (
                 <span className="text-xl font-bold text-[#FF0000]">
                   Я
-                </span>
-              )}
-            </Button>
-          )}
-          {authProviders.google && (
-            <Button
-              ref={googleButtonRef}
-              variant="outline"
-              onClick={() => handleOAuthClick('google')}
-              disabled={isBlocked || !privacyAccepted}
-              className="rounded-xl flex-1 flex items-center justify-center gap-2 hover:border-[#4285F4] hover:bg-[#4285F4]/5 hover:shadow-lg hover:scale-105 transition-all duration-300 group"
-              title="Войти через Google"
-            >
-              <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-              {googleButtonText === 'full' && (
-                <span className="font-medium bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#FBBC05] bg-clip-text text-transparent whitespace-nowrap">
-                  Вход через Google
-                </span>
-              )}
-              {googleButtonText === 'short' && (
-                <span className="font-medium bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#FBBC05] bg-clip-text text-transparent">
-                  Google
-                </span>
-              )}
-              {googleButtonText === 'letter' && (
-                <span className="text-xl font-bold bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#FBBC05] bg-clip-text text-transparent">
-                  G
                 </span>
               )}
             </Button>

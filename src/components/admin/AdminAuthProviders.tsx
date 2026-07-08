@@ -8,7 +8,6 @@ interface AuthProvidersProps {
   authProviders: {
     yandex: boolean;
     vk: boolean;
-    google: boolean;
     telegram?: boolean;
   };
   onToggleProvider: (provider: string) => void;
@@ -38,13 +37,6 @@ const AdminAuthProviders = ({ authProviders, onToggleProvider }: AuthProvidersPr
       description: 'Вход через ВКонтакте',
       icon: 'Users',
       color: 'text-blue-600',
-    },
-    {
-      key: 'google',
-      name: 'Google',
-      description: 'Вход через Google аккаунт',
-      icon: 'Globe',
-      color: 'text-blue-500',
     },
   ];
 

@@ -32,7 +32,6 @@ export const useAdminPanelSettings = () => {
   const [authProviders, setAuthProviders] = useState({
     yandex: true,
     vk: true,
-    google: true,
     telegram: true,
   });
 
@@ -255,7 +254,7 @@ export const useAdminPanelSettings = () => {
         throw new Error('Failed to save');
       }
       
-      toast.success(`${provider === 'yandex' ? 'Яндекс ID' : provider === 'vk' ? 'VK ID' : 'Google'} ${newValue ? 'включен' : 'отключен'}`);
+      toast.success(`${provider === 'yandex' ? 'Яндекс ID' : provider === 'vk' ? 'VK ID' : 'Telegram'} ${newValue ? 'включен' : 'отключен'}`);
     } catch (error) {
       console.error('Ошибка сохранения настройки:', error);
       toast.error('Не удалось сохранить настройку');
