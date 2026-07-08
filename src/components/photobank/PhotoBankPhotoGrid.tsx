@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import PhotoGridHeader from './PhotoGridHeader';
 import PhotoGridCard from './PhotoGridCard';
 import PhotoGridViewer from './PhotoGridViewer';
@@ -132,6 +133,53 @@ const PhotoBankPhotoGrid = ({
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const { frameMode, setFrameMode, getFrameStyle } = usePhotoFrames();
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenProgress, setRegenProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const rawPhotoIds = useMemo(
+    () => photos.filter((p) => p.is_raw).map((p) => p.id),
+    [photos]
+  );
+
+  const handleRegenerateThumbnails = async () => {
+    if (regenerating || rawPhotoIds.length === 0) return;
+    setRegenerating(true);
+    setRegenProgress({ done: 0, total: rawPhotoIds.length });
+
+    const GEN_URL = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c';
+    const BATCH = 5;
+    let done = 0;
+    let failed = 0;
+    const toastId = toast.loading(`Пересоздаю превью: 0 из ${rawPhotoIds.length}`);
+
+    try {
+      for (let i = 0; i < rawPhotoIds.length; i += BATCH) {
+        const batch = rawPhotoIds.slice(i, i + BATCH);
+        try {
+          const res = await fetch(GEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photo_ids: batch, force: true }),
+          });
+          const data = await res.json();
+          done += data?.successful ?? batch.length;
+        } catch (e) {
+          failed += batch.length;
+        }
+        setRegenProgress({ done: Math.min(done, rawPhotoIds.length), total: rawPhotoIds.length });
+        toast.loading(`Пересоздаю превью: ${Math.min(done, rawPhotoIds.length)} из ${rawPhotoIds.length}`, { id: toastId });
+      }
+
+      if (failed === 0) {
+        toast.success(`Готово! Обновлено превью: ${done}. Обновите страницу (Ctrl+F5), если картинки не изменились.`, { id: toastId, duration: 8000 });
+      } else {
+        toast.warning(`Обновлено ${done}, не удалось ${failed}. Попробуйте ещё раз позже.`, { id: toastId, duration: 8000 });
+      }
+    } finally {
+      setRegenerating(false);
+      setRegenProgress(null);
+    }
+  };
 
   const naturalCompare = (a: string, b: string): number => {
     const re = /(\d+)|(\D+)/g;
@@ -274,6 +322,10 @@ const PhotoBankPhotoGrid = ({
         onDeleteSubfolder={onDeleteSubfolder}
         onNavigateToParent={onNavigateToParent}
         missingFrames={missingFrames}
+        rawCount={rawPhotoIds.length}
+        regenerating={regenerating}
+        regenProgress={regenProgress}
+        onRegenerateThumbnails={handleRegenerateThumbnails}
       />
       <CardContent>
         {isTechRejectsFolder && photos.length > 0 && (

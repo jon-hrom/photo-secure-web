@@ -31,6 +31,10 @@ interface PhotoGridHeaderProps {
   onDeleteSubfolder?: (subfolder: PhotoFolder) => void;
   onNavigateToParent?: () => void;
   missingFrames?: { count: number; expected: number; actual: number; sample: number[] } | null;
+  rawCount?: number;
+  regenerating?: boolean;
+  regenProgress?: { done: number; total: number } | null;
+  onRegenerateThumbnails?: () => void;
 }
 
 const PhotoGridHeader = ({
@@ -48,7 +52,11 @@ const PhotoGridHeader = ({
   onOpenSubfolderSettings,
   onDeleteSubfolder,
   onNavigateToParent,
-  missingFrames
+  missingFrames,
+  rawCount = 0,
+  regenerating = false,
+  regenProgress,
+  onRegenerateThumbnails
 }: PhotoGridHeaderProps) => {
   const isStorageFull = storageUsage && storageUsage.percent >= 100;
 
@@ -115,6 +123,25 @@ const PhotoGridHeader = ({
                   </label>
                 </Button>
               </div>
+            )}
+            {rawCount > 0 && onRegenerateThumbnails && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRegenerateThumbnails}
+                disabled={regenerating || uploading}
+                title="Пересоздать миниатюры RAW-файлов (CR2, NEF и др.), если они показываются тёмными"
+                className="h-auto min-h-9 py-1.5"
+              >
+                <span className="cursor-pointer flex items-center justify-center gap-1.5">
+                  <Icon name={regenerating ? 'Loader2' : 'Wand2'} className={`shrink-0 ${regenerating ? 'animate-spin' : ''}`} size={16} />
+                  <span className="text-xs sm:text-sm leading-tight text-center whitespace-normal max-w-[130px] sm:max-w-none">
+                    {regenerating
+                      ? `Пересоздаю… ${regenProgress ? `${regenProgress.done}/${regenProgress.total}` : ''}`
+                      : 'Пересоздать превью'}
+                  </span>
+                </span>
+              </Button>
             )}
           </div>
         )}
