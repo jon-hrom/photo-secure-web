@@ -35,19 +35,21 @@ def postprocess_raw_capture_one_style(raw_data: bytes, file_name: str) -> Image.
     - без auto-bright чтобы не задирать экспозицию
     - bright=1.0, gamma sRGB (2.4, 12.92) — стандарт
     """
-    is_dng = file_name.lower().endswith('.dng')
-
     with rawpy.imread(BytesIO(raw_data)) as raw:
         params = dict(
             use_camera_wb=True,                      # WB по матрице камеры
             demosaic_algorithm=rawpy.DemosaicAlgorithm.AHD,
             output_color=rawpy.ColorSpace.sRGB,      # sRGB для веба
             output_bps=8,
-            # Auto-bright ОТКЛ + общий подъём bright=1.45 (~+0.5 EV).
-            # Все кадры обрабатываются ОДИНАКОВО: яркие остаются яркими, тёмные
-            # становятся заметно светлее, но без "поднятых чёрных" как у auto-bright.
-            no_auto_bright=True,
-            bright=1.75,
+            # Адаптивная авто-яркость libraw (как в Lightroom/просмотрщиках по
+            # умолчанию): яркость превью подстраивается под реальный уровень кадра.
+            # Раньше стоял no_auto_bright=True + фиксированный bright=1.75 —
+            # для многих CR2 это давало тёмные ("будто выключили свет") превью,
+            # т.к. фиксированный множитель не компенсировал недо-заполненный
+            # диапазон сенсора. auto_bright_thr ограничивает пересветы.
+            no_auto_bright=False,
+            auto_bright_thr=0.001,
+            bright=1.0,
             gamma=(2.4, 12.92),                      # стандартная sRGB-гамма
             highlight_mode=rawpy.HighlightMode.Blend,
             # user_flip=None → libraw применяет ориентацию из EXIF самостоятельно
@@ -55,8 +57,6 @@ def postprocess_raw_capture_one_style(raw_data: bytes, file_name: str) -> Image.
             half_size=True,                          # 25MP → 12MP, для лимита памяти 256MB
             fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Light,
         )
-        if is_dng:
-            params['bright'] = 1.1
         rgb = raw.postprocess(**params)
 
     return Image.fromarray(rgb)
