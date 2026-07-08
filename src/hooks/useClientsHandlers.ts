@@ -44,6 +44,7 @@ interface UseClientsHandlersProps {
   setIsCountdownOpen?: (open: boolean) => void;
   onClientCreated?: (createdClient?: Client) => void;
   navigateToSettings?: () => void;
+  navigateToTariffs?: () => void;
   saveOpenCardData?: (clientId: number, clientName: string) => void;
 }
 
@@ -77,6 +78,7 @@ export const useClientsHandlers = ({
   setIsCountdownOpen,
   onClientCreated,
   navigateToSettings,
+  navigateToTariffs,
   saveOpenCardData,
 }: UseClientsHandlersProps) => {
   
@@ -171,17 +173,46 @@ export const useClientsHandlers = ({
           })
         });
         
+        let createdClientId: number | null = null;
+        let isDuplicate = false;
+        let parsedResult: any = null;
+
+        try {
+          parsedResult = await res.json();
+        } catch (err) {
+
+        }
+
+        // Достигнут лимит клиентов по тарифу — блокируем и предлагаем перейти на больший тариф
+        if (res.status === 403 && parsedResult?.limit_reached) {
+          if (setIsCountdownOpen) {
+            setIsCountdownOpen(false);
+          }
+          // Возвращаем введённые данные обратно в форму, чтобы не потерялись
+          setNewClient(savedClientData);
+          setIsAddDialogOpen(false);
+
+          const maxClients = parsedResult.max_clients;
+          toast.error(`Достигнут лимит клиентов на вашем тарифе (${maxClients})`, {
+            description: 'Чтобы добавлять больше клиентов, перейдите на тариф с большим лимитом.',
+            duration: 10000,
+            action: navigateToTariffs
+              ? {
+                  label: 'Выбрать тариф',
+                  onClick: () => navigateToTariffs(),
+                }
+              : undefined,
+          });
+          return;
+        }
+
         if (!res.ok && res.status !== 200) {
           throw new Error('Failed to add client');
         }
-        
-        let createdClientId: number | null = null;
-        let isDuplicate = false;
-        
+
         try {
-          const result = await res.json();
-          createdClientId = result?.id || null;
-          isDuplicate = result?.duplicate || false;
+          createdClientId = parsedResult?.id || null;
+          isDuplicate = parsedResult?.duplicate || false;
 
         } catch (err) {
 

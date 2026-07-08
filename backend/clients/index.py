@@ -1040,6 +1040,40 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                # Проверка лимита клиентов по тарифу фотографа
+                cur.execute('''
+                    SELECT sp.max_clients, sp.name AS plan_name
+                    FROM t_p28211681_photo_secure_web.users u
+                    LEFT JOIN t_p28211681_photo_secure_web.storage_plans sp ON sp.id = u.plan_id
+                    WHERE u.id = %s
+                ''', (photographer_id,))
+                plan_row = cur.fetchone()
+                plan_max_clients = plan_row['max_clients'] if plan_row else None
+                plan_name = plan_row['plan_name'] if plan_row else None
+
+                if plan_max_clients is not None:
+                    cur.execute('''
+                        SELECT COUNT(*) AS cnt
+                        FROM t_p28211681_photo_secure_web.clients
+                        WHERE photographer_id = %s
+                    ''', (photographer_id,))
+                    current_count = cur.fetchone()['cnt']
+
+                    if current_count >= plan_max_clients:
+                        print(f'[CREATE_CLIENT] Limit reached: {current_count}/{plan_max_clients} (plan={plan_name})')
+                        return {
+                            'statusCode': 403,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({
+                                'error': 'CLIENT_LIMIT_REACHED',
+                                'limit_reached': True,
+                                'max_clients': plan_max_clients,
+                                'current_count': current_count,
+                                'plan_name': plan_name
+                            }),
+                            'isBase64Encoded': False
+                        }
+
                 # Если дубликата нет - создаём нового клиента
                 birthdate_value = body.get('birthdate')
                 if birthdate_value == '':

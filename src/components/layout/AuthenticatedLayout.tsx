@@ -279,6 +279,7 @@ const AuthenticatedLayout = ({
             userId={userId?.toString() || null}
             clients={clients}
             onClientsUpdate={setClients}
+            onNavigateToTariffs={() => setCurrentPage('tariffs')}
           />
         )}
         {currentPage === 'photobook' && <PhotobookPage />}

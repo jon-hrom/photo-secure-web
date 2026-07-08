@@ -30,9 +30,10 @@ interface ClientsPageProps {
   userId?: string | null;
   clients?: Client[];
   onClientsUpdate?: (clients: Client[]) => void;
+  onNavigateToTariffs?: () => void;
 }
 
-const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, userId: propUserId, clients: propClients, onClientsUpdate }: ClientsPageProps) => {
+const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, userId: propUserId, clients: propClients, onClientsUpdate, onNavigateToTariffs }: ClientsPageProps) => {
   const userId = propUserId || localStorage.getItem('userId');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -107,6 +108,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
     setIsCountdownOpen: dialogsState.setIsCountdownOpen,
     onClientCreated: dialogsState.handleClientCreated,
     navigateToSettings: () => navigate('/settings'),
+    navigateToTariffs: onNavigateToTariffs,
     saveOpenCardData: dialogsState.saveOpenCardData,
   });
 
