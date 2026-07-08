@@ -437,7 +437,7 @@ def list_plans_public(event: Dict[str, Any]) -> Dict[str, Any]:
                     track_upload_history,
                     track_download_stats
                 FROM {SCHEMA}.storage_plans
-                WHERE is_active = TRUE
+                WHERE is_active = TRUE AND visible_to_users = TRUE
                 ORDER BY monthly_price_rub ASC
             ''')
             plans = cur.fetchall()
