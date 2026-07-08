@@ -1,4 +1,5 @@
 """VK OAuth авторизация с JWT сессиями."""
+# redeploy: fix runtime module resolution
 
 import json
 import os
