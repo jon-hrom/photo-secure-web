@@ -47,7 +47,17 @@ interface AuditData {
 const fmt = (v?: string | null) => {
   if (!v) return '—';
   try {
-    return new Date(v).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' });
+    // Даты приходят из БД в UTC без суффикса зоны — помечаем как UTC,
+    // затем показываем в UTC+4 (Europe/Samara), как обещает подпись панели.
+    const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(v) ? v : v.replace(' ', 'T') + 'Z';
+    return new Date(iso).toLocaleString('ru-RU', {
+      timeZone: 'Europe/Samara',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   } catch {
     return v;
   }
