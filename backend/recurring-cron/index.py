@@ -331,12 +331,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {'statusCode': 200, 'headers': CORS_HEADERS, 'body': '', 'isBase64Encoded': False}
 
     params = event.get('queryStringParameters') or {}
-    token = params.get('token', '')
+    headers = event.get('headers') or {}
+    body = {}
+    if event.get('body'):
+        try:
+            body = json.loads(event['body'])
+        except Exception:
+            body = {}
+
+    # Токен принимаем из query (?token=) ИЛИ из заголовка X-Cron-Token (так его шлёт диспетчер notifications-tick)
+    token = (
+        params.get('token', '')
+        or headers.get('X-Cron-Token')
+        or headers.get('x-cron-token')
+        or ''
+    )
     cron_token = os.environ.get('CRON_TOKEN', '')
     if cron_token and token != cron_token:
         return resp(403, {'error': 'Forbidden'})
 
-    action = params.get('action', 'all')
+    action = params.get('action') or body.get('action') or 'all'
 
     conn = get_conn()
     cur = conn.cursor()
