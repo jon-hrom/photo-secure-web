@@ -51,7 +51,7 @@ export default function ClientUploadStepUpload({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng,.orf,.rw2,.raf,.pef"
         multiple
         className="hidden"
         onChange={(e) => onFilesSelected(e.target.files)}
