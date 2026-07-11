@@ -52,7 +52,8 @@ export const useCameraUploadLogic = (
       },
       body: JSON.stringify({
         action: 'batch-urls',
-        files: filesData
+        files: filesData,
+        folder_id: (window as any).__photobankTargetFolderId
       })
     });
 

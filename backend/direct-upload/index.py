@@ -79,6 +79,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if action == 'batch-urls':
             # Генерируем presigned URLs для множества файлов за один запрос
             files = body.get('files', [])  # [{"name": "file.jpg", "type": "image/jpeg", "size": 12345}, ...]
+            folder_id = body.get('folder_id')  # Если указан — кладём в реальную папку фотобанка
             
             if not files or len(files) == 0:
                 return {
@@ -97,6 +98,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
+            # Определяем префикс для ключей: если передан folder_id — берём реальный
+            # s3_prefix папки из БД (photobank/{user_id}/{folder_id}/), чтобы путь в S3
+            # совпадал с тем, что показывает Фотобанк. Иначе — общий uploads/.
+            key_prefix = f'uploads/{user_id}/'
+            if folder_id:
+                try:
+                    dsn = os.environ.get('DATABASE_URL')
+                    conn_pref = psycopg2.connect(dsn)
+                    try:
+                        with conn_pref.cursor(cursor_factory=RealDictCursor) as cur:
+                            cur.execute(
+                                f'SELECT s3_prefix FROM {DB_SCHEMA}.photo_folders WHERE id = %s AND user_id = %s',
+                                (folder_id, user_id)
+                            )
+                            row = cur.fetchone()
+                        if row and row.get('s3_prefix'):
+                            key_prefix = row['s3_prefix']
+                            if not key_prefix.endswith('/'):
+                                key_prefix += '/'
+                        else:
+                            # У папки нет s3_prefix — восстанавливаем стандартный
+                            key_prefix = f'photobank/{user_id}/{folder_id}/'
+                    finally:
+                        conn_pref.close()
+                except Exception as pref_err:
+                    print(f'[DIRECT_UPLOAD] folder prefix lookup failed: {pref_err}')
+                    key_prefix = f'photobank/{user_id}/{folder_id}/'
+            
             s3_client = get_s3_client()
             timestamp = int(time.time() * 1000)
             results = []
@@ -108,7 +137,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 ext = filename.split('.')[-1] if '.' in filename else 'jpg'
                 random_str = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=8))
-                s3_key = f'uploads/{user_id}/{timestamp}_{random_str}.{ext}'
+                s3_key = f'{key_prefix}{timestamp}_{random_str}.{ext}'
                 timestamp += 1  # Уникальность ключа
                 
                 # Генерируем presigned URL

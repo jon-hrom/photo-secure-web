@@ -225,7 +225,7 @@ export const usePhotoBankHandlers = (
       const urlRes = await fetch(DIRECT_UPLOAD_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({ action: 'batch-urls', files: filesPayload }),
+        body: JSON.stringify({ action: 'batch-urls', files: filesPayload, folder_id: selectedFolder?.id }),
       });
       if (!urlRes.ok) throw new Error('Failed to get upload URLs');
       const urlData = await urlRes.json();
@@ -255,6 +255,7 @@ export const usePhotoBankHandlers = (
                 body: JSON.stringify({
                   action: 'batch-urls',
                   files: [{ name: f.name, type: f.type || 'application/octet-stream', size: f.size }],
+                  folder_id: selectedFolder?.id,
                 }),
               });
               if (!res.ok) throw new Error('Failed to refresh upload URL');
