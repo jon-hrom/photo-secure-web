@@ -971,7 +971,9 @@ def build_focus_mask(img_arr, mask_arr):
 # - на закрытых/опущенных глазах sharp может быть ниже, но score детектора
 #   позволяет это компенсировать (score >= 0.7 → точно лицо)
 SERVER_FOCUS_SHARP_ABS = 30.0
-SERVER_FOCUS_SHARP_REL = 0.40   # >= 40% от max sharp в кадре
+SERVER_FOCUS_SHARP_REL = 0.30   # >= 30% от max sharp в кадре (было 40% — в парных
+                                # портретах второе лицо чуть менее резкое и выпадало
+                                # из фокуса, оставаясь без ретуши)
 SERVER_MIN_SCORE = 0.50         # ниже — детектор не уверен (отсекаем артефакты)
 
 
@@ -1116,9 +1118,12 @@ def build_focus_mask_via_server(image_bytes, orig_img_arr):
                 continue
         # === АТЕННУАЦИЯ ВТОРОСТЕПЕННЫХ ЛИЦ ===
         # Главное лицо (is_largest) ретушируется на полную силу.
-        # Второстепенные — на 40% (линейно), как было исходно.
+        # Второстепенные — на 85%: раньше было 40%, но после гауссова размытия
+        # и финального порога > 96 маска второго лица (255*0.4=102) почти целиком
+        # отсекалась, и второй человек в кадре (например, женщина в паре) оставался
+        # без ретуши. 85% (217) уверенно проходит порог и сохраняет форму лица.
         if not f.get('is_largest', False):
-            face_skin = (face_skin.astype(np.float32) * 0.4).astype(np.uint8)
+            face_skin = (face_skin.astype(np.float32) * 0.85).astype(np.uint8)
         combined = np.maximum(combined, face_skin)
         succeed += 1
 

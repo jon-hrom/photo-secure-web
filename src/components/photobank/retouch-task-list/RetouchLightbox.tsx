@@ -21,6 +21,7 @@ export const RetouchLightbox = ({
   const [isDragging, setIsDragging] = useState(false);
   const [showBefore, setShowBefore] = useState(false);
   const [wasDragged, setWasDragged] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const zoomRef = useRef(zoom);
   const panRef = useRef(panOffset);
@@ -47,6 +48,9 @@ export const RetouchLightbox = ({
   const originalFullUrl = isRawOriginal
     ? originalUrl
     : originalPhoto?.s3_url || originalPhoto?.data_url || originalUrl;
+
+  const currentSrc = showBefore ? (zoom > 0 ? originalFullUrl : originalUrl) : task?.result_url;
+  useEffect(() => { setImgError(false); }, [currentSrc]);
 
   const resetView = useCallback(() => {
     setZoom(0);
@@ -343,21 +347,21 @@ export const RetouchLightbox = ({
             onMouseLeave={handleMouseUp}
             onClick={handleContainerClick}
           >
-            {showBefore && !originalUrl ? (
+            {(showBefore && !originalUrl) || imgError ? (
               <div className="flex flex-col items-center gap-3 text-center px-6" style={{ pointerEvents: 'none' }}>
                 <Icon name="ImageOff" size={48} className="text-white/40" />
                 <div className="text-white/70 text-sm max-w-xs">
-                  {isRawOriginal
+                  {showBefore && isRawOriginal
                     ? 'Превью оригинала RAW-файла ещё готовится. Оно появится через минуту после обработки.'
-                    : 'Не удалось загрузить оригинал фото.'}
+                    : 'Не удалось загрузить изображение.'}
                 </div>
               </div>
             ) : (
               <img
-                src={showBefore ? (zoom > 0 ? originalFullUrl : originalUrl) : task.result_url}
+                src={currentSrc}
                 alt={task.file_name || ''}
                 className="select-none touch-manipulation"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                onError={() => setImgError(true)}
                 style={{
                   maxWidth: '100%',
                   maxHeight: '100%',
