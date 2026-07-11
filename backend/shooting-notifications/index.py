@@ -63,6 +63,30 @@ def send_via_green_api(instance_id: str, token: str, phone: str, message: str) -
     return response.json()
 
 
+def check_max_account_cached(conn, phone: str) -> dict:
+    """Проверить по кэшу, есть ли у номера аккаунт MAX. Возвращает {'known': bool, 'exists': bool}."""
+    if not conn or not phone:
+        return {'known': False, 'exists': True}
+    clean_phone = ''.join(filter(str.isdigit, str(phone)))
+    if clean_phone.startswith('8'):
+        clean_phone = '7' + clean_phone[1:]
+    if not clean_phone.startswith('7'):
+        clean_phone = '7' + clean_phone
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT exists_flag FROM {SCHEMA}.max_account_cache WHERE phone = {escape_sql(clean_phone)}"
+            )
+            row = cur.fetchone()
+        if not row:
+            return {'known': False, 'exists': True}
+        exists_flag = row['exists_flag'] if isinstance(row, dict) else row[0]
+        return {'known': True, 'exists': bool(exists_flag)}
+    except Exception as e:
+        print(f'[SHOOTING_NOTIF] max cache check error: {e}')
+        return {'known': False, 'exists': True}
+
+
 def send_via_telegram(telegram_id: str, message: str) -> dict:
     """Отправить сообщение через Telegram (plain text, без HTML)."""
     bot_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
@@ -380,7 +404,21 @@ def send_client_notification(project_data: dict, client_data: dict, photographer
                 conn.rollback()
             except Exception:
                 pass
-    
+
+    # Сводка доставки клиенту — используется в уведомлении фотографу
+    no_max_account = bool(wa_error and 'noAccount' in str(wa_error)) or (wa_status == 'failed' and wa_error and 'аккаунт' in str(wa_error).lower())
+    max_cache = check_max_account_cached(conn, client_data.get('phone'))
+    if max_cache['known'] and not max_cache['exists']:
+        no_max_account = True
+    results['delivery_summary'] = {
+        'delivered': bool(sent_ok),
+        'channel': sent_channel,
+        'wa_status': wa_status,
+        'wa_error': wa_error,
+        'tg_status': tg_status,
+        'no_max_account': no_max_account,
+    }
+
     return results if results else {'error': 'No contact methods available'}
 
 
@@ -418,8 +456,9 @@ def check_green_delivery_status(instance_id: str, token: str, id_message: str, m
     return {'status': last_status, 'raw': last_raw}
 
 
-def send_photographer_notification(project_data: dict, client_data: dict, photographer_data: dict, payment_data: dict = None) -> dict:
-    """Отправить уведомление фотографу о съёмке. Использует MAX/WhatsApp если подключён, иначе Telegram."""
+def send_photographer_notification(project_data: dict, client_data: dict, photographer_data: dict, payment_data: dict = None, client_delivery: dict = None) -> dict:
+    """Отправить уведомление фотографу о съёмке. Использует MAX/WhatsApp если подключён, иначе Telegram.
+    client_delivery — сводка доставки уведомления клиенту (по каким каналам дошло, установлен ли MAX)."""
     instance_id = photographer_data.get('green_api_instance_id') or ''
     token = photographer_data.get('green_api_token') or ''
     if not instance_id or not token:
@@ -497,7 +536,33 @@ def send_photographer_notification(project_data: dict, client_data: dict, photog
             "",
             f"📝 Пожелания: {description}"
         ])
-    
+
+    # Блок статуса доставки уведомления клиенту
+    if client_delivery:
+        channel_names = {'whatsapp': 'MAX/WhatsApp', 'telegram': 'Telegram'}
+        if client_delivery.get('no_max_account'):
+            message_parts.extend([
+                "",
+                "⚠️ ВНИМАНИЕ: у клиента НЕ установлен MAX на этом номере.",
+            ])
+            if client_delivery.get('delivered'):
+                ch = channel_names.get(client_delivery.get('channel'), client_delivery.get('channel') or 'другой канал')
+                message_parts.append(f"✅ Но уведомление доставлено клиенту через {ch}.")
+            else:
+                message_parts.append("❌ Уведомление клиенту НЕ доставлено ни по одному каналу!")
+                message_parts.append("👉 Свяжитесь с клиентом лично (звонок / ВК / email).")
+        elif client_delivery.get('delivered'):
+            ch = channel_names.get(client_delivery.get('channel'), client_delivery.get('channel') or 'мессенджер')
+            message_parts.extend([
+                "",
+                f"✅ Клиент уведомлён через {ch}.",
+            ])
+        else:
+            message_parts.extend([
+                "",
+                "❌ Уведомление клиенту НЕ доставлено! Свяжитесь с клиентом лично.",
+            ])
+
     message_parts.extend([
         "",
         "🎯 Удачной съёмки!"
@@ -855,13 +920,16 @@ def handler(event: dict, context) -> dict:
                         project_data, client_data, photographer_data, reserve_amount)
             else:
                 # Отправляем уведомление клиенту
+                client_delivery = None
                 if notify_client:
                     client_result = send_client_notification(project_data, client_data, photographer_data, conn, payment_data)
                     results['client_notification'] = client_result
+                    if isinstance(client_result, dict):
+                        client_delivery = client_result.get('delivery_summary')
                 
-                # Отправляем уведомление фотографу
+                # Отправляем уведомление фотографу (со сводкой доставки клиенту)
                 if notify_photographer:
-                    photographer_result = send_photographer_notification(project_data, client_data, photographer_data, payment_data)
+                    photographer_result = send_photographer_notification(project_data, client_data, photographer_data, payment_data, client_delivery)
                     results['photographer_notification'] = photographer_result
             
             return {

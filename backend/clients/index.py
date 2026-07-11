@@ -613,6 +613,32 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         reserve_tx_by_client[cid] = []
                     reserve_tx_by_client[cid].append(rt)
                 
+                # Массовый запрос кэша наличия MAX-аккаунтов по телефонам клиентов
+                max_by_phone = {}
+                try:
+                    phone_map = {}
+                    for c in clients:
+                        raw_phone = c.get('phone') or ''
+                        digits = ''.join(ch for ch in str(raw_phone) if ch.isdigit())
+                        if digits.startswith('8'):
+                            digits = '7' + digits[1:]
+                        elif digits and not digits.startswith('7'):
+                            digits = '7' + digits
+                        if digits:
+                            phone_map[c['id']] = digits
+                    unique_phones = list(set(phone_map.values()))
+                    if unique_phones:
+                        cur.execute(
+                            'SELECT phone, exists_flag FROM t_p28211681_photo_secure_web.max_account_cache WHERE phone = ANY(%s)',
+                            (unique_phones,)
+                        )
+                        cache_rows = {r['phone']: r['exists_flag'] for r in cur.fetchall()}
+                        for c_id, ph in phone_map.items():
+                            if ph in cache_rows:
+                                max_by_phone[c_id] = bool(cache_rows[ph])
+                except Exception as e:
+                    print(f'[MAX_CACHE_LOOKUP_ERROR] {e}')
+
                 # Собираем результат
                 result = []
                 for client in clients:
@@ -717,6 +743,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         **dict(client),
                         'vkProfile': client['vk_profile'],
                         'vk_username': client.get('vk_username'),
+                        'max_exists': max_by_phone.get(cid),
                         'birthdate': str(client['birthdate']) if client.get('birthdate') else None,
                         'created_at': str(client['created_at']) if client['created_at'] else None,
                         'updated_at': str(client['updated_at']) if client['updated_at'] else None,

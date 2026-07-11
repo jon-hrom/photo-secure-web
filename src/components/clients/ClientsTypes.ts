@@ -134,6 +134,8 @@ export interface Client {
   telegram_verified?: boolean;
   telegram_verified_at?: string;
   avatar_url?: string | null;
+
+  max_exists?: boolean | null;
   
   reserveBalance?: number;
   reserveTransactions?: ReserveTransaction[];

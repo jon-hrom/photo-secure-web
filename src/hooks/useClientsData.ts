@@ -56,6 +56,8 @@ export const useClientsData = (
         birthdate: client.birthdate || '',
         avatar_url: client.avatar_url || null,
         telegram_chat_id: client.telegram_chat_id || null,
+        telegram_verified: client.telegram_verified ?? !!client.telegram_chat_id,
+        max_exists: client.max_exists ?? null,
         bookings: (client.bookings || []).map((b: any) => ({
           id: b.id,
           date: new Date(b.booking_date),

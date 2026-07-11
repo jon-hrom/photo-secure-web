@@ -127,6 +127,14 @@ const ClientCard = ({ client, onSelect, onEdit, onDelete, onAddBooking, userId: 
             <Icon name="Phone" size={16} className="text-muted-foreground flex-shrink-0" />
             <span className="truncate">{formatPhoneNumber(client.phone)}</span>
           </div>
+          {client.max_exists === false && (
+            <div className="flex items-start gap-2 text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded-md px-2 py-1.5">
+              <Icon name="TriangleAlert" size={16} className="flex-shrink-0 mt-0.5" />
+              <span className="text-xs leading-snug">
+                MAX не установлен на этом номере — уведомления в MAX не доставляются. Свяжитесь через Telegram, ВК или email.
+              </span>
+            </div>
+          )}
           {client.email && (
             <div className="flex items-center gap-2 min-w-0">
               <Icon name="Mail" size={16} className="text-muted-foreground flex-shrink-0" />
