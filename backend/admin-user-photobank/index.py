@@ -635,6 +635,14 @@ def handle_s3_browse(yc_s3_client, yc_bucket, prefix):
             'isBase64Encoded': False
         }
     
+    def _sort_key(name):
+        # числовая сортировка если имя число (382 > 368), иначе по строке
+        base = name.rsplit('.', 1)[0]
+        return (0, int(base)) if base.isdigit() else (1, name.lower())
+
+    folders.sort(key=lambda f: _sort_key(f['name']))
+    files.sort(key=lambda f: _sort_key(f['name']))
+
     return {
         'statusCode': 200,
         'headers': CORS_HEADERS,
@@ -642,7 +650,9 @@ def handle_s3_browse(yc_s3_client, yc_bucket, prefix):
             'prefix': prefix,
             'bucket': yc_bucket,
             'folders': folders,
-            'files': files
+            'files': files,
+            'total_folders': len(folders),
+            'total_files': len(files)
         }),
         'isBase64Encoded': False
     }

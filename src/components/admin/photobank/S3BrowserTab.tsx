@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import type { S3Folder, S3File } from './types';
 import { formatBytes, isPreviewable, isRawFile, isVideoFile } from './types';
@@ -39,6 +41,11 @@ const S3BrowserTab = ({
   deletingFolder,
 }: S3BrowserTabProps) => {
   const s3Breadcrumbs = s3Prefix.split('/').filter(Boolean);
+  const [filter, setFilter] = useState('');
+
+  const q = filter.trim().toLowerCase();
+  const visibleFolders = q ? s3Folders.filter(f => f.name.toLowerCase().includes(q)) : s3Folders;
+  const visibleFiles = q ? s3Files.filter(f => f.name.toLowerCase().includes(q)) : s3Files;
 
   const formatS3Date = (dateStr: string) => {
     return new Date(dateStr).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -94,6 +101,28 @@ const S3BrowserTab = ({
             </Button>
           </label>
         </div>
+        <div className="flex items-center gap-2 mt-1.5">
+          <div className="relative flex-1">
+            <Icon name="Search" size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Найти папку или файл (например 382)…"
+              className="h-7 pl-8 text-xs"
+            />
+            {filter && (
+              <button
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setFilter('')}
+              >
+                <Icon name="X" size={14} />
+              </button>
+            )}
+          </div>
+          <span className="text-[11px] text-muted-foreground shrink-0 whitespace-nowrap">
+            папок: {visibleFolders.length} · файлов: {visibleFiles.length}
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -122,7 +151,7 @@ const S3BrowserTab = ({
                   </td>
                 </tr>
               )}
-              {s3Folders.map((folder) => (
+              {visibleFolders.map((folder) => (
                 <tr key={folder.prefix} className="border-b hover:bg-accent/50 cursor-pointer transition-colors" onClick={() => onNavigate(folder.prefix)}>
                   <td className="px-2.5 sm:px-4 py-1.5">
                     <div className="flex items-center gap-2">
@@ -154,7 +183,7 @@ const S3BrowserTab = ({
                   <td className="px-4 py-1.5 text-muted-foreground hidden md:table-cell">—</td>
                 </tr>
               ))}
-              {s3Files.map((file) => (
+              {visibleFiles.map((file) => (
                 <tr key={file.key} className="border-b hover:bg-accent/30 transition-colors group/row">
                   <td className="px-2.5 sm:px-4 py-1.5">
                     <div className="flex items-center gap-2">
