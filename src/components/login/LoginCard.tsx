@@ -18,6 +18,11 @@ const LoginCard = ({ isRegistering, children }: LoginCardProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [transitionTime, setTransitionTime] = useState(5);
   const [cardOpacity, setCardOpacity] = useState(95);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (isRegistering) setExpanded(true);
+  }, [isRegistering]);
 
   useEffect(() => {
     const savedCardImages = localStorage.getItem('cardBackgroundImages');
@@ -82,19 +87,41 @@ const LoginCard = ({ isRegistering, children }: LoginCardProps) => {
         style={{ opacity: cardOpacity / 100 }}
       />
       <div className="relative z-10">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-            <Icon name="Lock" size={32} className="text-primary" />
+        <button
+          type="button"
+          onClick={() => !isRegistering && setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="w-full focus:outline-none"
+        >
+          <CardHeader className="text-center cursor-pointer select-none transition-transform duration-300 hover:scale-[1.02]">
+            <div className="mx-auto mb-4 w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+              <Icon name="Lock" size={32} className="text-primary" />
+            </div>
+            <CardTitle className="text-2xl">Foto-Mix</CardTitle>
+            <CardDescription className="text-base">Умная платформа для фотографов</CardDescription>
+            <div className="mt-3 text-sm login-gradient-text inline-flex items-center justify-center gap-1.5">
+              <span>{isRegistering ? 'Создайте новый аккаунт' : 'Вход в систему'}</span>
+              {!isRegistering && (
+                <Icon
+                  name="ChevronDown"
+                  size={16}
+                  className={`text-primary transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+                />
+              )}
+            </div>
+          </CardHeader>
+        </button>
+        <div
+          className={`grid transition-all duration-500 ease-in-out ${
+            expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <CardContent className="space-y-6">
+              {children}
+            </CardContent>
           </div>
-          <CardTitle className="text-2xl">Foto-Mix</CardTitle>
-          <CardDescription className="text-base">Умная платформа для фотографов</CardDescription>
-          <div className="mt-3 text-sm text-muted-foreground">
-            {isRegistering ? 'Создайте новый аккаунт' : 'Вход в систему'}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {children}
-        </CardContent>
+        </div>
       </div>
     </Card>
   );
