@@ -12,7 +12,7 @@ export const RetouchLightbox = ({
   tasks: RetouchTask[];
   startIndex: number;
   onClose: () => void;
-  originalPhotos: { id: number; s3_url?: string; thumbnail_s3_url?: string; data_url?: string }[];
+  originalPhotos: { id: number; file_name?: string; is_raw?: boolean; s3_url?: string; thumbnail_s3_url?: string; data_url?: string }[];
 }) => {
   const [index, setIndex] = useState(startIndex);
   const [downloading, setDownloading] = useState(false);
@@ -35,8 +35,18 @@ export const RetouchLightbox = ({
 
   const task = tasks[index];
   const originalPhoto = originalPhotos.find(p => p.id === task?.photo_id);
-  const originalUrl = originalPhoto?.thumbnail_s3_url || originalPhoto?.s3_url || originalPhoto?.data_url || '';
-  const originalFullUrl = originalPhoto?.s3_url || originalPhoto?.data_url || originalUrl;
+  const isRawOriginal =
+    !!originalPhoto?.is_raw ||
+    ['dng', 'cr2', 'cr3', 'nef', 'arw', 'orf', 'raf', 'rw2', 'pef', 'srw'].includes(
+      (originalPhoto?.file_name?.split('.').pop() || '').toLowerCase(),
+    );
+  // Для RAW (.cr2/.nef/...) браузер не умеет рендерить исходник — используем только JPEG-превью (thumbnail).
+  const originalUrl = isRawOriginal
+    ? originalPhoto?.thumbnail_s3_url || originalPhoto?.data_url || ''
+    : originalPhoto?.thumbnail_s3_url || originalPhoto?.s3_url || originalPhoto?.data_url || '';
+  const originalFullUrl = isRawOriginal
+    ? originalUrl
+    : originalPhoto?.s3_url || originalPhoto?.data_url || originalUrl;
 
   const resetView = useCallback(() => {
     setZoom(0);
@@ -333,21 +343,33 @@ export const RetouchLightbox = ({
             onMouseLeave={handleMouseUp}
             onClick={handleContainerClick}
           >
-            <img
-              src={showBefore ? (zoom > 0 ? originalFullUrl : originalUrl) : task.result_url}
-              alt={task.file_name || ''}
-              className="select-none touch-manipulation"
-              style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                objectFit: 'contain',
-                transform: zoom > 0 ? `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)` : undefined,
-                transition: zoom > 0 && !isDragging ? 'transform 0.2s ease-out' : 'none',
-                touchAction: 'none',
-                pointerEvents: 'none',
-              }}
-              draggable={false}
-            />
+            {showBefore && !originalUrl ? (
+              <div className="flex flex-col items-center gap-3 text-center px-6" style={{ pointerEvents: 'none' }}>
+                <Icon name="ImageOff" size={48} className="text-white/40" />
+                <div className="text-white/70 text-sm max-w-xs">
+                  {isRawOriginal
+                    ? 'Превью оригинала RAW-файла ещё готовится. Оно появится через минуту после обработки.'
+                    : 'Не удалось загрузить оригинал фото.'}
+                </div>
+              </div>
+            ) : (
+              <img
+                src={showBefore ? (zoom > 0 ? originalFullUrl : originalUrl) : task.result_url}
+                alt={task.file_name || ''}
+                className="select-none touch-manipulation"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  transform: zoom > 0 ? `scale(${scale}) translate(${panOffset.x / scale}px, ${panOffset.y / scale}px)` : undefined,
+                  transition: zoom > 0 && !isDragging ? 'transform 0.2s ease-out' : 'none',
+                  touchAction: 'none',
+                  pointerEvents: 'none',
+                }}
+                draggable={false}
+              />
+            )}
           </div>
 
           {showBefore && originalUrl && zoom === 0 && (
