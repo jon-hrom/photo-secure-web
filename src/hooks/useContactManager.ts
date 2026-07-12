@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { formatPhoneNumber as formatPhone, validatePhone } from '@/utils/phoneFormat';
+import { formatPhoneNumber as formatPhone, validatePhone, isValidEmail } from '@/utils/phoneFormat';
 import type { UserSettings } from './useSettingsData';
 
 const USER_SETTINGS_API = 'https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994';
@@ -48,8 +48,14 @@ export const useContactManager = (
     }
     
     if (field === 'phone' && !validatePhone(value)) {
-      toast.error('Телефон должен содержать 11 цифр (включая +7)');
+      toast.error('Введите корректный телефон: +7 и 10 цифр');
       setIsSavingPhone(false);
+      return;
+    }
+
+    if (field === 'email' && !isValidEmail(value)) {
+      toast.error('Введите корректный email, например name@mail.ru');
+      setIsSavingEmail(false);
       return;
     }
     

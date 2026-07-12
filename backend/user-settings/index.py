@@ -2,12 +2,34 @@
 
 import json
 import os
+import re
 from typing import Dict, Any, Optional
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 SCHEMA = 't_p28211681_photo_secure_web'
+
+
+def is_valid_email(email: str) -> bool:
+    """Проверка корректности email и защита от ввода телефона в поле email"""
+    value = (email or '').strip()
+    if not value:
+        return False
+    if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$', value):
+        return False
+    digits_only = re.sub(r'\D', '', value)
+    if len(digits_only) >= 7 and not re.search(r'[a-zA-Zа-яА-Я]', value):
+        return False
+    return True
+
+
+def is_valid_phone(phone: str) -> bool:
+    """Проверка: 10 значимых цифр (без учёта кода страны 7/8)"""
+    digits = re.sub(r'\D', '', phone or '')
+    if digits.startswith('7') or digits.startswith('8'):
+        digits = digits[1:]
+    return len(digits) == 10
 
 
 def escape_sql(value: Any) -> str:
@@ -382,6 +404,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
         
+        # Валидация формата контактов: email — только email, телефон — только телефон
+        if 'email' in body_data and body_data.get('email') is not None:
+            if not is_valid_email(str(body_data['email'])):
+                return {
+                    'statusCode': 400,
+                    'headers': cors_headers,
+                    'body': json.dumps({'success': False, 'error': 'Введите корректный email, например name@mail.ru'}),
+                    'isBase64Encoded': False
+                }
+        if 'phone' in body_data and body_data.get('phone'):
+            if not is_valid_phone(str(body_data['phone'])):
+                return {
+                    'statusCode': 400,
+                    'headers': cors_headers,
+                    'body': json.dumps({'success': False, 'error': 'Введите корректный телефон: +7 и 10 цифр'}),
+                    'isBase64Encoded': False
+                }
+
         # Обновление настроек пользователя (default action)
         print(f"[USER_SETTINGS] Updating settings for user {user_id} with data: {body_data}")
         success = update_user_settings(user_id, body_data)

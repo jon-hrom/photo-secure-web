@@ -27,3 +27,15 @@ export const cleanPhoneForDB = (phone: string): string => {
   const digits = cleaned.startsWith('7') || cleaned.startsWith('8') ? cleaned.slice(1) : cleaned;
   return `+7${digits}`;
 };
+
+export const isValidEmail = (email: string): boolean => {
+  const value = (email || '').trim();
+  if (!value) return false;
+  // Базовый строгий формат: есть имя, @, домен и зона
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(value)) return false;
+  // Защита от ввода телефона в поле email: если из значения убрать
+  // разрешённые для email символы и остаются только цифры/скобки/плюсы — это телефон
+  const digitsOnly = value.replace(/[^\d]/g, '');
+  if (digitsOnly.length >= 7 && !/[a-zA-Zа-яА-Я]/.test(value)) return false;
+  return true;
+};
