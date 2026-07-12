@@ -918,6 +918,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 SET verified = true
                 WHERE phone = %s
             ''', (normalize_phone(phone),))
+
+            # ВАЖНО: проставляем phone_verified_at в профиле пользователя,
+            # чтобы телефон отображался подтверждённым. Сопоставляем по цифрам номера.
+            norm = normalize_phone(phone)
+            verify_user_id = body_data.get('userId')
+            if verify_user_id:
+                cursor.execute('''
+                    UPDATE t_p28211681_photo_secure_web.users
+                    SET phone_verified_at = NOW()
+                    WHERE id = %s
+                ''', (verify_user_id,))
+            else:
+                cursor.execute('''
+                    UPDATE t_p28211681_photo_secure_web.users
+                    SET phone_verified_at = NOW()
+                    WHERE regexp_replace(phone, '\\D', '', 'g') = %s
+                       OR regexp_replace(phone, '\\D', '', 'g') = %s
+                ''', (norm, '8' + norm[1:] if norm.startswith('7') else norm))
             conn.commit()
             
             cursor.close()

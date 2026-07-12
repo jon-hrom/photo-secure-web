@@ -50,7 +50,7 @@ export async function sendVerificationCode(phone: string): Promise<SendSMSRespon
 /**
  * Verify phone code on server side
  */
-export async function verifyPhoneCode(phone: string, code: string): Promise<SendSMSResponse> {
+export async function verifyPhoneCode(phone: string, code: string, userId?: string | number): Promise<SendSMSResponse> {
   try {
     
     const response = await fetch(SETTINGS_API, {
@@ -61,7 +61,8 @@ export async function verifyPhoneCode(phone: string, code: string): Promise<Send
       body: JSON.stringify({ 
         action: 'verify-phone-code',
         phone,
-        code
+        code,
+        userId
       })
     });
     

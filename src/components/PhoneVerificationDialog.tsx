@@ -77,7 +77,7 @@ const PhoneVerificationDialog = ({
 
     setIsLoading(true);
     try {
-      const result = await verifyPhoneCode(userPhone, code);
+      const result = await verifyPhoneCode(userPhone, code, userId);
       
       if (result.ok) {
         toast.success('Телефон успешно подтвержден!');

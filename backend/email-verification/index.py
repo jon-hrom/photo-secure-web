@@ -359,21 +359,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 </html>'''
                 
                 try:
-                    ses_client = get_ses_client()
-                    ses_client.send_email(
-                        FromEmailAddress=EMAIL_FROM,
-                        Destination={'ToAddresses': [user['email']]},
-                        Content={
-                            'Simple': {
-                                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
-                                'Body': {
-                                    'Text': {'Data': text, 'Charset': 'UTF-8'},
-                                    'Html': {'Data': html, 'Charset': 'UTF-8'}
-                                }
-                            }
-                        }
-                    )
-                    
+                    sent_ok = send_email(user['email'], subject, html, 'FotoMix')
+                    if not sent_ok:
+                        raise Exception('send_email returned False')
+
                     print(f"[2FA] Code sent successfully to {user['email']}")
                     
                     return {
@@ -488,17 +477,38 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                email_clean = user['email'].strip()
+                if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email_clean):
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Неверный формат email. Проверьте адрес в настройках.'}),
+                        'isBase64Encoded': False
+                    }
+
                 code = gen_code()
                 code_hash = hash_code(code, user['email'])
                 expires_at = now + timedelta(minutes=TTL_MIN)
-                
+
+                try:
+                    sent_ok = send_email_code(email_clean, code)
+                except Exception as e:
+                    print(f'[EMAIL_VERIFY] send error: {e}')
+                    sent_ok = False
+
+                if not sent_ok:
+                    return {
+                        'statusCode': 502,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Не удалось отправить письмо. Проверьте адрес email или попробуйте позже.'}),
+                        'isBase64Encoded': False
+                    }
+
                 cursor.execute(
                     'UPDATE users SET email_verification_hash = %s, email_verification_expires_at = %s, email_verification_sends = %s, email_verification_last_sent_at = %s WHERE id = %s',
                     (code_hash, expires_at, user['email_verification_sends'] + 1, now, user['id'])
                 )
                 conn.commit()
-                
-                send_email_code(user['email'], code)
                 log_event(conn, user['id'], 'sent', ip_address, user_agent)
                 
                 return {
