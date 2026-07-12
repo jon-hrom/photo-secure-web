@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import psycopg2
 from typing import Dict, Any
 import requests
@@ -682,7 +683,7 @@ def trash_expired_folders(conn, user_id: str) -> Dict[str, Any]:
             fsl.folder_id,
             fsl.expires_at,
             pf.folder_name,
-            u.name,
+            u.display_name,
             u.phone,
             u.email
         FROM t_p28211681_photo_secure_web.folder_short_links fsl
@@ -722,7 +723,13 @@ def trash_expired_folders(conn, user_id: str) -> Dict[str, Any]:
             restore_until = ''
 
         title = folder_name or 'Ваша галерея'
-        photographer_name_safe = photographer_name or 'Фотограф'
+        _pn = (photographer_name or '').strip()
+        if not _pn or '@' in _pn or re.match(r'^\+?[\d\s()-]{7,}$', _pn) or (
+            photographer_email and '@' in photographer_email
+            and _pn.lower() == photographer_email.split('@')[0].strip().lower()
+        ):
+            _pn = 'Фотограф'
+        photographer_name_safe = _pn
         trash_url = f"{app_base_url}/photobank?trash=1"
 
         notified_max = False

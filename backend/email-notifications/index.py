@@ -6,6 +6,7 @@ Returns: HTTP response with statusCode, headers, body
 
 import json
 import os
+import re
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -16,6 +17,18 @@ from psycopg2.extras import RealDictCursor
 DATABASE_URL = os.environ.get('DATABASE_URL')
 BASE_URL = os.environ.get('BASE_URL', 'https://yoursite.com')
 SCHEMA = 't_p28211681_photo_secure_web'
+
+
+def greeting_name(display_name: str = '', email: str = '', default: str = 'Пользователь') -> str:
+    """Имя для приветствия. Если пусто или похоже на email/телефон/часть почты — нейтральное обращение."""
+    name = (display_name or '').strip()
+    if not name:
+        return default
+    if '@' in name or re.match(r'^\+?[\d\s()-]{7,}$', name):
+        return default
+    if email and '@' in email and name.lower() == email.split('@')[0].strip().lower():
+        return default
+    return name
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
@@ -134,6 +147,7 @@ def check_and_notify_users(event: Dict[str, Any]) -> Dict[str, Any]:
                 SELECT 
                     u.id, 
                     COALESCE(u.email, vk.email) as email,
+                    u.display_name as display_name,
                     COALESCE(vk.full_name, 'Пользователь') as user_name,
                     COALESCE(u.custom_quota_gb, sp.quota_gb, 5.0) as quota_gb,
                     COALESCE(SUM(so.bytes), 0) as used_bytes,
@@ -143,7 +157,7 @@ def check_and_notify_users(event: Dict[str, Any]) -> Dict[str, Any]:
                 LEFT JOIN {SCHEMA}.storage_plans sp ON u.plan_id = sp.id
                 LEFT JOIN {SCHEMA}.storage_objects so ON u.id = so.user_id AND so.status = 'active'
                 WHERE u.is_active = true AND (u.email IS NOT NULL OR vk.email IS NOT NULL)
-                GROUP BY u.id, u.email, vk.email, vk.full_name, u.custom_quota_gb, sp.quota_gb, u.last_storage_warning_at
+                GROUP BY u.id, u.email, vk.email, u.display_name, vk.full_name, u.custom_quota_gb, sp.quota_gb, u.last_storage_warning_at
             ''')
             users = cur.fetchall()
             
@@ -165,7 +179,8 @@ def check_and_notify_users(event: Dict[str, Any]) -> Dict[str, Any]:
                             should_send = False
                     
                     if should_send:
-                        user_name = user['user_name'] or 'Пользователь'
+                        vk_name = user.get('user_name') if user.get('user_name') != 'Пользователь' else None
+                        user_name = greeting_name(user.get('display_name') or vk_name, user.get('email'))
                         html = get_storage_warning_html(user_name, used_gb, quota_gb, percent)
                         
                         if send_email(user['email'], '⚠️ Хранилище заполнено на 90%', html, smtp_settings):

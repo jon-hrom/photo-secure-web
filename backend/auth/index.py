@@ -240,6 +240,19 @@ def is_phone(value: str) -> bool:
     digits = re.sub(r'\D+', '', value or '')
     return len(digits) >= 10 and digits.isdigit()
 
+def greeting_name(display_name: str = '', email: str = '', default: str = 'Фотограф') -> str:
+    """Имя для приветствия в письме. Если имя пустое, похоже на email
+    или на телефон — возвращаем нейтральное обращение вместо почты."""
+    name = (display_name or '').strip()
+    if not name:
+        return default
+    if is_email(name) or is_phone(name):
+        return default
+    # display_name часто = часть email до @ (email.split('@')[0]) — это тоже не имя
+    if email and '@' in email and name.lower() == email.split('@')[0].strip().lower():
+        return default
+    return name
+
 def phone_last10(phone: str) -> str:
     """Последние 10 цифр номера для сравнения без форматирования"""
     digits = re.sub(r'\D+', '', phone or '')
@@ -507,7 +520,7 @@ def notify_user_registration_approved(conn, user_id: int):
     u = cursor.fetchone()
     if not u:
         return
-    name = u.get('display_name') or 'Фотограф'
+    name = greeting_name(u.get('display_name'), u.get('email'))
     user_email = u.get('email')
     user_phone = u.get('max_phone') or u.get('phone')
     if user_email:
@@ -541,7 +554,7 @@ def notify_user_registration_rejected(conn, user_id: int):
     u = cursor.fetchone()
     if not u or not u.get('email'):
         return
-    name = u.get('display_name') or 'Фотограф'
+    name = greeting_name(u.get('display_name'), u.get('email'))
     html = f'''<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1a1a1a">
     <div style="max-width:600px;margin:0 auto;padding:24px">
     <h2>Здравствуйте, {name}!</h2>
