@@ -125,7 +125,6 @@ const ClientDialogs = ({
                 id="name"
                 value={newClient.name}
                 onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-                placeholder="Иванов Иван Иванович"
                 className="h-10 text-sm sm:text-base"
               />
             </div>
@@ -138,7 +137,6 @@ const ClientDialogs = ({
                   const formatted = formatPhoneNumber(e.target.value);
                   setNewClient({ ...newClient, phone: formatted });
                 }}
-                placeholder="+7 (999) 123-45-67"
                 maxLength={18}
                 className="h-10 text-sm sm:text-base"
               />
@@ -151,7 +149,6 @@ const ClientDialogs = ({
                 type="email"
                 value={newClient.email}
                 onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-                placeholder="example@mail.ru"
                 className="h-10 text-sm sm:text-base"
               />
             </div>
@@ -161,7 +158,6 @@ const ClientDialogs = ({
                 id="vk"
                 value={newClient.vkProfile}
                 onChange={(e) => setNewClient({ ...newClient, vkProfile: e.target.value })}
-                placeholder="https://vk.com/username или @username"
                 className="h-10 text-sm sm:text-base"
               />
               <p className="text-[11px] sm:text-xs text-muted-foreground">Для поздравлений и сервисных уведомлений</p>
@@ -241,7 +237,6 @@ const ClientDialogs = ({
                     id="edit-vk"
                     value={editingClient.vkProfile || ''}
                     onChange={(e) => setEditingClient({ ...editingClient, vkProfile: e.target.value })}
-                    placeholder="https://vk.com/username или @username"
                     className="h-10 text-sm sm:text-base"
                   />
                   <p className="text-[11px] sm:text-xs text-muted-foreground">Для поздравлений и сервисных уведомлений</p>
@@ -252,7 +247,6 @@ const ClientDialogs = ({
                     id="edit-telegram"
                     value={editingClient.telegram_chat_id || ''}
                     onChange={(e) => setEditingClient({ ...editingClient, telegram_chat_id: e.target.value })}
-                    placeholder="Например: 123456789"
                     className="h-10 text-sm sm:text-base"
                   />
                   <p className="text-[11px] sm:text-xs text-muted-foreground">Для уведомлений о съёмках в Telegram</p>

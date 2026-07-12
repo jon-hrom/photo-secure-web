@@ -355,7 +355,6 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
               id="cd-vk"
               value={form.vkProfile || ''}
               onChange={(e) => setForm({ ...form, vkProfile: e.target.value })}
-              placeholder="https://vk.com/username или @username"
               className="h-10 text-sm sm:text-base"
             />
             <p className="text-[11px] text-muted-foreground">Можно подтянуть аватар отсюда кнопкой «Из ВК».</p>
@@ -367,7 +366,6 @@ const ClientDataModal = ({ open, onOpenChange, client, onUpdate, onLocalUpdate }
               id="cd-comments"
               value={form.project_comments || ''}
               onChange={(e) => setForm({ ...form, project_comments: e.target.value })}
-              placeholder="Любые важные детали о клиенте..."
               className="text-sm sm:text-base min-h-[80px]"
             />
           </div>
