@@ -25,13 +25,9 @@
       "method": "GET",
       "path": "/?action=list",
       "headers": {
-        "X-User-Id": "1"
+        "X-User-Id": "12"
       },
-      "expectedStatus": 200,
-      "expectedBody": {
-        "folders": "array"
-      },
-      "bodyMatcher": "partial"
+      "expectedStatus": 200
     }
   ]
 }

@@ -27,6 +27,44 @@ def _json_default(o):
     raise TypeError(f'Object of type {type(o).__name__} is not JSON serializable')
 
 
+def _ensure_key_in_folder(s3_client, bucket, s3_key, folder_prefix, user_id):
+    '''
+    Гарантирует, что файл физически лежит в папке folder_prefix.
+    Если s3_key не начинается с folder_prefix (например попал в общий uploads/),
+    перемещает объект в правильную папку и возвращает новый ключ.
+    Возвращает актуальный s3_key (исходный, если всё уже верно).
+    '''
+    if not s3_key or not folder_prefix:
+        return s3_key
+    if not folder_prefix.endswith('/'):
+        folder_prefix += '/'
+    # Уже в нужной папке — ничего не делаем
+    if s3_key.startswith(folder_prefix):
+        return s3_key
+    fname = s3_key.split('/')[-1]
+    new_key = f'{folder_prefix}{fname}'
+    try:
+        # Копируем в правильную папку и удаляем исходник
+        try:
+            s3_client.head_object(Bucket=bucket, Key=new_key)
+        except Exception:
+            s3_client.copy_object(
+                Bucket=bucket,
+                CopySource={'Bucket': bucket, 'Key': s3_key},
+                Key=new_key,
+            )
+        try:
+            s3_client.delete_object(Bucket=bucket, Key=s3_key)
+        except Exception as del_e:
+            print(f'[ENSURE_FOLDER] delete old failed {s3_key}: {del_e}')
+        print(f'[ENSURE_FOLDER] moved {s3_key} -> {new_key}')
+        return new_key
+    except Exception as e:
+        # Если переместить не удалось — возвращаем исходный ключ, чтобы не потерять фото
+        print(f'[ENSURE_FOLDER] move failed {s3_key} -> {new_key}: {e}')
+        return s3_key
+
+
 def _extract_shot_date(file_bytes):
     try:
         img = Image.open(io.BytesIO(file_bytes))
@@ -766,6 +804,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                # Защита от рассинхрона: если файл попал не в папку (напр. в uploads/),
+                # переносим его в правильный s3_prefix папки перед записью в БД.
+                with conn.cursor(cursor_factory=RealDictCursor) as _pcur:
+                    _pcur.execute('SELECT s3_prefix FROM photo_folders WHERE id = %s AND user_id = %s', (folder_id, user_id))
+                    _prow = _pcur.fetchone()
+                _folder_prefix = (_prow or {}).get('s3_prefix') or f'photobank/{user_id}/{folder_id}/'
+                if not str(_folder_prefix).startswith('uploads/'):
+                    s3_key = _ensure_key_in_folder(yc_s3_client, yc_bucket, s3_key, _folder_prefix, user_id)
+                
                 print(f'[CONFIRM_UPLOAD] Checking S3 object: {s3_key}')
                 try:
                     head_response = yc_s3_client.head_object(Bucket=yc_bucket, Key=s3_key)
@@ -899,6 +946,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 print(f'[UPLOAD_PHOTOS_BATCH] folder_id={folder_id}, count={len(photos)}')
                 
+                # s3_prefix папки для защиты от загрузки «не туда»
+                with conn.cursor(cursor_factory=RealDictCursor) as _pcur:
+                    _pcur.execute('SELECT s3_prefix FROM photo_folders WHERE id = %s AND user_id = %s', (folder_id, user_id))
+                    _prow = _pcur.fetchone()
+                _folder_prefix = (_prow or {}).get('s3_prefix') or f'photobank/{user_id}/{folder_id}/'
+                _guard_prefix = not str(_folder_prefix).startswith('uploads/')
+                
                 inserted_ids = []
                 raw_photo_ids = []
                 
@@ -916,6 +970,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         s3_key = s3_url.split('foto-mix/')[-1] if 'foto-mix/' in s3_url else None
                         if not s3_key:
                             continue
+                        
+                        # Гарантируем, что файл лежит в папке (переносим если нет)
+                        if _guard_prefix:
+                            fixed_key = _ensure_key_in_folder(yc_s3_client, yc_bucket, s3_key, _folder_prefix, user_id)
+                            if fixed_key != s3_key:
+                                s3_key = fixed_key
+                                s3_url = f'https://storage.yandexcloud.net/{yc_bucket}/{s3_key}'
                         
                         is_video = content_type.startswith('video/') or file_name.lower().endswith(('.mp4', '.mov', '.avi', '.webm', '.mkv'))
                         
