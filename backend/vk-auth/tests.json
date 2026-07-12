@@ -7,13 +7,10 @@
       "expectedStatus": 200
     },
     {
-      "name": "Start VK OAuth flow",
+      "name": "Callback without code returns 400",
       "method": "GET",
-      "path": "/?action=start&device_id=web",
-      "expectedStatus": 302,
-      "expectedHeaders": {
-        "Location": "string"
-      }
+      "path": "/?action=callback",
+      "expectedStatus": 400
     }
   ]
 }

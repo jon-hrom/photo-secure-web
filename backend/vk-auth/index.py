@@ -190,7 +190,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
                         VALUES ({user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ON CONFLICT DO NOTHING
+                        ON CONFLICT (email, provider) DO NOTHING
                     """)
                 
                 conn.commit()
@@ -213,7 +213,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
                         VALUES ({user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ON CONFLICT DO NOTHING
+                        ON CONFLICT (email, provider) DO NOTHING
                     """)
                 
                 conn.commit()
@@ -269,7 +269,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
                         VALUES ({user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        ON CONFLICT (user_id, email) DO UPDATE SET last_used_at = CURRENT_TIMESTAMP
+                        ON CONFLICT (email, provider) DO UPDATE SET last_used_at = CURRENT_TIMESTAMP
                     """)
                 
                 conn.commit()
@@ -300,6 +300,7 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)
                     VALUES ({user_id}, {escape_sql(email)}, 'vk', {escape_sql(False)}, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (email, provider) DO NOTHING
                 """)
             
             conn.commit()
@@ -475,8 +476,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             vk_user_id = str(token_data.get('user_id', ''))
-            email = token_data.get('email', '')
-            phone = token_data.get('phone', '')
+            email = (token_data.get('email') or '').strip() or None
+            phone = (token_data.get('phone') or '').strip() or None
             first_name = token_data.get('first_name', '')
             last_name = token_data.get('last_name', '')
             avatar = token_data.get('avatar', '')
