@@ -360,6 +360,7 @@ const PhotoGridViewer = ({
           s3Key={viewPhoto.s3_key || ''}
           fileName={viewPhoto.file_name}
           photoUrl={viewPhoto.s3_url || viewPhoto.data_url}
+          photo={viewPhoto}
         />
       )}
     </Dialog>

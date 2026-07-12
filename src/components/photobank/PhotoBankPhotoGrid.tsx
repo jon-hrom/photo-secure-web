@@ -475,6 +475,7 @@ const PhotoBankPhotoGrid = ({
           s3Key={exifPhoto.s3_key || ''}
           fileName={exifPhoto.file_name}
           photoUrl={exifPhoto.thumbnail_s3_url || exifPhoto.s3_url || exifPhoto.data_url}
+          photo={exifPhoto}
         />
       )}
 

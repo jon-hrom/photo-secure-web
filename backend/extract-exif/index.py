@@ -51,39 +51,52 @@ def extract_exif_from_jpeg(image_data: bytes) -> Dict[str, Any]:
         image = Image.open(io.BytesIO(image_data))
         
         exif_data = {}
-        info = image.getexif()
-        
-        if not info:
-            return {}
-        
-        for tag_id, value in info.items():
-            tag = TAGS.get(tag_id, tag_id)
-            
-            if tag == 'GPSInfo':
-                gps_data = {}
-                for gps_tag_id, gps_value in value.items():
-                    gps_tag = GPSTAGS.get(gps_tag_id, gps_tag_id)
-                    gps_data[gps_tag] = gps_value
-                exif_data['GPSInfo'] = gps_data
-            elif tag == 'DateTime' or tag == 'DateTimeOriginal' or tag == 'DateTimeDigitized':
-                try:
-                    dt = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                    exif_data[tag] = dt.isoformat()
-                except:
-                    exif_data[tag] = str(value)
-            elif isinstance(value, bytes):
-                try:
-                    exif_data[tag] = value.decode('utf-8', errors='ignore')
-                except:
-                    exif_data[tag] = str(value)
-            else:
-                exif_data[tag] = str(value)
-        
+        # Размеры и формат доступны всегда, даже если EXIF-тегов нет
         width, height = image.size
         exif_data['ImageWidth'] = width
         exif_data['ImageHeight'] = height
         exif_data['Format'] = image.format
         
+        try:
+            info = image.getexif()
+        except Exception as e:
+            print(f'getexif failed: {e}')
+            info = None
+
+        def store_tag(tag, value):
+            try:
+                if tag == 'GPSInfo':
+                    if hasattr(value, 'items'):
+                        gps_data = {}
+                        for gps_tag_id, gps_value in value.items():
+                            gps_tag = GPSTAGS.get(gps_tag_id, gps_tag_id)
+                            gps_data[str(gps_tag)] = str(gps_value)
+                        exif_data['GPSInfo'] = gps_data
+                elif tag in ('DateTime', 'DateTimeOriginal', 'DateTimeDigitized'):
+                    try:
+                        dt = datetime.strptime(str(value), '%Y:%m:%d %H:%M:%S')
+                        exif_data[tag] = dt.isoformat()
+                    except Exception:
+                        exif_data[tag] = str(value)
+                elif isinstance(value, bytes):
+                    exif_data[tag] = value.decode('utf-8', errors='ignore')
+                else:
+                    exif_data[tag] = str(value)
+            except Exception as te:
+                print(f'tag {tag} skipped: {te}')
+
+        if info:
+            # Основные теги (Make, Model, DateTime, Orientation, Software...)
+            for tag_id, value in info.items():
+                store_tag(TAGS.get(tag_id, tag_id), value)
+            # Расширенный EXIF-IFD: выдержка, диафрагма, ISO, объектив и т.д.
+            try:
+                exif_ifd = info.get_ifd(0x8769)
+                for tag_id, value in exif_ifd.items():
+                    store_tag(TAGS.get(tag_id, tag_id), value)
+            except Exception as ifd_e:
+                print(f'exif ifd skipped: {ifd_e}')
+
         return exif_data
     except Exception as e:
         print(f'Error extracting EXIF from JPEG: {e}')
