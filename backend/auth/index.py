@@ -611,6 +611,31 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'isBase64Encoded': False
                     }
                 
+                email = str(email).strip()
+                email_digits = re.sub(r'\D', '', email)
+                email_valid = bool(re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$', email))
+                # Защита от ввода телефона в поле email
+                if email_valid and len(email_digits) >= 7 and not re.search(r'[a-zA-Zа-яА-Я]', email):
+                    email_valid = False
+                if not email_valid:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Введите корректный email, например name@mail.ru'}),
+                        'isBase64Encoded': False
+                    }
+                
+                phone_digits = re.sub(r'\D', '', str(phone))
+                if phone_digits.startswith('7') or phone_digits.startswith('8'):
+                    phone_digits = phone_digits[1:]
+                if len(phone_digits) != 10:
+                    return {
+                        'statusCode': 400,
+                        'headers': headers,
+                        'body': json.dumps({'error': 'Введите корректный телефон: +7 и 10 цифр'}),
+                        'isBase64Encoded': False
+                    }
+                
                 if not portfolio_links:
                     return {
                         'statusCode': 400,

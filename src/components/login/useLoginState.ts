@@ -5,6 +5,7 @@ import {
   authenticateWithBiometric,
   getBiometricUserData,
 } from '@/utils/biometricAuth';
+import { isValidEmail, validatePhone } from '@/utils/phoneFormat';
 
 interface UseLoginStateProps {
   onLoginSuccess: (userId: number, email?: string, token?: string) => void;
@@ -351,6 +352,18 @@ export const useLoginState = ({ onLoginSuccess }: UseLoginStateProps) => {
   const handleRegister = async () => {
     if (!email || !password || !phone) {
       toast.error('Заполните все обязательные поля: email, пароль и телефон');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      toast.error('Введите корректный email, например name@mail.ru', {
+        description: 'Похоже, в поле «Email» указан телефон или неверный адрес.',
+      });
+      return;
+    }
+
+    if (!validatePhone(phone)) {
+      toast.error('Введите корректный телефон: +7 и 10 цифр');
       return;
     }
 
