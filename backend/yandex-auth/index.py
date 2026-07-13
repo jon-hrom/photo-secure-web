@@ -224,14 +224,14 @@ def upsert_yandex_user(yandex_id: str, email: str, name: str, picture: str,
                     'user_email': existing_user.get('email') if existing_user else email
                 }
 
-            # 2.5) Объединение по ПОДТВЕРЖДЁННОМУ телефону (Яндекс отдал номер)
+            # 2.5) Объединение по телефону (Яндекс отдал номер) — по последним 10 цифрам
             phone_norm = normalize_phone(phone)
-            if phone_norm and len(phone_norm) >= 10:
+            phone_last10 = phone_norm[-10:] if len(phone_norm) >= 10 else ''
+            if phone_last10:
                 cur.execute(f"""
                     SELECT id, two_factor_email, two_factor_sms, phone, email
                     FROM {SCHEMA}.users
-                    WHERE phone_verified_at IS NOT NULL
-                      AND regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') = {escape_sql(phone_norm)}
+                    WHERE RIGHT(regexp_replace(COALESCE(phone, ''), '\\D', '', 'g'), 10) = {escape_sql(phone_last10)}
                       AND COALESCE(is_active, TRUE) = TRUE
                     ORDER BY created_at ASC
                     LIMIT 1

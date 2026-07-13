@@ -32,7 +32,7 @@ const VKCallbackDirect = () => {
 
       try {
         // Вызываем backend ОДИН РАЗ
-        const vkAuthUrl = 'https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c';
+        const vkAuthUrl = 'https://functions.poehali.dev/2cc3877b-e2f8-496e-98b2-9c8a8ec9950d';
         const params = new URLSearchParams({
           code,
           state,
