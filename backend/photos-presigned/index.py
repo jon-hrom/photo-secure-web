@@ -4,6 +4,18 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
 from botocore.client import Config
+from urllib.parse import quote
+
+# Функция генерации лёгких превью на лету (для фото без готовой миниатюры)
+IMAGE_THUMB_URL = 'https://functions.poehali.dev/4af7dbda-63cb-4107-add3-fb5cb1b87da1'
+
+
+def light_thumb(original_url: str, width: int = 400) -> str:
+    '''Оборачивает тяжёлый оригинал в image-thumb, чтобы в сетке грузилось лёгкое превью.'''
+    if not original_url:
+        return original_url
+    return f"{IMAGE_THUMB_URL}?w={width}&url={quote(original_url, safe='')}"
+
 
 def handler(event: dict, context) -> dict:
     '''Возвращает список папок и фотографий с presigned S3 URLs'''
@@ -89,7 +101,13 @@ def handler(event: dict, context) -> dict:
                 # Если фото хранится в Poehali CDN - используем постоянный URL
                 if row['s3_url'] and 'cdn.poehali.dev' in row['s3_url']:
                     photo['photo_url'] = row['s3_url']
-                    photo['thumbnail_url'] = row['thumbnail_s3_url'] if row['thumbnail_s3_url'] else row['s3_url']
+                    if row['thumbnail_s3_url']:
+                        photo['thumbnail_url'] = row['thumbnail_s3_url']
+                    elif row['is_video']:
+                        photo['thumbnail_url'] = row['s3_url']
+                    else:
+                        # Нет готовой миниатюры — отдаём лёгкое превью на лету
+                        photo['thumbnail_url'] = light_thumb(row['s3_url'])
                     print(f'[PRESIGNED] Photo {row["id"]} uses Poehali CDN: {row["s3_url"][:80]}...')
                 # Иначе генерируем presigned URLs для Yandex S3
                 elif row['s3_key']:
@@ -102,7 +120,6 @@ def handler(event: dict, context) -> dict:
                         ExpiresIn=3600
                     )
                     
-                    thumbnail_url = photo_url
                     if row['thumbnail_s3_key']:
                         thumbnail_url = s3_client.generate_presigned_url(
                             'get_object',
@@ -112,6 +129,11 @@ def handler(event: dict, context) -> dict:
                             },
                             ExpiresIn=3600
                         )
+                    elif row['is_video']:
+                        thumbnail_url = photo_url
+                    else:
+                        # Нет готовой миниатюры — отдаём лёгкое превью на лету
+                        thumbnail_url = light_thumb(photo_url)
                     
                     photo['photo_url'] = photo_url
                     photo['thumbnail_url'] = thumbnail_url
