@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { formatPhoneNumber } from '@/utils/phoneFormat';
 import type { User } from './types';
-import { isUserOnline, formatDate, getRelativeTime, getSourceLabel } from './types';
+import { isOnline, formatDate, getRelativeTime, getSourceLabel } from './types';
 
 interface UserCardProps {
   user: User;
@@ -66,7 +66,7 @@ const UserCard = ({ user, onOpenDetails, onOpenPhotoBank }: UserCardProps) => {
                   <Icon name="CheckCircle" size={12} />
                   Активен
                 </Badge>
-                {isUserOnline(user.last_login) && (
+                {isOnline(user) && (
                   <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
                     <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                     Онлайн

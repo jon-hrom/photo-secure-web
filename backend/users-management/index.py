@@ -148,7 +148,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     user_agent, 
                     blocked_at, 
                     blocked_reason,
-                    registered_at
+                    registered_at,
+                    last_seen_at
                 FROM t_p28211681_photo_secure_web.users
             """)
             
@@ -169,7 +170,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'user_agent': row[9],
                     'blocked_at': row[10].isoformat() if row[10] else None,
                     'blocked_reason': row[11],
-                    'registered_at': row[12].isoformat() if row[12] else None
+                    'registered_at': row[12].isoformat() if row[12] else None,
+                    'last_seen_at': row[13].isoformat() if row[13] else None
                 })
             
             # Получить пользователей VK

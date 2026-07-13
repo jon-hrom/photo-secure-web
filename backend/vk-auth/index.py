@@ -186,6 +186,16 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     WHERE vk_sub = {escape_sql(vk_user_id)}
                 """)
                 
+                # Обновляем last_login и last_seen_at в основной таблице users,
+                # чтобы онлайн-статус в админке корректно работал при повторных входах через ВК
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.users 
+                    SET last_login = CURRENT_TIMESTAMP,
+                        last_seen_at = CURRENT_TIMESTAMP,
+                        is_active = TRUE
+                    WHERE id = {user_id}
+                """)
+                
                 if email:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, verified_at, added_at, last_used_at)

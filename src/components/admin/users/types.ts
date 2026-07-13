@@ -10,6 +10,7 @@ export interface User {
   is_blocked: boolean;
   ip_address: string | null;
   last_login: string | null;
+  last_seen_at?: string | null;
   user_agent: string | null;
   blocked_at: string | null;
   blocked_reason: string | null;
@@ -41,6 +42,17 @@ export const isUserOnline = (lastLogin: string | null): boolean => {
   const now = new Date();
   const diffInMinutes = (now.getTime() - lastLoginDate.getTime()) / 1000 / 60;
   return diffInMinutes < 5;
+};
+
+// Онлайн «сейчас на сайте» для любого способа входа (email/VK/Yandex/Telegram):
+// берём самое свежее из last_seen_at (обновляется при активности на сайте) и last_login.
+export const isOnline = (user: { last_seen_at?: string | null; last_login: string | null }): boolean => {
+  const times = [user.last_seen_at, user.last_login]
+    .filter(Boolean)
+    .map((t) => parseUtc(t as string).getTime());
+  if (times.length === 0) return false;
+  const latest = Math.max(...times);
+  return (Date.now() - latest) / 1000 / 60 < 5;
 };
 
 export const formatDate = (dateStr: string) => {

@@ -8,7 +8,7 @@ import UserCard from './users/UserCard';
 import UsersToolbar from './users/UsersToolbar';
 import DeletedUsersTab from './users/DeletedUsersTab';
 import type { User, EnhancedAdminUsersProps } from './users/types';
-import { isUserOnline } from './users/types';
+import { isOnline } from './users/types';
 
 const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, onOpenPhotoBank }: EnhancedAdminUsersProps) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -42,7 +42,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
       
       const matchesActivity = 
         filterByActivity === 'all' ? true :
-        filterByActivity === 'online' ? isUserOnline(user.last_login) :
+        filterByActivity === 'online' ? isOnline(user) :
         filterByActivity === 'active' ? user.is_active :
         !user.is_active;
       
@@ -71,8 +71,8 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
   const activeUsers = filteredAndSortedUsers.filter(u => !u.is_blocked);
   const blockedUsers = filteredAndSortedUsers.filter(u => u.is_blocked);
   
-  const onlineCount = activeUsers.filter(u => isUserOnline(u.last_login)).length;
-  const offlineCount = activeUsers.filter(u => !isUserOnline(u.last_login)).length;
+  const onlineCount = activeUsers.filter(u => isOnline(u)).length;
+  const offlineCount = activeUsers.filter(u => !isOnline(u)).length;
 
   const openUserDetails = (user: User) => {
     setSelectedUser(user);
