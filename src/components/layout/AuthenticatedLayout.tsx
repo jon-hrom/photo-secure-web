@@ -26,6 +26,9 @@ import AdminTicketsButton from '@/components/support/AdminTicketsButton';
 import BookingDetailsDialog from '@/components/BookingDetailsDialog';
 import SyncIndicator from '@/components/SyncIndicator';
 import WelcomeDialog from '@/components/WelcomeDialog';
+import ToolsDialog from '@/components/tools/ToolsDialog';
+import LogoRemoverDialog from '@/components/tools/LogoRemoverDialog';
+import HumanizerDialog from '@/components/tools/HumanizerDialog';
 
 const AUTH_URL = 'https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9';
 
@@ -84,6 +87,9 @@ const AuthenticatedLayout = ({
   const [showAdminTickets, setShowAdminTickets] = useState(false);
   const [adminTicketsUnread, setAdminTicketsUnread] = useState(0);
   const [appealsOpenSignal, setAppealsOpenSignal] = useState(0);
+  const [showTools, setShowTools] = useState(false);
+  const [showLogoRemover, setShowLogoRemover] = useState(false);
+  const [showHumanizer, setShowHumanizer] = useState(false);
   const unreadCount = useUnreadCount(userId);
   const { unreadCount: supportUnread, markRead: markSupportRead } = useSupportUnread(userId);
   const totalUnread = unreadCount + supportUnread;
@@ -267,7 +273,7 @@ const AuthenticatedLayout = ({
               setCurrentPage('clients');
             }}
             onNavigateToSettings={() => setCurrentPage('settings')}
-
+            onOpenTools={() => setShowTools(true)}
             isAdmin={isAdmin}
           />
         )}
@@ -309,6 +315,24 @@ const AuthenticatedLayout = ({
           supportUnread={supportUnread}
         />
       )}
+
+      <ToolsDialog
+        open={showTools}
+        onOpenChange={setShowTools}
+        onOpenLogoRemover={() => setShowLogoRemover(true)}
+        onOpenHumanizer={() => setShowHumanizer(true)}
+      />
+
+      <LogoRemoverDialog
+        open={showLogoRemover}
+        onOpenChange={setShowLogoRemover}
+      />
+
+      <HumanizerDialog
+        open={showHumanizer}
+        onOpenChange={setShowHumanizer}
+        userId={userId?.toString() || null}
+      />
 
 
     </div>

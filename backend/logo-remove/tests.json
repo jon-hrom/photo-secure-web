@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET not allowed",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 405
+    },
+    {
+      "name": "Missing image on detect",
+      "method": "POST",
+      "path": "/?action=detect",
+      "body": {},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Invalid action",
+      "method": "POST",
+      "path": "/?action=bogus",
+      "body": {"image": "aGVsbG8="},
+      "expectedStatus": 400
+    }
+  ]
+}
