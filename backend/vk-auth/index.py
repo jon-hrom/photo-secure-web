@@ -233,10 +233,14 @@ def upsert_vk_user(vk_user_id: str, first_name: str, last_name: str, avatar_url:
                     user_id = email_match['user_id']
                     print(f'[VK_AUTH] Found existing user by email: user_id={user_id}, email={email}')
             
-            if not user_id and phone:
+            phone_digits = ''.join(ch for ch in str(phone or '') if ch.isdigit())
+            phone_last10 = phone_digits[-10:] if len(phone_digits) >= 10 else ''
+            if not user_id and phone_last10:
+                # Сравниваем по последним 10 цифрам, чтобы форматы +7 / 8 / 7 совпадали
                 cur.execute(f"""
                     SELECT id FROM {SCHEMA}.users 
-                    WHERE phone = {escape_sql(phone)}
+                    WHERE RIGHT(regexp_replace(COALESCE(phone, ''), '\\D', '', 'g'), 10) = {escape_sql(phone_last10)}
+                      AND COALESCE(is_active, TRUE) = TRUE
                     ORDER BY created_at ASC
                     LIMIT 1
                 """)
