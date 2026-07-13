@@ -766,8 +766,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'success': True, 'status': new_status}), 'isBase64Encoded': False}
             
             elif action == 'complete-oauth-profile':
-                # Дозаполнение профиля новым пользователем после входа через ВК/Яндекс
+                # Дозаполнение профиля новым пользователем после входа через ВК/Яндекс/Telegram
                 target_user_id = body.get('user_id')
+                provider = str(body.get('provider', '')).strip().lower()
                 email = str(body.get('email', '')).strip()
                 phone = str(body.get('phone', '')).strip()
                 portfolio_links = body.get('portfolio_links') or []
@@ -779,7 +780,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'user_id обязателен'}), 'isBase64Encoded': False}
 
                 cursor = conn.cursor()
-                cursor.execute(f"SELECT id, email, phone, display_name, approval_status FROM {SCHEMA}.users WHERE id = %s", (target_user_id,))
+                cursor.execute(f"SELECT id, email, phone, display_name, approval_status, vk_id, telegram_id FROM {SCHEMA}.users WHERE id = %s", (target_user_id,))
                 u = cursor.fetchone()
                 if not u:
                     return {'statusCode': 404, 'headers': headers, 'body': json.dumps({'error': 'Пользователь не найден'}), 'isBase64Encoded': False}
@@ -799,6 +800,55 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
                 if not portfolio_links:
                     return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Укажите хотя бы одну ссылку на портфолио'}), 'isBase64Encoded': False}
+
+                # MERGE: ищем СТАРЫЙ аккаунт (не этот временный) с таким же email или телефоном.
+                # По ФИО НЕ объединяем — только по надёжным данным (email/телефон).
+                cursor.execute(
+                    f"""SELECT id FROM {SCHEMA}.users
+                        WHERE id <> %s
+                          AND COALESCE(is_active, TRUE) = TRUE
+                          AND (
+                                LOWER(email) = LOWER(%s)
+                                OR id IN (SELECT user_id FROM {SCHEMA}.user_emails WHERE LOWER(email) = LOWER(%s))
+                                OR RIGHT(regexp_replace(COALESCE(phone, ''), '\\D', '', 'g'), 10) = %s
+                          )
+                        ORDER BY created_at ASC
+                        LIMIT 1""",
+                    (target_user_id, email, email, phone_digits)
+                )
+                existing = cursor.fetchone()
+
+                if existing:
+                    old_id = existing['id']
+                    # Переносим привязку соцсети на старый аккаунт
+                    if provider == 'vk' and u.get('vk_id'):
+                        cursor.execute(f"UPDATE {SCHEMA}.users SET vk_id = %s, updated_at = NOW() WHERE id = %s AND (vk_id IS NULL OR vk_id = '')", (u.get('vk_id'), old_id))
+                        cursor.execute(f"UPDATE {SCHEMA}.vk_users SET user_id = %s WHERE user_id = %s", (old_id, target_user_id))
+                    elif provider == 'yandex':
+                        cursor.execute(f"UPDATE {SCHEMA}.yandex_users SET user_id = %s WHERE user_id = %s", (old_id, target_user_id))
+                    elif provider == 'telegram' and u.get('telegram_id'):
+                        cursor.execute(f"UPDATE {SCHEMA}.users SET telegram_id = %s, updated_at = NOW() WHERE id = %s AND (telegram_id IS NULL OR telegram_id = '')", (u.get('telegram_id'), old_id))
+                    # Привязываем email соцсети к старому аккаунту
+                    cursor.execute(
+                        f"INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, added_at, last_used_at) VALUES (%s, %s, %s, FALSE, NOW(), NOW()) ON CONFLICT DO NOTHING",
+                        (old_id, email, provider or 'oauth')
+                    )
+                    cursor.execute(f"UPDATE {SCHEMA}.users SET last_login = NOW(), updated_at = NOW() WHERE id = %s", (old_id,))
+                    # Удаляем временный аккаунт-дубль
+                    cursor.execute(f"DELETE FROM {SCHEMA}.users WHERE id = %s", (target_user_id,))
+                    conn.commit()
+
+                    # Проверяем статус старого аккаунта — пускаем только если он одобрен
+                    cursor.execute(f"SELECT approval_status, is_blocked, email FROM {SCHEMA}.users WHERE id = %s", (old_id,))
+                    old = cursor.fetchone()
+                    old_approval = (old.get('approval_status') if old else None) or 'approved'
+                    if old_approval != 'approved':
+                        return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'success': True, 'pending_approval': True, 'merged': True}), 'isBase64Encoded': False}
+
+                    ip_address = get_real_ip(event)
+                    user_agent = event.get('headers', {}).get('User-Agent', '')
+                    token, session_id = generate_access_token(old_id, ip_address, user_agent)
+                    return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'success': True, 'merged': True, 'token': token, 'session_id': session_id, 'userId': old_id}), 'isBase64Encoded': False}
 
                 display_name = u.get('display_name') or (email.split('@')[0] if email else 'Фотограф')
                 portfolio_json = json.dumps(portfolio_links, ensure_ascii=False)

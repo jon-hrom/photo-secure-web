@@ -57,6 +57,7 @@ const OAuthProfileDialog = ({ open, userId, provider, presetEmail, presetPhone, 
         body: JSON.stringify({
           action: 'complete-oauth-profile',
           user_id: userId,
+          provider,
           email: email.trim(),
           phone: phone.trim(),
           portfolio_links: cleanLinks,
@@ -64,6 +65,16 @@ const OAuthProfileDialog = ({ open, userId, provider, presetEmail, presetPhone, 
       });
       const data = await response.json();
       if (response.ok && data.success) {
+        // Аккаунт объединён со старым и уже одобрен — сразу входим
+        if (data.merged && data.token && data.userId) {
+          localStorage.setItem('auth_token', data.token);
+          if (data.session_id) localStorage.setItem('auth_session_id', data.session_id);
+          localStorage.setItem('userId', String(data.userId));
+          toast.success('С возвращением! Вы вошли в свой аккаунт');
+          setTimeout(() => { window.location.href = '/'; }, 600);
+          return;
+        }
+        // Иначе — заявка на проверку
         setShowPending(true);
       } else {
         toast.error(data.error || 'Не удалось отправить заявку');
