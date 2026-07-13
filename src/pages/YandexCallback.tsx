@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
 import TwoFactorDialog from '@/components/TwoFactorDialog';
 import LegalConsentModal from '@/components/login/LegalConsentModal';
+import OAuthProfileDialog from '@/components/login/OAuthProfileDialog';
 import { fetchPendingDocs } from '@/lib/legalApi';
 
 const YANDEX_AUTH_URL = 'https://functions.poehali.dev/e5943511-d507-4fb9-bbb0-2431e3eb0d9a';
@@ -28,6 +29,11 @@ const YandexCallback = () => {
   } | null>(null);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [pendingNavigate, setPendingNavigate] = useState(false);
+  const [profileData, setProfileData] = useState<{
+    userId: number;
+    email?: string;
+    phone?: string;
+  } | null>(null);
 
   useEffect(() => {
     const processCallback = async () => {
@@ -83,6 +89,17 @@ const YandexCallback = () => {
           setShow2FADialog(true);
           setProcessing(false);
           toast.info('Требуется двухфакторная аутентификация');
+          return;
+        }
+
+        if (data.success && data.needs_profile) {
+          const profile = data.profile || {};
+          setProfileData({
+            userId: data.user_id,
+            email: profile.email,
+            phone: profile.phone,
+          });
+          setProcessing(false);
           return;
         }
 
@@ -198,6 +215,20 @@ const YandexCallback = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {profileData && (
+        <OAuthProfileDialog
+          open={true}
+          userId={profileData.userId}
+          provider="yandex"
+          presetEmail={profileData.email}
+          presetPhone={profileData.phone}
+          onDone={() => {
+            setProfileData(null);
+            navigate('/');
+          }}
+        />
+      )}
 
       {showConsentModal && pendingNavigate && (
         <LegalConsentModal

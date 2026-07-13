@@ -765,6 +765,92 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'success': True, 'status': new_status}), 'isBase64Encoded': False}
             
+            elif action == 'complete-oauth-profile':
+                # Дозаполнение профиля новым пользователем после входа через ВК/Яндекс
+                target_user_id = body.get('user_id')
+                email = str(body.get('email', '')).strip()
+                phone = str(body.get('phone', '')).strip()
+                portfolio_links = body.get('portfolio_links') or []
+                if isinstance(portfolio_links, str):
+                    portfolio_links = [portfolio_links]
+                portfolio_links = [str(l).strip() for l in portfolio_links if str(l).strip()]
+
+                if not target_user_id:
+                    return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'user_id обязателен'}), 'isBase64Encoded': False}
+
+                cursor = conn.cursor()
+                cursor.execute(f"SELECT id, email, phone, display_name, approval_status FROM {SCHEMA}.users WHERE id = %s", (target_user_id,))
+                u = cursor.fetchone()
+                if not u:
+                    return {'statusCode': 404, 'headers': headers, 'body': json.dumps({'error': 'Пользователь не найден'}), 'isBase64Encoded': False}
+
+                # Email: берём из формы, если пусто — из профиля (провайдер мог передать)
+                if not email:
+                    email = str(u.get('email') or '').strip()
+                email_valid = bool(re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$', email))
+                if not email_valid:
+                    return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Введите корректный email, например name@mail.ru'}), 'isBase64Encoded': False}
+
+                phone_digits = re.sub(r'\D', '', phone)
+                if phone_digits.startswith('7') or phone_digits.startswith('8'):
+                    phone_digits = phone_digits[1:]
+                if len(phone_digits) != 10:
+                    return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Введите корректный телефон: +7 и 10 цифр'}), 'isBase64Encoded': False}
+
+                if not portfolio_links:
+                    return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Укажите хотя бы одну ссылку на портфолио'}), 'isBase64Encoded': False}
+
+                display_name = u.get('display_name') or (email.split('@')[0] if email else 'Фотограф')
+                portfolio_json = json.dumps(portfolio_links, ensure_ascii=False)
+
+                cursor.execute(
+                    f"UPDATE {SCHEMA}.users SET email = %s, phone = %s, portfolio_links = %s, approval_status = 'pending', updated_at = NOW() WHERE id = %s",
+                    (email, phone, portfolio_json, target_user_id)
+                )
+                cursor.execute(
+                    f"INSERT INTO {SCHEMA}.user_emails (user_id, email, provider, is_verified, added_at, last_used_at) VALUES (%s, %s, 'email', FALSE, NOW(), NOW()) ON CONFLICT DO NOTHING",
+                    (target_user_id, email)
+                )
+                # Заявка на регистрацию (одна на пользователя)
+                cursor.execute(f"SELECT id FROM {SCHEMA}.registration_requests WHERE user_id = %s", (target_user_id,))
+                if cursor.fetchone():
+                    cursor.execute(
+                        f"UPDATE {SCHEMA}.registration_requests SET email = %s, phone = %s, display_name = %s, portfolio_links = %s, status = 'pending', created_at = NOW() WHERE user_id = %s",
+                        (email, phone, display_name, portfolio_json, target_user_id)
+                    )
+                else:
+                    cursor.execute(
+                        f"INSERT INTO {SCHEMA}.registration_requests (user_id, email, phone, display_name, portfolio_links, status, created_at) VALUES (%s, %s, %s, %s, %s, 'pending', NOW())",
+                        (target_user_id, email, phone, display_name, portfolio_json)
+                    )
+
+                links_text = '\n'.join(f'• {l}' for l in portfolio_links)
+                appeal_message = (
+                    f'📝 Запрос на регистрацию\n\n'
+                    f'Фотограф: {display_name}\n'
+                    f'Email: {email}\n'
+                    f'Телефон: {phone}\n\n'
+                    f'Портфолио:\n{links_text}\n\n'
+                    f'Проверьте работы и одобрите или отклоните заявку.'
+                )
+                cursor.execute(
+                    f"UPDATE {SCHEMA}.blocked_user_appeals SET user_email = %s, user_phone = %s, user_name = %s, message = %s, is_archived = false, is_read = false WHERE user_identifier = %s AND appeal_type = 'registration_request'",
+                    (email, phone, display_name, appeal_message, str(target_user_id))
+                )
+                if cursor.rowcount == 0:
+                    cursor.execute(
+                        f"INSERT INTO {SCHEMA}.blocked_user_appeals (user_identifier, user_email, user_phone, user_name, message, is_support, is_blocked, is_read, is_archived, appeal_type) VALUES (%s, %s, %s, %s, %s, true, false, false, false, 'registration_request')",
+                        (str(target_user_id), email, phone, display_name, appeal_message)
+                    )
+                conn.commit()
+
+                try:
+                    notify_admin_new_registration(conn, display_name, email, phone, portfolio_links)
+                except Exception as _e:
+                    print(f'[OAUTH_PROFILE] admin notify error: {_e}', flush=True)
+
+                return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'success': True, 'pending_approval': True}), 'isBase64Encoded': False}
+
             elif action == 'mark-welcome-seen':
                 uid = (event.get('headers', {}) or {}).get('X-User-Id') or body.get('user_id')
                 if not uid:

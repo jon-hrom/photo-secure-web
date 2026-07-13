@@ -165,22 +165,22 @@ def create_or_update_user(
                 WHERE id = {user_id}
             """)
             conn.commit()
-            return user_id
+            return user_id, False
         else:
             if not is_registration_enabled(conn):
                 raise Exception("REGISTRATION_DISABLED")
             
             print(f"[TG_AUTH] Creating new user")
             
-            # Создаём нового пользователя
+            # Создаём нового пользователя (на модерации, до дозаполнения профиля)
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.users
                 (telegram_id, display_name, avatar_url, is_active, source, 
                  registered_at, created_at, updated_at, last_login,
-                 ip_address, user_agent, role, plan_id)
+                 ip_address, user_agent, role, plan_id, approval_status)
                 VALUES ({escape_sql(telegram_id)}, {escape_sql(display_name)}, {escape_sql(photo_url)},
                         TRUE, 'telegram', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
-                        {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user', 1)
+                        {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user', 1, 'pending')
                 RETURNING id
             """)
             new_user = cur.fetchone()
@@ -188,7 +188,7 @@ def create_or_update_user(
             conn.commit()
             
             print(f"[TG_AUTH] New user created: user_id={user_id}")
-            return user_id
+            return user_id, True
 
 
 def cleanup_expired_tokens(conn) -> None:
@@ -263,7 +263,7 @@ def handle_callback(conn, body: dict, ip_address: str = None, user_agent: str = 
     
     # Создаём или обновляем пользователя
     try:
-        user_id = create_or_update_user(
+        user_id, is_new_user = create_or_update_user(
             conn,
             telegram_id=token_data["telegram_id"],
             username=token_data["telegram_username"],
@@ -288,6 +288,22 @@ def handle_callback(conn, body: dict, ip_address: str = None, user_agent: str = 
     
     # Помечаем токен как использованный
     mark_token_used(conn, token)
+    
+    # Новый пользователь — не пускаем на сайт, отправляем на дозаполнение профиля и модерацию
+    if is_new_user:
+        tg_name = " ".join(filter(None, [token_data.get("telegram_first_name"), token_data.get("telegram_last_name")])) or (token_data.get("telegram_username") or "")
+        return cors_response(200, {
+            "success": True,
+            "needs_profile": True,
+            "user_id": user_id,
+            "profile": {
+                "telegram_id": token_data["telegram_id"],
+                "email": "",
+                "name": tg_name,
+                "avatar": token_data.get("telegram_photo_url") or "",
+                "phone": ""
+            }
+        })
     
     # Создаём сессию в active_sessions (совместимо с validate-session)
     token, session_id = create_session_token(user_id, ip_address, user_agent)

@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
+import OAuthProfileDialog from '@/components/login/OAuthProfileDialog';
 
 const TelegramCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Авторизация через Telegram...');
+  const [profileData, setProfileData] = useState<{
+    userId: number;
+    email?: string;
+    phone?: string;
+  } | null>(null);
 
   useEffect(() => {
     const token = searchParams.get('token');
@@ -44,6 +50,18 @@ const TelegramCallback = () => {
 
         if (!response.ok) {
           throw new Error(data.error || 'Ошибка авторизации');
+        }
+
+        if (data.success && data.needs_profile) {
+          const profile = data.profile || {};
+          setProfileData({
+            userId: data.user_id,
+            email: profile.email,
+            phone: profile.phone,
+          });
+          setStatus('loading');
+          setMessage('Заполните данные для проверки');
+          return;
         }
 
         const userId = data.userId || data.user?.id;
@@ -128,6 +146,20 @@ const TelegramCallback = () => {
           </>
         )}
       </div>
+
+      {profileData && (
+        <OAuthProfileDialog
+          open={true}
+          userId={profileData.userId}
+          provider="telegram"
+          presetEmail={profileData.email}
+          presetPhone={profileData.phone}
+          onDone={() => {
+            setProfileData(null);
+            navigate('/');
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -16,18 +16,17 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Login with correct credentials",
+      "name": "Complete OAuth profile without user_id rejected",
       "method": "POST",
       "body": {
-        "action": "login",
-        "email": "test@example.com",
-        "password": "securepass123"
+        "action": "complete-oauth-profile",
+        "email": "photographer@example.com",
+        "phone": "+79991234567",
+        "portfolio_links": ["https://example.com/portfolio"]
       },
-      "expectedStatus": 200,
+      "expectedStatus": 400,
       "expectedBody": {
-        "success": true,
-        "token": "string",
-        "session_id": "string"
+        "error": "string"
       },
       "bodyMatcher": "partial"
     }

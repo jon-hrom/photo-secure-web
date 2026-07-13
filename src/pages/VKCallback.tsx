@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import BlockedUserAppeal from '@/components/BlockedUserAppeal';
 import LegalConsentModal from '@/components/login/LegalConsentModal';
+import OAuthProfileDialog from '@/components/login/OAuthProfileDialog';
 import { fetchPendingDocs } from '@/lib/legalApi';
 
 const VKCallback = () => {
@@ -18,6 +19,11 @@ const VKCallback = () => {
   } | null>(null);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [pendingNavigate, setPendingNavigate] = useState(false);
+  const [profileData, setProfileData] = useState<{
+    userId: number;
+    email?: string;
+    phone?: string;
+  } | null>(null);
 
   useEffect(() => {
     const processCallback = async () => {
@@ -66,6 +72,17 @@ const VKCallback = () => {
           return;
         }
         
+        if (data.success && data.needs_profile) {
+          const profile = data.profile || {};
+          setProfileData({
+            userId: data.user_id,
+            email: profile.email,
+            phone: profile.phone,
+          });
+          setProcessing(false);
+          return;
+        }
+
         if (data.success && (data.profile || data.userData)) {
           const profile = data.profile || data.userData;
           const user_id = data.user_id;
@@ -152,6 +169,20 @@ const VKCallback = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {profileData && (
+        <OAuthProfileDialog
+          open={true}
+          userId={profileData.userId}
+          provider="vk"
+          presetEmail={profileData.email}
+          presetPhone={profileData.phone}
+          onDone={() => {
+            setProfileData(null);
+            navigate('/');
+          }}
+        />
+      )}
 
       {showConsentModal && pendingNavigate && (
         <LegalConsentModal

@@ -281,10 +281,10 @@ def upsert_yandex_user(yandex_id: str, email: str, name: str, picture: str,
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.users
                 (email, display_name, is_active, source, registered_at, created_at, updated_at, last_login,
-                 ip_address, user_agent, role, plan_id, email_verified_at)
+                 ip_address, user_agent, role, plan_id, approval_status, email_verified_at)
                 VALUES ({escape_sql(email)}, {escape_sql(name)}, {escape_sql(True)}, 'yandex', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
                         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, {escape_sql(ip_address)}, {escape_sql(user_agent)}, 'user', 1,
-                        CURRENT_TIMESTAMP)
+                        'pending', CURRENT_TIMESTAMP)
                 RETURNING id
             """)
             new_user = cur.fetchone()
@@ -315,7 +315,8 @@ def upsert_yandex_user(yandex_id: str, email: str, name: str, picture: str,
                 'two_factor_email': False,
                 'two_factor_sms': False,
                 'phone': None,
-                'user_email': email
+                'user_email': email,
+                'is_new': True
             }
     finally:
         conn.close()
@@ -516,6 +517,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(f"[YANDEX_AUTH] User created/updated: user_id={user_id}")
 
         delete_session(state)
+
+        # Новый пользователь — не пускаем на сайт, отправляем на дозаполнение профиля и модерацию
+        if user_data.get('is_new'):
+            return {
+                'statusCode': 200,
+                'headers': cors_headers,
+                'body': json.dumps({
+                    'success': True,
+                    'needs_profile': True,
+                    'user_id': user_id,
+                    'profile': {
+                        'yandex_id': yandex_id,
+                        'email': email or '',
+                        'name': name or '',
+                        'avatar': avatar,
+                        'phone': phone or ''
+                    }
+                }),
+                'isBase64Encoded': False
+            }
 
         # 2FA
         if user_data.get('two_factor_email') or user_data.get('two_factor_sms'):
