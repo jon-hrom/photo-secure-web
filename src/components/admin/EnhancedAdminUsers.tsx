@@ -15,7 +15,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'email' | 'lastLogin'>('date');
-  const [filterByActivity, setFilterByActivity] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterByActivity, setFilterByActivity] = useState<'all' | 'online' | 'active' | 'inactive'>('all');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [photoBankUser, setPhotoBankUser] = useState<User | null>(null);
@@ -42,6 +42,7 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
       
       const matchesActivity = 
         filterByActivity === 'all' ? true :
+        filterByActivity === 'online' ? isUserOnline(user.last_login) :
         filterByActivity === 'active' ? user.is_active :
         !user.is_active;
       
@@ -117,18 +118,24 @@ const EnhancedAdminUsers = ({ users, onBlock, onUnblock, onDelete, onRefresh, on
           />
 
           <Tabs defaultValue="whitelist" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="whitelist" className="gap-2">
-                <Icon name="CheckCircle" size={16} />
-                Белый список ({activeUsers.length})
+            <TabsList className="grid w-full grid-cols-3 h-auto gap-1">
+              <TabsTrigger value="whitelist" className="flex-col sm:flex-row gap-1 sm:gap-2 py-2 px-1 sm:px-3 text-xs sm:text-sm whitespace-normal text-center leading-tight">
+                <Icon name="CheckCircle" size={16} className="shrink-0" />
+                <span>
+                  <span className="hidden sm:inline">Белый список</span>
+                  <span className="sm:hidden">Белый</span> ({activeUsers.length})
+                </span>
               </TabsTrigger>
-              <TabsTrigger value="blacklist" className="gap-2">
-                <Icon name="Ban" size={16} />
-                Черный список ({blockedUsers.length})
+              <TabsTrigger value="blacklist" className="flex-col sm:flex-row gap-1 sm:gap-2 py-2 px-1 sm:px-3 text-xs sm:text-sm whitespace-normal text-center leading-tight">
+                <Icon name="Ban" size={16} className="shrink-0" />
+                <span>
+                  <span className="hidden sm:inline">Черный список</span>
+                  <span className="sm:hidden">Черный</span> ({blockedUsers.length})
+                </span>
               </TabsTrigger>
-              <TabsTrigger value="deleted" className="gap-2">
-                <Icon name="UserX" size={16} />
-                Удалённые
+              <TabsTrigger value="deleted" className="flex-col sm:flex-row gap-1 sm:gap-2 py-2 px-1 sm:px-3 text-xs sm:text-sm whitespace-normal text-center leading-tight">
+                <Icon name="UserX" size={16} className="shrink-0" />
+                <span>Удалённые</span>
               </TabsTrigger>
             </TabsList>
 

@@ -10,8 +10,8 @@ interface UsersToolbarProps {
   onSearchChange: (value: string) => void;
   sortBy: 'date' | 'email' | 'lastLogin';
   onSortChange: (value: 'date' | 'email' | 'lastLogin') => void;
-  filterByActivity: 'all' | 'active' | 'inactive';
-  onFilterChange: (value: 'all' | 'active' | 'inactive') => void;
+  filterByActivity: 'all' | 'online' | 'active' | 'inactive';
+  onFilterChange: (value: 'all' | 'online' | 'active' | 'inactive') => void;
   filteredCount: number;
   totalCount: number;
   filteredUsers: User[];
@@ -59,12 +59,18 @@ const UsersToolbar = ({
           </SelectContent>
         </Select>
 
-        <Select value={filterByActivity} onValueChange={(value: string) => onFilterChange(value as 'all' | 'active' | 'inactive')}>
+        <Select value={filterByActivity} onValueChange={(value: string) => onFilterChange(value as 'all' | 'online' | 'active' | 'inactive')}>
           <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Активность" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Все</SelectItem>
+            <SelectItem value="online">
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                Онлайн
+              </span>
+            </SelectItem>
             <SelectItem value="active">Активные</SelectItem>
             <SelectItem value="inactive">Неактивные</SelectItem>
           </SelectContent>
