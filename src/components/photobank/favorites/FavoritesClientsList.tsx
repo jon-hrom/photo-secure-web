@@ -33,7 +33,7 @@ export default function FavoritesClientsList({
   };
 
   return (
-    <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
+    <div className="space-y-3">
       {clients.map(client => {
         const displayPhotos = resolveClientPhotos(client, allPhotos);
 
@@ -144,10 +144,11 @@ export default function FavoritesClientsList({
                       </div>
                     )}
                     <img
-                      src={photo.thumbnail_url || photo.photo_url}
+                      src={photo.thumbnail_url || photo.preview_url || photo.photo_url}
                       alt={photo.file_name}
                       className="w-full h-full object-cover"
                       loading="lazy"
+                      decoding="async"
                       onError={(e) => {
                         const target = e.currentTarget;
                         target.style.display = 'none';

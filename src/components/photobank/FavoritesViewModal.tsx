@@ -82,9 +82,9 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-lg max-w-6xl w-full h-[95vh] sm:max-h-[90vh] sm:h-auto overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
               Избранные фото клиентов
@@ -131,7 +131,7 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
           {error ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <Icon name="AlertCircle" size={48} className="text-gray-400 mb-4" />
