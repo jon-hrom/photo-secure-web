@@ -802,21 +802,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': 'Укажите хотя бы одну ссылку на портфолио'}), 'isBase64Encoded': False}
 
                 # MERGE: ищем СТАРЫЙ аккаунт (не этот временный) с таким же email или телефоном.
-                # По ФИО НЕ объединяем — только по надёжным данным (email/телефон).
-                cursor.execute(
-                    f"""SELECT id FROM {SCHEMA}.users
-                        WHERE id <> %s
-                          AND COALESCE(is_active, TRUE) = TRUE
-                          AND (
-                                LOWER(email) = LOWER(%s)
-                                OR id IN (SELECT user_id FROM {SCHEMA}.user_emails WHERE LOWER(email) = LOWER(%s))
-                                OR RIGHT(regexp_replace(COALESCE(phone, ''), '\\D', '', 'g'), 10) = %s
-                          )
-                        ORDER BY created_at ASC
-                        LIMIT 1""",
-                    (target_user_id, email, email, phone_digits)
-                )
-                existing = cursor.fetchone()
+                # ВАЖНО (безопасность): объединяем ТОЛЬКО по данным, которые передала сама соцсеть
+                # (provider_email / provider_phone, сохранены при OAuth-входе), а НЕ по введённым в форму —
+                # иначе можно указать чужой контакт и угнать чужой кабинет. По ФИО НЕ объединяем.
+                provider_email = str(u.get('email') or '').strip()
+                provider_email = provider_email if re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$', provider_email) else ''
+                provider_phone_digits = re.sub(r'\D', '', str(u.get('phone') or ''))
+                provider_phone_last10 = provider_phone_digits[-10:] if len(provider_phone_digits) >= 10 else ''
+
+                existing = None
+                if provider_email or provider_phone_last10:
+                    cursor.execute(
+                        f"""SELECT id FROM {SCHEMA}.users
+                            WHERE id <> %s
+                              AND COALESCE(is_active, TRUE) = TRUE
+                              AND (
+                                    (%s <> '' AND LOWER(email) = LOWER(%s))
+                                    OR (%s <> '' AND id IN (SELECT user_id FROM {SCHEMA}.user_emails WHERE LOWER(email) = LOWER(%s)))
+                                    OR (%s <> '' AND RIGHT(regexp_replace(COALESCE(phone, ''), '\\D', '', 'g'), 10) = %s)
+                              )
+                            ORDER BY created_at ASC
+                            LIMIT 1""",
+                        (target_user_id,
+                         provider_email, provider_email,
+                         provider_email, provider_email,
+                         provider_phone_last10, provider_phone_last10)
+                    )
+                    existing = cursor.fetchone()
 
                 if existing:
                     old_id = existing['id']

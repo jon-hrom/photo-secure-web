@@ -247,7 +247,7 @@ export const useAuth = () => {
       if (vkSessionId) {
         console.log('📦 VK session ID in URL detected:', vkSessionId);
         
-        fetch(`https://functions.poehali.dev/2cc3877b-e2f8-496e-98b2-9c8a8ec9950d?session_id=${vkSessionId}`)
+        fetch(`https://functions.poehali.dev/d90ae010-c236-4173-bf65-6a3aef34156c?session_id=${vkSessionId}`)
           .then(res => {
             console.log('📦 Session response status:', res.status);
             
