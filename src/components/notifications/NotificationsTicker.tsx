@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 
 const TICK_URL = 'https://functions.poehali.dev/79d17544-9f53-446b-bf9f-474f171be865';
-const INTERVAL_MS = 10 * 60 * 1000; // 10 минут
-const MIN_GAP_MS = 60 * 1000; // не чаще раза в минуту с одной вкладки
+const INTERVAL_MS = 2 * 60 * 1000; // 2 минуты — heartbeat присутствия (онлайн-статус)
+const MIN_GAP_MS = 30 * 1000; // не чаще раза в 30 сек с одной вкладки
 
 const NotificationsTicker = () => {
   const lastPingRef = useRef<number>(0);

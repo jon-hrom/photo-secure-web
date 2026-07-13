@@ -136,7 +136,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Получить пользователей с обычной регистрацией (email/phone)
             cur.execute("""
                 SELECT 
-                    'email' as source,
+                    COALESCE(NULLIF(source, ''), 'email') as source,
                     id::text as user_id,
                     email, 
                     phone, 
@@ -149,7 +149,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     blocked_at, 
                     blocked_reason,
                     registered_at,
-                    last_seen_at
+                    last_seen_at,
+                    vk_id,
+                    telegram_id
                 FROM t_p28211681_photo_secure_web.users
             """)
             
@@ -171,7 +173,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'blocked_at': row[10].isoformat() if row[10] else None,
                     'blocked_reason': row[11],
                     'registered_at': row[12].isoformat() if row[12] else None,
-                    'last_seen_at': row[13].isoformat() if row[13] else None
+                    'last_seen_at': row[13].isoformat() if row[13] else None,
+                    'vk_id': row[14],
+                    'telegram_id': row[15]
                 })
             
             # Получить пользователей VK

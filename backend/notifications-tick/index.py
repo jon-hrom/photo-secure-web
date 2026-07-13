@@ -117,6 +117,25 @@ def handler(event, context):
         force = True
         source = 'cron'
 
+    # Отмечаем присутствие пользователя на сайте (heartbeat) для ЛЮБОГО способа входа
+    # (email/VK/Yandex/Telegram). По last_seen_at строится онлайн-статус в админке.
+    # Делаем это ДО throttle — чтобы присутствие фиксировалось при каждом пинге.
+    user_id_hdr = headers.get('X-User-Id') or headers.get('x-user-id')
+    if user_id_hdr and str(user_id_hdr).isdigit():
+        try:
+            conn = get_db()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f"UPDATE {SCHEMA}.users SET last_seen_at = NOW() WHERE id = %s",
+                        (int(user_id_hdr),)
+                    )
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception as e:
+            print(f'[TICK] last_seen_at update failed: {e}')
+
     acquired, secs = try_acquire_lock(force, source)
 
     if not acquired:

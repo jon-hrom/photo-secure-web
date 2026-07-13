@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { formatPhoneNumber } from '@/utils/phoneFormat';
 import type { User } from './types';
-import { isOnline, formatDate, getRelativeTime, getSourceLabel } from './types';
+import { isOnline, formatDate, getRelativeTime, getSourceLabel, getUserProviders } from './types';
 
 interface UserCardProps {
   user: User;
@@ -15,7 +15,8 @@ const sourceColors: Record<string, string> = {
   'email': 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
   'vk': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
   'google': 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-  'yandex': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
+  'yandex': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300',
+  'telegram': 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
 };
 
 const UserCard = ({ user, onOpenDetails, onOpenPhotoBank }: UserCardProps) => {
@@ -50,9 +51,13 @@ const UserCard = ({ user, onOpenDetails, onOpenPhotoBank }: UserCardProps) => {
             )}
           </div>
 
-          <Badge variant="outline" className={`ml-2 text-xs ${sourceColors[user.source] || ''}`}>
-            {getSourceLabel(user.source)}
-          </Badge>
+          <div className="ml-2 flex flex-wrap gap-1">
+            {getUserProviders(user).map((prov) => (
+              <Badge key={prov} variant="outline" className={`text-xs ${sourceColors[prov] || ''}`}>
+                {getSourceLabel(prov)}
+              </Badge>
+            ))}
+          </div>
 
           <div className="flex items-center gap-2 ml-auto">
             {user.is_blocked ? (

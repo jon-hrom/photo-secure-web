@@ -1,6 +1,8 @@
 export interface User {
   id: string | number;
-  source: 'email' | 'vk' | 'google' | 'yandex';
+  source: 'email' | 'vk' | 'google' | 'yandex' | 'telegram' | string;
+  vk_id?: string | null;
+  telegram_id?: string | null;
   email: string | null;
   phone: string | null;
   full_name: string | null;
@@ -88,9 +90,23 @@ export const getSourceLabel = (source: string) => {
     'email': 'Email',
     'vk': 'VK ID',
     'google': 'Google',
-    'yandex': 'Яндекс'
+    'yandex': 'Яндекс',
+    'telegram': 'Telegram'
   };
   return labels[source] || source;
+};
+
+// Все способы входа, привязанные к аккаунту (даже если основной source другой)
+export const getUserProviders = (user: {
+  source: string;
+  vk_id?: string | null;
+  telegram_id?: string | null;
+}): string[] => {
+  const providers = new Set<string>();
+  if (user.source) providers.add(user.source);
+  if (user.vk_id) providers.add('vk');
+  if (user.telegram_id) providers.add('telegram');
+  return Array.from(providers);
 };
 
 export const exportToCSV = (users: User[]) => {
