@@ -95,9 +95,9 @@ const UserCard = ({ user, onOpenDetails, onOpenPhotoBank }: UserCardProps) => {
             <span>{formatDate(user.registered_at || user.created_at)}</span>
           </div>
           {user.last_login && (
-            <div className="flex items-center gap-1.5" title={formatDate(user.last_login)}>
+            <div className="flex items-center gap-1.5" title={getRelativeTime(user.last_login)}>
               <Icon name="Clock" size={14} />
-              <span>Вход: {getRelativeTime(user.last_login)}</span>
+              <span>Вход: {formatDate(user.last_login)}</span>
             </div>
           )}
           {user.ip_address && (

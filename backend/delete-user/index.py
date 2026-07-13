@@ -234,9 +234,18 @@ def purge_user_data(cur, user_id: int) -> Dict[str, int]:
         except Exception as e:
             print(f'skip {table}: {str(e)}')
 
-    # Автоматически находим ВСЕ таблицы, ссылающиеся на users через FK,
-    # и удаляем связанные записи. Это гарантирует, что финальный DELETE
-    # не упадёт по foreign key constraint при любых новых таблицах.
+    # Каскадно удаляем ВСЕ связанные записи снизу вверх: сначала «внуков»
+    # (таблицы, ссылающиеся на clients и др.), потом «детей», потом самого пользователя.
+    # Это гарантирует, что финальный DELETE не упадёт по foreign key constraint.
+    cascade_delete_by_parent(cur, 'users', 'id', uid, depth=0)
+
+    cur.execute(f"DELETE FROM {SCHEMA}.users WHERE id = {uid}")
+
+    return {'photos_count': photos_count, 'storage_bytes': storage_bytes}
+
+
+def _fk_children(cur, parent_table: str) -> List[tuple]:
+    """Возвращает список (child_table, child_column), ссылающихся на parent_table через FK."""
     cur.execute(
         "SELECT tc.table_name, kcu.column_name "
         "FROM information_schema.table_constraints tc "
@@ -246,20 +255,43 @@ def purge_user_data(cur, user_id: int) -> Dict[str, int]:
         "  ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema "
         "WHERE tc.constraint_type = 'FOREIGN KEY' "
         f"  AND tc.table_schema = '{SCHEMA}' "
-        "  AND ccu.table_name = 'users'"
+        f"  AND ccu.table_name = '{parent_table}'"
     )
-    fk_refs = cur.fetchall()
-    for ref in fk_refs:
-        table = ref['table_name'] if isinstance(ref, dict) else ref[0]
-        col = ref['column_name'] if isinstance(ref, dict) else ref[1]
+    result = []
+    for ref in cur.fetchall():
+        t = ref['table_name'] if isinstance(ref, dict) else ref[0]
+        c = ref['column_name'] if isinstance(ref, dict) else ref[1]
+        result.append((t, c))
+    return result
+
+
+def cascade_delete_by_parent(cur, parent_table: str, parent_key: str, parent_value: int, depth: int = 0) -> None:
+    """Рекурсивно удаляет записи, ссылающиеся на parent_table[parent_key]=parent_value.
+    Обходит FK-дерево вглубь: сначала внуки, потом дети. Защита от циклов через depth."""
+    if depth > 6:
+        return
+    for child_table, child_col in _fk_children(cur, parent_table):
+        # самоссылки (напр. photo_folders.parent_id) — пропускаем как отдельную ветку
+        if child_table == parent_table:
+            continue
         try:
-            cur.execute(f"DELETE FROM {SCHEMA}.{table} WHERE {col} = {uid}")
+            # Находим id дочерних строк, чтобы почистить их собственных потомков
+            cur.execute(
+                f"SELECT id FROM {SCHEMA}.{child_table} "
+                f"WHERE {child_col} = {parent_value}"
+            )
+            child_ids = [r['id'] if isinstance(r, dict) else r[0] for r in cur.fetchall()]
+        except Exception:
+            child_ids = None  # у таблицы нет колонки id — удалим напрямую без рекурсии
+
+        if child_ids:
+            for cid in child_ids:
+                cascade_delete_by_parent(cur, child_table, 'id', cid, depth + 1)
+
+        try:
+            cur.execute(f"DELETE FROM {SCHEMA}.{child_table} WHERE {child_col} = {parent_value}")
         except Exception as e:
-            print(f'skip FK {table}.{col}: {str(e)}')
-
-    cur.execute(f"DELETE FROM {SCHEMA}.users WHERE id = {uid}")
-
-    return {'photos_count': photos_count, 'storage_bytes': storage_bytes}
+            print(f'skip FK {child_table}.{child_col}: {str(e)}')
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

@@ -25,16 +25,26 @@ export interface EnhancedAdminUsersProps {
   onOpenPhotoBank?: (userId: string | number) => void;
 }
 
+// Даты с бэкенда хранятся в UTC (timestamp without time zone) и приходят
+// строкой без таймзоны, напр. "2026-02-17T12:26:00". Помечаем её как UTC,
+// иначе браузер посчитает её локальной и время «поедет».
+const parseUtc = (dateStr: string): Date => {
+  const s = String(dateStr).trim();
+  const hasTz = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  const normalized = s.includes('T') ? s : s.replace(' ', 'T');
+  return new Date(hasTz ? normalized : normalized + 'Z');
+};
+
 export const isUserOnline = (lastLogin: string | null): boolean => {
   if (!lastLogin) return false;
-  const lastLoginDate = new Date(lastLogin);
+  const lastLoginDate = parseUtc(lastLogin);
   const now = new Date();
   const diffInMinutes = (now.getTime() - lastLoginDate.getTime()) / 1000 / 60;
   return diffInMinutes < 5;
 };
 
 export const formatDate = (dateStr: string) => {
-  const samaraTime = new Date(dateStr).toLocaleString('ru-RU', {
+  const samaraTime = parseUtc(dateStr).toLocaleString('ru-RU', {
     timeZone: 'Europe/Samara',
     day: '2-digit',
     month: '2-digit',
@@ -48,7 +58,7 @@ export const formatDate = (dateStr: string) => {
 export const getRelativeTime = (dateStr: string | null): string => {
   if (!dateStr) return 'Никогда';
 
-  const date = new Date(dateStr);
+  const date = parseUtc(dateStr);
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 

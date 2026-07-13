@@ -64,7 +64,7 @@ const AuthStats = () => {
     const raw = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
     const date = new Date(raw);
     if (isNaN(date.getTime())) return dateStr;
-    return date.toLocaleString('ru-RU', {
+    const s = date.toLocaleString('ru-RU', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -72,6 +72,7 @@ const AuthStats = () => {
       minute: '2-digit',
       timeZone: 'Europe/Samara'
     });
+    return `${s} (UTC+4)`;
   };
 
   const getProviderBadge = (source: string) => {
