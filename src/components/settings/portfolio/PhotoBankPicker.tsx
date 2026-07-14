@@ -125,14 +125,14 @@ const PhotoBankPicker = ({ open, userId, onClose, onPick }: Props) => {
                 <button
                   key={p.id}
                   onClick={() => toggle(p.id)}
-                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`relative w-full aspect-square rounded-lg overflow-hidden border-2 transition-all ${
                     selected.has(p.id) ? 'border-primary ring-2 ring-primary/40' : 'border-transparent'
                   }`}
                 >
                   <img
                     src={p.grid_thumbnail_s3_url || p.thumbnail_s3_url || p.s3_url}
                     alt=""
-                    className="w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                     loading="lazy"
                   />
                   {selected.has(p.id) && (

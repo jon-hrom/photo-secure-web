@@ -43,6 +43,8 @@ export interface Portfolio {
   avatar_url: string;
   cover_url: string;
   accent_color: string;
+  menu_position: string;
+  logo_text: string;
   show_reviews: boolean;
   show_about: boolean;
   slideshow_enabled: boolean;

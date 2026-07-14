@@ -39,6 +39,8 @@ const PortfolioSettings = ({ userId }: Props) => {
   const [vk, setVk] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [accent, setAccent] = useState('#7c3aed');
+  const [menuPosition, setMenuPosition] = useState('top-right');
+  const [logoText, setLogoText] = useState('');
   const [showReviews, setShowReviews] = useState(true);
   const [showAbout, setShowAbout] = useState(true);
   const [slideshow, setSlideshow] = useState(true);
@@ -58,6 +60,8 @@ const PortfolioSettings = ({ userId }: Props) => {
     setVk(p.vk || '');
     setWhatsapp(p.whatsapp || '');
     setAccent(p.accent_color || '#7c3aed');
+    setMenuPosition(p.menu_position || 'top-right');
+    setLogoText(p.logo_text || '');
     setShowReviews(p.show_reviews);
     setShowAbout(p.show_about);
     setSlideshow(p.slideshow_enabled);
@@ -95,6 +99,7 @@ const PortfolioSettings = ({ userId }: Props) => {
     const r = await savePortfolio(userId, {
       title, subtitle, slug: slugify(slug), about, phone,
       instagram, telegram, vk, whatsapp, accent_color: accent,
+      menu_position: menuPosition, logo_text: logoText,
       show_reviews: showReviews, show_about: showAbout,
       slideshow_enabled: slideshow, is_published: published,
     });
@@ -201,6 +206,33 @@ const PortfolioSettings = ({ userId }: Props) => {
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Подзаголовок</label>
           <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="Свадебная и семейная съёмка" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Текст логотипа (в углу меню)</label>
+          <Input value={logoText} onChange={(e) => setLogoText(e.target.value)} placeholder="EVGENIY PONOMAREV" />
+        </div>
+      </div>
+
+      {/* Положение меню */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Расположение меню на странице</label>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { v: 'top-left', label: 'Слева', icon: 'AlignLeft' },
+            { v: 'top-center', label: 'По центру', icon: 'AlignCenter' },
+            { v: 'top-right', label: 'Справа', icon: 'AlignRight' },
+          ].map((opt) => (
+            <button
+              key={opt.v}
+              onClick={() => setMenuPosition(opt.v)}
+              className={`flex flex-col items-center gap-1 py-3 rounded-xl border-2 transition ${
+                menuPosition === opt.v ? 'border-primary bg-primary/5' : 'border-gray-200 dark:border-gray-700'
+              }`}
+            >
+              <Icon name={opt.icon} size={20} className={menuPosition === opt.v ? 'text-primary' : 'text-muted-foreground'} />
+              <span className="text-xs">{opt.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
