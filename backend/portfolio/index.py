@@ -55,7 +55,7 @@ def slugify(text: str) -> str:
     return out[:100]
 
 
-def upload_to_s3(base64_data: str, ext: str = 'jpg') -> str:
+def upload_to_s3(base64_data: str, ext: str = 'jpg', user_id: Any = None) -> str:
     s3 = boto3.client(
         's3',
         endpoint_url='https://bucket.poehali.dev',
@@ -65,7 +65,9 @@ def upload_to_s3(base64_data: str, ext: str = 'jpg') -> str:
     if ',' in base64_data:
         base64_data = base64_data.split(',', 1)[1]
     data = base64.b64decode(base64_data)
-    key = f"portfolio/{uuid.uuid4().hex}.{ext}"
+    # Все фото одного фотографа — в его собственной папке portfolio/<user_id>/
+    folder = f"portfolio/{user_id}" if user_id is not None else "portfolio"
+    key = f"{folder}/{uuid.uuid4().hex}.{ext}"
     content_type = 'image/png' if ext == 'png' else 'image/jpeg'
     s3.put_object(Bucket='files', Key=key, Body=data, ContentType=content_type)
     return f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
@@ -195,10 +197,10 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                             return resp(409, {'error': 'slug_taken'})
                         sets.append(f"slug = {esc(new_slug)}")
                 if 'avatar_base64' in body and body['avatar_base64']:
-                    url = upload_to_s3(body['avatar_base64'], body.get('avatar_ext', 'jpg'))
+                    url = upload_to_s3(body['avatar_base64'], body.get('avatar_ext', 'jpg'), user_id)
                     sets.append(f"avatar_url = {esc(url)}")
                 if 'cover_base64' in body and body['cover_base64']:
-                    url = upload_to_s3(body['cover_base64'], body.get('cover_ext', 'jpg'))
+                    url = upload_to_s3(body['cover_base64'], body.get('cover_ext', 'jpg'), user_id)
                     sets.append(f"cover_url = {esc(url)}")
                 if sets:
                     sets.append("updated_at = NOW()")
@@ -292,7 +294,7 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
 
             if act == 'upload_photo':
                 # с устройства: base64
-                url = upload_to_s3(body['image_base64'], body.get('ext', 'jpg'))
+                url = upload_to_s3(body['image_base64'], body.get('ext', 'jpg'), user_id)
                 cat_id = body.get('category_id')
                 cat_sql = esc(int(cat_id)) if cat_id else 'NULL'
                 sh_id = body.get('shooting_id')
