@@ -12,7 +12,7 @@ import {
   checkSlug,
 } from '@/lib/portfolioApi';
 import { slugify, suggestSlugs } from '@/utils/slugify';
-import PhotoBankPicker, { PickedPhoto } from './PhotoBankPicker';
+
 import PortfolioPhotosManager from './PortfolioPhotosManager';
 import PortfolioReviewsManager from './PortfolioReviewsManager';
 
@@ -47,7 +47,7 @@ const PortfolioSettings = ({ userId }: Props) => {
   const [slideshow, setSlideshow] = useState(true);
   const [published, setPublished] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [pickerOpen, setPickerOpen] = useState(false);
+
 
   const applyPortfolio = useCallback((p: Portfolio) => {
     setPortfolio(p);
@@ -116,13 +116,6 @@ const PortfolioSettings = ({ userId }: Props) => {
   };
 
   const refresh = (p: Portfolio) => applyPortfolio(p);
-
-  const addFromBank = async (picked: PickedPhoto[]) => {
-    if (picked.length === 0) return;
-    const p = await portfolioAction(userId, 'add_photos', { photos: picked });
-    refresh(p);
-    toast({ title: 'Добавлено', description: `${picked.length} фото добавлено в портфолио` });
-  };
 
   const publicUrl = `${PUBLIC_BASE}/p/${slugify(slug) || portfolio?.slug || ''}`;
 
@@ -244,7 +237,6 @@ const PortfolioSettings = ({ userId }: Props) => {
         userId={userId}
         portfolio={portfolio!}
         onChange={refresh}
-        onOpenBank={() => setPickerOpen(true)}
       />
 
       {/* Показ слайд-шоу */}
@@ -321,8 +313,6 @@ const PortfolioSettings = ({ userId }: Props) => {
       <Button onClick={handleSave} disabled={saving} className="w-full">
         {saving ? 'Сохранение...' : 'Сохранить портфолио'}
       </Button>
-
-      <PhotoBankPicker open={pickerOpen} userId={userId} onClose={() => setPickerOpen(false)} onPick={addFromBank} />
     </div>
   );
 };

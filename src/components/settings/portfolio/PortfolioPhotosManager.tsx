@@ -5,12 +5,12 @@ import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Portfolio, PortfolioCategory, portfolioAction } from '@/lib/portfolioApi';
+import PhotoBankPicker, { PickedPhoto } from './PhotoBankPicker';
 
 interface Props {
   userId: string;
   portfolio: Portfolio;
   onChange: (p: Portfolio) => void;
-  onOpenBank: () => void;
 }
 
 const fileToBase64 = (file: File): Promise<string> =>
@@ -21,7 +21,7 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
-const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Props) => {
+const PortfolioPhotosManager = ({ userId, portfolio, onChange }: Props) => {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -29,6 +29,14 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
   // activeCat: null = «Фото для слайд-шоу» (фото без категории)
   const [activeCat, setActiveCat] = useState<number | null>(null);
   const [coverForCat, setCoverForCat] = useState<PortfolioCategory | null>(null);
+  const [bankOpen, setBankOpen] = useState(false);
+
+  const addFromBank = async (picked: PickedPhoto[]) => {
+    if (picked.length === 0) return;
+    const p = await portfolioAction(userId, 'add_photos', { photos: picked, category_id: activeCat });
+    onChange(p);
+    toast({ title: 'Добавлено', description: `${picked.length} фото` });
+  };
 
   const categories = portfolio.categories || [];
   const allPhotos = portfolio.photos || [];
@@ -91,7 +99,13 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
   };
 
   const activeCategory = categories.find((c) => c.id === activeCat) || null;
-  const coverCatPhotos = coverForCat ? allPhotos.filter((p) => p.category_id === coverForCat.id) : [];
+  // Для обложки: сначала фото самой категории, затем остальные (можно выбрать любое)
+  const coverCatPhotos = coverForCat
+    ? [
+        ...allPhotos.filter((p) => p.category_id === coverForCat.id),
+        ...allPhotos.filter((p) => p.category_id !== coverForCat.id),
+      ]
+    : [];
 
   return (
     <div className="space-y-3">
@@ -152,7 +166,7 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
               Обложка папки «{activeCategory?.title}» (горизонтальная)
             </span>
           </div>
-          <Button size="sm" variant="outline" className="shrink-0" onClick={() => activeCategory && setCoverForCat(activeCategory)} disabled={coverCatPhotos.length === 0 && photos.length === 0}>
+          <Button size="sm" variant="outline" className="shrink-0" onClick={() => activeCategory && setCoverForCat(activeCategory)} disabled={allPhotos.length === 0}>
             <Icon name="ImagePlus" size={14} className="mr-1" /> Обложка
           </Button>
         </div>
@@ -160,7 +174,7 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
 
       {/* Кнопки добавления */}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" onClick={onOpenBank}>
+        <Button size="sm" variant="outline" onClick={() => setBankOpen(true)}>
           <Icon name="FolderOpen" size={15} className="mr-1.5" /> Из фотобанка
         </Button>
         <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
@@ -215,7 +229,7 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
           <DialogHeader>
             <DialogTitle className="text-base">Обложка папки «{coverForCat?.title}»</DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground">Выберите фото — оно станет обложкой категории на главной. Лучше горизонтальное.</p>
+          <p className="text-xs text-muted-foreground">Выберите любое фото — оно станет обложкой категории на главной. Лучше горизонтальное.</p>
           {coverCatPhotos.length > 0 ? (
             <div className="grid grid-cols-3 gap-2 max-h-[55vh] overflow-y-auto">
               {coverCatPhotos.map((ph) => (
@@ -238,6 +252,8 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
           )}
         </DialogContent>
       </Dialog>
+
+      <PhotoBankPicker open={bankOpen} userId={userId} onClose={() => setBankOpen(false)} onPick={addFromBank} />
     </div>
   );
 };
