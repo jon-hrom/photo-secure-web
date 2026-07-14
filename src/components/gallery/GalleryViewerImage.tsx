@@ -79,10 +79,10 @@ export default function GalleryViewerImage({
   const isFull = isFullscreen || isLandscapeMobile;
   const imgMaxWidth = isFull
     ? 'calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))'
-    : (zoom === 0 ? '96vw' : '100%');
+    : (zoom === 0 ? '100vw' : '100%');
   const imgMaxHeight = isFull
     ? vh
-    : (zoom === 0 ? `calc(${vh} - 100px)` : vh);
+    : (zoom === 0 ? `calc(${vh} - 24px)` : vh);
 
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);

@@ -255,7 +255,7 @@ export default function GalleryPhotoViewer({
       i => i >= 0 && i < photos.length
     );
     preloadIndexes.forEach(i => {
-      const src = photos[i].thumbnail_url || getThumbUrl(photos[i].photo_url, 1600);
+      const src = photos[i].thumbnail_url || getThumbUrl(photos[i].photo_url, 2048);
       const img = new Image();
       img.src = src;
     });
@@ -265,7 +265,7 @@ export default function GalleryPhotoViewer({
 
   // Лёгкое превью для листания без зума (быстрая подгрузка).
   // Если готового thumbnail нет — ужимаем оригинал на лету до ~1600px.
-  const previewSrc = currentPhoto.thumbnail_url || getThumbUrl(currentPhoto.photo_url, 1600);
+  const previewSrc = currentPhoto.thumbnail_url || getThumbUrl(currentPhoto.photo_url, 2048);
 
   // При листании показываем лёгкое превью, оригинал грузим только при зуме
   // (showFullImage выставляется, когда пользователь приближает фото).

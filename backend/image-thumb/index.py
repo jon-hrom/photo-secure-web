@@ -3,7 +3,7 @@ import json
 from io import BytesIO
 from urllib.request import urlopen, Request
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFilter
 
 ALLOWED_HOSTS = ('storage.yandexcloud.net', 'cdn.poehali.dev')
 CACHE_HEADER = 'public, max-age=2592000, immutable'  # 30 дней
@@ -42,13 +42,17 @@ def handler(event: dict, context) -> dict:
         width = int(params.get('w', 400))
     except (TypeError, ValueError):
         width = 400
-    width = max(64, min(width, 1200))
+    width = max(64, min(width, 2400))
 
     try:
-        quality = int(params.get('q', 70))
+        quality = int(params.get('q', 78))
     except (TypeError, ValueError):
-        quality = 70
-    quality = max(40, min(quality, 90))
+        quality = 78
+    quality = max(40, min(quality, 95))
+
+    # Лёгкое повышение резкости (unsharp mask). Убирает "мыло" после ресайза.
+    # sharpen=1 (по умолчанию для крупных превью) — мягко, sharpen=0 — выкл.
+    sharpen = params.get('sharpen', '1') != '0'
 
     try:
         req = Request(file_url, headers={'User-Agent': 'image-thumb/1.0'})
@@ -63,6 +67,11 @@ def handler(event: dict, context) -> dict:
         if img.mode not in ('RGB', 'L'):
             img = img.convert('RGB')
         img.thumbnail((width, width * 4), Image.Resampling.LANCZOS)
+
+        if sharpen:
+            # radius/percent подобраны так, чтобы вернуть детализацию
+            # после LANCZOS-ресайза, но не создать "хруст" по краям.
+            img = img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=90, threshold=2))
 
         out = BytesIO()
         img.save(out, format='JPEG', quality=quality, optimize=True, progressive=True)
