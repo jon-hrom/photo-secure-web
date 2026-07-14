@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Process small batch",
+      "method": "POST",
+      "path": "/?batch=2",
+      "expectedStatus": 200
+    }
+  ]
+}
