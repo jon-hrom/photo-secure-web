@@ -85,67 +85,85 @@ const PhotoBankPicker = ({ open, userId, onClose, onPick }: Props) => {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl w-[calc(100%-1rem)] rounded-2xl p-4 sm:p-5">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
+      <DialogContent className="max-w-[min(92vw,1100px)] w-[calc(100%-1rem)] h-[90vh] sm:h-[85vh] flex flex-col rounded-2xl p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
             {activeFolder && (
-              <button onClick={() => setActiveFolder(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+              <button onClick={() => setActiveFolder(null)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded shrink-0">
                 <Icon name="ArrowLeft" size={18} />
               </button>
             )}
-            {activeFolder ? activeFolder.folder_name : 'Фотобанк — выберите папку'}
+            <span className="truncate">{activeFolder ? activeFolder.folder_name : 'Фотобанк — выберите папку'}</span>
           </DialogTitle>
         </DialogHeader>
 
         {loading ? (
-          <div className="py-16 flex justify-center">
+          <div className="flex-1 flex justify-center items-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
           </div>
         ) : !activeFolder ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[55vh] overflow-y-auto">
-            {folders.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => openFolder(f)}
-                className="flex flex-col items-start gap-1 p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary transition text-left"
-              >
-                <Icon name="Folder" size={22} className="text-primary" />
-                <span className="text-sm font-medium truncate w-full">{f.folder_name}</span>
-                <span className="text-xs text-muted-foreground">{f.photo_count} фото</span>
-              </button>
-            ))}
-            {folders.length === 0 && (
-              <p className="col-span-full text-center text-sm text-muted-foreground py-8">Нет папок с фото</p>
-            )}
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
+              {folders.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => openFolder(f)}
+                  className="flex flex-col items-start gap-1 p-3 sm:p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-primary/5 transition text-left"
+                >
+                  <Icon name="Folder" size={24} className="text-primary" />
+                  <span className="text-sm font-medium truncate w-full mt-1">{f.folder_name}</span>
+                  <span className="text-xs text-muted-foreground">{f.photo_count} фото</span>
+                </button>
+              ))}
+              {folders.length === 0 && (
+                <p className="col-span-full text-center text-sm text-muted-foreground py-8">Нет папок с фото</p>
+              )}
+            </div>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-[50vh] overflow-y-auto">
-              {photos.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => toggle(p.id)}
-                  className={`relative w-full aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                    selected.has(p.id) ? 'border-primary ring-2 ring-primary/40' : 'border-transparent'
-                  }`}
-                >
-                  <img
-                    src={p.grid_thumbnail_s3_url || p.thumbnail_s3_url || p.s3_url}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  {selected.has(p.id) && (
-                    <div className="absolute inset-0 bg-primary/25 flex items-center justify-center">
-                      <Icon name="Check" size={20} className="text-white drop-shadow" />
-                    </div>
-                  )}
-                </button>
-              ))}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0">
+              <span className="text-xs sm:text-sm text-muted-foreground">
+                {photos.length} фото · выделите нужные
+              </span>
+              <button
+                onClick={() => setSelected(selected.size === photos.length ? new Set() : new Set(photos.map((p) => p.id)))}
+                className="text-xs sm:text-sm text-primary hover:underline"
+              >
+                {selected.size === photos.length ? 'Снять всё' : 'Выбрать все'}
+              </button>
             </div>
-            <div className="flex items-center justify-between pt-3">
+            <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3">
+              <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-6 gap-1.5 sm:gap-2">
+                {photos.map((p) => (
+                  <div
+                    key={p.id}
+                    onClick={() => toggle(p.id)}
+                    className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all select-none ${
+                      selected.has(p.id) ? 'border-primary ring-2 ring-primary/40' : 'border-transparent hover:border-primary/40'
+                    }`}
+                  >
+                    <img
+                      src={p.grid_thumbnail_s3_url || p.thumbnail_s3_url || p.s3_url}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover"
+                      loading="lazy"
+                      draggable={false}
+                    />
+                    {selected.has(p.id) && (
+                      <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
+                        <span className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <Icon name="Check" size={15} className="text-white" />
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-t border-gray-100 dark:border-gray-800 shrink-0">
               <span className="text-sm text-muted-foreground">Выбрано: {selected.size}</span>
-              <Button onClick={confirm} disabled={selected.size === 0}>
+              <Button onClick={confirm} disabled={selected.size === 0} className="shrink-0">
                 Добавить в портфолио
               </Button>
             </div>
