@@ -34,6 +34,12 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange }: Props) => {
   const [activeShooting, setActiveShooting] = useState<number | null>(null);
   const [coverTarget, setCoverTarget] = useState<CoverTarget | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
+  const [ratios, setRatios] = useState<Record<number, number>>({});
+
+  const setRatio = (id: number, w: number, h: number) => {
+    if (!w || !h) return;
+    setRatios((prev) => (prev[id] ? prev : { ...prev, [id]: w / h }));
+  };
 
   const categories = portfolio.categories || [];
   const shootings = portfolio.shootings || [];
@@ -310,21 +316,33 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange }: Props) => {
           </DialogHeader>
           <p className="text-xs text-muted-foreground">Выберите фото — оно станет обложкой на главной. Лучше горизонтальное.</p>
           {coverCandidates.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2 max-h-[55vh] overflow-y-auto">
-              {coverCandidates.map((ph) => (
-                <button
-                  key={ph.id}
-                  onClick={() => applyCover(ph.photo_url)}
-                  className={`relative aspect-video rounded-lg overflow-hidden border-2 transition ${currentCoverUrl === ph.photo_url ? 'border-primary ring-2 ring-primary/40' : 'border-transparent hover:border-primary/40'}`}
-                >
-                  <img src={ph.grid_thumbnail_url || ph.thumbnail_url || ph.photo_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                  {currentCoverUrl === ph.photo_url && (
-                    <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
-                      <Icon name="Check" size={18} className="text-white" />
-                    </div>
-                  )}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-1.5 max-h-[55vh] overflow-y-auto [--row-h:110px]">
+              {coverCandidates.map((ph) => {
+                const ratio = ratios[ph.id] || 1;
+                const selected = currentCoverUrl === ph.photo_url;
+                return (
+                  <button
+                    key={ph.id}
+                    onClick={() => applyCover(ph.photo_url)}
+                    className={`relative h-[var(--row-h)] rounded-lg overflow-hidden border-2 transition ${selected ? 'border-primary ring-2 ring-primary/40' : 'border-transparent hover:border-primary/40'}`}
+                    style={{ flexGrow: ratio, flexBasis: `calc(var(--row-h) * ${ratio})`, width: `calc(var(--row-h) * ${ratio})` }}
+                  >
+                    <img
+                      src={ph.grid_thumbnail_url || ph.thumbnail_url || ph.photo_url}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover"
+                      loading="lazy"
+                      onLoad={(e) => setRatio(ph.id, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+                    />
+                    {selected && (
+                      <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
+                        <Icon name="Check" size={18} className="text-white" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+              <div className="grow-[999] basis-0 h-0" aria-hidden />
             </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-8">Сначала добавьте фото.</p>
@@ -361,21 +379,35 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange }: Props) => {
       );
     }
     return (
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-        {viewPhotos.map((ph) => (
-          <div key={ph.id} className="relative aspect-square rounded-lg overflow-hidden group">
-            <img src={ph.grid_thumbnail_url || ph.thumbnail_url || ph.photo_url} alt="" className="w-full h-full object-cover" loading="lazy" />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-start justify-end p-1">
-              <button
-                onClick={() => deletePhoto(ph.id)}
-                className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition"
-                title="Удалить"
-              >
-                <Icon name="Trash2" size={13} />
-              </button>
+      <div className="flex flex-wrap gap-1.5 [--row-h:120px]">
+        {viewPhotos.map((ph) => {
+          const ratio = ratios[ph.id] || 1;
+          return (
+            <div
+              key={ph.id}
+              className="relative h-[var(--row-h)] rounded-lg overflow-hidden group"
+              style={{ flexGrow: ratio, flexBasis: `calc(var(--row-h) * ${ratio})`, width: `calc(var(--row-h) * ${ratio})` }}
+            >
+              <img
+                src={ph.grid_thumbnail_url || ph.thumbnail_url || ph.photo_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                loading="lazy"
+                onLoad={(e) => setRatio(ph.id, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-start justify-end p-1">
+                <button
+                  onClick={() => deletePhoto(ph.id)}
+                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full p-1 transition"
+                  title="Удалить"
+                >
+                  <Icon name="Trash2" size={13} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+        <div className="grow-[999] basis-0 h-0" aria-hidden />
       </div>
     );
   }
