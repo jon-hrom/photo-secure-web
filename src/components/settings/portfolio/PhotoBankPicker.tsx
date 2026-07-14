@@ -16,6 +16,8 @@ interface BankPhoto {
   s3_url?: string;
   thumbnail_s3_url?: string;
   grid_thumbnail_s3_url?: string;
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface PickedPhoto {
@@ -38,6 +40,12 @@ const PhotoBankPicker = ({ open, userId, onClose, onPick }: Props) => {
   const [photos, setPhotos] = useState<BankPhoto[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [ratios, setRatios] = useState<Record<number, number>>({});
+
+  const setRatio = (id: number, w: number, h: number) => {
+    if (!w || !h) return;
+    setRatios((prev) => (prev[id] ? prev : { ...prev, [id]: w / h }));
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -53,10 +61,19 @@ const PhotoBankPicker = ({ open, userId, onClose, onPick }: Props) => {
   const openFolder = (f: Folder) => {
     setActiveFolder(f);
     setSelected(new Set());
+    setRatios({});
     setLoading(true);
     fetch(`${FOLDERS_API}?action=list_photos&folder_id=${f.id}`, { headers: { 'X-User-Id': userId } })
       .then((r) => r.json())
-      .then((d) => setPhotos(d.photos || []))
+      .then((d) => {
+        const list: BankPhoto[] = d.photos || [];
+        setPhotos(list);
+        const known: Record<number, number> = {};
+        list.forEach((p) => {
+          if (p.width && p.height) known[p.id] = p.width / p.height;
+        });
+        setRatios(known);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -134,31 +151,42 @@ const PhotoBankPicker = ({ open, userId, onClose, onPick }: Props) => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3">
-              <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-6 gap-1.5 sm:gap-2">
-                {photos.map((p) => (
-                  <div
-                    key={p.id}
-                    onClick={() => toggle(p.id)}
-                    className={`relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer transition-all select-none ${
-                      selected.has(p.id) ? 'border-primary ring-2 ring-primary/40' : 'border-transparent hover:border-primary/40'
-                    }`}
-                  >
-                    <img
-                      src={p.grid_thumbnail_s3_url || p.thumbnail_s3_url || p.s3_url}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover"
-                      loading="lazy"
-                      draggable={false}
-                    />
-                    {selected.has(p.id) && (
-                      <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
-                        <span className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                          <Icon name="Check" size={15} className="text-white" />
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+              <div className="flex flex-wrap gap-1.5 sm:gap-2 [--row-h:120px] sm:[--row-h:150px] lg:[--row-h:180px]">
+                {photos.map((p) => {
+                  const ratio = ratios[p.id] || 1;
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => toggle(p.id)}
+                      className={`relative h-[var(--row-h)] rounded-lg overflow-hidden border-2 cursor-pointer transition-all select-none ${
+                        selected.has(p.id) ? 'border-primary ring-2 ring-primary/40' : 'border-transparent hover:border-primary/40'
+                      }`}
+                      style={{
+                        flexGrow: ratio,
+                        flexBasis: `calc(var(--row-h) * ${ratio})`,
+                        width: `calc(var(--row-h) * ${ratio})`,
+                      }}
+                    >
+                      <img
+                        src={p.grid_thumbnail_s3_url || p.thumbnail_s3_url || p.s3_url}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="lazy"
+                        draggable={false}
+                        onLoad={(e) => setRatio(p.id, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+                      />
+                      {selected.has(p.id) && (
+                        <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
+                          <span className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                            <Icon name="Check" size={15} className="text-white" />
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {/* Спейсер: не даёт последнему ряду растянуться на всю ширину */}
+                <div className="grow-[999] basis-0 h-0" aria-hidden />
               </div>
             </div>
             <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-t border-gray-100 dark:border-gray-800 shrink-0">
