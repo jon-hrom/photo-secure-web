@@ -44,6 +44,16 @@ def handler(event: dict, context) -> dict:
         batch = 30
     batch = max(1, min(batch, 60))
 
+    # Точечная генерация для конкретных фото (сразу после загрузки)
+    photo_ids = []
+    if event.get('body'):
+        try:
+            body = json.loads(event['body'])
+            raw_ids = body.get('photo_ids') or ([body['photo_id']] if body.get('photo_id') else [])
+            photo_ids = [int(x) for x in raw_ids if str(x).isdigit()]
+        except Exception:
+            photo_ids = []
+
     schema = os.environ['MAIN_DB_SCHEMA']
 
     s3 = boto3.client(
@@ -62,16 +72,27 @@ def handler(event: dict, context) -> dict:
 
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(f'''
-                SELECT id, s3_key, file_name
-                FROM {schema}.photo_bank
-                WHERE thumbnail_s3_key IS NULL
-                  AND (is_trashed IS NULL OR is_trashed = false)
-                  AND (is_video IS NULL OR is_video = false)
-                  AND s3_key IS NOT NULL
-                ORDER BY id DESC
-                LIMIT %s
-            ''', (batch,))
+            if photo_ids:
+                cur.execute(f'''
+                    SELECT id, s3_key, file_name
+                    FROM {schema}.photo_bank
+                    WHERE id = ANY(%s)
+                      AND thumbnail_s3_key IS NULL
+                      AND (is_trashed IS NULL OR is_trashed = false)
+                      AND (is_video IS NULL OR is_video = false)
+                      AND s3_key IS NOT NULL
+                ''', (photo_ids,))
+            else:
+                cur.execute(f'''
+                    SELECT id, s3_key, file_name
+                    FROM {schema}.photo_bank
+                    WHERE thumbnail_s3_key IS NULL
+                      AND (is_trashed IS NULL OR is_trashed = false)
+                      AND (is_video IS NULL OR is_video = false)
+                      AND s3_key IS NOT NULL
+                    ORDER BY id DESC
+                    LIMIT %s
+                ''', (batch,))
             rows = cur.fetchall()
 
         for row in rows:

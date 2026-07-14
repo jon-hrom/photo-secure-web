@@ -20,6 +20,30 @@ import io
 import requests
 from datetime import datetime
 
+GENERATE_THUMBNAIL_URL = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
+BACKFILL_THUMBNAILS_URL = 'https://functions.poehali.dev/d66a105e-b88e-48b6-a351-0ac79b9f9a02'
+RAW_EXTENSIONS = {'.cr2', '.cr3', '.nef', '.nrw', '.arw', '.srf', '.sr2', '.dng',
+                  '.orf', '.rw2', '.raf', '.pef', '.raw', '.rwl', '.iiq', '.3fr'}
+
+
+def trigger_thumbnail(photo_ids, file_names=None):
+    '''Запускает генерацию миниатюр для только что загруженных фото.
+    RAW → тяжёлая generate-thumbnail, обычные JPEG/PNG → лёгкая backfill-thumbnails.
+    Fire-and-forget: не ждём завершения обработки.
+    '''
+    if not photo_ids:
+        return
+    file_names = file_names or []
+    is_raw_any = any(os.path.splitext((n or '').lower())[1] in RAW_EXTENSIONS for n in file_names)
+    url = GENERATE_THUMBNAIL_URL if is_raw_any else BACKFILL_THUMBNAILS_URL
+    try:
+        requests.post(url, json={'photo_ids': photo_ids}, timeout=2)
+    except requests.exceptions.Timeout:
+        pass  # ожидаемо: обработка идёт в фоне
+    except Exception as e:
+        print(f'[THUMBNAIL] trigger failed: {e}')
+
+
 def _json_default(o):
     if isinstance(o, Decimal):
         i = int(o)
@@ -904,25 +928,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if photo.get('shot_date'):
                         photo['shot_date'] = photo['shot_date'].isoformat()
                 
-                # Проверяем, нужно ли генерировать превью для RAW
-                raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
-                file_ext_lower = os.path.splitext(file_name.lower())[1]
-                if file_ext_lower in raw_extensions:
-                    print(f'[CONFIRM_UPLOAD] Detected RAW file, triggering thumbnail generation')
-                    try:
-                        generate_thumbnail_url = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
-                        # Fire-and-forget: не ждём ответа, конвертация займёт время
-                        requests.post(
-                            generate_thumbnail_url,
-                            json={'photo_id': photo['id']},
-                            timeout=30
-                        )
-                        print(f'[CONFIRM_UPLOAD] Thumbnail generation triggered for photo {photo["id"]}')
-                    except requests.exceptions.Timeout:
-                        print(f'[CONFIRM_UPLOAD] Thumbnail generation timeout (expected for large RAW)')
-                    except Exception as e:
-                        print(f'[CONFIRM_UPLOAD] Failed to trigger thumbnail: {e}')
-                
+                # Генерируем миниатюру для любого фото (RAW и обычные JPEG/PNG)
+                trigger_thumbnail([photo['id']], [file_name])
+
                 print(f'[CONFIRM_UPLOAD] Success!')
                 return {
                     'statusCode': 200,
@@ -955,6 +963,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 inserted_ids = []
                 raw_photo_ids = []
+                regular_photo_ids = []
                 
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
                     for photo_data in photos:
@@ -994,28 +1003,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         photo_id = cur.fetchone()['id']
                         inserted_ids.append(photo_id)
                         
-                        # Проверяем RAW для фоновой генерации thumbnail
-                        raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
-                        file_ext_lower = os.path.splitext(file_name.lower())[1]
-                        if file_ext_lower in raw_extensions:
+                        if is_raw:
                             raw_photo_ids.append(photo_id)
+                        elif not is_video:
+                            regular_photo_ids.append(photo_id)
                     
                     conn.commit()
                 
                 print(f'[UPLOAD_PHOTOS_BATCH] Inserted {len(inserted_ids)} photos, {len(raw_photo_ids)} RAW files')
                 
-                # Триггерим фоновую генерацию thumbnails для RAW (fire-and-forget)
+                # Фоновая генерация миниатюр (fire-and-forget)
                 if raw_photo_ids:
                     try:
-                        generate_thumbnail_url = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
-                        requests.post(
-                            generate_thumbnail_url,
-                            json={'photo_ids': raw_photo_ids},  # Batch обработка
-                            timeout=5  # Короткий timeout т.к. fire-and-forget
-                        )
-                        print(f'[UPLOAD_PHOTOS_BATCH] Triggered thumbnail generation for {len(raw_photo_ids)} RAW files')
-                    except:
-                        pass  # Игнорируем ошибки фоновой задачи
+                        requests.post(GENERATE_THUMBNAIL_URL, json={'photo_ids': raw_photo_ids}, timeout=2)
+                    except Exception:
+                        pass
+                if regular_photo_ids:
+                    try:
+                        requests.post(BACKFILL_THUMBNAILS_URL, json={'photo_ids': regular_photo_ids}, timeout=2)
+                    except Exception:
+                        pass
                 
                 return {
                     'statusCode': 200,
@@ -1126,24 +1133,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     print(f'[UPLOAD_PHOTO] Success, photo_id={photo["id"]}, is_video={is_video}')
                 
-                # Проверяем, нужно ли генерировать превью для RAW
-                raw_extensions = {'.cr2', '.nef', '.arw', '.dng', '.orf', '.rw2', '.raw'}
-                file_ext_lower = os.path.splitext(file_name.lower())[1]
-                if file_ext_lower in raw_extensions:
-                    print(f'[UPLOAD_PHOTO] Detected RAW file, triggering thumbnail generation')
-                    try:
-                        generate_thumbnail_url = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c'
-                        # Fire-and-forget: не ждём ответа, конвертация займёт время
-                        requests.post(
-                            generate_thumbnail_url,
-                            json={'photo_id': photo['id']},
-                            timeout=30
-                        )
-                        print(f'[UPLOAD_PHOTO] Thumbnail generation triggered for photo {photo["id"]}')
-                    except requests.exceptions.Timeout:
-                        print(f'[UPLOAD_PHOTO] Thumbnail generation timeout (expected for large RAW)')
-                    except Exception as e:
-                        print(f'[UPLOAD_PHOTO] Failed to trigger thumbnail: {e}')
+                # Генерируем миниатюру для любого фото (RAW и обычные), кроме видео
+                if not is_video:
+                    trigger_thumbnail([photo['id']], [file_name])
                 
                 return {
                     'statusCode': 200,
