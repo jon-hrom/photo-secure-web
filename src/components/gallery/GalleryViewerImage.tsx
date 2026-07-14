@@ -77,12 +77,15 @@ export default function GalleryViewerImage({
   // fallback на 100vh для браузеров без поддержки dvh
   const vh = 'calc(var(--dvh, 1vh) * 100)';
   const isFull = isFullscreen || isLandscapeMobile;
-  const imgMaxWidth = isFull
+  // Доступная область под фото: на весь экран, небольшой отступ сверху/снизу под UI.
+  const fitWidth = isFull
     ? 'calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))'
-    : (zoom === 0 ? '100vw' : '100%');
-  const imgMaxHeight = isFull
-    ? vh
-    : (zoom === 0 ? `calc(${vh} - 24px)` : vh);
+    : '100vw';
+  const fitHeight = isFull ? vh : `calc(${vh} - 24px)`;
+  // Без зума задаём явные width/height, чтобы object-contain РАСТЯГИВАЛ фото
+  // до краёв экрана (иначе лёгкое превью показывалось бы в своём мелком размере).
+  const imgWidth = zoom === 0 ? fitWidth : '100vw';
+  const imgHeight = zoom === 0 ? fitHeight : vh;
 
   const imgRef = useRef<HTMLImageElement>(null);
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
@@ -144,10 +147,10 @@ export default function GalleryViewerImage({
             alt={fileName}
             className="object-contain select-none touch-manipulation block"
             style={{
-              maxWidth: imgMaxWidth,
-              maxHeight: imgMaxHeight,
-              width: isFull ? '100vw' : undefined,
-              height: isFull ? vh : undefined,
+              width: imgWidth,
+              height: imgHeight,
+              maxWidth: imgWidth,
+              maxHeight: imgHeight,
               touchAction: 'none',
               pointerEvents: 'none',
             }}
