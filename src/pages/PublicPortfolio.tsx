@@ -37,18 +37,18 @@ const PublicPortfolio = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800" />
       </div>
     );
   }
 
   if (notFound || !portfolio) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <Icon name="ImageOff" size={48} className="text-gray-600" />
+      <div className="min-h-screen bg-white text-gray-900 flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <Icon name="ImageOff" size={48} className="text-gray-300" />
         <h1 className="text-xl font-semibold">Портфолио не найдено</h1>
-        <p className="text-gray-400 text-sm">Возможно, ссылка устарела или портфолио ещё не опубликовано.</p>
+        <p className="text-gray-500 text-sm">Возможно, ссылка устарела или портфолио ещё не опубликовано.</p>
       </div>
     );
   }
@@ -68,7 +68,7 @@ const PublicPortfolio = () => {
   ].filter(Boolean) as { icon: string; label: string; href: string }[];
 
   return (
-    <div className="min-h-screen bg-black text-white" style={{ ['--accent' as string]: accent }}>
+    <div className="min-h-screen bg-white text-gray-900" style={{ ['--accent' as string]: accent }}>
       <div id="top" />
       <PortfolioNav
         logo={logo}
@@ -98,18 +98,18 @@ const PublicPortfolio = () => {
 
       {/* Отзывы */}
       {portfolio.show_reviews && portfolio.reviews.length > 0 && (
-        <section id="reviews" className="border-t border-white/10 py-16 sm:py-24 px-6">
+        <section id="reviews" className="border-t border-gray-200 py-16 sm:py-24 px-6">
           <div className="max-w-5xl mx-auto">
             <h2 className="text-3xl sm:text-4xl font-light tracking-[0.2em] uppercase text-center mb-12">Отзывы</h2>
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 [column-fill:_balance]">
               {portfolio.reviews.map((r) => (
-                <div key={r.id} className="mb-5 break-inside-avoid rounded-2xl bg-white/[0.04] border border-white/10 p-6 text-center">
-                  <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center font-semibold text-lg mb-3" style={{ background: accent }}>
+                <div key={r.id} className="mb-5 break-inside-avoid rounded-2xl bg-gray-50 border border-gray-200 p-6 text-center">
+                  <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center font-semibold text-lg mb-3 text-white" style={{ background: accent }}>
                     {r.author_name.charAt(0).toUpperCase()}
                   </div>
                   <div className="font-medium text-lg">{r.author_name}</div>
-                  <div className="text-amber-400 text-sm my-2">{'★'.repeat(r.rating)}<span className="text-white/20">{'★'.repeat(5 - r.rating)}</span></div>
-                  <p className="text-white/70 text-sm leading-relaxed">{r.text}</p>
+                  <div className="text-amber-500 text-sm my-2">{'★'.repeat(r.rating)}<span className="text-gray-300">{'★'.repeat(5 - r.rating)}</span></div>
+                  <p className="text-gray-600 text-sm leading-relaxed">{r.text}</p>
                 </div>
               ))}
             </div>
@@ -119,18 +119,18 @@ const PublicPortfolio = () => {
 
       {/* Обо мне и контакты */}
       {portfolio.show_about && (portfolio.about || contacts.length > 0) && (
-        <section id="contacts" className="border-t border-white/10 py-16 sm:py-24 px-6">
+        <section id="contacts" className="border-t border-gray-200 py-16 sm:py-24 px-6">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-3xl sm:text-4xl font-light tracking-[0.2em] uppercase mb-8">Контакты</h2>
             {portfolio.avatar_url && (
               <img src={portfolio.avatar_url} alt="" className="w-28 h-28 rounded-full object-cover mx-auto mb-6 border-2" style={{ borderColor: accent }} />
             )}
-            {portfolio.about && <p className="text-white/70 leading-relaxed whitespace-pre-line mb-8">{portfolio.about}</p>}
+            {portfolio.about && <p className="text-gray-600 leading-relaxed whitespace-pre-line mb-8">{portfolio.about}</p>}
             {contacts.length > 0 && (
               <div className="flex flex-wrap justify-center gap-3">
                 {contacts.map((c) => (
                   <a key={c.label} href={c.href} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 transition text-sm">
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-100 hover:bg-gray-200 transition text-sm">
                     <Icon name={c.icon} size={16} style={{ color: accent }} /> {c.label}
                   </a>
                 ))}
@@ -140,7 +140,7 @@ const PublicPortfolio = () => {
         </section>
       )}
 
-      <footer className="text-center text-white/30 text-xs py-8 border-t border-white/10 tracking-widest uppercase">
+      <footer className="text-center text-gray-400 text-xs py-8 border-t border-gray-200 tracking-widest uppercase">
         {portfolio.title}
       </footer>
 
@@ -149,7 +149,8 @@ const PublicPortfolio = () => {
         <div className="fixed bottom-5 right-5 z-30 flex flex-col gap-2">
           {contacts.slice(0, 2).map((c) => (
             <a key={c.icon} href={c.href} target="_blank" rel="noreferrer"
-              className="w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 backdrop-blur flex items-center justify-center transition"
+              className="w-11 h-11 rounded-full text-white shadow-lg hover:opacity-90 backdrop-blur flex items-center justify-center transition"
+              style={{ background: accent }}
               title={c.label}>
               <Icon name={c.icon} size={18} className="text-white" />
             </a>

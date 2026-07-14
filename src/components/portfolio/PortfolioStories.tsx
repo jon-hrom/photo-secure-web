@@ -25,10 +25,10 @@ const PortfolioStories = ({ categories, photos, accent, onOpenCategory }: Props)
   if (visibleCats.length === 0) return null;
 
   return (
-    <section id="stories" className="py-16 sm:py-24 px-4 sm:px-8 bg-black">
+    <section id="stories" className="py-16 sm:py-24 px-4 sm:px-8 bg-white text-gray-900">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-center text-3xl sm:text-4xl font-light tracking-[0.2em] uppercase mb-3">Истории</h2>
-        <p className="text-center text-white/50 mb-12 tracking-wider">Выберите категорию съёмок</p>
+        <p className="text-center text-gray-500 mb-12 tracking-wider">Выберите категорию съёмок</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           {visibleCats.map((cat) => (

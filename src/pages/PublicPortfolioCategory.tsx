@@ -28,18 +28,18 @@ const PublicPortfolioCategory = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800" />
       </div>
     );
   }
 
   if (notFound || !portfolio || !cat) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <Icon name="ImageOff" size={48} className="text-gray-600" />
+      <div className="min-h-screen bg-white text-gray-900 flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <Icon name="ImageOff" size={48} className="text-gray-300" />
         <h1 className="text-xl font-semibold">Категория не найдена</h1>
-        <button onClick={() => navigate(`/p/${slug}`)} className="text-sm text-white/60 hover:text-white underline">
+        <button onClick={() => navigate(`/p/${slug}`)} className="text-sm text-gray-500 hover:text-gray-900 underline">
           Вернуться в портфолио
         </button>
       </div>
@@ -59,10 +59,10 @@ const PublicPortfolioCategory = () => {
   const visibleShootings = shootings.filter((s) => countFor(s.id) > 0);
 
   return (
-    <div className="min-h-screen bg-black text-white" style={{ ['--accent' as string]: accent }}>
+    <div className="min-h-screen bg-white text-gray-900" style={{ ['--accent' as string]: accent }}>
       {/* Шапка */}
-      <div className="sticky top-0 z-20 flex items-center justify-between px-5 sm:px-8 py-4 bg-black/90 backdrop-blur border-b border-white/10">
-        <button onClick={() => navigate(`/p/${slug}`)} className="inline-flex items-center gap-2 text-sm hover:text-white/70 transition">
+      <div className="sticky top-0 z-20 flex items-center justify-between px-5 sm:px-8 py-4 bg-white/90 backdrop-blur border-b border-gray-200">
+        <button onClick={() => navigate(`/p/${slug}`)} className="inline-flex items-center gap-2 text-sm hover:text-gray-500 transition">
           <Icon name="ArrowLeft" size={18} /> В портфолио
         </button>
         <h1 className="text-lg sm:text-2xl font-light tracking-widest uppercase truncate">{cat.title}</h1>
@@ -70,7 +70,7 @@ const PublicPortfolioCategory = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-8 py-10 sm:py-16">
-        <p className="text-center text-white/50 mb-10 tracking-wider">
+        <p className="text-center text-gray-500 mb-10 tracking-wider">
           {visibleShootings.length > 0 ? 'Выберите съёмку' : ''}
         </p>
 
@@ -91,7 +91,7 @@ const PublicPortfolioCategory = () => {
                       loading="lazy"
                     />
                   ) : (
-                    <div className="absolute inset-0 bg-white/5" />
+                    <div className="absolute inset-0 bg-gray-100" />
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition flex items-center justify-center">
                     <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest opacity-0 group-hover:opacity-100 transition" style={{ color: '#fff' }}>
@@ -100,12 +100,12 @@ const PublicPortfolioCategory = () => {
                   </div>
                 </div>
                 <div className="mt-4 text-lg sm:text-xl font-medium tracking-widest uppercase">{s.title}</div>
-                <div className="text-sm text-white/50 mt-1">{countFor(s.id)} фото</div>
+                <div className="text-sm text-gray-500 mt-1">{countFor(s.id)} фото</div>
               </button>
             ))}
           </div>
         ) : (
-          <p className="text-center text-white/50 py-20">В этой категории пока нет съёмок</p>
+          <p className="text-center text-gray-500 py-20">В этой категории пока нет съёмок</p>
         )}
       </div>
     </div>

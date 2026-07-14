@@ -51,18 +51,18 @@ const PublicPortfolioShooting = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800" />
       </div>
     );
   }
 
   if (notFound || !portfolio || !cat || !sh) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <Icon name="ImageOff" size={48} className="text-gray-600" />
+      <div className="min-h-screen bg-white text-gray-900 flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <Icon name="ImageOff" size={48} className="text-gray-300" />
         <h1 className="text-xl font-semibold">Съёмка не найдена</h1>
-        <button onClick={() => navigate(`/p/${slug}`)} className="text-sm text-white/60 hover:text-white underline">
+        <button onClick={() => navigate(`/p/${slug}`)} className="text-sm text-gray-500 hover:text-gray-900 underline">
           Вернуться в портфолио
         </button>
       </div>
@@ -81,7 +81,7 @@ const PublicPortfolioShooting = () => {
   const showParallax = parallaxImages.length >= 3;
 
   return (
-    <div className="min-h-screen bg-black text-white" style={{ ['--accent' as string]: accent }}>
+    <div className="min-h-screen bg-white text-gray-900" style={{ ['--accent' as string]: accent }}>
       {!showGrid ? (
         // Экран-обложка съёмки
         <div className="relative h-screen w-full overflow-hidden">
@@ -126,7 +126,7 @@ const PublicPortfolioShooting = () => {
           </div>
 
           {showParallax && (
-            <>
+            <div className="bg-black text-white">
               <div className="relative flex h-[60vh] items-center justify-center text-center px-6">
                 <div>
                   <h1 className="text-4xl sm:text-6xl font-light tracking-[0.15em] uppercase">{sh.title}</h1>
@@ -136,20 +136,20 @@ const PublicPortfolioShooting = () => {
                 </div>
               </div>
               <ZoomParallax images={parallaxImages} />
-            </>
+            </div>
           )}
 
           <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-10 pb-16">
             {!showParallax && (
               <div className="flex items-center gap-3 mb-6 pt-4">
                 <h2 className="text-lg sm:text-2xl font-light tracking-widest uppercase truncate">{sh.title}</h2>
-                <span className="text-sm text-white/50 shrink-0">· {shPhotos.length} фото</span>
+                <span className="text-sm text-gray-500 shrink-0">· {shPhotos.length} фото</span>
               </div>
             )}
             {showParallax && (
               <div className="flex items-center gap-3 mb-6">
                 <h2 className="text-lg sm:text-2xl font-light tracking-widest uppercase">Все фотографии</h2>
-                <span className="text-sm text-white/50 shrink-0">· {shPhotos.length}</span>
+                <span className="text-sm text-gray-500 shrink-0">· {shPhotos.length}</span>
               </div>
             )}
             <PortfolioGallery photos={shPhotos} accent={accent} />
