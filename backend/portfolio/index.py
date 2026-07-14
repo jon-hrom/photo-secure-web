@@ -98,6 +98,8 @@ def load_full(cur, portfolio_id: int) -> Dict[str, Any]:
     p = dict(cur.fetchone())
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_categories WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
     p['categories'] = [dict(r) for r in cur.fetchall()]
+    cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_shootings WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
+    p['shootings'] = [dict(r) for r in cur.fetchall()]
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_photos WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
     p['photos'] = [dict(r) for r in cur.fetchall()]
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_reviews WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
@@ -232,8 +234,43 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
 
             if act == 'delete_category':
                 cid = int(body.get('id'))
-                cur.execute(f"UPDATE {SCHEMA}.portfolio_photos SET category_id = NULL WHERE category_id = {esc(cid)} AND portfolio_id = {esc(pid)}")
+                cur.execute(f"DELETE FROM {SCHEMA}.portfolio_photos WHERE category_id = {esc(cid)} AND portfolio_id = {esc(pid)}")
+                cur.execute(f"DELETE FROM {SCHEMA}.portfolio_shootings WHERE category_id = {esc(cid)} AND portfolio_id = {esc(pid)}")
                 cur.execute(f"DELETE FROM {SCHEMA}.portfolio_categories WHERE id = {esc(cid)} AND portfolio_id = {esc(pid)}")
+                conn.commit()
+                return resp(200, {'portfolio': load_full(cur, pid)})
+
+            if act == 'add_shooting':
+                cat_id = int(body.get('category_id'))
+                title = body.get('title', '').strip()
+                if not title:
+                    return resp(400, {'error': 'title required'})
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.portfolio_shootings (portfolio_id, category_id, title, slug, sort_order)
+                    VALUES ({esc(pid)}, {esc(cat_id)}, {esc(title)}, {esc(slugify(title))},
+                        COALESCE((SELECT MAX(sort_order)+1 FROM {SCHEMA}.portfolio_shootings WHERE category_id = {esc(cat_id)}), 0))
+                """)
+                conn.commit()
+                return resp(200, {'portfolio': load_full(cur, pid)})
+
+            if act == 'update_shooting':
+                sid = int(body.get('id'))
+                title = body.get('title', '').strip()
+                cur.execute(f"UPDATE {SCHEMA}.portfolio_shootings SET title = {esc(title)}, slug = {esc(slugify(title))} WHERE id = {esc(sid)} AND portfolio_id = {esc(pid)}")
+                conn.commit()
+                return resp(200, {'portfolio': load_full(cur, pid)})
+
+            if act == 'set_shooting_cover':
+                sid = int(body.get('id'))
+                cover = body.get('cover_url', '')
+                cur.execute(f"UPDATE {SCHEMA}.portfolio_shootings SET cover_url = {esc(cover)} WHERE id = {esc(sid)} AND portfolio_id = {esc(pid)}")
+                conn.commit()
+                return resp(200, {'portfolio': load_full(cur, pid)})
+
+            if act == 'delete_shooting':
+                sid = int(body.get('id'))
+                cur.execute(f"DELETE FROM {SCHEMA}.portfolio_photos WHERE shooting_id = {esc(sid)} AND portfolio_id = {esc(pid)}")
+                cur.execute(f"DELETE FROM {SCHEMA}.portfolio_shootings WHERE id = {esc(sid)} AND portfolio_id = {esc(pid)}")
                 conn.commit()
                 return resp(200, {'portfolio': load_full(cur, pid)})
 
@@ -242,10 +279,12 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 photos = body.get('photos', [])
                 cat_id = body.get('category_id')
                 cat_sql = esc(int(cat_id)) if cat_id else 'NULL'
+                sh_id = body.get('shooting_id')
+                sh_sql = esc(int(sh_id)) if sh_id else 'NULL'
                 for ph in photos:
                     cur.execute(f"""
-                        INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, photo_url, thumbnail_url, grid_thumbnail_url, source, sort_order)
-                        VALUES ({esc(pid)}, {cat_sql}, {esc(ph.get('photo_url', ''))}, {esc(ph.get('thumbnail_url', ''))}, {esc(ph.get('grid_thumbnail_url', ''))}, {esc(ph.get('source', 'photobank'))},
+                        INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, shooting_id, photo_url, thumbnail_url, grid_thumbnail_url, source, sort_order)
+                        VALUES ({esc(pid)}, {cat_sql}, {sh_sql}, {esc(ph.get('photo_url', ''))}, {esc(ph.get('thumbnail_url', ''))}, {esc(ph.get('grid_thumbnail_url', ''))}, {esc(ph.get('source', 'photobank'))},
                             COALESCE((SELECT MAX(sort_order)+1 FROM {SCHEMA}.portfolio_photos WHERE portfolio_id = {esc(pid)}), 0))
                     """)
                 conn.commit()
@@ -256,9 +295,11 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 url = upload_to_s3(body['image_base64'], body.get('ext', 'jpg'))
                 cat_id = body.get('category_id')
                 cat_sql = esc(int(cat_id)) if cat_id else 'NULL'
+                sh_id = body.get('shooting_id')
+                sh_sql = esc(int(sh_id)) if sh_id else 'NULL'
                 cur.execute(f"""
-                    INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, photo_url, thumbnail_url, grid_thumbnail_url, source, sort_order)
-                    VALUES ({esc(pid)}, {cat_sql}, {esc(url)}, {esc(url)}, {esc(url)}, 'device',
+                    INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, shooting_id, photo_url, thumbnail_url, grid_thumbnail_url, source, sort_order)
+                    VALUES ({esc(pid)}, {cat_sql}, {sh_sql}, {esc(url)}, {esc(url)}, {esc(url)}, 'device',
                         COALESCE((SELECT MAX(sort_order)+1 FROM {SCHEMA}.portfolio_photos WHERE portfolio_id = {esc(pid)}), 0))
                     RETURNING id
                 """)

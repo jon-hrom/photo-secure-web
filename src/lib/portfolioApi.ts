@@ -10,9 +10,19 @@ export interface PortfolioCategory {
   sort_order: number;
 }
 
+export interface PortfolioShooting {
+  id: number;
+  category_id: number;
+  title: string;
+  slug: string;
+  cover_url: string;
+  sort_order: number;
+}
+
 export interface PortfolioPhoto {
   id: number;
   category_id: number | null;
+  shooting_id: number | null;
   photo_url: string;
   thumbnail_url: string;
   grid_thumbnail_url: string;
@@ -53,6 +63,7 @@ export interface Portfolio {
   is_published: boolean;
   views_count: number;
   categories: PortfolioCategory[];
+  shootings: PortfolioShooting[];
   photos: PortfolioPhoto[];
   reviews: PortfolioReview[];
   user_profile?: { name?: string; display_name?: string; city?: string; phone?: string; email?: string; avatar_url?: string };

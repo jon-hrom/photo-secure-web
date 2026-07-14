@@ -37,6 +37,7 @@ import ShortLink from "./pages/ShortLink";
 import PublicGallery from "./pages/PublicGallery";
 import PublicPortfolio from "./pages/PublicPortfolio";
 import PublicPortfolioCategory from "./pages/PublicPortfolioCategory";
+import PublicPortfolioShooting from "./pages/PublicPortfolioShooting";
 import { RetouchProvider } from "./contexts/RetouchContext";
 import FloatingRetouchBar from "./components/photobank/FloatingRetouchBar";
 import IncomingTransfersWatcher from "./components/clients/transfer/IncomingTransfersWatcher";
@@ -236,6 +237,7 @@ const App = () => {
           <Route path="/g/:code" element={<PublicGallery />} />
           <Route path="/p/:slug" element={<PublicPortfolio />} />
           <Route path="/p/:slug/:category" element={<PublicPortfolioCategory />} />
+          <Route path="/p/:slug/:category/:shooting" element={<PublicPortfolioShooting />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
