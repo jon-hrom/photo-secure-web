@@ -24,6 +24,9 @@ import { useThemeManager } from '@/hooks/useThemeManager';
 import { useContactManager } from '@/hooks/useContactManager';
 import { useNewYearManager } from '@/hooks/useNewYearManager';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import PortfolioSettings from '@/components/settings/portfolio/PortfolioSettings';
+
+const PORTFOLIO_ALLOWED_EMAILS = ['jonhrom2012@gmail.com'];
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -276,6 +279,20 @@ const Settings = () => {
                 </div>
               </AccordionContent>
             </AccordionItem>
+
+            {settings && PORTFOLIO_ALLOWED_EMAILS.includes((settings.email || '').toLowerCase()) && (
+              <AccordionItem value="portfolio" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+                <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+                  <div className="flex items-center gap-3">
+                    <Icon name="Camera" size={20} className="text-primary" />
+                    <span className="text-lg font-semibold">Портфолио</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 sm:px-6 pb-4 space-y-4">
+                  <PortfolioSettings userId={settings.id.toString()} />
+                </AccordionContent>
+              </AccordionItem>
+            )}
 
             <AccordionItem value="security" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
               <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">

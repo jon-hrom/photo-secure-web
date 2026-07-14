@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS возвращает 200",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Публичный запрос без slug — 400",
+      "method": "GET",
+      "path": "/?action=public",
+      "expectedStatus": 400
+    },
+    {
+      "name": "Публичный несуществующий slug — 404",
+      "method": "GET",
+      "path": "/?action=public&slug=nonexistent-xyz-999",
+      "expectedStatus": 404
+    },
+    {
+      "name": "check_slug возвращает доступность",
+      "method": "GET",
+      "path": "/?action=check_slug&slug=svobodnyi-slug-123",
+      "expectedStatus": 200,
+      "expectedBody": {"available": true},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Приватный запрос без user_id — 401",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401
+    }
+  ]
+}

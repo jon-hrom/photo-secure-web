@@ -35,6 +35,7 @@ import CookieConsentBanner from "./components/legal/CookieConsentBanner";
 import VpnWarningBanner from "./components/VpnWarningBanner";
 import ShortLink from "./pages/ShortLink";
 import PublicGallery from "./pages/PublicGallery";
+import PublicPortfolio from "./pages/PublicPortfolio";
 import { RetouchProvider } from "./contexts/RetouchContext";
 import FloatingRetouchBar from "./components/photobank/FloatingRetouchBar";
 import IncomingTransfersWatcher from "./components/clients/transfer/IncomingTransfersWatcher";
@@ -42,7 +43,7 @@ import NotificationsTicker from "./components/notifications/NotificationsTicker"
 
 const queryClient = new QueryClient();
 
-const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/yandex-disk/', '/privacy-policy', '/offer', '/personal-data', '/confidentiality', '/cookie-policy', '/legal/', '/s/', '/g/', '/client/'];
+const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/yandex-disk/', '/privacy-policy', '/offer', '/personal-data', '/confidentiality', '/cookie-policy', '/legal/', '/s/', '/g/', '/p/', '/client/'];
 
 const LegalConsentGuard = () => {
   const { pathname } = useLocation();
@@ -61,6 +62,7 @@ const LegalConsentGuard = () => {
     pathname.startsWith('/legal/') ||
     pathname.startsWith('/s/') ||
     pathname.startsWith('/g/') ||
+    pathname.startsWith('/p/') ||
     pathname.startsWith('/client/');
 
   useEffect(() => {
@@ -231,6 +233,7 @@ const App = () => {
           <Route path="/legal/:slug" element={<LegalDocument />} />
           <Route path="/s/:code" element={<ShortLink />} />
           <Route path="/g/:code" element={<PublicGallery />} />
+          <Route path="/p/:slug" element={<PublicPortfolio />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
