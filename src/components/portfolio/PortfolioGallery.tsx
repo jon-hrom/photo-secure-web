@@ -10,6 +10,12 @@ interface Props {
 
 const PortfolioGallery = ({ photos, accent }: Props) => {
   const [index, setIndex] = useState<number | null>(null);
+  const [ratios, setRatios] = useState<Record<number, number>>({});
+
+  const setRatio = (id: number, w: number, h: number) => {
+    if (!w || !h) return;
+    setRatios((prev) => (prev[id] ? prev : { ...prev, [id]: w / h }));
+  };
 
   const close = useCallback(() => setIndex(null), []);
   const prev = useCallback(() => setIndex((i) => (i === null ? null : (i - 1 + photos.length) % photos.length)), [photos.length]);
@@ -32,24 +38,34 @@ const PortfolioGallery = ({ photos, accent }: Props) => {
 
   return (
     <>
-      <div className="columns-2 sm:columns-3 gap-2 sm:gap-3 [column-fill:_balance]">
-        {photos.map((p, i) => (
-          <button
-            key={p.id}
-            onClick={() => setIndex(i)}
-            className="mb-2 sm:mb-3 block w-full overflow-hidden rounded-xl group relative"
-          >
-            <img
-              src={p.grid_thumbnail_url || getThumbUrl(p.photo_url, 600) || p.thumbnail_url}
-              alt=""
-              loading="lazy"
-              className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center">
-              <Icon name="Maximize2" size={22} className="text-white opacity-0 group-hover:opacity-100 transition" />
-            </div>
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2 sm:gap-3 [--row-h:150px] sm:[--row-h:220px] lg:[--row-h:280px]">
+        {photos.map((p, i) => {
+          const ratio = ratios[p.id] || 1;
+          return (
+            <button
+              key={p.id}
+              onClick={() => setIndex(i)}
+              className="relative h-[var(--row-h)] overflow-hidden rounded-xl group"
+              style={{
+                flexGrow: ratio,
+                flexBasis: `calc(var(--row-h) * ${ratio})`,
+                width: `calc(var(--row-h) * ${ratio})`,
+              }}
+            >
+              <img
+                src={p.grid_thumbnail_url || getThumbUrl(p.photo_url, 800) || p.thumbnail_url}
+                alt=""
+                loading="lazy"
+                onLoad={(e) => setRatio(p.id, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition flex items-center justify-center">
+                <Icon name="Maximize2" size={22} className="text-white opacity-0 group-hover:opacity-100 transition" />
+              </div>
+            </button>
+          );
+        })}
+        <div className="grow-[999] basis-0 h-0" aria-hidden />
       </div>
 
       {index !== null && (
