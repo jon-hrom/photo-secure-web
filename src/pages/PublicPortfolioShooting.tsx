@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Lenis from '@studio-freight/lenis';
 import Icon from '@/components/ui/icon';
 import { getThumbUrl } from '@/utils/imageThumb';
 import { Portfolio, PortfolioCategory, PortfolioShooting, getPublicPortfolio } from '@/lib/portfolioApi';
 import PortfolioGallery from '@/components/portfolio/PortfolioGallery';
+import { ZoomParallax } from '@/components/ui/zoom-parallax';
 
 const PublicPortfolioShooting = () => {
   const { slug, category, shooting } = useParams<{ slug: string; category: string; shooting: string }>();
@@ -31,6 +33,22 @@ const PublicPortfolioShooting = () => {
       .finally(() => setLoading(false));
   }, [slug, category, shooting]);
 
+  // Плавный скролл для эффекта параллакса (только при открытой съёмке)
+  useEffect(() => {
+    if (!showGrid) return;
+    const lenis = new Lenis();
+    let raf = 0;
+    const loop = (time: number) => {
+      lenis.raf(time);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(raf);
+      lenis.destroy();
+    };
+  }, [showGrid]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -55,6 +73,12 @@ const PublicPortfolioShooting = () => {
   const shPhotos = portfolio.photos.filter((p) => p.shooting_id === sh.id);
   const coverPhoto = sh.cover_url || shPhotos[0]?.photo_url || '';
   const backToCatalog = () => navigate(`/p/${slug}/${category}`);
+
+  const parallaxImages = shPhotos.slice(0, 7).map((p) => ({
+    src: getThumbUrl(p.photo_url, 1600) || p.photo_url,
+    alt: sh.title,
+  }));
+  const showParallax = parallaxImages.length >= 3;
 
   return (
     <div className="min-h-screen bg-black text-white" style={{ ['--accent' as string]: accent }}>
@@ -89,22 +113,45 @@ const PublicPortfolioShooting = () => {
           </div>
         </div>
       ) : (
-        // Сетка фото съёмки
+        // Съёмка: параллакс + галерея
         <>
-          <div className="sticky top-0 z-20 flex items-center justify-between px-5 sm:px-8 py-4 bg-black/90 backdrop-blur border-b border-white/10">
-            <div className="flex items-center gap-3 min-w-0">
-              <button onClick={() => setShowGrid(false)} className="p-1.5 rounded-full hover:bg-white/10 transition shrink-0">
-                <Icon name="ArrowLeft" size={22} className="text-white" />
-              </button>
-              <h2 className="text-lg sm:text-2xl font-light tracking-widest uppercase truncate">{sh.title}</h2>
-              <span className="text-sm text-white/50 shrink-0">· {shPhotos.length} фото</span>
-            </div>
-            <button onClick={backToCatalog} className="p-1.5 rounded-full hover:bg-white/10 transition shrink-0" title="К съёмкам">
-              <Icon name="LayoutGrid" size={20} className="text-white" />
+          {/* Плавающая панель управления */}
+          <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between pointer-events-none">
+            <button onClick={() => setShowGrid(false)} className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur transition text-sm">
+              <Icon name="ArrowLeft" size={16} className="text-white" /> <span className="hidden sm:inline">Обложка</span>
+            </button>
+            <button onClick={backToCatalog} className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur transition text-sm" title="К съёмкам">
+              <Icon name="LayoutGrid" size={16} className="text-white" /> <span className="hidden sm:inline">К съёмкам</span>
             </button>
           </div>
 
-          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-8">
+          {showParallax && (
+            <>
+              <div className="relative flex h-[60vh] items-center justify-center text-center px-6">
+                <div>
+                  <h1 className="text-4xl sm:text-6xl font-light tracking-[0.15em] uppercase">{sh.title}</h1>
+                  <p className="text-white/50 mt-4 tracking-wider flex items-center justify-center gap-2">
+                    Листайте вниз <Icon name="ChevronDown" size={16} />
+                  </p>
+                </div>
+              </div>
+              <ZoomParallax images={parallaxImages} />
+            </>
+          )}
+
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-10 pb-16">
+            {!showParallax && (
+              <div className="flex items-center gap-3 mb-6 pt-4">
+                <h2 className="text-lg sm:text-2xl font-light tracking-widest uppercase truncate">{sh.title}</h2>
+                <span className="text-sm text-white/50 shrink-0">· {shPhotos.length} фото</span>
+              </div>
+            )}
+            {showParallax && (
+              <div className="flex items-center gap-3 mb-6">
+                <h2 className="text-lg sm:text-2xl font-light tracking-widest uppercase">Все фотографии</h2>
+                <span className="text-sm text-white/50 shrink-0">· {shPhotos.length}</span>
+              </div>
+            )}
             <PortfolioGallery photos={shPhotos} accent={accent} />
           </div>
         </>
