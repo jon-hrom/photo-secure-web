@@ -42,12 +42,14 @@ def handler(event: dict, context) -> dict:
         width = int(params.get('w', 400))
     except (TypeError, ValueError):
         width = 400
-    width = max(64, min(width, 2400))
+    width = max(64, min(width, 2560))
 
+    # Крупные превью (лайтбокс) отдаём с более высоким качеством, мелкие плитки — легче.
+    default_quality = 82 if width >= 1400 else 78
     try:
-        quality = int(params.get('q', 78))
+        quality = int(params.get('q', default_quality))
     except (TypeError, ValueError):
-        quality = 78
+        quality = default_quality
     quality = max(40, min(quality, 95))
 
     # Лёгкое повышение резкости (unsharp mask). Убирает "мыло" после ресайза.

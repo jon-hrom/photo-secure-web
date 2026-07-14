@@ -69,6 +69,7 @@ export default function GalleryPhotoViewer({
   });
   const [fullImageLoaded, setFullImageLoaded] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
+  const [hdLoaded, setHdLoaded] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -229,6 +230,7 @@ export default function GalleryPhotoViewer({
   useEffect(() => {
     setFullImageLoaded(false);
     setShowFullImage(false);
+    setHdLoaded(false);
   }, [currentPhoto?.id]);
 
   // Reset download modal when photo changes
@@ -249,6 +251,19 @@ export default function GalleryPhotoViewer({
     }
   }, [zoom, currentPhoto, fullImageLoaded]);
 
+  // Фоновая подгрузка резкого HD-превью под размер экрана: снимает "мыло",
+  // но грузится быстрее оригинала. Не ждём — сначала виден лёгкий thumbnail.
+  useEffect(() => {
+    if (!currentPhoto || currentPhoto.is_video) return;
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const w = Math.min(Math.round(window.innerWidth * dpr), 2560);
+    const url = getThumbUrl(currentPhoto.photo_url, Math.max(w, 1600));
+    if (!url) return;
+    const img = new Image();
+    img.onload = () => setHdLoaded(true);
+    img.src = url;
+  }, [currentPhoto?.id]);
+
   // Preload adjacent thumbnails
   useEffect(() => {
     const preloadIndexes = [currentIndex - 1, currentIndex + 1].filter(
@@ -263,13 +278,23 @@ export default function GalleryPhotoViewer({
 
   if (!currentPhoto) return null;
 
-  // Лёгкое превью для листания без зума (быстрая подгрузка).
-  // Если готового thumbnail нет — ужимаем оригинал на лету до ~1600px.
+  // Лёгкое превью для мгновенного открытия и листания.
   const previewSrc = currentPhoto.thumbnail_url || getThumbUrl(currentPhoto.photo_url, 2048);
 
-  // При листании показываем лёгкое превью, оригинал грузим только при зуме
-  // (showFullImage выставляется, когда пользователь приближает фото).
-  const displaySrc = showFullImage ? currentPhoto.photo_url : previewSrc;
+  // Резкое HD-превью под размер экрана — подгружается в фоне сразу после
+  // открытия и плавно заменяет лёгкое (снимает "мыло" на больших экранах),
+  // но остаётся заметно легче оригинала (5+ МБ) — открытие не тормозит.
+  const hdWidth = Math.min(
+    Math.round((typeof window !== 'undefined' ? window.innerWidth : 1920)
+      * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)),
+    2560
+  );
+  const hdSrc = getThumbUrl(currentPhoto.photo_url, Math.max(hdWidth, 1600)) || previewSrc;
+
+  // Приоритет источника: оригинал при зуме → HD-превью когда загрузилось → лёгкое.
+  const displaySrc = showFullImage
+    ? currentPhoto.photo_url
+    : (hdLoaded ? hdSrc : previewSrc);
 
   if (currentPhoto.is_video) {
     console.log('[GALLERY_PHOTO_VIEWER] Opening video:', currentPhoto);
