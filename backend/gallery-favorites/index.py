@@ -1321,7 +1321,73 @@ def handler(event: dict, context) -> dict:
             photo_id = params.get('photo_id')
             
             print(f'[FAVORITES DELETE] Params: {params}, client_id={client_id}, photo_id={photo_id}')
-            
+
+            # Удаление всего списка избранного клиента (client_id без photo_id).
+            # Только фотограф-владелец галереи — проверяем gallery_code + X-User-Id.
+            if client_id and not photo_id:
+                gallery_code = params.get('gallery_code')
+                user_id = event.get('headers', {}).get('x-user-id') or event.get('headers', {}).get('X-User-Id')
+
+                if not gallery_code or not user_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'gallery_code and auth required'})
+                    }
+
+                # Проверяем, что галерея принадлежит этому фотографу
+                cur.execute('''
+                    SELECT 1
+                    FROM t_p28211681_photo_secure_web.folder_short_links fsl
+                    WHERE fsl.short_code = %s AND fsl.user_id = %s
+                ''', (gallery_code, user_id))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 403,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Not allowed'})
+                    }
+
+                # Клиент должен принадлежать этой галерее
+                cur.execute('''
+                    SELECT 1 FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE id = %s AND gallery_code = %s
+                ''', (client_id, gallery_code))
+                if not cur.fetchone():
+                    return {
+                        'statusCode': 404,
+                        'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                        'body': json.dumps({'error': 'Client not found'})
+                    }
+
+                # Удаляем связанные данные и самого клиента
+                cur.execute('''
+                    DELETE FROM t_p28211681_photo_secure_web.favorite_list_photos
+                    WHERE list_id IN (
+                        SELECT id FROM t_p28211681_photo_secure_web.favorite_lists
+                        WHERE client_id = %s
+                    )
+                ''', (client_id,))
+                cur.execute('''
+                    DELETE FROM t_p28211681_photo_secure_web.favorite_lists
+                    WHERE client_id = %s
+                ''', (client_id,))
+                cur.execute('''
+                    DELETE FROM t_p28211681_photo_secure_web.favorite_photos
+                    WHERE client_id = %s
+                ''', (client_id,))
+                cur.execute('''
+                    DELETE FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE id = %s AND gallery_code = %s
+                ''', (client_id, gallery_code))
+                conn.commit()
+
+                return {
+                    'statusCode': 200,
+                    'headers': {**cors_headers, 'Content-Type': 'application/json'},
+                    'body': json.dumps({'success': True})
+                }
+
             if not all([client_id, photo_id]):
                 return {
                     'statusCode': 400,

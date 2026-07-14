@@ -11,6 +11,7 @@ interface FavoritesClientsListProps {
   onClientSelect: (client: ClientData) => void;
   onPhotoSelect: (photo: Photo, client: ClientData) => void;
   onDownloadClient: (client: ClientData) => void;
+  onDeleteClient: (client: ClientData) => Promise<boolean>;
 }
 
 export default function FavoritesClientsList({
@@ -19,9 +20,21 @@ export default function FavoritesClientsList({
   downloadProgress,
   onClientSelect,
   onPhotoSelect,
-  onDownloadClient
+  onDownloadClient,
+  onDeleteClient
 }: FavoritesClientsListProps) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const handleDelete = async (client: ClientData, photosCount: number) => {
+    const ok = window.confirm(
+      `Удалить список избранного клиента «${client.full_name}» (${photosCount} фото)?\n\nЭто действие нельзя отменить.`
+    );
+    if (!ok) return;
+    setDeletingId(client.client_id);
+    await onDeleteClient(client);
+    setDeletingId(null);
+  };
 
   const toggle = (clientId: number) => {
     setExpanded(prev => {
@@ -101,6 +114,20 @@ export default function FavoritesClientsList({
                       <span className="ml-2 hidden sm:inline">Скачать все ({displayPhotos.length})</span>
                       <span className="ml-2 sm:hidden">{displayPhotos.length}</span>
                     </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(client, displayPhotos.length)}
+                  disabled={isDownloading || deletingId === client.client_id}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40 border-red-200 dark:border-red-900/50"
+                  title="Удалить список избранного клиента"
+                >
+                  {deletingId === client.client_id ? (
+                    <Icon name="Loader2" size={16} className="animate-spin" />
+                  ) : (
+                    <Icon name="Trash2" size={16} />
                   )}
                 </Button>
               </div>

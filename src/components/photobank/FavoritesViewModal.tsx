@@ -25,7 +25,8 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
     error,
     downloadProgress,
     handleDownloadSinglePhoto,
-    handleDownloadClientPhotos
+    handleDownloadClientPhotos,
+    handleDeleteClient
   } = useFavoritesData(folderId, userId);
 
   const handleNavigate = (direction: 'prev' | 'next') => {
@@ -158,6 +159,7 @@ export default function FavoritesViewModal({ folderId, folderName, userId, onClo
                 setSelectedPhoto(photo);
               }}
               onDownloadClient={handleDownloadClientPhotos}
+              onDeleteClient={handleDeleteClient}
             />
           )}
         </div>

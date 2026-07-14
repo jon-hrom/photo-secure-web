@@ -76,6 +76,7 @@ export function useFavoritesData(folderId: number | null, userId: number) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
+  const [galleryCode, setGalleryCode] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -158,6 +159,8 @@ export function useFavoritesData(folderId: number | null, userId: number) {
       setLoading(false);
       return;
     }
+
+    setGalleryCode(galleryCode);
 
     try {
       const response = await fetch(
@@ -365,6 +368,32 @@ export function useFavoritesData(folderId: number | null, userId: number) {
     }
   };
 
+  const handleDeleteClient = async (client: ClientData): Promise<boolean> => {
+    if (!galleryCode) {
+      alert('Не удалось определить галерею для удаления');
+      return false;
+    }
+    try {
+      const response = await fetch(
+        `https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723?client_id=${client.client_id}&gallery_code=${galleryCode}`,
+        {
+          method: 'DELETE',
+          headers: { 'X-User-Id': userId.toString() },
+        }
+      );
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Ошибка удаления');
+      }
+      setClients(prev => prev.filter(c => c.client_id !== client.client_id));
+      return true;
+    } catch (e) {
+      console.error('[FAVORITES] Delete client failed:', e);
+      alert('Не удалось удалить список: ' + (e instanceof Error ? e.message : 'ошибка'));
+      return false;
+    }
+  };
+
   return {
     clients,
     allPhotos,
@@ -372,7 +401,8 @@ export function useFavoritesData(folderId: number | null, userId: number) {
     error,
     downloadProgress,
     handleDownloadSinglePhoto,
-    handleDownloadClientPhotos
+    handleDownloadClientPhotos,
+    handleDeleteClient
   };
 }
 
