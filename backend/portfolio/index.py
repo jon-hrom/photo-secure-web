@@ -182,7 +182,7 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 fields = ['title', 'subtitle', 'about', 'phone', 'email', 'instagram',
                           'telegram', 'vk', 'whatsapp', 'accent_color', 'menu_position', 'logo_text']
                 sets = [f"{f} = {esc(body.get(f, portfolio.get(f, '')))}" for f in fields if f in body]
-                for bf in ['show_reviews', 'show_about', 'slideshow_enabled', 'is_published']:
+                for bf in ['show_reviews', 'show_about', 'slideshow_enabled', 'is_published', 'show_stories_block']:
                     if bf in body:
                         sets.append(f"{bf} = {esc(bool(body[bf]))}")
                 if 'slug' in body:
@@ -220,6 +220,13 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 cid = int(body.get('id'))
                 title = body.get('title', '').strip()
                 cur.execute(f"UPDATE {SCHEMA}.portfolio_categories SET title = {esc(title)}, slug = {esc(slugify(title))} WHERE id = {esc(cid)} AND portfolio_id = {esc(pid)}")
+                conn.commit()
+                return resp(200, {'portfolio': load_full(cur, pid)})
+
+            if act == 'set_category_cover':
+                cid = int(body.get('id'))
+                cover = body.get('cover_url', '')
+                cur.execute(f"UPDATE {SCHEMA}.portfolio_categories SET cover_url = {esc(cover)} WHERE id = {esc(cid)} AND portfolio_id = {esc(pid)}")
                 conn.commit()
                 return resp(200, {'portfolio': load_full(cur, pid)})
 

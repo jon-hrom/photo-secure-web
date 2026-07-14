@@ -43,6 +43,7 @@ const PortfolioSettings = ({ userId }: Props) => {
   const [logoText, setLogoText] = useState('');
   const [showReviews, setShowReviews] = useState(true);
   const [showAbout, setShowAbout] = useState(true);
+  const [showStories, setShowStories] = useState(true);
   const [slideshow, setSlideshow] = useState(true);
   const [published, setPublished] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -64,6 +65,7 @@ const PortfolioSettings = ({ userId }: Props) => {
     setLogoText(p.logo_text || '');
     setShowReviews(p.show_reviews);
     setShowAbout(p.show_about);
+    setShowStories(p.show_stories_block !== false);
     setSlideshow(p.slideshow_enabled);
     setPublished(p.is_published);
     const name = p.user_profile?.name || p.user_profile?.display_name || '';
@@ -101,6 +103,7 @@ const PortfolioSettings = ({ userId }: Props) => {
       instagram, telegram, vk, whatsapp, accent_color: accent,
       menu_position: menuPosition, logo_text: logoText,
       show_reviews: showReviews, show_about: showAbout,
+      show_stories_block: showStories,
       slideshow_enabled: slideshow, is_published: published,
     });
     setSaving(false);
@@ -248,9 +251,21 @@ const PortfolioSettings = ({ userId }: Props) => {
       <div className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-center gap-2">
           <Icon name="Play" size={18} className="text-primary" />
-          <span className="text-sm font-medium">Автоматическое слайд-шоу на странице</span>
+          <span className="text-sm font-medium">Автоматическое слайд-шоу на обложке</span>
         </div>
         <Switch checked={slideshow} onCheckedChange={setSlideshow} />
+      </div>
+
+      {/* Блок категорий на главной */}
+      <div className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex items-center gap-2">
+          <Icon name="LayoutGrid" size={18} className="text-primary" />
+          <div>
+            <span className="text-sm font-medium block">Блок категорий на главной</span>
+            <span className="text-xs text-muted-foreground">Карточки-обложки съёмок. Из меню сверху они доступны всегда.</span>
+          </div>
+        </div>
+        <Switch checked={showStories} onCheckedChange={setShowStories} />
       </div>
 
       {/* Отзывы */}

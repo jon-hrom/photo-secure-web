@@ -6,6 +6,7 @@ export interface PortfolioCategory {
   id: number;
   title: string;
   slug: string;
+  cover_url: string;
   sort_order: number;
 }
 
@@ -47,6 +48,7 @@ export interface Portfolio {
   logo_text: string;
   show_reviews: boolean;
   show_about: boolean;
+  show_stories_block: boolean;
   slideshow_enabled: boolean;
   is_published: boolean;
   views_count: number;

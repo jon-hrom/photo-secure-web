@@ -1,18 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { Portfolio, getPublicPortfolio } from '@/lib/portfolioApi';
 import PortfolioNav from '@/components/portfolio/PortfolioNav';
 import PortfolioHero from '@/components/portfolio/PortfolioHero';
 import PortfolioStories from '@/components/portfolio/PortfolioStories';
-import PortfolioCategoryView from '@/components/portfolio/PortfolioCategoryView';
 
 const PublicPortfolio = () => {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [openCat, setOpenCat] = useState<{ id: number | null } | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -26,6 +25,10 @@ const PublicPortfolio = () => {
       })
       .finally(() => setLoading(false));
   }, [slug]);
+
+  const openCategory = useCallback((catSlug: string) => {
+    navigate(`/p/${slug}/${catSlug}`);
+  }, [navigate, slug]);
 
   const scrollTo = useCallback((id: string) => {
     if (id === 'top') { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
@@ -52,14 +55,9 @@ const PublicPortfolio = () => {
 
   const accent = portfolio.accent_color || '#7c3aed';
   const photos = portfolio.photos || [];
+  // Слайд-шоу обложки: только фото без категории
+  const slideshowPhotos = photos.filter((p) => p.category_id === null);
   const logo = portfolio.logo_text || portfolio.title || 'PORTFOLIO';
-
-  const catPhotos = openCat
-    ? (openCat.id === null ? photos : photos.filter((p) => p.category_id === openCat.id))
-    : [];
-  const catTitle = openCat
-    ? (openCat.id === null ? 'Все работы' : portfolio.categories.find((c) => c.id === openCat.id)?.title || '')
-    : '';
 
   const contacts = [
     portfolio.vk && { icon: 'Share2', label: 'ВКонтакте', href: portfolio.vk },
@@ -78,23 +76,25 @@ const PublicPortfolio = () => {
         position={portfolio.menu_position || 'top-right'}
         showReviews={portfolio.show_reviews && portfolio.reviews.length > 0}
         showAbout={portfolio.show_about}
-        onSelectCategory={(id) => setOpenCat({ id })}
+        onOpenCategory={openCategory}
         onScrollTo={scrollTo}
       />
 
       <PortfolioHero
-        photos={photos}
+        photos={slideshowPhotos.length > 0 ? slideshowPhotos : photos}
         title={portfolio.title}
         subtitle={portfolio.subtitle}
         autoplay={portfolio.slideshow_enabled}
       />
 
-      <PortfolioStories
-        categories={portfolio.categories}
-        photos={photos}
-        accent={accent}
-        onOpenCategory={(id) => setOpenCat({ id })}
-      />
+      {portfolio.show_stories_block !== false && (
+        <PortfolioStories
+          categories={portfolio.categories}
+          photos={photos}
+          accent={accent}
+          onOpenCategory={openCategory}
+        />
+      )}
 
       {/* Отзывы */}
       {portfolio.show_reviews && portfolio.reviews.length > 0 && (
@@ -155,10 +155,6 @@ const PublicPortfolio = () => {
             </a>
           ))}
         </div>
-      )}
-
-      {openCat && (
-        <PortfolioCategoryView title={catTitle} photos={catPhotos} accent={accent} onClose={() => setOpenCat(null)} />
       )}
     </div>
   );

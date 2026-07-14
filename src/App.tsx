@@ -36,6 +36,7 @@ import VpnWarningBanner from "./components/VpnWarningBanner";
 import ShortLink from "./pages/ShortLink";
 import PublicGallery from "./pages/PublicGallery";
 import PublicPortfolio from "./pages/PublicPortfolio";
+import PublicPortfolioCategory from "./pages/PublicPortfolioCategory";
 import { RetouchProvider } from "./contexts/RetouchContext";
 import FloatingRetouchBar from "./components/photobank/FloatingRetouchBar";
 import IncomingTransfersWatcher from "./components/clients/transfer/IncomingTransfersWatcher";
@@ -234,6 +235,7 @@ const App = () => {
           <Route path="/s/:code" element={<ShortLink />} />
           <Route path="/g/:code" element={<PublicGallery />} />
           <Route path="/p/:slug" element={<PublicPortfolio />} />
+          <Route path="/p/:slug/:category" element={<PublicPortfolioCategory />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

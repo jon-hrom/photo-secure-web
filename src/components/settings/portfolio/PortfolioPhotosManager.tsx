@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
-import { Portfolio, portfolioAction } from '@/lib/portfolioApi';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Portfolio, PortfolioCategory, portfolioAction } from '@/lib/portfolioApi';
 
 interface Props {
   userId: string;
@@ -25,11 +26,14 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [newCat, setNewCat] = useState('');
+  // activeCat: null = «Фото для слайд-шоу» (фото без категории)
   const [activeCat, setActiveCat] = useState<number | null>(null);
+  const [coverForCat, setCoverForCat] = useState<PortfolioCategory | null>(null);
 
   const categories = portfolio.categories || [];
-  const photos = (portfolio.photos || []).filter(
-    (p) => activeCat === null || p.category_id === activeCat
+  const allPhotos = portfolio.photos || [];
+  const photos = allPhotos.filter((p) =>
+    activeCat === null ? p.category_id === null : p.category_id === activeCat
   );
 
   const handleUpload = async (files: FileList | null) => {
@@ -79,27 +83,37 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
     onChange(p);
   };
 
+  const setCategoryCover = async (catId: number, coverUrl: string) => {
+    const p = await portfolioAction(userId, 'set_category_cover', { id: catId, cover_url: coverUrl });
+    onChange(p);
+    setCoverForCat(null);
+    toast({ title: 'Обложка обновлена' });
+  };
+
+  const activeCategory = categories.find((c) => c.id === activeCat) || null;
+  const coverCatPhotos = coverForCat ? allPhotos.filter((p) => p.category_id === coverForCat.id) : [];
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <Icon name="Images" size={18} className="text-primary" />
         <span className="font-medium">Фотографии портфолио</span>
-        <span className="text-xs text-muted-foreground">({portfolio.photos?.length || 0})</span>
+        <span className="text-xs text-muted-foreground">({allPhotos.length})</span>
       </div>
 
-      {/* Категории съёмок */}
+      {/* Вкладки: слайд-шоу + категории */}
       <div className="space-y-2">
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setActiveCat(null)}
-            className={`text-xs px-2.5 py-1 rounded-full transition ${activeCat === null ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
+            className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition ${activeCat === null ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700'}`}
           >
-            Все
+            <Icon name="Play" size={12} /> Фото для слайд-шоу
           </button>
           {categories.map((c) => (
             <span key={c.id} className={`group inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full transition ${activeCat === c.id ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>
               <button onClick={() => setActiveCat(c.id)}>{c.title}</button>
-              <button onClick={() => deleteCategory(c.id)} className="opacity-60 hover:opacity-100">
+              <button onClick={() => deleteCategory(c.id)} className="opacity-60 hover:opacity-100" title="Удалить категорию">
                 <Icon name="X" size={12} />
               </button>
             </span>
@@ -119,6 +133,31 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
         </div>
       </div>
 
+      {/* Пояснение + обложка категории */}
+      {activeCat === null ? (
+        <p className="text-xs text-muted-foreground bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
+          Эти фото показываются <b>только в слайд-шоу</b> на главной обложке портфолио. В папках категорий их не видно.
+        </p>
+      ) : (
+        <div className="flex items-center justify-between gap-2 bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {activeCategory?.cover_url ? (
+              <img src={activeCategory.cover_url} alt="" className="w-14 h-9 object-cover rounded shrink-0" />
+            ) : (
+              <div className="w-14 h-9 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                <Icon name="Image" size={14} className="text-muted-foreground" />
+              </div>
+            )}
+            <span className="text-xs text-muted-foreground truncate">
+              Обложка папки «{activeCategory?.title}» (горизонтальная)
+            </span>
+          </div>
+          <Button size="sm" variant="outline" className="shrink-0" onClick={() => activeCategory && setCoverForCat(activeCategory)} disabled={coverCatPhotos.length === 0 && photos.length === 0}>
+            <Icon name="ImagePlus" size={14} className="mr-1" /> Обложка
+          </Button>
+        </div>
+      )}
+
       {/* Кнопки добавления */}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" onClick={onOpenBank}>
@@ -129,9 +168,9 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
           {uploading ? 'Загрузка...' : 'С устройства'}
         </Button>
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => handleUpload(e.target.files)} />
-        {activeCat !== null && (
-          <span className="text-xs text-muted-foreground py-2">Новые фото попадут в «{categories.find((c) => c.id === activeCat)?.title}»</span>
-        )}
+        <span className="text-xs text-muted-foreground py-2">
+          {activeCat === null ? 'Новые фото → в слайд-шоу' : `Новые фото → в «${activeCategory?.title}»`}
+        </span>
       </div>
 
       {/* Сетка фото */}
@@ -149,26 +188,56 @@ const PortfolioPhotosManager = ({ userId, portfolio, onChange, onOpenBank }: Pro
                   <Icon name="Trash2" size={13} />
                 </button>
               </div>
-              {categories.length > 0 && (
-                <select
-                  value={ph.category_id ?? ''}
-                  onChange={(e) => setPhotoCategory(ph.id, e.target.value ? Number(e.target.value) : null)}
-                  className="absolute bottom-0 left-0 right-0 text-[10px] bg-black/60 text-white px-1 py-0.5 opacity-0 group-hover:opacity-100 transition"
-                >
-                  <option value="">Без категории</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.title}</option>
-                  ))}
-                </select>
-              )}
+              <select
+                value={ph.category_id ?? ''}
+                onChange={(e) => setPhotoCategory(ph.id, e.target.value ? Number(e.target.value) : null)}
+                className="absolute bottom-0 left-0 right-0 text-[10px] bg-black/60 text-white px-1 py-0.5 opacity-0 group-hover:opacity-100 transition"
+              >
+                <option value="">Для слайд-шоу</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
             </div>
           ))}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground text-center py-6 border border-dashed rounded-xl border-gray-300 dark:border-gray-700">
-          Пока нет фото. Добавьте из фотобанка или с устройства.
+          {activeCat === null
+            ? 'Пока нет фото для слайд-шоу. Добавьте из фотобанка или с устройства.'
+            : 'В этой категории пока нет фото. Добавьте их, и не забудьте назначить обложку.'}
         </p>
       )}
+
+      {/* Модалка выбора обложки категории */}
+      <Dialog open={!!coverForCat} onOpenChange={(o) => !o && setCoverForCat(null)}>
+        <DialogContent className="max-w-lg w-[calc(100%-1rem)] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base">Обложка папки «{coverForCat?.title}»</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">Выберите фото — оно станет обложкой категории на главной. Лучше горизонтальное.</p>
+          {coverCatPhotos.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2 max-h-[55vh] overflow-y-auto">
+              {coverCatPhotos.map((ph) => (
+                <button
+                  key={ph.id}
+                  onClick={() => coverForCat && setCategoryCover(coverForCat.id, ph.photo_url)}
+                  className={`relative aspect-video rounded-lg overflow-hidden border-2 transition ${coverForCat?.cover_url === ph.photo_url ? 'border-primary ring-2 ring-primary/40' : 'border-transparent hover:border-primary/40'}`}
+                >
+                  <img src={ph.grid_thumbnail_url || ph.thumbnail_url || ph.photo_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                  {coverForCat?.cover_url === ph.photo_url && (
+                    <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
+                      <Icon name="Check" size={18} className="text-white" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">Сначала добавьте фото в эту категорию.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

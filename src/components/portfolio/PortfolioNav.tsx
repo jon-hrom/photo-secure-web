@@ -8,7 +8,7 @@ interface Props {
   position: string;
   showReviews: boolean;
   showAbout: boolean;
-  onSelectCategory: (id: number | null) => void;
+  onOpenCategory: (categorySlug: string) => void;
   onScrollTo: (id: string) => void;
 }
 
@@ -18,45 +18,41 @@ const posClasses: Record<string, string> = {
   'top-center': 'justify-center gap-8',
 };
 
-const PortfolioNav = ({ logo, categories, position, showReviews, showAbout, onSelectCategory, onScrollTo }: Props) => {
+const PortfolioNav = ({ logo, categories, position, showReviews, showAbout, onOpenCategory, onScrollTo }: Props) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const links = (
     <>
-      <div className="relative">
-        <button
-          onClick={() => setMenuOpen((v) => !v)}
-          className="flex items-center gap-1 uppercase tracking-widest text-sm font-medium hover:text-white/70 transition"
-        >
-          Меню <Icon name="ChevronDown" size={14} className={`transition ${menuOpen ? 'rotate-180' : ''}`} />
-        </button>
-        {menuOpen && categories.length > 0 && (
-          <div className="absolute right-0 mt-3 min-w-[180px] bg-black/95 backdrop-blur border border-white/10 rounded-xl py-2 z-50">
-            <button
-              onClick={() => { onSelectCategory(null); setMenuOpen(false); setMobileOpen(false); }}
-              className="block w-full text-left px-4 py-2 text-sm hover:bg-white/10 transition"
-            >
-              Все работы
-            </button>
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => { onSelectCategory(c.id); setMenuOpen(false); setMobileOpen(false); }}
-                className="block w-full text-left px-4 py-2 text-sm hover:bg-white/10 transition"
-              >
-                {c.title}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {categories.length > 0 && (
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex items-center gap-1 uppercase tracking-widest text-sm font-medium hover:text-white/70 transition"
+          >
+            Меню <Icon name="ChevronDown" size={14} className={`transition ${menuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 mt-3 min-w-[200px] bg-black/95 backdrop-blur border border-white/10 rounded-xl py-2 z-50">
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => { onOpenCategory(c.slug); setMenuOpen(false); setMobileOpen(false); }}
+                  className="block w-full text-left px-4 py-2 text-sm hover:bg-white/10 transition"
+                >
+                  {c.title}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {showReviews && (
         <button onClick={() => { onScrollTo('reviews'); setMobileOpen(false); }} className="uppercase tracking-widest text-sm font-medium hover:text-white/70 transition">
           Отзывы
         </button>
       )}
-      <button onClick={() => { onSelectCategory(null); onScrollTo('stories'); setMobileOpen(false); }} className="uppercase tracking-widest text-sm font-medium hover:text-white/70 transition">
+      <button onClick={() => { onScrollTo('stories'); setMobileOpen(false); }} className="uppercase tracking-widest text-sm font-medium hover:text-white/70 transition">
         Истории
       </button>
       {showAbout && (
