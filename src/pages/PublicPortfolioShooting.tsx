@@ -15,7 +15,7 @@ const PublicPortfolioShooting = () => {
   const [sh, setSh] = useState<PortfolioShooting | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [showGrid, setShowGrid] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
 
   useEffect(() => {
     if (!slug) return;
