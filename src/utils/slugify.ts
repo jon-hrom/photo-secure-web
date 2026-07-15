@@ -18,23 +18,26 @@ export const slugify = (text: string): string => {
 };
 
 /**
- * Предлагает варианты slug из имени и фамилии.
- * Пример: name="Евгений Пономарёв" → ["ponomarev-evgeniy", "evgeniy-ponomarev", "ponomarev-pro", ...]
+ * Предлагает варианты slug на основе введённого текста (имя, фамилия или адрес).
+ * Пример: "Евгений Пономарёв" / "evgeniy-ponomarev" → ["ponomarev-evgeniy", "evgeniy-ponomarev", "evgeniy-ponomarev-pro", "evgeniy-ponomarev-photo"]
  */
-export const suggestSlugs = (fullName: string): string[] => {
-  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+export const suggestSlugs = (source: string): string[] => {
+  const base = slugify(source);
+  if (!base) return [];
+  const parts = base.split('-').filter(Boolean);
   const variants = new Set<string>();
   if (parts.length >= 2) {
-    const [first, last] = parts;
-    variants.add(slugify(`${last} ${first}`));
-    variants.add(slugify(`${first} ${last}`));
-    variants.add(slugify(`${last}-pro`));
-    variants.add(slugify(`${first}-photo`));
-    variants.add(slugify(`${last}_${first}`));
-  } else if (parts.length === 1) {
-    variants.add(slugify(parts[0]));
-    variants.add(slugify(`${parts[0]}-pro`));
-    variants.add(slugify(`${parts[0]}-photo`));
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    variants.add(`${last}-${first}`);
+    variants.add(base);
+    variants.add(`${base}-pro`);
+    variants.add(`${base}-photo`);
+  } else {
+    variants.add(base);
+    variants.add(`${base}-pro`);
+    variants.add(`${base}-photo`);
+    variants.add(`${base}-studio`);
   }
   return Array.from(variants).filter(Boolean);
 };

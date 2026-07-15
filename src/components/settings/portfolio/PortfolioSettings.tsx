@@ -68,9 +68,11 @@ const PortfolioSettings = ({ userId }: Props) => {
     setShowStories(p.show_stories_block !== false);
     setSlideshow(p.slideshow_enabled);
     setPublished(p.is_published);
-    const name = p.user_profile?.name || p.user_profile?.display_name || '';
-    setSuggestions(suggestSlugs(name));
   }, []);
+
+  useEffect(() => {
+    setSuggestions(suggestSlugs(slug));
+  }, [slug]);
 
   useEffect(() => {
     getMyPortfolio(userId)
@@ -182,7 +184,6 @@ const PortfolioSettings = ({ userId }: Props) => {
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
             onBlur={() => setSlug(slugify(slug))}
-            placeholder="ponomarev-evgeniy"
             className="pr-9"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -212,15 +213,15 @@ const PortfolioSettings = ({ userId }: Props) => {
       <div className="grid gap-3">
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Заголовок портфолио</label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Евгений Пономарёв — фотограф" />
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Подзаголовок</label>
-          <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="Свадебная и семейная съёмка" />
+          <Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Текст логотипа (в углу меню)</label>
-          <Input value={logoText} onChange={(e) => setLogoText(e.target.value)} placeholder="EVGENIY PONOMAREV" />
+          <Input value={logoText} onChange={(e) => setLogoText(e.target.value)} />
         </div>
       </div>
 
