@@ -22,11 +22,17 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
   ({ items, className, radius = 600, autoRotateSpeed = 0.02, ...props }, ref) => {
     const [rotation, setRotation] = useState(0);
     const [isScrolling, setIsScrolling] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animationFrameRef = useRef<number | null>(null);
+    const dragStartX = useRef(0);
+    const dragStartRotation = useRef(0);
+    const draggingRef = useRef(false);
+    const movedRef = useRef(false);
 
     useEffect(() => {
       const handleScroll = () => {
+        if (draggingRef.current) return;
         setIsScrolling(true);
         if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
 
@@ -46,14 +52,34 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
 
     useEffect(() => {
       const autoRotate = () => {
-        if (!isScrolling) setRotation((prev) => prev + autoRotateSpeed);
+        if (!isScrolling && !isDragging) setRotation((prev) => prev + autoRotateSpeed);
         animationFrameRef.current = requestAnimationFrame(autoRotate);
       };
       animationFrameRef.current = requestAnimationFrame(autoRotate);
       return () => {
         if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       };
-    }, [isScrolling, autoRotateSpeed]);
+    }, [isScrolling, isDragging, autoRotateSpeed]);
+
+    const dragStart = (clientX: number) => {
+      draggingRef.current = true;
+      movedRef.current = false;
+      setIsDragging(true);
+      dragStartX.current = clientX;
+      dragStartRotation.current = rotation;
+    };
+
+    const dragMove = (clientX: number) => {
+      if (!draggingRef.current) return;
+      const delta = clientX - dragStartX.current;
+      if (Math.abs(delta) > 6) movedRef.current = true;
+      setRotation(dragStartRotation.current + delta * 0.4);
+    };
+
+    const dragEnd = () => {
+      draggingRef.current = false;
+      setIsDragging(false);
+    };
 
     const anglePerItem = items.length > 0 ? 360 / items.length : 0;
 
@@ -62,8 +88,24 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
         ref={ref}
         role="region"
         aria-label="Круговая 3D-галерея"
-        className={cn('relative w-full h-full flex items-center justify-center', className)}
+        className={cn(
+          'relative w-full h-full flex items-center justify-center touch-pan-y select-none',
+          isDragging ? 'cursor-grabbing' : 'cursor-grab',
+          className
+        )}
         style={{ perspective: '2000px' }}
+        onTouchStart={(e) => dragStart(e.touches[0].clientX)}
+        onTouchMove={(e) => dragMove(e.touches[0].clientX)}
+        onTouchEnd={dragEnd}
+        onTouchCancel={dragEnd}
+        onPointerDown={(e) => {
+          if (e.pointerType === 'mouse') dragStart(e.clientX);
+        }}
+        onPointerMove={(e) => {
+          if (e.pointerType === 'mouse') dragMove(e.clientX);
+        }}
+        onPointerUp={dragEnd}
+        onPointerLeave={dragEnd}
         {...props}
       >
         <div
@@ -81,7 +123,10 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
               <button
                 key={`${item.title}-${i}`}
                 type="button"
-                onClick={item.onClick}
+                onClick={() => {
+                  if (movedRef.current) return;
+                  item.onClick?.();
+                }}
                 aria-label={item.title}
                 className="absolute w-[240px] h-[320px] sm:w-[300px] sm:h-[400px] cursor-pointer"
                 style={{
