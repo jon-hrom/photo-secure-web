@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -35,10 +35,15 @@ const YandexCallback = () => {
     phone?: string;
   } | null>(null);
 
+  const startedRef = useRef(false);
+
   useEffect(() => {
     const processCallback = async () => {
       const code = searchParams.get('code');
       const state = searchParams.get('state');
+
+      if (startedRef.current) return;
+      startedRef.current = true;
 
       console.log('YandexCallback: code=', code, 'state=', state);
 

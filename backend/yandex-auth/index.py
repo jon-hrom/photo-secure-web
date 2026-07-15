@@ -458,6 +458,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         except urllib.error.HTTPError as http_err:
             error_body = http_err.read().decode() if http_err.fp else 'No error body'
             print(f"[YANDEX_AUTH] Token exchange failed: {http_err.code} - {error_body}")
+            if 'invalid_grant' in error_body or 'expired' in error_body:
+                return {
+                    'statusCode': 409,
+                    'headers': cors_headers,
+                    'body': json.dumps({
+                        'success': False,
+                        'error': 'code_expired',
+                        'message': 'Код авторизации устарел. Попробуйте войти через Яндекс ещё раз.'
+                    }),
+                    'isBase64Encoded': False
+                }
             raise Exception(f'Yandex token error: {error_body}')
 
         access_token = token_response.get('access_token')
