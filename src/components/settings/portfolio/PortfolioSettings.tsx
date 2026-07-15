@@ -142,20 +142,35 @@ const PortfolioSettings = ({ userId }: Props) => {
           {published ? 'Портфолио доступно всем по ссылке.' : 'Портфолио скрыто. Включите, чтобы поделиться.'}
         </p>
         {(slugify(slug) || portfolio?.slug) && (
-          <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
-            <Icon name="Link" size={15} className="text-muted-foreground shrink-0" />
-            <span className="text-sm truncate flex-1">{publicUrl}</span>
-            <button
-              onClick={() => { navigator.clipboard.writeText(publicUrl); toast({ title: 'Скопировано' }); }}
-              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-              title="Скопировать"
+          <>
+            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2">
+              <Icon name="Link" size={15} className="text-muted-foreground shrink-0" />
+              <span className="text-sm truncate flex-1">{publicUrl}</span>
+              <button
+                onClick={() => { navigator.clipboard.writeText(publicUrl); toast({ title: 'Скопировано' }); }}
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                title="Скопировать"
+              >
+                <Icon name="Copy" size={15} />
+              </button>
+              <a href={publicUrl} target="_blank" rel="noreferrer" className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Открыть">
+                <Icon name="ExternalLink" size={15} />
+              </a>
+            </div>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => window.open(publicUrl, '_blank', 'noreferrer')}
             >
-              <Icon name="Copy" size={15} />
-            </button>
-            <a href={publicUrl} target="_blank" rel="noreferrer" className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" title="Открыть">
-              <Icon name="ExternalLink" size={15} />
-            </a>
-          </div>
+              <Icon name="ExternalLink" size={16} />
+              Открыть мою публичную страницу
+            </Button>
+            {!published && (
+              <p className="text-xs text-amber-600 dark:text-amber-500">
+                Портфолио скрыто — по ссылке его увидите только вы. Включите публикацию, чтобы показать гостям.
+              </p>
+            )}
+          </>
         )}
       </div>
 
