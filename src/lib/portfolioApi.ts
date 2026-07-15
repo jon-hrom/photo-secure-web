@@ -51,6 +51,7 @@ export interface Portfolio {
   telegram: string;
   vk: string;
   whatsapp: string;
+  max: string;
   avatar_url: string;
   cover_url: string;
   accent_color: string;

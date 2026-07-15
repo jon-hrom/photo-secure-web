@@ -12,6 +12,7 @@ const PublicPortfolio = () => {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -61,10 +62,12 @@ const PublicPortfolio = () => {
 
   const VK_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/3e613774-ed33-417a-ae31-2e460d1cb87a.png';
   const WHATSAPP_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/2a7b978b-00f4-4734-b637-301232a616fd.png';
+  const MAX_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/7d22be20-1466-4cbd-b385-e376011cb6f5.jpg';
 
   const contacts = [
     portfolio.vk && { icon: 'Share2', img: VK_ICON, label: 'ВКонтакте', href: portfolio.vk },
     portfolio.whatsapp && { icon: 'MessageCircle', img: WHATSAPP_ICON, label: 'WhatsApp', href: `https://wa.me/${portfolio.whatsapp.replace(/\D/g, '')}` },
+    portfolio.max && { icon: 'MessageCircle', img: MAX_ICON, label: 'MAX', href: portfolio.max.startsWith('http') ? portfolio.max : `https://max.ru/${portfolio.max.replace('@', '')}` },
     portfolio.telegram && { icon: 'Send', label: 'Telegram', href: portfolio.telegram.startsWith('http') ? portfolio.telegram : `https://t.me/${portfolio.telegram.replace('@', '')}` },
     portfolio.instagram && { icon: 'Instagram', label: 'Instagram', href: portfolio.instagram },
     portfolio.phone && { icon: 'Phone', label: portfolio.phone, href: `tel:${portfolio.phone}` },
@@ -147,25 +150,31 @@ const PublicPortfolio = () => {
         {portfolio.title}
       </footer>
 
-      {/* Плавающие соц-иконки */}
+      {/* Плавающие соц-иконки — выезжают паровозиком */}
       {contacts.length > 0 && (
-        <div className="fixed bottom-5 right-5 z-30 flex flex-col gap-2">
-          {contacts.slice(0, 2).map((c) =>
-            c.img ? (
-              <a key={c.icon} href={c.href} target="_blank" rel="noreferrer"
-                className="w-11 h-11 rounded-full shadow-lg hover:opacity-90 overflow-hidden transition"
-                title={c.label}>
-                <img src={c.img} alt={c.label} className="w-full h-full object-cover" />
-              </a>
-            ) : (
-              <a key={c.icon} href={c.href} target="_blank" rel="noreferrer"
-                className="w-11 h-11 rounded-full text-white shadow-lg hover:opacity-90 backdrop-blur flex items-center justify-center transition"
-                style={{ background: accent }}
-                title={c.label}>
-                <Icon name={c.icon} size={18} className="text-white" />
-              </a>
-            )
-          )}
+        <div className="fixed bottom-5 right-5 z-30 flex flex-col items-center gap-2">
+          {contacts.map((c, i) => (
+            <a key={c.label} href={c.href} target="_blank" rel="noreferrer"
+              title={c.label}
+              className={`w-11 h-11 rounded-full shadow-lg overflow-hidden flex items-center justify-center transition-all duration-300 ${
+                fabOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-6 pointer-events-none'
+              }`}
+              style={{
+                transitionDelay: `${fabOpen ? (contacts.length - 1 - i) * 60 : i * 40}ms`,
+                background: c.img ? undefined : accent,
+              }}>
+              {c.img
+                ? <img src={c.img} alt={c.label} className="w-full h-full object-cover" />
+                : <Icon name={c.icon} size={18} className="text-white" />}
+            </a>
+          ))}
+          <button
+            onClick={() => setFabOpen((v) => !v)}
+            aria-label={fabOpen ? 'Закрыть' : 'Контакты'}
+            className="w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center transition-transform hover:scale-105"
+            style={{ background: accent }}>
+            <Icon name={fabOpen ? 'X' : 'MessageSquare'} size={22} className="text-white transition-transform" />
+          </button>
         </div>
       )}
     </div>

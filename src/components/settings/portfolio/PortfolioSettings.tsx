@@ -38,6 +38,7 @@ const PortfolioSettings = ({ userId }: Props) => {
   const [telegram, setTelegram] = useState('');
   const [vk, setVk] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [max, setMax] = useState('');
   const [accent, setAccent] = useState('#7c3aed');
   const [menuPosition, setMenuPosition] = useState('top-right');
   const [logoText, setLogoText] = useState('');
@@ -60,6 +61,7 @@ const PortfolioSettings = ({ userId }: Props) => {
     setTelegram(p.telegram || '');
     setVk(p.vk || '');
     setWhatsapp(p.whatsapp || '');
+    setMax(p.max || '');
     setAccent(p.accent_color || '#7c3aed');
     setMenuPosition(p.menu_position || 'top-right');
     setLogoText(p.logo_text || '');
@@ -102,7 +104,7 @@ const PortfolioSettings = ({ userId }: Props) => {
     setSaving(true);
     const r = await savePortfolio(userId, {
       title, subtitle, slug: slugify(slug), about, phone,
-      instagram, telegram, vk, whatsapp, accent_color: accent,
+      instagram, telegram, vk, whatsapp, max, accent_color: accent,
       menu_position: menuPosition, logo_text: logoText,
       show_reviews: showReviews, show_about: showAbout,
       show_stories_block: showStories,
@@ -314,6 +316,7 @@ const PortfolioSettings = ({ userId }: Props) => {
               <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="Instagram (ссылка)" />
               <Input value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder="Telegram (@ник или ссылка)" />
               <Input value={vk} onChange={(e) => setVk(e.target.value)} placeholder="ВКонтакте (ссылка)" />
+              <Input value={max} onChange={(e) => setMax(e.target.value)} placeholder="MAX (ссылка или номер)" />
             </div>
           </div>
         )}
