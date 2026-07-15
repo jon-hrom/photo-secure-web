@@ -6,7 +6,7 @@ interface Props {
   logo: string;
   categories: PortfolioCategory[];
   position: string;
-  showReviews: boolean;
+  showReviews?: boolean;
   showAbout: boolean;
   onOpenCategory: (categorySlug: string) => void;
   onScrollTo: (id: string) => void;
@@ -18,7 +18,7 @@ const posClasses: Record<string, string> = {
   'top-center': 'justify-center gap-8',
 };
 
-const PortfolioNav = ({ logo, categories, position, showReviews, showAbout, onOpenCategory, onScrollTo }: Props) => {
+const PortfolioNav = ({ logo, categories, position, showAbout, onOpenCategory, onScrollTo }: Props) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -47,13 +47,8 @@ const PortfolioNav = ({ logo, categories, position, showReviews, showAbout, onOp
           )}
         </div>
       )}
-      {showReviews && (
-        <button onClick={() => { onScrollTo('reviews'); setMobileOpen(false); }} className="uppercase tracking-widest text-sm font-medium hover:text-white/70 transition">
-          Отзывы
-        </button>
-      )}
-      <button onClick={() => { onScrollTo('stories'); setMobileOpen(false); }} className="uppercase tracking-widest text-sm font-medium hover:text-white/70 transition">
-        Истории
+      <button onClick={() => { onScrollTo('reviews'); setMobileOpen(false); }} className="uppercase tracking-widest text-sm font-medium hover:text-white/70 transition">
+        Отзывы
       </button>
       {showAbout && (
         <button onClick={() => { onScrollTo('contacts'); setMobileOpen(false); }} className="uppercase tracking-widest text-sm font-medium hover:text-white/70 transition">

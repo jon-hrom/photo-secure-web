@@ -38,6 +38,8 @@ import PublicGallery from "./pages/PublicGallery";
 import PublicPortfolio from "./pages/PublicPortfolio";
 import PublicPortfolioCategory from "./pages/PublicPortfolioCategory";
 import PublicPortfolioShooting from "./pages/PublicPortfolioShooting";
+import PublicPortfolioReviews from "./pages/PublicPortfolioReviews";
+import PublicPortfolioContacts from "./pages/PublicPortfolioContacts";
 import { RetouchProvider } from "./contexts/RetouchContext";
 import FloatingRetouchBar from "./components/photobank/FloatingRetouchBar";
 import IncomingTransfersWatcher from "./components/clients/transfer/IncomingTransfersWatcher";
@@ -236,6 +238,8 @@ const App = () => {
           <Route path="/s/:code" element={<ShortLink />} />
           <Route path="/g/:code" element={<PublicGallery />} />
           <Route path="/p/:slug" element={<PublicPortfolio />} />
+          <Route path="/p/:slug/otzyvy" element={<PublicPortfolioReviews />} />
+          <Route path="/p/:slug/kontakty" element={<PublicPortfolioContacts />} />
           <Route path="/p/:slug/:category" element={<PublicPortfolioCategory />} />
           <Route path="/p/:slug/:category/:shooting" element={<PublicPortfolioShooting />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

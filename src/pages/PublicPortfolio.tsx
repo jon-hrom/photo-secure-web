@@ -4,7 +4,6 @@ import Icon from '@/components/ui/icon';
 import { Portfolio, getPublicPortfolio } from '@/lib/portfolioApi';
 import PortfolioNav from '@/components/portfolio/PortfolioNav';
 import PortfolioHero from '@/components/portfolio/PortfolioHero';
-import PortfolioStories from '@/components/portfolio/PortfolioStories';
 
 const PublicPortfolio = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -33,8 +32,10 @@ const PublicPortfolio = () => {
 
   const scrollTo = useCallback((id: string) => {
     if (id === 'top') { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    if (id === 'reviews') { navigate(`/p/${slug}/otzyvy`); return; }
+    if (id === 'contacts') { navigate(`/p/${slug}/kontakty`); return; }
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  }, [navigate, slug]);
 
   if (loading) {
     return (
@@ -92,63 +93,6 @@ const PublicPortfolio = () => {
         subtitle={portfolio.subtitle}
         autoplay={portfolio.slideshow_enabled}
       />
-
-      {portfolio.show_stories_block !== false && (
-        <PortfolioStories
-          categories={portfolio.categories}
-          photos={photos}
-          accent={accent}
-          onOpenCategory={openCategory}
-        />
-      )}
-
-      {/* Отзывы */}
-      {portfolio.show_reviews && portfolio.reviews.length > 0 && (
-        <section id="reviews" className="border-t border-gray-200 py-16 sm:py-24 px-6">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl sm:text-4xl font-light tracking-[0.2em] uppercase text-center mb-12">Отзывы</h2>
-            <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 [column-fill:_balance]">
-              {portfolio.reviews.map((r) => (
-                <div key={r.id} className="mb-5 break-inside-avoid rounded-2xl bg-gray-50 border border-gray-200 p-6 text-center">
-                  <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center font-semibold text-lg mb-3 text-white" style={{ background: accent }}>
-                    {r.author_name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="font-medium text-lg">{r.author_name}</div>
-                  <div className="text-amber-500 text-sm my-2">{'★'.repeat(r.rating)}<span className="text-gray-300">{'★'.repeat(5 - r.rating)}</span></div>
-                  <p className="text-gray-600 text-sm leading-relaxed">{r.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Обо мне и контакты */}
-      {portfolio.show_about && (portfolio.about || contacts.length > 0) && (
-        <section id="contacts" className="border-t border-gray-200 py-16 sm:py-24 px-6">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl sm:text-4xl font-light tracking-[0.2em] uppercase mb-8">Контакты</h2>
-            {portfolio.avatar_url && (
-              <img src={portfolio.avatar_url} alt="" className="w-28 h-28 rounded-full object-cover mx-auto mb-6 border-2" style={{ borderColor: accent }} />
-            )}
-            {portfolio.about && <p className="text-gray-600 leading-relaxed whitespace-pre-line mb-8">{portfolio.about}</p>}
-            {contacts.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-3">
-                {contacts.map((c) => (
-                  <a key={c.label} href={c.href} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-100 hover:bg-gray-200 transition text-sm">
-                    <Icon name={c.icon} size={16} style={{ color: accent }} /> {c.label}
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      <footer className="text-center text-gray-400 text-xs py-8 border-t border-gray-200 tracking-widest uppercase">
-        {portfolio.title}
-      </footer>
 
       {/* Плавающие соц-иконки — выезжают паровозиком */}
       {contacts.length > 0 && (
