@@ -57,15 +57,20 @@ def slugify(text: str) -> str:
 
 S3_BUCKET = 'foto-mix'
 S3_ENDPOINT = 'https://storage.yandexcloud.net'
+PRESIGN_TTL = 604800  # 7 суток
 
 
-def upload_to_s3(base64_data: str, ext: str = 'jpg', user_id: Any = None) -> str:
-    s3 = boto3.client(
+def s3_client():
+    return boto3.client(
         's3',
         endpoint_url=S3_ENDPOINT,
         aws_access_key_id=os.environ['YC_S3_KEY_ID'],
         aws_secret_access_key=os.environ['YC_S3_SECRET'],
     )
+
+
+def upload_to_s3(base64_data: str, ext: str = 'jpg', user_id: Any = None):
+    """Грузит фото в приватный бакет foto-mix. Возвращает (presigned_url, s3_key)."""
     if ',' in base64_data:
         base64_data = base64_data.split(',', 1)[1]
     data = base64.b64decode(base64_data)
@@ -73,8 +78,17 @@ def upload_to_s3(base64_data: str, ext: str = 'jpg', user_id: Any = None) -> str
     folder = f"portfolio/{user_id}" if user_id is not None else "portfolio"
     key = f"{folder}/{uuid.uuid4().hex}.{ext}"
     content_type = 'image/png' if ext == 'png' else 'image/jpeg'
+    s3 = s3_client()
     s3.put_object(Bucket=S3_BUCKET, Key=key, Body=data, ContentType=content_type)
-    return f"{S3_ENDPOINT}/{S3_BUCKET}/{key}"
+    return presign(key, s3), key
+
+
+def presign(key: str, s3=None) -> str:
+    """Подписанная ссылка на приватный объект foto-mix."""
+    if not key:
+        return ''
+    s3 = s3 or s3_client()
+    return s3.generate_presigned_url('get_object', Params={'Bucket': S3_BUCKET, 'Key': key}, ExpiresIn=PRESIGN_TTL)
 
 
 def get_or_create_portfolio(cur, user_id: int) -> Dict[str, Any]:
@@ -110,7 +124,27 @@ def load_full(cur, portfolio_id: int) -> Dict[str, Any]:
     p['photos'] = [dict(r) for r in cur.fetchall()]
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_reviews WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
     p['reviews'] = [dict(r) for r in cur.fetchall()]
+    _sign_photos(p)
     return p
+
+
+def _sign_photos(p: Dict[str, Any]) -> None:
+    """Для фото, лежащих в приватном foto-mix (есть s3_key), выдаём свежие presigned-ссылки."""
+    s3 = None
+    for ph in p.get('photos', []):
+        key = ph.get('s3_key')
+        if key:
+            s3 = s3 or s3_client()
+            url = presign(key, s3)
+            ph['photo_url'] = url
+            ph['thumbnail_url'] = url
+            ph['grid_thumbnail_url'] = url
+    if p.get('avatar_s3_key'):
+        s3 = s3 or s3_client()
+        p['avatar_url'] = presign(p['avatar_s3_key'], s3)
+    if p.get('cover_s3_key'):
+        s3 = s3 or s3_client()
+        p['cover_url'] = presign(p['cover_s3_key'], s3)
 
 
 def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
@@ -201,11 +235,13 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                             return resp(409, {'error': 'slug_taken'})
                         sets.append(f"slug = {esc(new_slug)}")
                 if 'avatar_base64' in body and body['avatar_base64']:
-                    url = upload_to_s3(body['avatar_base64'], body.get('avatar_ext', 'jpg'), user_id)
+                    url, key = upload_to_s3(body['avatar_base64'], body.get('avatar_ext', 'jpg'), user_id)
                     sets.append(f"avatar_url = {esc(url)}")
+                    sets.append(f"avatar_s3_key = {esc(key)}")
                 if 'cover_base64' in body and body['cover_base64']:
-                    url = upload_to_s3(body['cover_base64'], body.get('cover_ext', 'jpg'), user_id)
+                    url, key = upload_to_s3(body['cover_base64'], body.get('cover_ext', 'jpg'), user_id)
                     sets.append(f"cover_url = {esc(url)}")
+                    sets.append(f"cover_s3_key = {esc(key)}")
                 if sets:
                     sets.append("updated_at = NOW()")
                     cur.execute(f"UPDATE {SCHEMA}.portfolios SET {', '.join(sets)} WHERE id = {esc(pid)}")
@@ -297,15 +333,15 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 return resp(200, {'portfolio': load_full(cur, pid)})
 
             if act == 'upload_photo':
-                # с устройства: base64
-                url = upload_to_s3(body['image_base64'], body.get('ext', 'jpg'), user_id)
+                # с устройства: base64 → приватный foto-mix, в БД храним s3_key
+                url, key = upload_to_s3(body['image_base64'], body.get('ext', 'jpg'), user_id)
                 cat_id = body.get('category_id')
                 cat_sql = esc(int(cat_id)) if cat_id else 'NULL'
                 sh_id = body.get('shooting_id')
                 sh_sql = esc(int(sh_id)) if sh_id else 'NULL'
                 cur.execute(f"""
-                    INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, shooting_id, photo_url, thumbnail_url, grid_thumbnail_url, source, sort_order)
-                    VALUES ({esc(pid)}, {cat_sql}, {sh_sql}, {esc(url)}, {esc(url)}, {esc(url)}, 'device',
+                    INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, shooting_id, photo_url, thumbnail_url, grid_thumbnail_url, s3_key, source, sort_order)
+                    VALUES ({esc(pid)}, {cat_sql}, {sh_sql}, {esc(url)}, {esc(url)}, {esc(url)}, {esc(key)}, 'device',
                         COALESCE((SELECT MAX(sort_order)+1 FROM {SCHEMA}.portfolio_photos WHERE portfolio_id = {esc(pid)}), 0))
                     RETURNING id
                 """)
