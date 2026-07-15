@@ -117,11 +117,8 @@ const PublicPortfolioShooting = () => {
         <>
           {/* Плавающая панель управления */}
           <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between pointer-events-none">
-            <button onClick={() => setShowGrid(false)} className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur transition text-sm">
-              <Icon name="ArrowLeft" size={16} className="text-white" /> <span className="hidden sm:inline">Обложка</span>
-            </button>
-            <button onClick={backToCatalog} className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur transition text-sm" title="К съёмкам">
-              <Icon name="LayoutGrid" size={16} className="text-white" /> <span className="hidden sm:inline">К съёмкам</span>
+            <button onClick={backToCatalog} className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur transition text-sm">
+              <Icon name="ArrowLeft" size={16} className="text-white" /> <span className="hidden sm:inline">К съёмкам</span>
             </button>
           </div>
 
