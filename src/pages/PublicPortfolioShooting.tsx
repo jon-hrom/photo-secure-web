@@ -142,10 +142,10 @@ const PublicPortfolioShooting = () => {
           <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between pointer-events-none">
             <button
               onClick={backToCatalog}
-              className={`pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur transition text-sm ${
+              className={`pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur transition text-sm border ${
                 onDark
-                  ? 'bg-black/40 hover:bg-black/60 text-white'
-                  : 'bg-white/70 hover:bg-white/90 text-gray-900 shadow-sm'
+                  ? 'bg-black/40 hover:bg-black/60 text-white border-white/80'
+                  : 'bg-white/70 hover:bg-white/90 text-gray-900 border-black/80 shadow-sm'
               }`}
             >
               <Icon name="ArrowLeft" size={16} className={onDark ? 'text-white' : 'text-gray-900'} /> <span className="hidden sm:inline">К съёмкам</span>
