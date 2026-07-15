@@ -55,12 +55,16 @@ def slugify(text: str) -> str:
     return out[:100]
 
 
+S3_BUCKET = 'foto-mix'
+S3_ENDPOINT = 'https://storage.yandexcloud.net'
+
+
 def upload_to_s3(base64_data: str, ext: str = 'jpg', user_id: Any = None) -> str:
     s3 = boto3.client(
         's3',
-        endpoint_url='https://bucket.poehali.dev',
-        aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-        aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+        endpoint_url=S3_ENDPOINT,
+        aws_access_key_id=os.environ['YC_S3_KEY_ID'],
+        aws_secret_access_key=os.environ['YC_S3_SECRET'],
     )
     if ',' in base64_data:
         base64_data = base64_data.split(',', 1)[1]
@@ -69,8 +73,8 @@ def upload_to_s3(base64_data: str, ext: str = 'jpg', user_id: Any = None) -> str
     folder = f"portfolio/{user_id}" if user_id is not None else "portfolio"
     key = f"{folder}/{uuid.uuid4().hex}.{ext}"
     content_type = 'image/png' if ext == 'png' else 'image/jpeg'
-    s3.put_object(Bucket='files', Key=key, Body=data, ContentType=content_type)
-    return f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+    s3.put_object(Bucket=S3_BUCKET, Key=key, Body=data, ContentType=content_type)
+    return f"{S3_ENDPOINT}/{S3_BUCKET}/{key}"
 
 
 def get_or_create_portfolio(cur, user_id: int) -> Dict[str, Any]:
