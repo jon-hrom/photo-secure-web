@@ -33,6 +33,17 @@ const Settings = () => {
   const [vkUser, setVkUser] = useState<any>(null);
   const [emailUser, setEmailUser] = useState<any>(null);
   const [finalIsAdmin, setFinalIsAdmin] = useState(false);
+  const [openSections, setOpenSections] = useState<string[]>([]);
+
+  useEffect(() => {
+    const section = new URLSearchParams(window.location.search).get('section');
+    if (section) {
+      setOpenSections((prev) => (prev.includes(section) ? prev : [...prev, section]));
+      setTimeout(() => {
+        document.querySelector(`[data-section="${section}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 300);
+    }
+  }, []);
 
   const {
     settings,
@@ -207,7 +218,7 @@ const Settings = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Настройки</h1>
           </div>
           
-          <Accordion type="multiple" className="space-y-3 will-change-transform">
+          <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="space-y-3 will-change-transform">
             <AccordionItem value="profile" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
               <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
                 <div className="flex items-center gap-3">
@@ -281,7 +292,7 @@ const Settings = () => {
             </AccordionItem>
 
             {settings && PORTFOLIO_ALLOWED_EMAILS.includes((settings.email || '').toLowerCase()) && (
-              <AccordionItem value="portfolio" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+              <AccordionItem value="portfolio" data-section="portfolio" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
                 <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
                   <div className="flex items-center gap-3">
                     <Icon name="Camera" size={20} className="text-primary" />

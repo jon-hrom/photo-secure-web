@@ -16,6 +16,8 @@ import { toast } from 'sonner';
 
 const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
 
+const PORTFOLIO_ALLOWED_EMAILS = ['jonhrom2012@gmail.com'];
+
 interface AppNavigationProps {
   currentPage: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs' | 'help';
   setCurrentPage: (page: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs' | 'help') => void;
@@ -171,6 +173,12 @@ const AppNavigation = ({
                   <Icon name="Settings" size={18} className="mr-2" />
                   Настройки
                 </DropdownMenuItem>
+                {PORTFOLIO_ALLOWED_EMAILS.includes((userEmail || '').toLowerCase()) && (
+                  <DropdownMenuItem onClick={() => navigate('/settings?section=portfolio')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
+                    <Icon name="Camera" size={18} className="mr-2" />
+                    Портфолио
+                  </DropdownMenuItem>
+                )}
                 {onOpenChat && (
                   <DropdownMenuItem onClick={onOpenChat} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
                     <div className="relative mr-2">
