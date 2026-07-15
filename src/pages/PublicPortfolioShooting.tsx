@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Lenis from '@studio-freight/lenis';
 import Icon from '@/components/ui/icon';
@@ -16,6 +16,8 @@ const PublicPortfolioShooting = () => {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [onDark, setOnDark] = useState(true);
+  const darkRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -32,6 +34,27 @@ const PublicPortfolioShooting = () => {
       })
       .finally(() => setLoading(false));
   }, [slug, category, shooting]);
+
+  // Адаптивный цвет кнопки: тёмная над светлой галереей, светлая над тёмной секцией
+  useEffect(() => {
+    if (!showGrid) return;
+    const BTN_Y = 40; // вертикальная позиция кнопки от верха
+    const update = () => {
+      const el = darkRef.current;
+      if (!el) { setOnDark(false); return; }
+      const rect = el.getBoundingClientRect();
+      setOnDark(rect.bottom > BTN_Y);
+    };
+    update();
+    const t = setTimeout(update, 100);
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [showGrid, loading]);
 
   // Плавный скролл для эффекта параллакса (только при открытой съёмке)
   useEffect(() => {
@@ -117,13 +140,20 @@ const PublicPortfolioShooting = () => {
         <>
           {/* Плавающая панель управления */}
           <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between pointer-events-none">
-            <button onClick={backToCatalog} className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur transition text-sm">
-              <Icon name="ArrowLeft" size={16} className="text-white" /> <span className="hidden sm:inline">К съёмкам</span>
+            <button
+              onClick={backToCatalog}
+              className={`pointer-events-auto inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur transition text-sm ${
+                onDark
+                  ? 'bg-black/40 hover:bg-black/60 text-white'
+                  : 'bg-white/70 hover:bg-white/90 text-gray-900 shadow-sm'
+              }`}
+            >
+              <Icon name="ArrowLeft" size={16} className={onDark ? 'text-white' : 'text-gray-900'} /> <span className="hidden sm:inline">К съёмкам</span>
             </button>
           </div>
 
           {showParallax && (
-            <div className="bg-black text-white">
+            <div ref={darkRef} className="bg-black text-white">
               <div className="relative flex h-[60vh] items-center justify-center text-center px-6">
                 <div>
                   <h1 className="text-4xl sm:text-6xl font-light tracking-[0.15em] uppercase">{sh.title}</h1>
