@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { getThumbUrl } from '@/utils/imageThumb';
 import { Portfolio, PortfolioCategory, getPublicPortfolio } from '@/lib/portfolioApi';
+import { CircularGallery, GalleryItem } from '@/components/ui/circular-gallery';
 
 const PublicPortfolioCategory = () => {
   const { slug, category } = useParams<{ slug: string; category: string }>();
@@ -58,55 +59,45 @@ const PublicPortfolioCategory = () => {
 
   const visibleShootings = shootings.filter((s) => countFor(s.id) > 0);
 
-  return (
-    <div className="min-h-screen bg-white text-gray-900" style={{ ['--accent' as string]: accent }}>
-      {/* Шапка */}
-      <div className="sticky top-0 z-20 flex items-center justify-between px-5 sm:px-8 py-4 bg-white/90 backdrop-blur border-b border-gray-200">
-        <button onClick={() => navigate(`/p/${slug}`)} className="inline-flex items-center gap-2 text-sm hover:text-gray-500 transition">
-          <Icon name="ArrowLeft" size={18} /> В портфолио
-        </button>
-        <h1 className="text-lg sm:text-2xl font-light tracking-widest uppercase truncate">{cat.title}</h1>
-        <div className="w-24 hidden sm:block" />
+  const galleryItems: GalleryItem[] = visibleShootings.map((s) => ({
+    title: s.title,
+    subtitle: `${countFor(s.id)} фото`,
+    imageUrl: coverFor(s.id, s.cover_url),
+    onClick: () => navigate(`/p/${slug}/${category}/${s.slug}`),
+  }));
+
+  const header = (
+    <div className="sticky top-0 z-20 flex items-center justify-between px-5 sm:px-8 py-4 bg-white/90 backdrop-blur border-b border-gray-200">
+      <button onClick={() => navigate(`/p/${slug}`)} className="inline-flex items-center gap-2 text-sm hover:text-gray-500 transition">
+        <Icon name="ArrowLeft" size={18} /> В портфолио
+      </button>
+      <h1 className="text-lg sm:text-2xl font-light tracking-widest uppercase truncate">{cat.title}</h1>
+      <div className="w-24 hidden sm:block" />
+    </div>
+  );
+
+  if (galleryItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-white text-gray-900" style={{ ['--accent' as string]: accent }}>
+        {header}
+        <p className="text-center text-gray-500 py-20">В этой категории пока нет съёмок</p>
       </div>
+    );
+  }
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-10 sm:py-16">
-        <p className="text-center text-gray-500 mb-10 tracking-wider">
-          {visibleShootings.length > 0 ? 'Выберите съёмку' : ''}
-        </p>
-
-        {visibleShootings.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
-            {visibleShootings.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => navigate(`/p/${slug}/${category}/${s.slug}`)}
-                className="group text-center"
-              >
-                <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
-                  {coverFor(s.id, s.cover_url) ? (
-                    <img
-                      src={coverFor(s.id, s.cover_url)}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-gray-100" />
-                  )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition flex items-center justify-center">
-                    <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-widest opacity-0 group-hover:opacity-100 transition" style={{ color: '#fff' }}>
-                      Смотреть <Icon name="ArrowRight" size={14} />
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-4 text-lg sm:text-xl font-medium tracking-widest uppercase">{s.title}</div>
-                <div className="text-sm text-gray-500 mt-1">{countFor(s.id)} фото</div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="text-center text-gray-500 py-20">В этой категории пока нет съёмок</p>
-        )}
+  return (
+    <div className="bg-white text-gray-900" style={{ ['--accent' as string]: accent, height: '300vh' }}>
+      <div className="w-full h-screen sticky top-0 flex flex-col overflow-hidden">
+        {header}
+        <div className="text-center mt-6 z-10">
+          <p className="text-gray-500 tracking-wider">Листайте вниз, чтобы вращать галерею</p>
+        </div>
+        <div className="flex-1 w-full">
+          <CircularGallery
+            items={galleryItems}
+            radius={galleryItems.length <= 3 ? 420 : 600}
+          />
+        </div>
       </div>
     </div>
   );
