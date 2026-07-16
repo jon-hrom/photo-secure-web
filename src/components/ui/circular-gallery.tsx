@@ -30,10 +30,15 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
       return () => window.removeEventListener('resize', check);
     }, []);
 
-    // На мобильных: карточки уже (не уходят за экран), но радиус держим больше,
-    // чтобы между соседними карточками был заметный промежуток и они не сливались.
-    const mobileRadius = Math.max(340, Math.min(items.length * 110, 480));
-    const effectiveRadius = isMobile ? mobileRadius : radius;
+    // Радиус считаем из числа карточек и их ширины: расстояние между центрами соседних
+    // карточек = 2*R*sin(π/N). Чтобы они не налезали, это расстояние должно быть больше
+    // ширины карточки + зазор. Значит круг автоматически расширяется, когда карточек больше.
+    const n = Math.max(items.length, 1);
+    const cardWidth = isMobile ? 160 : 300;
+    const gap = isMobile ? 40 : 80;
+    const minRadius = n >= 2 ? (cardWidth + gap) / (2 * Math.sin(Math.PI / n)) : 0;
+    const baseRadius = isMobile ? 320 : radius;
+    const effectiveRadius = Math.max(baseRadius, Math.ceil(minRadius));
     const [isScrolling, setIsScrolling] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
