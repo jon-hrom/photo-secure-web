@@ -13,6 +13,7 @@ const PublicPortfolio = () => {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
+  const [logoTone, setLogoTone] = useState<'light' | 'dark'>('dark');
 
   useEffect(() => {
     if (!slug) return;
@@ -79,6 +80,7 @@ const PublicPortfolio = () => {
       <div id="top" />
       <PortfolioNav
         logo={logo}
+        logoTone={logoTone}
         categories={portfolio.categories}
         position={portfolio.menu_position || 'top-right'}
         showReviews={portfolio.show_reviews && portfolio.reviews.length > 0}
@@ -93,6 +95,7 @@ const PublicPortfolio = () => {
         title={portfolio.title}
         subtitle={portfolio.subtitle}
         autoplay={portfolio.slideshow_enabled}
+        onCornerTone={setLogoTone}
       />
 
       {/* Плавающие соц-иконки — выезжают паровозиком */}

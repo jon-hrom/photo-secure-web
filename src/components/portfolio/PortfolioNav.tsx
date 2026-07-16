@@ -4,6 +4,7 @@ import { PortfolioCategory } from '@/lib/portfolioApi';
 
 interface Props {
   logo: string;
+  logoTone?: 'light' | 'dark';
   categories: PortfolioCategory[];
   position: string;
   showReviews?: boolean;
@@ -18,7 +19,9 @@ const posClasses: Record<string, string> = {
   'top-center': 'justify-center gap-8',
 };
 
-const PortfolioNav = ({ logo, categories, position, showAbout, onOpenCategory, onScrollTo }: Props) => {
+const PortfolioNav = ({ logo, logoTone = 'dark', categories, position, showAbout, onOpenCategory, onScrollTo }: Props) => {
+  // Светлый фон под логотипом → чёрные буквы и рамка; тёмный фон → белые
+  const logoDark = logoTone === 'light';
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -61,7 +64,14 @@ const PortfolioNav = ({ logo, categories, position, showAbout, onOpenCategory, o
   return (
     <header className="absolute top-0 left-0 right-0 z-40 px-5 sm:px-10 py-5">
       <div className={`flex items-center ${posClasses[position] || posClasses['top-right']}`}>
-        <button onClick={() => onScrollTo('top')} className="border border-white/70 px-3 py-1.5 text-[11px] tracking-[0.2em] uppercase font-light hover:bg-white/10 transition">
+        <button
+          onClick={() => onScrollTo('top')}
+          className={`border px-3 py-1.5 text-[11px] tracking-[0.2em] uppercase font-light transition ${
+            logoDark
+              ? 'border-black/70 text-black hover:bg-black/10'
+              : 'border-white/70 text-white hover:bg-white/10'
+          }`}
+        >
           {logo}
         </button>
         <nav className="hidden md:flex items-center gap-7 text-white">{links}</nav>
