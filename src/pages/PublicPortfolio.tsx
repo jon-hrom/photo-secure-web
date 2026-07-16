@@ -89,6 +89,7 @@ const PublicPortfolio = () => {
 
       <PortfolioHero
         photos={slideshowPhotos.length > 0 ? slideshowPhotos : photos}
+        mobilePhotos={portfolio.slider_photos || []}
         title={portfolio.title}
         subtitle={portfolio.subtitle}
         autoplay={portfolio.slideshow_enabled}
@@ -96,7 +97,10 @@ const PublicPortfolio = () => {
 
       {/* Плавающие соц-иконки — выезжают паровозиком */}
       {contacts.length > 0 && (
-        <div className="fixed bottom-5 right-5 z-30 flex flex-col items-center gap-2">
+        <div
+          className="fixed right-5 z-50 flex flex-col items-center gap-2"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
+        >
           {contacts.map((c, i) => (
             <a key={c.label} href={c.href} target="_blank" rel="noreferrer"
               title={c.label}

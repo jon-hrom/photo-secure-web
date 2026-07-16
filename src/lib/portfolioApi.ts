@@ -28,6 +28,7 @@ export interface PortfolioPhoto {
   grid_thumbnail_url: string;
   source: string;
   sort_order: number;
+  is_slider?: boolean;
 }
 
 export interface PortfolioReview {
@@ -66,6 +67,7 @@ export interface Portfolio {
   categories: PortfolioCategory[];
   shootings: PortfolioShooting[];
   photos: PortfolioPhoto[];
+  slider_photos: PortfolioPhoto[];
   reviews: PortfolioReview[];
   user_profile?: { name?: string; display_name?: string; city?: string; phone?: string; email?: string; avatar_url?: string };
 }

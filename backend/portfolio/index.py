@@ -177,7 +177,9 @@ def load_full(cur, portfolio_id: int) -> Dict[str, Any]:
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_shootings WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
     p['shootings'] = [dict(r) for r in cur.fetchall()]
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_photos WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
-    p['photos'] = [dict(r) for r in cur.fetchall()]
+    all_photos = [dict(r) for r in cur.fetchall()]
+    p['photos'] = [ph for ph in all_photos if not ph.get('is_slider')]
+    p['slider_photos'] = [ph for ph in all_photos if ph.get('is_slider')]
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_reviews WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
     p['reviews'] = [dict(r) for r in cur.fetchall()]
     _sign_photos(p)
@@ -187,7 +189,7 @@ def load_full(cur, portfolio_id: int) -> Dict[str, Any]:
 def _sign_photos(p: Dict[str, Any]) -> None:
     """Для фото, лежащих в приватном foto-mix (есть s3_key), выдаём свежие presigned-ссылки."""
     s3 = None
-    for ph in p.get('photos', []):
+    for ph in list(p.get('photos', [])) + list(p.get('slider_photos', [])):
         key = ph.get('s3_key')
         if key:
             s3 = s3 or s3_client()
@@ -448,6 +450,42 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             if act == 'delete_photo':
                 phid = int(body.get('id'))
                 cur.execute(f"DELETE FROM {SCHEMA}.portfolio_photos WHERE id = {esc(phid)} AND portfolio_id = {esc(pid)}")
+                conn.commit()
+                return resp(200, {'portfolio': load_full(cur, pid)})
+
+            if act == 'upload_slider_photo':
+                # Вертикальное фото для слайдера портфолио (с устройства): base64 → foto-mix
+                url, key = upload_to_s3(body['image_base64'], body.get('ext', 'jpg'), user_id)
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, shooting_id, photo_url, thumbnail_url, grid_thumbnail_url, s3_key, source, is_slider, sort_order)
+                    VALUES ({esc(pid)}, NULL, NULL, {esc(url)}, {esc(url)}, {esc(url)}, {esc(key)}, 'device', TRUE,
+                        COALESCE((SELECT MAX(sort_order)+1 FROM {SCHEMA}.portfolio_photos WHERE portfolio_id = {esc(pid)} AND is_slider = TRUE), 0))
+                    RETURNING id
+                """)
+                conn.commit()
+                return resp(200, {'photo_url': url, 'portfolio': load_full(cur, pid)})
+
+            if act == 'add_slider_photos':
+                # Вертикальные фото для слайдера из фотобанка — копируем в своё хранилище
+                photos = body.get('photos', [])
+                s3 = s3_client()
+                for ph in photos:
+                    photo_url, key = copy_url_to_s3(ph.get('photo_url', ''), user_id, s3)
+                    thumb_src = ph.get('thumbnail_url') or ph.get('photo_url', '')
+                    grid_src = ph.get('grid_thumbnail_url') or thumb_src
+                    thumb_url, thumb_key = copy_url_to_s3(thumb_src, user_id, s3)
+                    grid_url, grid_key = copy_url_to_s3(grid_src, user_id, s3)
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, shooting_id, photo_url, thumbnail_url, grid_thumbnail_url, s3_key, thumb_s3_key, grid_s3_key, source, is_slider, sort_order)
+                        VALUES ({esc(pid)}, NULL, NULL, {esc(photo_url)}, {esc(thumb_url)}, {esc(grid_url)}, {esc(key)}, {esc(thumb_key)}, {esc(grid_key)}, 'photobank', TRUE,
+                            COALESCE((SELECT MAX(sort_order)+1 FROM {SCHEMA}.portfolio_photos WHERE portfolio_id = {esc(pid)} AND is_slider = TRUE), 0))
+                    """)
+                conn.commit()
+                return resp(200, {'portfolio': load_full(cur, pid)})
+
+            if act == 'delete_slider_photo':
+                phid = int(body.get('id'))
+                cur.execute(f"DELETE FROM {SCHEMA}.portfolio_photos WHERE id = {esc(phid)} AND portfolio_id = {esc(pid)} AND is_slider = TRUE")
                 conn.commit()
                 return resp(200, {'portfolio': load_full(cur, pid)})
 

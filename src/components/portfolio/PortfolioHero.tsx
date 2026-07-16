@@ -5,13 +5,30 @@ import { PortfolioPhoto } from '@/lib/portfolioApi';
 
 interface Props {
   photos: PortfolioPhoto[];
+  mobilePhotos?: PortfolioPhoto[];
   title: string;
   subtitle: string;
   autoplay: boolean;
 }
 
-const PortfolioHero = ({ photos, title, subtitle, autoplay }: Props) => {
+const PortfolioHero = ({ photos: desktopPhotos, mobilePhotos, title, subtitle, autoplay }: Props) => {
   const [index, setIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // На телефоне показываем вертикальные фото слайдера, если они загружены.
+  const useMobile = isMobile && !!mobilePhotos && mobilePhotos.length > 0;
+  const photos = useMobile ? mobilePhotos! : desktopPhotos;
+
+  useEffect(() => {
+    setIndex(0);
+  }, [useMobile]);
 
   const next = useCallback(() => setIndex((i) => (i + 1) % Math.max(photos.length, 1)), [photos.length]);
   const prev = useCallback(() => setIndex((i) => (i - 1 + photos.length) % Math.max(photos.length, 1)), [photos.length]);

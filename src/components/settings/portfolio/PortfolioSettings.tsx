@@ -14,6 +14,7 @@ import {
 import { slugify, suggestSlugs } from '@/utils/slugify';
 
 import PortfolioPhotosManager from './PortfolioPhotosManager';
+import SliderPhotosManager from './SliderPhotosManager';
 import PortfolioReviewsManager from './PortfolioReviewsManager';
 
 const PUBLIC_BASE = typeof window !== 'undefined' ? window.location.origin : '';
@@ -265,6 +266,13 @@ const PortfolioSettings = ({ userId }: Props) => {
         </div>
         <Switch checked={slideshow} onCheckedChange={setSlideshow} />
       </div>
+
+      {/* Вертикальные фото для мобильного слайдера */}
+      <SliderPhotosManager
+        userId={userId}
+        portfolio={portfolio!}
+        onChange={refresh}
+      />
 
       {/* Блок категорий на главной */}
       <div className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 p-4">
