@@ -4,9 +4,8 @@ import Icon from '@/components/ui/icon';
 import { Portfolio, getPublicPortfolio } from '@/lib/portfolioApi';
 import PortfolioNav from '@/components/portfolio/PortfolioNav';
 
-const VK_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/3e613774-ed33-417a-ae31-2e460d1cb87a.png';
-const WHATSAPP_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/2a7b978b-00f4-4734-b637-301232a616fd.png';
-const MAX_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/7d22be20-1466-4cbd-b385-e376011cb6f5.jpg';
+const MAX_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/7f4f7cba-6d47-47ce-b655-35fb6674612d.png';
+const maxHref = (v: string) => (v.startsWith('http') ? v : `https://max.ru/${v.replace('@', '')}`);
 
 const PublicPortfolioContacts = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -60,9 +59,9 @@ const PublicPortfolioContacts = () => {
   const logo = portfolio.logo_text || portfolio.title || 'PORTFOLIO';
 
   const contacts = [
-    portfolio.vk && { icon: 'Share2', img: VK_ICON, label: 'ВКонтакте', href: portfolio.vk },
-    portfolio.whatsapp && { icon: 'MessageCircle', img: WHATSAPP_ICON, label: 'WhatsApp', href: `https://wa.me/${portfolio.whatsapp.replace(/\D/g, '')}` },
-    portfolio.max && { icon: 'MessageCircle', img: MAX_ICON, label: 'MAX', href: portfolio.max.startsWith('http') ? portfolio.max : `https://max.ru/${portfolio.max.replace('@', '')}` },
+    portfolio.vk && { icon: 'Share2', label: 'ВКонтакте', href: portfolio.vk },
+    portfolio.whatsapp && { icon: 'MessageCircle', img: MAX_ICON, label: 'MAX', href: maxHref(portfolio.whatsapp) },
+    portfolio.max && { icon: 'MessageCircle', img: MAX_ICON, label: 'MAX', href: maxHref(portfolio.max) },
     portfolio.telegram && { icon: 'Send', label: 'Telegram', href: portfolio.telegram.startsWith('http') ? portfolio.telegram : `https://t.me/${portfolio.telegram.replace('@', '')}` },
     portfolio.instagram && { icon: 'Instagram', label: 'Instagram', href: portfolio.instagram },
     portfolio.phone && { icon: 'Phone', label: portfolio.phone, href: `tel:${portfolio.phone}` },
