@@ -61,13 +61,14 @@ const PublicPortfolio = () => {
   const slideshowPhotos = photos.filter((p) => p.category_id === null);
   const logo = portfolio.logo_text || portfolio.title || 'PORTFOLIO';
 
-  const MAX_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/7d22be20-1466-4cbd-b385-e376011cb6f5.jpg';
+  const MAX_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/7f4f7cba-6d47-47ce-b655-35fb6674612d.png';
   const MAX_GRADIENT = 'linear-gradient(135deg, #2787F5 0%, #7B3FE4 100%)';
+  const maxHref = (v: string) => (v.startsWith('http') ? v : `https://max.ru/${v.replace('@', '')}`);
 
   const contacts = [
     portfolio.vk && { icon: 'vk', label: 'ВКонтакте', href: portfolio.vk },
-    portfolio.whatsapp && { img: MAX_ICON, label: 'WhatsApp', href: `https://wa.me/${portfolio.whatsapp.replace(/\D/g, '')}` },
-    portfolio.max && { img: MAX_ICON, label: 'MAX', href: portfolio.max.startsWith('http') ? portfolio.max : `https://max.ru/${portfolio.max.replace('@', '')}` },
+    portfolio.whatsapp && { img: MAX_ICON, label: 'MAX', href: maxHref(portfolio.whatsapp) },
+    portfolio.max && { img: MAX_ICON, label: 'MAX', href: maxHref(portfolio.max) },
     portfolio.telegram && { icon: 'Send', label: 'Telegram', href: portfolio.telegram.startsWith('http') ? portfolio.telegram : `https://t.me/${portfolio.telegram.replace('@', '')}` },
     portfolio.instagram && { icon: 'Instagram', label: 'Instagram', href: portfolio.instagram },
     portfolio.phone && { icon: 'Phone', label: portfolio.phone, href: `tel:${portfolio.phone}` },
