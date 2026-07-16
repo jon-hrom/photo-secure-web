@@ -5,6 +5,7 @@ import os
 import re
 import base64
 import uuid
+import urllib.request
 from typing import Dict, Any, List
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -91,6 +92,61 @@ def presign(key: str, s3=None) -> str:
     return s3.generate_presigned_url('get_object', Params={'Bucket': S3_BUCKET, 'Key': key}, ExpiresIn=PRESIGN_TTL)
 
 
+def _key_from_own_url(src_url: str):
+    """Если ссылка ведёт на наш бакет foto-mix — извлекаем ключ объекта (без query)."""
+    if not src_url:
+        return None
+    marker = f"/{S3_BUCKET}/"
+    idx = src_url.find(marker)
+    if idx == -1:
+        return None
+    key = src_url[idx + len(marker):]
+    key = key.split('?', 1)[0]
+    return key or None
+
+
+def copy_key_to_portfolio(src_key: str, user_id: Any = None, s3=None):
+    """Копирует объект внутри foto-mix в папку портфолио. Возвращает (presigned_url, new_key) или (None, None)."""
+    if not src_key:
+        return None, None
+    try:
+        s3 = s3 or s3_client()
+        ext = src_key.rsplit('.', 1)[-1].lower() if '.' in src_key.rsplit('/', 1)[-1] else 'jpg'
+        folder = f"portfolio/{user_id}" if user_id is not None else "portfolio"
+        new_key = f"{folder}/{uuid.uuid4().hex}.{ext}"
+        s3.copy_object(Bucket=S3_BUCKET, CopySource={'Bucket': S3_BUCKET, 'Key': src_key}, Key=new_key)
+        return presign(new_key, s3), new_key
+    except Exception:
+        return None, None
+
+
+def copy_url_to_s3(src_url: str, user_id: Any = None, s3=None):
+    """Скачивает файл по ссылке (CDN/presigned фотобанка) и кладёт в собственную папку
+    портфолио portfolio/<user_id>/. Возвращает (presigned_url, s3_key) либо (src_url, None) при ошибке."""
+    if not src_url:
+        return '', None
+    # Если ссылка на наш же бакет — копируем объект напрямую (не зависит от истёкшего presign)
+    own_key = _key_from_own_url(src_url)
+    if own_key:
+        url, new_key = copy_key_to_portfolio(own_key, user_id, s3)
+        if new_key:
+            return url, new_key
+    try:
+        req = urllib.request.Request(src_url, headers={'User-Agent': 'portfolio-copy/1.0'})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            data = r.read()
+            content_type = r.headers.get('Content-Type', 'image/jpeg')
+        ext = 'png' if 'png' in content_type else ('webp' if 'webp' in content_type else 'jpg')
+        folder = f"portfolio/{user_id}" if user_id is not None else "portfolio"
+        key = f"{folder}/{uuid.uuid4().hex}.{ext}"
+        s3 = s3 or s3_client()
+        s3.put_object(Bucket=S3_BUCKET, Key=key, Body=data, ContentType=content_type)
+        return presign(key, s3), key
+    except Exception:
+        # если не смогли скопировать — оставляем исходную ссылку, чтобы не потерять фото
+        return src_url, None
+
+
 def get_or_create_portfolio(cur, user_id: int) -> Dict[str, Any]:
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolios WHERE user_id = {esc(user_id)} LIMIT 1")
     row = cur.fetchone()
@@ -137,8 +193,10 @@ def _sign_photos(p: Dict[str, Any]) -> None:
             s3 = s3 or s3_client()
             url = presign(key, s3)
             ph['photo_url'] = url
-            ph['thumbnail_url'] = url
-            ph['grid_thumbnail_url'] = url
+            thumb_key = ph.get('thumb_s3_key')
+            grid_key = ph.get('grid_s3_key')
+            ph['thumbnail_url'] = presign(thumb_key, s3) if thumb_key else url
+            ph['grid_thumbnail_url'] = presign(grid_key, s3) if grid_key else (ph['thumbnail_url'] or url)
     if p.get('avatar_s3_key'):
         s3 = s3 or s3_client()
         p['avatar_url'] = presign(p['avatar_s3_key'], s3)
@@ -317,16 +375,24 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 return resp(200, {'portfolio': load_full(cur, pid)})
 
             if act == 'add_photos':
-                # из фотобанка: список {photo_url, thumbnail_url, grid_thumbnail_url}
+                # из фотобанка: список {photo_url, thumbnail_url, grid_thumbnail_url}.
+                # КОПИРУЕМ файлы в собственное хранилище портфолио, чтобы фото жили независимо
+                # от фотобанка (не пропадали при удалении папки/фото в фотобанке).
                 photos = body.get('photos', [])
                 cat_id = body.get('category_id')
                 cat_sql = esc(int(cat_id)) if cat_id else 'NULL'
                 sh_id = body.get('shooting_id')
                 sh_sql = esc(int(sh_id)) if sh_id else 'NULL'
+                s3 = s3_client()
                 for ph in photos:
+                    photo_url, key = copy_url_to_s3(ph.get('photo_url', ''), user_id, s3)
+                    thumb_src = ph.get('thumbnail_url') or ph.get('photo_url', '')
+                    grid_src = ph.get('grid_thumbnail_url') or thumb_src
+                    thumb_url, thumb_key = copy_url_to_s3(thumb_src, user_id, s3)
+                    grid_url, grid_key = copy_url_to_s3(grid_src, user_id, s3)
                     cur.execute(f"""
-                        INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, shooting_id, photo_url, thumbnail_url, grid_thumbnail_url, source, sort_order)
-                        VALUES ({esc(pid)}, {cat_sql}, {sh_sql}, {esc(ph.get('photo_url', ''))}, {esc(ph.get('thumbnail_url', ''))}, {esc(ph.get('grid_thumbnail_url', ''))}, {esc(ph.get('source', 'photobank'))},
+                        INSERT INTO {SCHEMA}.portfolio_photos (portfolio_id, category_id, shooting_id, photo_url, thumbnail_url, grid_thumbnail_url, s3_key, thumb_s3_key, grid_s3_key, source, sort_order)
+                        VALUES ({esc(pid)}, {cat_sql}, {sh_sql}, {esc(photo_url)}, {esc(thumb_url)}, {esc(grid_url)}, {esc(key)}, {esc(thumb_key)}, {esc(grid_key)}, 'photobank',
                             COALESCE((SELECT MAX(sort_order)+1 FROM {SCHEMA}.portfolio_photos WHERE portfolio_id = {esc(pid)}), 0))
                     """)
                 conn.commit()
@@ -347,6 +413,37 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 """)
                 conn.commit()
                 return resp(200, {'photo_url': url, 'portfolio': load_full(cur, pid)})
+
+            if act == 'repair_photobank':
+                # Одноразовый ремонт: копирует ранее добавленные из фотобанка фото
+                # (которые хранились ссылками) в собственное хранилище портфолио.
+                cur.execute(f"""
+                    SELECT id, photo_url, thumbnail_url, grid_thumbnail_url FROM {SCHEMA}.portfolio_photos
+                    WHERE portfolio_id = {esc(pid)} AND s3_key IS NULL AND source = 'photobank'
+                    ORDER BY id LIMIT 10
+                """)
+                rows = cur.fetchall()
+                s3 = s3_client()
+                fixed = 0
+                for r in rows:
+                    photo_url, key = copy_url_to_s3(r.get('photo_url', ''), user_id, s3)
+                    if not key:
+                        continue
+                    thumb_src = r.get('thumbnail_url') or r.get('photo_url', '')
+                    grid_src = r.get('grid_thumbnail_url') or thumb_src
+                    thumb_url, thumb_key = copy_url_to_s3(thumb_src, user_id, s3)
+                    grid_url, grid_key = copy_url_to_s3(grid_src, user_id, s3)
+                    cur.execute(f"""
+                        UPDATE {SCHEMA}.portfolio_photos
+                        SET photo_url = {esc(photo_url)}, thumbnail_url = {esc(thumb_url)}, grid_thumbnail_url = {esc(grid_url)},
+                            s3_key = {esc(key)}, thumb_s3_key = {esc(thumb_key)}, grid_s3_key = {esc(grid_key)}
+                        WHERE id = {esc(r['id'])} AND portfolio_id = {esc(pid)}
+                    """)
+                    fixed += 1
+                conn.commit()
+                cur.execute(f"SELECT COUNT(*) AS c FROM {SCHEMA}.portfolio_photos WHERE portfolio_id = {esc(pid)} AND s3_key IS NULL AND source = 'photobank'")
+                remaining = cur.fetchone()['c']
+                return resp(200, {'fixed': fixed, 'remaining': remaining, 'portfolio': load_full(cur, pid)})
 
             if act == 'delete_photo':
                 phid = int(body.get('id'))
