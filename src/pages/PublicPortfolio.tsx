@@ -61,18 +61,17 @@ const PublicPortfolio = () => {
   const slideshowPhotos = photos.filter((p) => p.category_id === null);
   const logo = portfolio.logo_text || portfolio.title || 'PORTFOLIO';
 
-  const VK_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/3e613774-ed33-417a-ae31-2e460d1cb87a.png';
-  const WHATSAPP_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/2a7b978b-00f4-4734-b637-301232a616fd.png';
   const MAX_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/7d22be20-1466-4cbd-b385-e376011cb6f5.jpg';
+  const MAX_GRADIENT = 'linear-gradient(135deg, #2787F5 0%, #7B3FE4 100%)';
 
   const contacts = [
-    portfolio.vk && { icon: 'Share2', img: VK_ICON, label: 'ВКонтакте', href: portfolio.vk },
-    portfolio.whatsapp && { icon: 'MessageCircle', img: WHATSAPP_ICON, label: 'WhatsApp', href: `https://wa.me/${portfolio.whatsapp.replace(/\D/g, '')}` },
-    portfolio.max && { icon: 'MessageCircle', img: MAX_ICON, label: 'MAX', href: portfolio.max.startsWith('http') ? portfolio.max : `https://max.ru/${portfolio.max.replace('@', '')}` },
+    portfolio.vk && { icon: 'vk', label: 'ВКонтакте', href: portfolio.vk },
+    portfolio.whatsapp && { img: MAX_ICON, label: 'WhatsApp', href: `https://wa.me/${portfolio.whatsapp.replace(/\D/g, '')}` },
+    portfolio.max && { img: MAX_ICON, label: 'MAX', href: portfolio.max.startsWith('http') ? portfolio.max : `https://max.ru/${portfolio.max.replace('@', '')}` },
     portfolio.telegram && { icon: 'Send', label: 'Telegram', href: portfolio.telegram.startsWith('http') ? portfolio.telegram : `https://t.me/${portfolio.telegram.replace('@', '')}` },
     portfolio.instagram && { icon: 'Instagram', label: 'Instagram', href: portfolio.instagram },
     portfolio.phone && { icon: 'Phone', label: portfolio.phone, href: `tel:${portfolio.phone}` },
-  ].filter(Boolean) as { icon: string; img?: string; label: string; href: string }[];
+  ].filter(Boolean) as { icon?: string; img?: string; label: string; href: string }[];
 
   return (
     <div className="min-h-screen bg-white text-gray-900" style={{ ['--accent' as string]: accent }}>
@@ -105,18 +104,20 @@ const PublicPortfolio = () => {
               }`}
               style={{
                 transitionDelay: `${fabOpen ? (contacts.length - 1 - i) * 60 : i * 40}ms`,
-                background: c.img ? undefined : accent,
+                background: c.img ? undefined : MAX_GRADIENT,
               }}>
               {c.img
                 ? <img src={c.img} alt={c.label} className="w-full h-full object-cover" />
-                : <Icon name={c.icon} size={18} className="text-white" />}
+                : c.icon === 'vk'
+                  ? <span className="text-white font-bold text-[13px] tracking-tight">VK</span>
+                  : <Icon name={c.icon || 'Link'} size={18} className="text-white" />}
             </a>
           ))}
           <button
             onClick={() => setFabOpen((v) => !v)}
             aria-label={fabOpen ? 'Закрыть' : 'Контакты'}
             className="w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center transition-transform hover:scale-105"
-            style={{ background: accent }}>
+            style={{ background: MAX_GRADIENT }}>
             <Icon name={fabOpen ? 'X' : 'MessageSquare'} size={22} className="text-white transition-transform" />
           </button>
         </div>
