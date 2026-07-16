@@ -66,15 +66,6 @@ const PortfolioHero = ({ photos, title, subtitle, autoplay }: Props) => {
           >
             <Icon name="ChevronRight" size={24} className="text-white" />
           </button>
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-            {photos.slice(0, 12).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setIndex(i)}
-                className={`h-1.5 rounded-full transition-all ${i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`}
-              />
-            ))}
-          </div>
         </>
       )}
     </section>
