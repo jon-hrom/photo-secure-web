@@ -4,6 +4,7 @@ import Icon from '@/components/ui/icon';
 import { Portfolio, getPublicPortfolio } from '@/lib/portfolioApi';
 import PortfolioNav from '@/components/portfolio/PortfolioNav';
 import PortfolioHero from '@/components/portfolio/PortfolioHero';
+import { maxHref } from '@/utils/maxLink';
 
 const PublicPortfolio = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -63,7 +64,6 @@ const PublicPortfolio = () => {
 
   const MAX_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/7f4f7cba-6d47-47ce-b655-35fb6674612d.png';
   const MAX_GRADIENT = 'linear-gradient(135deg, #2787F5 0%, #7B3FE4 100%)';
-  const maxHref = (v: string) => (v.startsWith('http') ? v : `https://max.ru/${v.replace('@', '')}`);
 
   const contacts = [
     portfolio.vk && { icon: 'vk', label: 'ВКонтакте', href: portfolio.vk },

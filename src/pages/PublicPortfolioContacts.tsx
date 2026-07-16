@@ -3,9 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { Portfolio, getPublicPortfolio } from '@/lib/portfolioApi';
 import PortfolioNav from '@/components/portfolio/PortfolioNav';
+import { maxHref } from '@/utils/maxLink';
 
 const MAX_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/7f4f7cba-6d47-47ce-b655-35fb6674612d.png';
-const maxHref = (v: string) => (v.startsWith('http') ? v : `https://max.ru/${v.replace('@', '')}`);
 
 const PublicPortfolioContacts = () => {
   const { slug } = useParams<{ slug: string }>();
