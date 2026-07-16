@@ -30,8 +30,10 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
       return () => window.removeEventListener('resize', check);
     }, []);
 
-    // На мобильных уменьшаем радиус (карточки «отдаляются» и не уходят за экран).
-    const effectiveRadius = isMobile ? Math.min(radius * 0.55, 260) : radius;
+    // На мобильных: карточки уже (не уходят за экран), но радиус держим больше,
+    // чтобы между соседними карточками был заметный промежуток и они не сливались.
+    const mobileRadius = Math.max(340, Math.min(items.length * 110, 480));
+    const effectiveRadius = isMobile ? mobileRadius : radius;
     const [isScrolling, setIsScrolling] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -139,13 +141,13 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
                   item.onClick?.();
                 }}
                 aria-label={item.title}
-                className="absolute w-[180px] h-[240px] sm:w-[300px] sm:h-[400px] cursor-pointer"
+                className="absolute w-[160px] h-[214px] sm:w-[300px] sm:h-[400px] cursor-pointer"
                 style={{
                   transform: `rotateY(${itemAngle}deg) translateZ(${effectiveRadius}px)`,
                   left: '50%',
                   top: '50%',
-                  marginLeft: isMobile ? '-90px' : '-150px',
-                  marginTop: isMobile ? '-120px' : '-200px',
+                  marginLeft: isMobile ? '-80px' : '-150px',
+                  marginTop: isMobile ? '-107px' : '-200px',
                   opacity,
                   transition: 'opacity 0.3s linear',
                 }}
