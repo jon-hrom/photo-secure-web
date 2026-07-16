@@ -21,6 +21,17 @@ interface CircularGalleryProps extends HTMLAttributes<HTMLDivElement> {
 const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
   ({ items, className, radius = 600, autoRotateSpeed = 0.02, ...props }, ref) => {
     const [rotation, setRotation] = useState(0);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+      const check = () => setIsMobile(window.innerWidth < 640);
+      check();
+      window.addEventListener('resize', check);
+      return () => window.removeEventListener('resize', check);
+    }, []);
+
+    // На мобильных уменьшаем радиус (карточки «отдаляются» и не уходят за экран).
+    const effectiveRadius = isMobile ? Math.min(radius * 0.55, 260) : radius;
     const [isScrolling, setIsScrolling] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,13 +139,13 @@ const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryProps>(
                   item.onClick?.();
                 }}
                 aria-label={item.title}
-                className="absolute w-[240px] h-[320px] sm:w-[300px] sm:h-[400px] cursor-pointer"
+                className="absolute w-[180px] h-[240px] sm:w-[300px] sm:h-[400px] cursor-pointer"
                 style={{
-                  transform: `rotateY(${itemAngle}deg) translateZ(${radius}px)`,
+                  transform: `rotateY(${itemAngle}deg) translateZ(${effectiveRadius}px)`,
                   left: '50%',
                   top: '50%',
-                  marginLeft: '-120px',
-                  marginTop: '-160px',
+                  marginLeft: isMobile ? '-90px' : '-150px',
+                  marginTop: isMobile ? '-120px' : '-200px',
                   opacity,
                   transition: 'opacity 0.3s linear',
                 }}

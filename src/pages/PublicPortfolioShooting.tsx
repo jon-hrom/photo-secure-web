@@ -17,6 +17,8 @@ const PublicPortfolioShooting = () => {
   const [notFound, setNotFound] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [onDark, setOnDark] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [verticalIds, setVerticalIds] = useState<Set<number>>(new Set());
   const darkRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -72,6 +74,39 @@ const PublicPortfolioShooting = () => {
     };
   }, [showGrid]);
 
+  // Определяем мобильную версию
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // На мобильных для коллажа-параллакса берём только вертикальные фото,
+  // чтобы не резать людей в кадре. Ориентацию определяем по загруженной картинке.
+  useEffect(() => {
+    if (!isMobile || !portfolio || !sh) return;
+    const photos = portfolio.photos.filter((p) => p.shooting_id === sh.id);
+    let cancelled = false;
+    const found = new Set<number>();
+    let pending = photos.length;
+    if (pending === 0) return;
+    photos.forEach((p) => {
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalHeight >= img.naturalWidth) found.add(p.id);
+        pending -= 1;
+        if (pending === 0 && !cancelled) setVerticalIds(new Set(found));
+      };
+      img.onerror = () => {
+        pending -= 1;
+        if (pending === 0 && !cancelled) setVerticalIds(new Set(found));
+      };
+      img.src = getThumbUrl(p.photo_url, 400) || p.photo_url;
+    });
+    return () => { cancelled = true; };
+  }, [isMobile, portfolio, sh]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -97,7 +132,14 @@ const PublicPortfolioShooting = () => {
   const coverPhoto = sh.cover_url || shPhotos[0]?.photo_url || '';
   const backToCatalog = () => navigate(`/p/${slug}/${category}`);
 
-  const parallaxImages = shPhotos.slice(0, 7).map((p) => ({
+  // На мобильных для коллажа берём только вертикальные фото (если они определены),
+  // чтобы не резать людей. Если вертикальных мало — берём как есть.
+  const collageSource = (() => {
+    if (!isMobile || verticalIds.size === 0) return shPhotos;
+    const verticals = shPhotos.filter((p) => verticalIds.has(p.id));
+    return verticals.length >= 3 ? verticals : shPhotos;
+  })();
+  const parallaxImages = collageSource.slice(0, 7).map((p) => ({
     src: getThumbUrl(p.photo_url, 1600) || p.photo_url,
     alt: sh.title,
   }));
