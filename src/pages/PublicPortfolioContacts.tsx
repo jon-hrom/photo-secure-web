@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { Portfolio, getPublicPortfolio } from '@/lib/portfolioApi';
 import PortfolioNav from '@/components/portfolio/PortfolioNav';
-import { maxHref } from '@/utils/maxLink';
+import { maxContacts } from '@/utils/maxLink';
 
 const MAX_ICON = 'https://cdn.poehali.dev/projects/07a45ae1-582a-4829-83a6-3f379eb489ff/bucket/7f4f7cba-6d47-47ce-b655-35fb6674612d.png';
 
@@ -60,12 +60,12 @@ const PublicPortfolioContacts = () => {
 
   const contacts = [
     portfolio.vk && { icon: 'Share2', label: 'ВКонтакте', href: portfolio.vk },
-    portfolio.whatsapp && { icon: 'MessageCircle', img: MAX_ICON, label: 'MAX', href: maxHref(portfolio.whatsapp) },
-    portfolio.max && { icon: 'MessageCircle', img: MAX_ICON, label: 'MAX', href: maxHref(portfolio.max) },
+    ...maxContacts(portfolio.whatsapp, MAX_ICON),
+    ...maxContacts(portfolio.max, MAX_ICON),
     portfolio.telegram && { icon: 'Send', label: 'Telegram', href: portfolio.telegram.startsWith('http') ? portfolio.telegram : `https://t.me/${portfolio.telegram.replace('@', '')}` },
     portfolio.instagram && { icon: 'Instagram', label: 'Instagram', href: portfolio.instagram },
     portfolio.phone && { icon: 'Phone', label: portfolio.phone, href: `tel:${portfolio.phone}` },
-  ].filter(Boolean) as { icon: string; img?: string; label: string; href: string }[];
+  ].filter(Boolean) as { icon?: string; img?: string; label: string; href: string }[];
 
   return (
     <div className="min-h-screen bg-white text-gray-900" style={{ ['--accent' as string]: accent }}>
@@ -98,7 +98,7 @@ const PublicPortfolioContacts = () => {
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-100 hover:bg-gray-200 transition text-sm">
                   {c.img
                     ? <img src={c.img} alt="" className="w-5 h-5 rounded object-cover" />
-                    : <Icon name={c.icon} size={16} style={{ color: accent }} />} {c.label}
+                    : <Icon name={c.icon || 'Link'} size={16} style={{ color: accent }} />} {c.label}
                 </a>
               ))}
             </div>

@@ -4,7 +4,7 @@ import Icon from '@/components/ui/icon';
 import { Portfolio, getPublicPortfolio } from '@/lib/portfolioApi';
 import PortfolioNav from '@/components/portfolio/PortfolioNav';
 import PortfolioHero from '@/components/portfolio/PortfolioHero';
-import { maxHref } from '@/utils/maxLink';
+import { maxContacts } from '@/utils/maxLink';
 
 const PublicPortfolio = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -67,8 +67,8 @@ const PublicPortfolio = () => {
 
   const contacts = [
     portfolio.vk && { icon: 'vk', label: 'ВКонтакте', href: portfolio.vk },
-    portfolio.whatsapp && { img: MAX_ICON, label: 'MAX', href: maxHref(portfolio.whatsapp) },
-    portfolio.max && { img: MAX_ICON, label: 'MAX', href: maxHref(portfolio.max) },
+    ...maxContacts(portfolio.whatsapp, MAX_ICON),
+    ...maxContacts(portfolio.max, MAX_ICON),
     portfolio.telegram && { icon: 'Send', label: 'Telegram', href: portfolio.telegram.startsWith('http') ? portfolio.telegram : `https://t.me/${portfolio.telegram.replace('@', '')}` },
     portfolio.instagram && { icon: 'Instagram', label: 'Instagram', href: portfolio.instagram },
     portfolio.phone && { icon: 'Phone', label: portfolio.phone, href: `tel:${portfolio.phone}` },

@@ -1,24 +1,37 @@
-// Строит корректную ссылку на MAX.
-// Правила:
-//  - уже полная ссылка (http… или max.ru/…) — используем как есть;
-//  - никнейм — https://max.ru/ник;
-//  - номер телефона — https://max.ru/+7… (MAX открывает чат по номеру с + и кодом страны).
+// В MAX нельзя открыть чат по номеру телефона — работают только ссылки на профиль
+// (max.ru/ник или ссылка из приложения). Поэтому номер для MAX-кнопки не годится.
+export const isMaxPhone = (raw: string): boolean => {
+  const v = (raw || '').trim();
+  if (!v) return false;
+  if (/^https?:\/\//i.test(v) || /^max\.(ru|me)\//i.test(v)) return false;
+  const digits = v.replace(/[^\d]/g, '');
+  return /^[+\d][\d\s()\-]+$/.test(v) && digits.length >= 10;
+};
+
+// Строит корректную ссылку на MAX по нику или готовой ссылке.
+// Для номера телефона вернёт '' (ссылки MAX по номеру не существует).
 export const maxHref = (raw: string): string => {
   const v = (raw || '').trim();
   if (!v) return '';
-
   if (/^https?:\/\//i.test(v)) return v;
   if (/^max\.(ru|me)\//i.test(v)) return `https://${v}`;
-
-  // Только цифры (возможно с +, скобками, дефисами) — это номер телефона
-  const digits = v.replace(/[^\d]/g, '');
-  const looksLikePhone = /^[+\d][\d\s()\-]+$/.test(v) && digits.length >= 10;
-  if (looksLikePhone) {
-    let phone = digits;
-    if (phone.length === 11 && phone.startsWith('8')) phone = '7' + phone.slice(1);
-    return `https://max.ru/+${phone}`;
-  }
-
-  // Иначе — никнейм
+  if (isMaxPhone(v)) return '';
   return `https://max.ru/${v.replace(/^@/, '')}`;
+};
+
+export interface ContactEntry { icon?: string; img?: string; label: string; href: string }
+
+// Возвращает контакт-кнопку из значения поля MAX/WhatsApp:
+//  - ник или ссылка MAX → кнопка MAX;
+//  - номер телефона → кнопка WhatsApp (wa.me работает по номеру), т.к. по номеру в MAX не зайти.
+export const maxContacts = (raw: string | undefined | null, maxIcon: string): ContactEntry[] => {
+  const v = (raw || '').trim();
+  if (!v) return [];
+  if (isMaxPhone(v)) {
+    let phone = v.replace(/[^\d]/g, '');
+    if (phone.length === 11 && phone.startsWith('8')) phone = '7' + phone.slice(1);
+    return [{ icon: 'MessageCircle', label: 'WhatsApp', href: `https://wa.me/${phone}` }];
+  }
+  const href = maxHref(v);
+  return href ? [{ img: maxIcon, label: 'MAX', href }] : [];
 };
