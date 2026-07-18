@@ -171,6 +171,26 @@ def copy_url_to_s3(src_url: str, user_id: Any = None, s3=None):
         return src_url, None
 
 
+def copy_review_photos(urls: List[str], user_id: Any) -> List[str]:
+    """Копирует выбранные клиентом фото в постоянное хранилище портфолио.
+    Возвращает список постоянных s3_key (чтобы ссылки не протухали)."""
+    keys: List[str] = []
+    if not urls:
+        return keys
+    s3 = None
+    for u in urls[:6]:
+        if not u:
+            continue
+        try:
+            s3 = s3 or s3_client()
+            _, key = copy_url_to_s3(u, user_id, s3)
+            if key:
+                keys.append(key)
+        except Exception as e:
+            print(f'[REVIEW-PHOTO] copy error: {e}')
+    return keys
+
+
 def get_or_create_portfolio(cur, user_id: int) -> Dict[str, Any]:
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolios WHERE user_id = {esc(user_id)} LIMIT 1")
     row = cur.fetchone()
@@ -230,6 +250,18 @@ def _sign_photos(p: Dict[str, Any]) -> None:
             grid_key = ph.get('grid_s3_key')
             ph['thumbnail_url'] = presign(thumb_key, s3) if thumb_key else url
             ph['grid_thumbnail_url'] = presign(grid_key, s3) if grid_key else (ph['thumbnail_url'] or url)
+    for rev in p.get('reviews', []):
+        keys = list(rev.get('photo_keys') or [])
+        if not keys:
+            # старые отзывы: ссылки вели на наш бакет — вытащим постоянный ключ и переподпишем
+            for u in (rev.get('photos') or []):
+                k = _key_from_own_url(u)
+                if k:
+                    keys.append(k)
+        if keys:
+            s3 = s3 or s3_client()
+            rev['photos'] = [presign(k, s3) for k in keys if k]
+        rev.pop('photo_keys', None)
     if p.get('avatar_s3_key'):
         s3 = s3 or s3_client()
         p['avatar_url'] = presign(p['avatar_s3_key'], s3)
@@ -291,11 +323,14 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                     return resp(404, {'error': 'not_found'})
                 pid = row['id']
                 photographer_id = row.get('user_id')
+                # Копируем выбранные клиентом фото в постоянное хранилище — иначе presigned-ссылки протухнут
+                photo_keys = copy_review_photos(clean_photos, photographer_id)
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.portfolio_reviews
-                        (portfolio_id, author_name, text, rating, shooting_style, photos, is_approved, source, sort_order)
+                        (portfolio_id, author_name, text, rating, shooting_style, photos, photo_keys, is_approved, source, sort_order)
                     VALUES ({esc(pid)}, {esc(author)}, {esc(text)}, {esc(rating)}, {esc(style)},
-                        {esc(json.dumps(clean_photos, ensure_ascii=False))}::jsonb, FALSE, 'client', 0)
+                        {esc(json.dumps(clean_photos, ensure_ascii=False))}::jsonb,
+                        {esc(json.dumps(photo_keys, ensure_ascii=False))}::jsonb, FALSE, 'client', 0)
                 """)
                 conn.commit()
                 notify_new_review(photographer_id, author, rating, text)
@@ -567,11 +602,13 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             if act == 'add_review':
                 photos = body.get('photos') or []
                 clean_photos = [str(u)[:2000] for u in photos if u][:6]
+                photo_keys = copy_review_photos(clean_photos, user_id)
                 cur.execute(f"""
-                    INSERT INTO {SCHEMA}.portfolio_reviews (portfolio_id, author_name, text, rating, shooting_style, photos, is_approved, source, sort_order)
+                    INSERT INTO {SCHEMA}.portfolio_reviews (portfolio_id, author_name, text, rating, shooting_style, photos, photo_keys, is_approved, source, sort_order)
                     VALUES ({esc(pid)}, {esc(body.get('author_name', ''))}, {esc(body.get('text', ''))}, {esc(int(body.get('rating', 5)))},
                         {esc((body.get('shooting_style') or '')[:200])},
-                        {esc(json.dumps(clean_photos, ensure_ascii=False))}::jsonb, TRUE, 'photographer',
+                        {esc(json.dumps(clean_photos, ensure_ascii=False))}::jsonb,
+                        {esc(json.dumps(photo_keys, ensure_ascii=False))}::jsonb, TRUE, 'photographer',
                         COALESCE((SELECT MAX(sort_order)+1 FROM {SCHEMA}.portfolio_reviews WHERE portfolio_id = {esc(pid)}), 0))
                 """)
                 conn.commit()
