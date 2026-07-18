@@ -164,6 +164,28 @@ def build_messages(event_type, name, data):
             f"<p style='margin:0 0 4px'>Срок: <b>{m} {month_word}</b></p>"
             f"{extra_html}"
         )
+    elif event_type == 'portfolio_review':
+        author = data.get('review_author', 'Клиент')
+        rating = int(data.get('review_rating') or 0)
+        review_text = (data.get('review_text') or '').strip()
+        stars = '★' * max(0, min(5, rating)) + '☆' * (5 - max(0, min(5, rating)))
+        subject = "💬 Новый отзыв на вашем портфолио!"
+        quote_text = review_text if len(review_text) <= 300 else review_text[:300] + '…'
+        text = (
+            f"{greeting}\n\n"
+            f"💬 <b>Новый отзыв на вашем портфолио!</b>\n"
+            f"От кого: <b>{author}</b>\n"
+            f"Оценка: <b>{stars}</b>\n"
+            f"Отзыв: «{quote_text}»\n\n"
+            f"Отзыв ждёт вашего одобрения — откройте настройки портфолио, чтобы опубликовать его. ✨"
+        )
+        body_lines = (
+            f"<p style='font-size:16px;margin:0 0 8px'>💬 <b>Новый отзыв на вашем портфолио!</b></p>"
+            f"<p style='margin:0 0 4px'>От кого: <b>{author}</b></p>"
+            f"<p style='margin:0 0 4px'>Оценка: <b style='color:#f59e0b'>{stars}</b></p>"
+            f"<p style='margin:8px 0;padding:12px;background:#f6f3ff;border-radius:10px;color:#4b3f6b'>«{quote_text}»</p>"
+            f"<p style='margin:8px 0 0;color:#6d28d9'>Отзыв ждёт одобрения — откройте настройки портфолио, чтобы опубликовать его.</p>"
+        )
     else:
         return None, None, None
 

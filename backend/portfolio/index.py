@@ -37,6 +37,30 @@ def db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 
+ACCOUNT_NOTIFY_URL = 'https://functions.poehali.dev/144eb550-4428-40c4-bc1a-acd169042a99'
+
+
+def notify_new_review(photographer_id: Any, author: str, rating: int, text: str) -> None:
+    """Шлёт фотографу уведомление о новом отзыве (email / Telegram / MAX). Ошибки не критичны."""
+    if not photographer_id:
+        return
+    try:
+        payload = json.dumps({
+            'event_type': 'portfolio_review',
+            'user_id': int(photographer_id),
+            'review_author': author,
+            'review_rating': int(rating),
+            'review_text': text,
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            ACCOUNT_NOTIFY_URL, data=payload,
+            headers={'Content-Type': 'application/json'}, method='POST',
+        )
+        urllib.request.urlopen(req, timeout=8)
+    except Exception as e:
+        print(f'[PORTFOLIO-NOTIFY] error: {e}')
+
+
 def resp(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
     return {'statusCode': status, 'headers': CORS_HEADERS, 'body': json.dumps(body, default=str), 'isBase64Encoded': False}
 
@@ -261,11 +285,12 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         conn = db()
         try:
             with conn.cursor() as cur:
-                cur.execute(f"SELECT id FROM {SCHEMA}.portfolios WHERE slug = {esc(slug)} AND is_published = TRUE")
+                cur.execute(f"SELECT id, user_id FROM {SCHEMA}.portfolios WHERE slug = {esc(slug)} AND is_published = TRUE")
                 row = cur.fetchone()
                 if not row:
                     return resp(404, {'error': 'not_found'})
                 pid = row['id']
+                photographer_id = row.get('user_id')
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.portfolio_reviews
                         (portfolio_id, author_name, text, rating, shooting_style, photos, is_approved, source, sort_order)
@@ -273,6 +298,7 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                         {esc(json.dumps(clean_photos, ensure_ascii=False))}::jsonb, FALSE, 'client', 0)
                 """)
                 conn.commit()
+                notify_new_review(photographer_id, author, rating, text)
                 return resp(200, {'ok': True, 'moderation': True})
         finally:
             conn.close()
