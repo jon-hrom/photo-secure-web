@@ -27,6 +27,20 @@
       "bodyMatcher": "partial"
     },
     {
+      "name": "submit_review без обязательных полей — 400",
+      "method": "POST",
+      "path": "/?action=submit_review",
+      "body": {"slug": "nonexistent-xyz-999"},
+      "expectedStatus": 400
+    },
+    {
+      "name": "submit_review несуществующий slug — 404",
+      "method": "POST",
+      "path": "/?action=submit_review",
+      "body": {"slug": "nonexistent-xyz-999", "author_name": "Тест", "text": "Отличная съёмка", "rating": 5},
+      "expectedStatus": 404
+    },
+    {
       "name": "Приватный запрос без user_id — 401",
       "method": "GET",
       "path": "/",

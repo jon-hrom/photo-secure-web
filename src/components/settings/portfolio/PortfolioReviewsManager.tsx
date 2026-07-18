@@ -34,24 +34,63 @@ const PortfolioReviewsManager = ({ userId, portfolio, onChange }: Props) => {
     onChange(p);
   };
 
+  const approve = async (id: number) => {
+    const p = await portfolioAction(userId, 'approve_review', { id });
+    onChange(p);
+  };
+
+  const pending = reviews.filter((r) => r.is_approved === false);
+  const published = reviews.filter((r) => r.is_approved !== false);
+
+  const renderReviewRow = (r: typeof reviews[number], isPending: boolean) => (
+    <div key={r.id} className={`rounded-lg border p-3 ${isPending ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/10' : 'border-gray-200 dark:border-gray-700'}`}>
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium">{r.author_name}</span>
+            <span className="text-xs text-amber-500">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+            {r.shooting_style && <span className="text-xs text-muted-foreground">· {r.shooting_style}</span>}
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-line">{r.text}</p>
+          {r.photos && r.photos.length > 0 && (
+            <div className="flex gap-1 mt-2 flex-wrap">
+              {r.photos.map((u, i) => (
+                <img key={i} src={u} alt="" className="w-12 h-12 object-cover rounded" loading="lazy" />
+              ))}
+            </div>
+          )}
+        </div>
+        <button onClick={() => remove(r.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded p-1 shrink-0">
+          <Icon name="Trash2" size={15} />
+        </button>
+      </div>
+      {isPending && (
+        <div className="flex gap-2 mt-2">
+          <Button size="sm" onClick={() => approve(r.id)} className="h-7 text-xs">
+            <Icon name="Check" size={13} className="mr-1" /> Опубликовать
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => remove(r.id)} className="h-7 text-xs">
+            Отклонить
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-3">
-      {reviews.length > 0 && (
+      {pending.length > 0 && (
         <div className="space-y-2">
-          {reviews.map((r) => (
-            <div key={r.id} className="flex items-start gap-3 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{r.author_name}</span>
-                  <span className="text-xs text-amber-500">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
-                </div>
-                <p className="text-sm text-muted-foreground mt-0.5">{r.text}</p>
-              </div>
-              <button onClick={() => remove(r.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded p-1">
-                <Icon name="Trash2" size={15} />
-              </button>
-            </div>
-          ))}
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-600">
+            <Icon name="BellDot" size={16} /> Новые отзывы от клиентов ({pending.length})
+          </div>
+          {pending.map((r) => renderReviewRow(r, true))}
+        </div>
+      )}
+
+      {published.length > 0 && (
+        <div className="space-y-2">
+          {published.map((r) => renderReviewRow(r, false))}
         </div>
       )}
 

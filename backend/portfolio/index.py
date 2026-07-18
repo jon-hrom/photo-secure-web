@@ -169,7 +169,7 @@ def get_or_create_portfolio(cur, user_id: int) -> Dict[str, Any]:
     return dict(cur.fetchone())
 
 
-def load_full(cur, portfolio_id: int) -> Dict[str, Any]:
+def load_full(cur, portfolio_id: int, only_approved: bool = False) -> Dict[str, Any]:
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolios WHERE id = {esc(portfolio_id)}")
     p = dict(cur.fetchone())
     cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_categories WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
@@ -180,8 +180,15 @@ def load_full(cur, portfolio_id: int) -> Dict[str, Any]:
     all_photos = [dict(r) for r in cur.fetchall()]
     p['photos'] = [ph for ph in all_photos if not ph.get('is_slider')]
     p['slider_photos'] = [ph for ph in all_photos if ph.get('is_slider')]
-    cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_reviews WHERE portfolio_id = {esc(portfolio_id)} ORDER BY sort_order, id")
+    review_where = f"portfolio_id = {esc(portfolio_id)}"
+    if only_approved:
+        review_where += " AND is_approved = TRUE"
+    cur.execute(f"SELECT * FROM {SCHEMA}.portfolio_reviews WHERE {review_where} ORDER BY sort_order, id DESC")
     p['reviews'] = [dict(r) for r in cur.fetchall()]
+    p['pending_reviews_count'] = 0
+    if not only_approved:
+        cur.execute(f"SELECT COUNT(*) AS c FROM {SCHEMA}.portfolio_reviews WHERE portfolio_id = {esc(portfolio_id)} AND is_approved = FALSE")
+        p['pending_reviews_count'] = cur.fetchone()['c']
     _sign_photos(p)
     return p
 
@@ -228,11 +235,45 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 row = cur.fetchone()
                 if not row:
                     return resp(404, {'error': 'not_found'})
-                p = load_full(cur, row['id'])
+                p = load_full(cur, row['id'], only_approved=True)
                 cur.execute(f"UPDATE {SCHEMA}.portfolios SET views_count = views_count + 1 WHERE id = {esc(row['id'])}")
                 conn.commit()
                 p.pop('user_id', None)
+                p.pop('pending_reviews_count', None)
                 return resp(200, {'portfolio': p})
+        finally:
+            conn.close()
+
+    # ── ПУБЛИЧНАЯ отправка отзыва клиентом (без авторизации) ──
+    if action == 'submit_review' and method == 'POST':
+        body = json.loads(event.get('body') or '{}')
+        slug = body.get('slug', '')
+        author = (body.get('author_name') or '').strip()[:120]
+        text = (body.get('text') or '').strip()
+        rating = int(body.get('rating') or 5)
+        rating = max(1, min(5, rating))
+        style = (body.get('shooting_style') or '').strip()[:200]
+        photos = body.get('photos') or []
+        if not slug or not author or not text:
+            return resp(400, {'error': 'author_name, text, slug required'})
+        # оставляем максимум 6 фото-ссылок
+        clean_photos = [str(u)[:2000] for u in photos if u][:6]
+        conn = db()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT id FROM {SCHEMA}.portfolios WHERE slug = {esc(slug)} AND is_published = TRUE")
+                row = cur.fetchone()
+                if not row:
+                    return resp(404, {'error': 'not_found'})
+                pid = row['id']
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.portfolio_reviews
+                        (portfolio_id, author_name, text, rating, shooting_style, photos, is_approved, source, sort_order)
+                    VALUES ({esc(pid)}, {esc(author)}, {esc(text)}, {esc(rating)}, {esc(style)},
+                        {esc(json.dumps(clean_photos, ensure_ascii=False))}::jsonb, FALSE, 'client', 0)
+                """)
+                conn.commit()
+                return resp(200, {'ok': True, 'moderation': True})
         finally:
             conn.close()
 
@@ -498,9 +539,13 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 return resp(200, {'portfolio': load_full(cur, pid)})
 
             if act == 'add_review':
+                photos = body.get('photos') or []
+                clean_photos = [str(u)[:2000] for u in photos if u][:6]
                 cur.execute(f"""
-                    INSERT INTO {SCHEMA}.portfolio_reviews (portfolio_id, author_name, text, rating, sort_order)
+                    INSERT INTO {SCHEMA}.portfolio_reviews (portfolio_id, author_name, text, rating, shooting_style, photos, is_approved, source, sort_order)
                     VALUES ({esc(pid)}, {esc(body.get('author_name', ''))}, {esc(body.get('text', ''))}, {esc(int(body.get('rating', 5)))},
+                        {esc((body.get('shooting_style') or '')[:200])},
+                        {esc(json.dumps(clean_photos, ensure_ascii=False))}::jsonb, TRUE, 'photographer',
                         COALESCE((SELECT MAX(sort_order)+1 FROM {SCHEMA}.portfolio_reviews WHERE portfolio_id = {esc(pid)}), 0))
                 """)
                 conn.commit()
@@ -509,6 +554,12 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             if act == 'update_review':
                 rid = int(body.get('id'))
                 cur.execute(f"UPDATE {SCHEMA}.portfolio_reviews SET author_name = {esc(body.get('author_name', ''))}, text = {esc(body.get('text', ''))}, rating = {esc(int(body.get('rating', 5)))} WHERE id = {esc(rid)} AND portfolio_id = {esc(pid)}")
+                conn.commit()
+                return resp(200, {'portfolio': load_full(cur, pid)})
+
+            if act == 'approve_review':
+                rid = int(body.get('id'))
+                cur.execute(f"UPDATE {SCHEMA}.portfolio_reviews SET is_approved = TRUE WHERE id = {esc(rid)} AND portfolio_id = {esc(pid)}")
                 conn.commit()
                 return resp(200, {'portfolio': load_full(cur, pid)})
 

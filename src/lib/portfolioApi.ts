@@ -38,6 +38,10 @@ export interface PortfolioReview {
   rating: number;
   avatar_url: string;
   sort_order: number;
+  photos?: string[];
+  shooting_style?: string;
+  is_approved?: boolean;
+  source?: string;
 }
 
 export interface Portfolio {
@@ -69,6 +73,7 @@ export interface Portfolio {
   photos: PortfolioPhoto[];
   slider_photos: PortfolioPhoto[];
   reviews: PortfolioReview[];
+  pending_reviews_count?: number;
   user_profile?: { name?: string; display_name?: string; city?: string; phone?: string; email?: string; avatar_url?: string };
 }
 
@@ -106,4 +111,24 @@ export const getPublicPortfolio = async (slug: string): Promise<Portfolio | null
   if (!r.ok) return null;
   const d = await r.json();
   return d.portfolio || null;
+};
+
+export interface SubmitReviewInput {
+  slug: string;
+  author_name: string;
+  text: string;
+  rating: number;
+  shooting_style?: string;
+  photos?: string[];
+}
+
+export const submitReview = async (input: SubmitReviewInput): Promise<{ ok: boolean; moderation?: boolean; error?: string }> => {
+  const r = await fetch(`${URL}?action=submit_review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) return { ok: false, error: d.error || 'error' };
+  return { ok: true, moderation: d.moderation };
 };
