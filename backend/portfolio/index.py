@@ -579,13 +579,22 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
 
             if act == 'update_review':
                 rid = int(body.get('id'))
-                cur.execute(f"UPDATE {SCHEMA}.portfolio_reviews SET author_name = {esc(body.get('author_name', ''))}, text = {esc(body.get('text', ''))}, rating = {esc(int(body.get('rating', 5)))} WHERE id = {esc(rid)} AND portfolio_id = {esc(pid)}")
+                style_sql = ''
+                if 'shooting_style' in body:
+                    style_sql = f", shooting_style = {esc((body.get('shooting_style') or '')[:200])}"
+                cur.execute(f"UPDATE {SCHEMA}.portfolio_reviews SET author_name = {esc(body.get('author_name', ''))}, text = {esc(body.get('text', ''))}, rating = {esc(int(body.get('rating', 5)))}{style_sql} WHERE id = {esc(rid)} AND portfolio_id = {esc(pid)}")
                 conn.commit()
                 return resp(200, {'portfolio': load_full(cur, pid)})
 
             if act == 'approve_review':
                 rid = int(body.get('id'))
                 cur.execute(f"UPDATE {SCHEMA}.portfolio_reviews SET is_approved = TRUE WHERE id = {esc(rid)} AND portfolio_id = {esc(pid)}")
+                conn.commit()
+                return resp(200, {'portfolio': load_full(cur, pid)})
+
+            if act == 'unpublish_review':
+                rid = int(body.get('id'))
+                cur.execute(f"UPDATE {SCHEMA}.portfolio_reviews SET is_approved = FALSE WHERE id = {esc(rid)} AND portfolio_id = {esc(pid)}")
                 conn.commit()
                 return resp(200, {'portfolio': load_full(cur, pid)})
 

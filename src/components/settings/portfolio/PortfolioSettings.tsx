@@ -8,7 +8,6 @@ import {
   Portfolio,
   getMyPortfolio,
   savePortfolio,
-  portfolioAction,
   checkSlug,
 } from '@/lib/portfolioApi';
 import { slugify, suggestSlugs } from '@/utils/slugify';
@@ -179,6 +178,25 @@ const PortfolioSettings = ({ userId }: Props) => {
         )}
       </div>
 
+      {/* Отзывы клиентов — вверху, чтобы фотограф сразу видел новые отзывы на модерацию */}
+      <div className="space-y-3 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon name="MessageSquareQuote" size={18} className="text-primary" />
+            <span className="font-medium">Блок «Отзывы клиентов»</span>
+            {(portfolio?.pending_reviews_count ?? 0) > 0 && (
+              <span className="text-[11px] font-semibold text-white bg-amber-500 rounded-full px-2 py-0.5">
+                {portfolio?.pending_reviews_count} новых
+              </span>
+            )}
+          </div>
+          <Switch checked={showReviews} onCheckedChange={setShowReviews} />
+        </div>
+        {showReviews && (
+          <PortfolioReviewsManager userId={userId} portfolio={portfolio!} onChange={refresh} />
+        )}
+      </div>
+
       {/* Адрес (slug) */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Адрес портфолио (латиницей)</label>
@@ -284,20 +302,6 @@ const PortfolioSettings = ({ userId }: Props) => {
           </div>
         </div>
         <Switch checked={showStories} onCheckedChange={setShowStories} />
-      </div>
-
-      {/* Отзывы */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Icon name="MessageSquareQuote" size={18} className="text-primary" />
-            <span className="font-medium">Блок «Отзывы клиентов»</span>
-          </div>
-          <Switch checked={showReviews} onCheckedChange={setShowReviews} />
-        </div>
-        {showReviews && (
-          <PortfolioReviewsManager userId={userId} portfolio={portfolio!} onChange={refresh} />
-        )}
       </div>
 
       {/* Обо мне и контакты */}
