@@ -129,14 +129,19 @@ def _key_from_own_url(src_url: str):
     return key or None
 
 
-def copy_key_to_portfolio(src_key: str, user_id: Any = None, s3=None):
+def _portfolio_folder(user_id: Any, subfolder: str = '') -> str:
+    base = f"portfolio/{user_id}" if user_id is not None else "portfolio"
+    return f"{base}/{subfolder}" if subfolder else base
+
+
+def copy_key_to_portfolio(src_key: str, user_id: Any = None, s3=None, subfolder: str = ''):
     """Копирует объект внутри foto-mix в папку портфолио. Возвращает (presigned_url, new_key) или (None, None)."""
     if not src_key:
         return None, None
     try:
         s3 = s3 or s3_client()
         ext = src_key.rsplit('.', 1)[-1].lower() if '.' in src_key.rsplit('/', 1)[-1] else 'jpg'
-        folder = f"portfolio/{user_id}" if user_id is not None else "portfolio"
+        folder = _portfolio_folder(user_id, subfolder)
         new_key = f"{folder}/{uuid.uuid4().hex}.{ext}"
         s3.copy_object(Bucket=S3_BUCKET, CopySource={'Bucket': S3_BUCKET, 'Key': src_key}, Key=new_key)
         return presign(new_key, s3), new_key
@@ -144,15 +149,15 @@ def copy_key_to_portfolio(src_key: str, user_id: Any = None, s3=None):
         return None, None
 
 
-def copy_url_to_s3(src_url: str, user_id: Any = None, s3=None):
+def copy_url_to_s3(src_url: str, user_id: Any = None, s3=None, subfolder: str = ''):
     """Скачивает файл по ссылке (CDN/presigned фотобанка) и кладёт в собственную папку
-    портфолио portfolio/<user_id>/. Возвращает (presigned_url, s3_key) либо (src_url, None) при ошибке."""
+    портфолио portfolio/<user_id>/[<subfolder>/]. Возвращает (presigned_url, s3_key) либо (src_url, None) при ошибке."""
     if not src_url:
         return '', None
     # Если ссылка на наш же бакет — копируем объект напрямую (не зависит от истёкшего presign)
     own_key = _key_from_own_url(src_url)
     if own_key:
-        url, new_key = copy_key_to_portfolio(own_key, user_id, s3)
+        url, new_key = copy_key_to_portfolio(own_key, user_id, s3, subfolder)
         if new_key:
             return url, new_key
     try:
@@ -161,7 +166,7 @@ def copy_url_to_s3(src_url: str, user_id: Any = None, s3=None):
             data = r.read()
             content_type = r.headers.get('Content-Type', 'image/jpeg')
         ext = 'png' if 'png' in content_type else ('webp' if 'webp' in content_type else 'jpg')
-        folder = f"portfolio/{user_id}" if user_id is not None else "portfolio"
+        folder = _portfolio_folder(user_id, subfolder)
         key = f"{folder}/{uuid.uuid4().hex}.{ext}"
         s3 = s3 or s3_client()
         s3.put_object(Bucket=S3_BUCKET, Key=key, Body=data, ContentType=content_type)
@@ -172,7 +177,7 @@ def copy_url_to_s3(src_url: str, user_id: Any = None, s3=None):
 
 
 def copy_review_photos(urls: List[str], user_id: Any) -> List[str]:
-    """Копирует выбранные клиентом фото в постоянное хранилище портфолио.
+    """Копирует выбранные клиентом фото в подпапку отзывов portfolio/<user_id>/reviews/.
     Возвращает список постоянных s3_key (чтобы ссылки не протухали)."""
     keys: List[str] = []
     if not urls:
@@ -183,7 +188,7 @@ def copy_review_photos(urls: List[str], user_id: Any) -> List[str]:
             continue
         try:
             s3 = s3 or s3_client()
-            _, key = copy_url_to_s3(u, user_id, s3)
+            _, key = copy_url_to_s3(u, user_id, s3, subfolder='reviews')
             if key:
                 keys.append(key)
         except Exception as e:
