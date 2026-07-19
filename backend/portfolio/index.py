@@ -38,6 +38,77 @@ def db():
 
 
 ACCOUNT_NOTIFY_URL = 'https://functions.poehali.dev/144eb550-4428-40c4-bc1a-acd169042a99'
+MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d'
+VK_NOTIFY_URL = 'https://functions.poehali.dev/9e969787-1b8b-439d-8e29-8031cab6fc89'
+
+
+def _thanks_message(author: str, photographer_name: str = '') -> str:
+    """Тёплый текст благодарности клиенту за оставленный отзыв."""
+    name = (author or '').strip().split()[0] if author else ''
+    hello = f'{name}, спасибо вам огромное' if name else 'Спасибо вам огромное'
+    signed = f'\n\nС теплом, {photographer_name}' if photographer_name else '\n\nС теплом, ваш фотограф'
+    return (
+        f'{hello} за тёплые слова и оставленные эмоции! 💛\n\n'
+        'Ваш отзыв опубликован — мне очень ценно, что вы поделились впечатлениями от нашей съёмки. '
+        'Такие слова вдохновляют и дарят силы создавать для вас ещё более красивые кадры.\n\n'
+        'Буду искренне рад видеть вас снова — приходите за новыми эмоциями и фотографиями! 📸✨'
+        f'{signed}'
+    )
+
+
+def _call_client_channel(url: str, photographer_id: Any, client_id: Any, message: str) -> bool:
+    try:
+        payload = json.dumps({
+            'action': 'send_message_to_client',
+            'client_id': int(client_id),
+            'message': message,
+        }, ensure_ascii=False).encode('utf-8')
+        req = urllib.request.Request(
+            url, data=payload,
+            headers={'Content-Type': 'application/json', 'X-User-Id': str(photographer_id)},
+            method='POST',
+        )
+        with urllib.request.urlopen(req, timeout=12) as r:
+            body = json.loads(r.read().decode('utf-8') or '{}')
+        return not body.get('error')
+    except Exception as e:
+        print(f'[REVIEW-THANKS] channel {url} error: {e}')
+        return False
+
+
+def notify_review_thanks(cur, review_id: int, portfolio_id: int, photographer_id: Any) -> None:
+    """После одобрения отзыва отправляет клиенту тёплую благодарность по доступным каналам
+    (MAX по телефону, ВК в ЛС). Каждый отзыв благодарим только один раз (флаг thanked)."""
+    try:
+        cur.execute(
+            f"SELECT author_name, client_id, thanked FROM {SCHEMA}.portfolio_reviews "
+            f"WHERE id = {esc(review_id)} AND portfolio_id = {esc(portfolio_id)}"
+        )
+        rev = cur.fetchone()
+        if not rev or rev.get('thanked'):
+            return
+        client_id = rev.get('client_id')
+        if not client_id:
+            return  # отзыв не связан с клиентом CRM — благодарить некому
+        photographer_name = ''
+        try:
+            cur.execute(f"SELECT title FROM {SCHEMA}.portfolios WHERE id = {esc(portfolio_id)}")
+            prow = cur.fetchone()
+            photographer_name = (prow or {}).get('title') or ''
+        except Exception:
+            pass
+        message = _thanks_message(rev.get('author_name') or '', photographer_name)
+        sent = False
+        # MAX (по телефону клиента)
+        if _call_client_channel(MAX_URL, photographer_id, client_id, message):
+            sent = True
+        # ВК ЛС
+        if _call_client_channel(VK_NOTIFY_URL, photographer_id, client_id, message):
+            sent = True
+        if sent:
+            cur.execute(f"UPDATE {SCHEMA}.portfolio_reviews SET thanked = TRUE WHERE id = {esc(review_id)}")
+    except Exception as e:
+        print(f'[REVIEW-THANKS] error: {e}')
 
 
 def notify_new_review(photographer_id: Any, author: str, rating: int, text: str) -> None:
@@ -315,6 +386,12 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         rating = max(1, min(5, rating))
         style = (body.get('shooting_style') or '').strip()[:200]
         photos = body.get('photos') or []
+        # Контакты клиента (для последующей благодарности после одобрения)
+        client_id = body.get('client_id')
+        client_id_sql = esc(int(client_id)) if client_id else 'NULL'
+        client_phone = (body.get('client_phone') or '').strip()[:50]
+        client_email = (body.get('client_email') or '').strip()[:255]
+        gallery_code = (body.get('gallery_code') or '').strip()[:16]
         if not slug or not author or not text:
             return resp(400, {'error': 'author_name, text, slug required'})
         # оставляем максимум 6 фото-ссылок
@@ -332,10 +409,13 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 photo_keys = copy_review_photos(clean_photos, photographer_id)
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.portfolio_reviews
-                        (portfolio_id, author_name, text, rating, shooting_style, photos, photo_keys, is_approved, source, sort_order)
+                        (portfolio_id, author_name, text, rating, shooting_style, photos, photo_keys,
+                         client_id, client_phone, client_email, gallery_code, is_approved, source, sort_order)
                     VALUES ({esc(pid)}, {esc(author)}, {esc(text)}, {esc(rating)}, {esc(style)},
                         {esc(json.dumps(clean_photos, ensure_ascii=False))}::jsonb,
-                        {esc(json.dumps(photo_keys, ensure_ascii=False))}::jsonb, FALSE, 'client', 0)
+                        {esc(json.dumps(photo_keys, ensure_ascii=False))}::jsonb,
+                        {client_id_sql}, {esc(client_phone)}, {esc(client_email)}, {esc(gallery_code)},
+                        FALSE, 'client', 0)
                 """)
                 conn.commit()
                 notify_new_review(photographer_id, author, rating, text)
@@ -631,6 +711,9 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             if act == 'approve_review':
                 rid = int(body.get('id'))
                 cur.execute(f"UPDATE {SCHEMA}.portfolio_reviews SET is_approved = TRUE WHERE id = {esc(rid)} AND portfolio_id = {esc(pid)}")
+                conn.commit()
+                # Отправляем клиенту тёплую благодарность (best-effort)
+                notify_review_thanks(cur, rid, pid, user_id)
                 conn.commit()
                 return resp(200, {'portfolio': load_full(cur, pid)})
 

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import GalleryGrid from './GalleryGrid';
 import LoadingIndicators from './LoadingIndicators';
 import GalleryModals from './GalleryModals';
@@ -5,6 +6,7 @@ import ClientUploadModal from '@/components/gallery/ClientUploadModal';
 import CreateFavoriteListModal from '@/components/gallery/CreateFavoriteListModal';
 import YandexDiskCodeDialog from './components/YandexDiskCodeDialog';
 import YandexDiskProgress from './components/YandexDiskProgress';
+import GalleryReviewInvite from '@/components/gallery/GalleryReviewInvite';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface GalleryMainViewProps {
@@ -47,6 +49,33 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
     yandexDiskCodeOpen, setYandexDiskCodeOpen, submitYandexDiskCode, yandexDiskAuthUrl,
     favoriteLists,
   } = props;
+
+  // Отмечаем момент, когда клиент только что скачал все фото / архив
+  const [justDownloadedAll, setJustDownloadedAll] = useState(false);
+  const wasDownloadingRef = useRef(false);
+  useEffect(() => {
+    if (downloadingAll) {
+      wasDownloadingRef.current = true;
+    } else if (wasDownloadingRef.current) {
+      wasDownloadingRef.current = false;
+      setJustDownloadedAll(true);
+    }
+  }, [downloadingAll]);
+
+  const accent = gallery?.accent_color || '#7c3aed';
+
+  // «Просмотрел всё» — клиент долистал галерею до конца
+  const [viewedAll, setViewedAll] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = bottomRef.current;
+    if (!el || viewedAll) return;
+    const obs = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setViewedAll(true);
+    }, { rootMargin: '0px 0px 200px 0px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [viewedAll, visiblePhotos]);
 
   return (
     <div className="min-h-screen">
@@ -102,6 +131,19 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
         onCancelListSelection={() => favoriteLists.setActiveFavoriteList(null)}
         favoriteLists={state.clientData?.client_id ? favoriteLists.favoriteLists : []}
         onOpenFavoriteList={favoriteLists.handleOpenList}
+      />
+
+      {/* Маркер конца галереи — по нему определяем, что клиент всё просмотрел */}
+      <div ref={bottomRef} className="h-1 w-full" aria-hidden />
+
+      {/* Приглашение оставить отзыв после просмотра/скачивания */}
+      <GalleryReviewInvite
+        portfolioSlug={gallery?.portfolio_slug}
+        galleryCode={code}
+        clientData={state.clientData}
+        accent={accent}
+        justDownloadedAll={justDownloadedAll}
+        viewedAll={viewedAll}
       />
 
       <GalleryModals

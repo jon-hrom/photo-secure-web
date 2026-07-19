@@ -120,6 +120,10 @@ export interface SubmitReviewInput {
   rating: number;
   shooting_style?: string;
   photos?: string[];
+  client_id?: number;
+  client_phone?: string;
+  client_email?: string;
+  gallery_code?: string;
 }
 
 export const submitReview = async (input: SubmitReviewInput): Promise<{ ok: boolean; moderation?: boolean; error?: string }> => {

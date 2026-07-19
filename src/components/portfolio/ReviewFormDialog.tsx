@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,20 @@ interface Props {
   onClose: () => void;
   slug: string;
   accent: string;
+  /** Предзаполнение из галереи: код, пароль и контакт клиента */
+  galleryCode?: string;
+  galleryPassword?: string;
+  clientId?: number;
+  clientName?: string;
+  clientPhone?: string;
+  clientEmail?: string;
 }
 
-const ReviewFormDialog = ({ open, onClose, slug, accent }: Props) => {
+const ReviewFormDialog = ({
+  open, onClose, slug, accent,
+  galleryCode, galleryPassword: galleryPasswordProp,
+  clientId, clientName, clientPhone, clientEmail,
+}: Props) => {
   const [step, setStep] = useState<'form' | 'done'>('form');
   const [author, setAuthor] = useState('');
   const [occasionId, setOccasionId] = useState('');
@@ -44,10 +55,11 @@ const ReviewFormDialog = ({ open, onClose, slug, accent }: Props) => {
 
   const close = () => { onClose(); setTimeout(reset, 300); };
 
-  const loadPhotos = async () => {
+  const loadPhotosFrom = useCallback(async (linkOrCode: string, pwd?: string) => {
+    if (!linkOrCode) return;
     setLoadingPhotos(true);
     setGalleryError('');
-    const r = await fetchGalleryPhotos(galleryLink, galleryPassword || undefined);
+    const r = await fetchGalleryPhotos(linkOrCode, pwd || undefined);
     setLoadingPhotos(false);
     if (r.requiresPassword) { setNeedPassword(true); return; }
     if (!r.ok) {
@@ -57,7 +69,20 @@ const ReviewFormDialog = ({ open, onClose, slug, accent }: Props) => {
     setNeedPassword(false);
     setGalleryPhotos(r.photos);
     if (r.photos.length === 0) setGalleryError('В галерее нет фотографий');
-  };
+  }, []);
+
+  const loadPhotos = () => loadPhotosFrom(galleryLink, galleryPassword);
+
+  // Предзаполнение из галереи: имя клиента + автозагрузка фото по коду
+  useEffect(() => {
+    if (!open) return;
+    if (clientName) setAuthor((a) => a || clientName);
+    if (galleryCode) {
+      setGalleryLink(galleryCode);
+      loadPhotosFrom(galleryCode, galleryPasswordProp);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, galleryCode, clientName]);
 
   const togglePhoto = (p: GalleryPhotoLite) => {
     setSelected((prev) => {
@@ -82,6 +107,10 @@ const ReviewFormDialog = ({ open, onClose, slug, accent }: Props) => {
       rating,
       shooting_style: occasion?.label || '',
       photos: Object.values(selected),
+      client_id: clientId,
+      client_phone: clientPhone,
+      client_email: clientEmail,
+      gallery_code: galleryCode,
     });
     setSaving(false);
     if (!r.ok) { setError('Не удалось отправить, попробуйте ещё раз'); return; }

@@ -1129,7 +1129,21 @@ def handler(event: dict, context) -> dict:
                     'photo_count': row[5]
                 })
             print(f'[GALLERY] Found {len(subfolders_data)} subfolders')
-            
+
+            # Slug опубликованного портфолио фотографа — чтобы предложить клиенту оставить отзыв
+            portfolio_slug = None
+            try:
+                cur.execute(
+                    "SELECT slug FROM t_p28211681_photo_secure_web.portfolios "
+                    "WHERE user_id = %s AND is_published = TRUE LIMIT 1",
+                    (photographer_id,)
+                )
+                pslug = cur.fetchone()
+                if pslug:
+                    portfolio_slug = pslug[0]
+            except Exception as _e:
+                print(f'[GALLERY] portfolio slug lookup error: {_e}')
+
             cur.close()
             conn.close()
             
@@ -1186,7 +1200,8 @@ def handler(event: dict, context) -> dict:
                     'cover_select_enabled': cover_select_enabled,
                     'vignette_select_enabled': vignette_select_enabled,
                     'link_id': link_id,
-                    'subfolders': subfolders_data
+                    'subfolders': subfolders_data,
+                    'portfolio_slug': portfolio_slug
                 })
             }
         
