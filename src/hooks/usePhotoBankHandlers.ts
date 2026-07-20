@@ -206,8 +206,9 @@ export const usePhotoBankHandlers = (
     const rawVideoIndexes: number[] = mediaFiles.map((_, idx) => idx);
 
     // Presigned URL кэш + ленивое (just-in-time) получение пачками.
-    // КРИТИЧНО: URL живут 30 минут, поэтому НЕ получаем все сразу для 1000 файлов —
-    // иначе поздние URL истекут до загрузки. Берём пачку прямо перед загрузкой.
+    // URL живут 7 дней, но всё равно берём пачку прямо перед загрузкой, чтобы
+    // не запрашивать тысячи ключей заранее. При повторной попытке URL/ключ
+    // переиспользуется (перезапись объекта), новый ключ не создаём.
     const presignedByIndex = new Map<number, { url: string; key: string }>();
     let urlFetchCursor = 0;
     let urlFetchPromise: Promise<void> | null = null;
@@ -378,26 +379,40 @@ export const usePhotoBankHandlers = (
         if (cancelledRef || uploadCancelled) {
           throw new Error('Upload cancelled');
         }
-        // На повторах всегда берём свежий URL (мог истечь или быть частично использован)
-        const forceFresh = attempt > 1;
-        try {
-          const presigned = await getPresignedForIndex(index, forceFresh);
-          key = presigned.key;
-          fileLoaded.set(index, 0);
-          const status = await putToS3(presigned.url);
-          if (status >= 200 && status < 300) {
-            uploaded = true;
+        // ВАЖНО: presigned URL живёт 7 дней, поэтому на повторах переиспользуем ТОТ ЖЕ
+        // ключ и URL — повтор ПЕРЕЗАПИСЫВАЕТ тот же объект в S3, а не создаёт новый.
+        // Иначе каждый ретрай заливал файл заново под новым ключом (лишний трафик
+        // и «осиротевшие» копии, раздувающие объём хранилища).
+        // Свежий URL берём только если S3 явно отверг текущий как истёкший (403/400).
+        let forceFresh = false;
+        for (let inner = 0; inner < 2; inner++) {
+          try {
+            const presigned = await getPresignedForIndex(index, forceFresh);
+            key = presigned.key;
+            fileLoaded.set(index, 0);
+            const status = await putToS3(presigned.url);
+            if (status >= 200 && status < 300) {
+              uploaded = true;
+              break;
+            }
+            // 403/400 — истёкший URL: обновляем URL/ключ и пробуем ещё раз в этом же attempt
+            if ((status === 403 || status === 400) && inner === 0) {
+              forceFresh = true;
+              lastError = new Error(`S3 responded ${status}`);
+              continue;
+            }
+            // Прочие статусы (5xx и т.п.) — временная ошибка: повторяем с ТЕМ ЖЕ ключом
+            lastError = new Error(`S3 responded ${status}`);
+            break;
+          } catch (innerErr) {
+            const im = (innerErr as Error)?.message;
+            if (im === 'Upload cancelled' || im === 'EMAIL_VERIFICATION_REQUIRED') throw innerErr;
+            lastError = innerErr;
             break;
           }
-          // 403/400 — истёкший URL; 5xx — временная ошибка сервера S3: повторяем
-          lastError = new Error(`S3 responded ${status}`);
-        } catch (err) {
-          const msg = (err as Error)?.message;
-          if (msg === 'Upload cancelled' || msg === 'EMAIL_VERIFICATION_REQUIRED') {
-            throw err;
-          }
-          lastError = err;
         }
+        if (uploaded) break;
+        if (cancelledRef || uploadCancelled) throw new Error('Upload cancelled');
         if (attempt < MAX_ATTEMPTS) {
           // Небольшая нарастающая пауза перед повтором (0.8с, 1.6с, 2.4с)
           await new Promise((r) => setTimeout(r, attempt * 800));
