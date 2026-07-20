@@ -192,7 +192,7 @@ const LoginFormFields = ({
                 <Input
                   type="url"
                   inputMode="url"
-                  placeholder="https://instagram.com/your_photos"
+                  placeholder=""
                   value={link}
                   onChange={(e) => {
                     const next = [...portfolioLinks];
