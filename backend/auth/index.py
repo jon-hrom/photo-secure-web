@@ -74,6 +74,32 @@ def get_ip_geolocation(ip: str) -> str:
         print(f"[GEOLOCATION] Error fetching geo for {ip}: {type(e).__name__} - {e}")
         return ip
 
+def format_geo_line(ip: str) -> str:
+    """Определить страну и город по IP и вернуть строку для тикета админа.
+
+    Возвращает, например: '🌍 Откуда: Россия, Москва (IP: 1.2.3.4)'.
+    Если геолокацию определить не удалось — вернёт только IP.
+    """
+    if not ip or ip == 'unknown':
+        return ''
+    geo_raw = get_ip_geolocation(ip)
+    country = ''
+    city = ''
+    emoji = '🌍'
+    try:
+        data = json.loads(geo_raw)
+        if isinstance(data, dict):
+            country = (data.get('country') or '').strip()
+            city = (data.get('city') or '').strip()
+            emoji = (data.get('emoji') or '🌍').strip() or '🌍'
+    except Exception:
+        pass
+    place = ', '.join([p for p in (country, city) if p])
+    if place:
+        return f'{emoji} Откуда: {place} (IP: {ip})'
+    return f'🌍 IP: {ip}'
+
+
 def generate_access_token(user_id: int, ip_address: str, user_agent: str, gps_location: str = None, device_id: str = None) -> tuple[str, str]:
     """Генерация Access Token и создание сессии
     
@@ -478,7 +504,7 @@ def send_max_message(phone: str, text: str) -> bool:
         print(f'[MAX] error: {e}', flush=True)
         return False
 
-def notify_admin_new_registration(conn, display_name: str, email: str, phone: str, portfolio_links: list):
+def notify_admin_new_registration(conn, display_name: str, email: str, phone: str, portfolio_links: list, geo_line: str = ''):
     """Уведомить администратора о новой заявке на регистрацию: email + MAX"""
     cursor = conn.cursor()
     cursor.execute(f"SELECT email, phone, max_phone FROM {SCHEMA}.users WHERE role = 'admin' AND email IS NOT NULL LIMIT 1")
@@ -493,6 +519,7 @@ def notify_admin_new_registration(conn, display_name: str, email: str, phone: st
         <h2 style="color:#7c3aed">📝 Запрос на регистрацию</h2>
         <p>Новый фотограф хочет зарегистрироваться на foto-mix.ru:</p>
         <p><b>Имя:</b> {display_name}<br><b>Email:</b> {email}<br><b>Телефон:</b> {phone}</p>
+        {f'<p>{geo_line}</p>' if geo_line else ''}
         <p><b>Портфолио:</b></p><ul>{links_html}</ul>
         <p>Откройте чат техподдержки на сайте, проверьте работы и нажмите «Разрешить регистрацию» или «Отклонить».</p>
         <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
@@ -507,8 +534,9 @@ def notify_admin_new_registration(conn, display_name: str, email: str, phone: st
             f'📝 Запрос на регистрацию\n\n'
             f'Фотограф: {display_name}\n'
             f'Email: {email}\n'
-            f'Телефон: {phone}\n\n'
-            f'Портфолио:\n{links_text}\n\n'
+            f'Телефон: {phone}\n'
+            f'{geo_line + chr(10) if geo_line else ""}'
+            f'\nПортфолио:\n{links_text}\n\n'
             f'Откройте чат техподдержки на foto-mix.ru для проверки.'
         )
         send_max_message(admin_phone, max_text)
@@ -699,11 +727,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Заявка администратору в чат техподдержки (тема "Запрос на регистрацию")
                 links_text = '\n'.join(f'• {l}' for l in portfolio_links)
+                geo_line = format_geo_line(get_real_ip(event))
+                geo_block = f'{geo_line}\n' if geo_line else ''
                 appeal_message = (
                     f'📝 Запрос на регистрацию\n\n'
                     f'Фотограф: {display_name}\n'
                     f'Email: {email}\n'
-                    f'Телефон: {phone}\n\n'
+                    f'Телефон: {phone}\n'
+                    f'{geo_block}\n'
                     f'Портфолио:\n{links_text}\n\n'
                     f'Проверьте работы и одобрите или отклоните заявку.'
                 )
@@ -715,7 +746,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Уведомить администратора (email + MAX) — не блокируем регистрацию при ошибке
                 try:
-                    notify_admin_new_registration(conn, display_name, email, phone, portfolio_links)
+                    notify_admin_new_registration(conn, display_name, email, phone, portfolio_links, geo_line)
                 except Exception as _e:
                     print(f'[REGISTER] admin notify error: {_e}', flush=True)
                 
@@ -887,11 +918,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     )
 
                 links_text = '\n'.join(f'• {l}' for l in portfolio_links)
+                geo_line = format_geo_line(get_real_ip(event))
+                geo_block = f'{geo_line}\n' if geo_line else ''
                 appeal_message = (
                     f'📝 Запрос на регистрацию\n\n'
                     f'Фотограф: {display_name}\n'
                     f'Email: {email}\n'
-                    f'Телефон: {phone}\n\n'
+                    f'Телефон: {phone}\n'
+                    f'{geo_block}\n'
                     f'Портфолио:\n{links_text}\n\n'
                     f'Проверьте работы и одобрите или отклоните заявку.'
                 )
@@ -907,7 +941,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 conn.commit()
 
                 try:
-                    notify_admin_new_registration(conn, display_name, email, phone, portfolio_links)
+                    notify_admin_new_registration(conn, display_name, email, phone, portfolio_links, geo_line)
                 except Exception as _e:
                     print(f'[OAUTH_PROFILE] admin notify error: {_e}', flush=True)
 
