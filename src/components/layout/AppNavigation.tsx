@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
 
 const PORTFOLIO_ALLOWED_EMAILS = ['jonhrom2012@gmail.com'];
+const PHOTOBOOK_ALLOWED_EMAILS = ['jon-hrom2012@gmail.com'];
 
 interface AppNavigationProps {
   currentPage: 'auth' | 'dashboard' | 'clients' | 'photobook' | 'features' | 'settings' | 'admin' | 'tariffs' | 'help';
@@ -155,10 +156,12 @@ const AppNavigation = ({
                   <Icon name="BarChart3" size={18} className="mr-2" />
                   Статистика
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setCurrentPage('photobook')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200" data-tour="photobook-nav">
-                  <Icon name="Book" size={18} className="mr-2" />
-                  Фотокниги
-                </DropdownMenuItem>
+                {PHOTOBOOK_ALLOWED_EMAILS.includes((userEmail || '').toLowerCase()) && (
+                  <DropdownMenuItem onClick={() => setCurrentPage('photobook')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200" data-tour="photobook-nav">
+                    <Icon name="Book" size={18} className="mr-2" />
+                    Фотокниги
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => {
                   navigate('/photo-bank');
                 }} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
