@@ -489,7 +489,7 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                 fields = ['title', 'subtitle', 'about', 'phone', 'email', 'instagram',
                           'telegram', 'vk', 'whatsapp', 'max', 'accent_color', 'menu_position', 'logo_text']
                 sets = [f"{f} = {esc(body.get(f, portfolio.get(f, '')))}" for f in fields if f in body]
-                for bf in ['show_reviews', 'show_about', 'slideshow_enabled', 'is_published', 'show_stories_block']:
+                for bf in ['show_reviews', 'show_about', 'slideshow_enabled', 'is_published', 'show_stories_block', 'review_reminders_enabled']:
                     if bf in body:
                         sets.append(f"{bf} = {esc(bool(body[bf]))}")
                 if 'slug' in body:

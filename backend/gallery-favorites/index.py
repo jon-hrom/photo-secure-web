@@ -99,11 +99,12 @@ def schedule_review_reminder(cur, gallery_code: str, client_id: int) -> None:
             JOIN t_p28211681_photo_secure_web.portfolios p
               ON p.user_id = fsl.user_id AND p.is_published = TRUE
             WHERE fsl.short_code = %s
+              AND COALESCE(p.review_reminders_enabled, TRUE) = TRUE
             LIMIT 1
         ''', (gallery_code,))
         row = cur.fetchone()
         if not row:
-            return  # нет опубликованного портфолио — некуда вести за отзывом
+            return  # нет опубликованного портфолио или напоминания отключены — не планируем
         photographer_id, slug = row[0], row[1]
 
         cur.execute('''

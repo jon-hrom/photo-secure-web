@@ -66,6 +66,7 @@ export interface Portfolio {
   show_about: boolean;
   show_stories_block: boolean;
   slideshow_enabled: boolean;
+  review_reminders_enabled: boolean;
   is_published: boolean;
   views_count: number;
   categories: PortfolioCategory[];

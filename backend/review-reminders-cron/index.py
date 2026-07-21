@@ -166,11 +166,14 @@ def process_reminders() -> Dict[str, int]:
     try:
         with conn.cursor() as cur:
             cur.execute(f'''
-                SELECT id, client_id, gallery_code, photographer_id, portfolio_slug,
-                       full_name, phone, email
-                FROM {SCHEMA}.review_reminders
-                WHERE status = 'pending' AND send_at <= NOW()
-                ORDER BY send_at
+                SELECT r.id, r.client_id, r.gallery_code, r.photographer_id, r.portfolio_slug,
+                       r.full_name, r.phone, r.email
+                FROM {SCHEMA}.review_reminders r
+                LEFT JOIN {SCHEMA}.portfolios p ON p.slug = r.portfolio_slug
+                WHERE r.status = 'pending' AND r.send_at <= NOW()
+                  AND COALESCE(p.review_reminders_enabled, TRUE) = TRUE
+                  AND COALESCE(p.is_published, TRUE) = TRUE
+                ORDER BY r.send_at
                 LIMIT 50
             ''')
             cols = [d[0] for d in cur.description]

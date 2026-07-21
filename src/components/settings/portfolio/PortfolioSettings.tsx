@@ -43,6 +43,7 @@ const PortfolioSettings = ({ userId }: Props) => {
   const [menuPosition, setMenuPosition] = useState('top-right');
   const [logoText, setLogoText] = useState('');
   const [showReviews, setShowReviews] = useState(true);
+  const [reviewReminders, setReviewReminders] = useState(true);
   const [showAbout, setShowAbout] = useState(true);
   const [showStories, setShowStories] = useState(true);
   const [slideshow, setSlideshow] = useState(true);
@@ -66,6 +67,7 @@ const PortfolioSettings = ({ userId }: Props) => {
     setMenuPosition(p.menu_position || 'top-right');
     setLogoText(p.logo_text || '');
     setShowReviews(p.show_reviews);
+    setReviewReminders(p.review_reminders_enabled !== false);
     setShowAbout(p.show_about);
     setShowStories(p.show_stories_block !== false);
     setSlideshow(p.slideshow_enabled);
@@ -108,6 +110,7 @@ const PortfolioSettings = ({ userId }: Props) => {
       menu_position: menuPosition, logo_text: logoText,
       show_reviews: showReviews, show_about: showAbout,
       show_stories_block: showStories,
+      review_reminders_enabled: reviewReminders,
       slideshow_enabled: slideshow, is_published: published,
     });
     setSaving(false);
@@ -195,6 +198,22 @@ const PortfolioSettings = ({ userId }: Props) => {
         {showReviews && (
           <PortfolioReviewsManager userId={userId} portfolio={portfolio!} onChange={refresh} />
         )}
+      </div>
+
+      {/* Напоминание клиентам об отзыве */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Icon name="BellRing" size={18} className="text-primary" />
+            <span className="font-medium">Напоминать клиентам об отзыве</span>
+          </div>
+          <Switch checked={reviewReminders} onCheckedChange={setReviewReminders} />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Через 2 дня после просмотра галереи клиенту, не оставившему отзыв, придёт
+          мягкое напоминание по Email и MAX со ссылкой на ваше портфолио. Кто уже оставил
+          отзыв — уведомление не получит.
+        </p>
       </div>
 
       {/* Адрес (slug) */}
