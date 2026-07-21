@@ -417,7 +417,25 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
                         {client_id_sql}, {esc(client_phone)}, {esc(client_email)}, {esc(gallery_code)},
                         FALSE, 'client', 0)
                 """)
-                conn.commit()
+                # Клиент оставил отзыв — отменяем запланированное напоминание «оставьте отзыв»
+                try:
+                    conds = []
+                    if client_id:
+                        conds.append(f"client_id = {esc(int(client_id))}")
+                    if gallery_code:
+                        conds.append(f"gallery_code = {esc(gallery_code)}")
+                    if client_phone:
+                        conds.append(f"phone = {esc(client_phone)}")
+                    if client_email:
+                        conds.append(f"LOWER(email) = LOWER({esc(client_email)})")
+                    if conds:
+                        cur.execute(
+                            f"UPDATE {SCHEMA}.review_reminders SET status='cancelled', processed_at=NOW() "
+                            f"WHERE status='pending' AND ({' OR '.join(conds)})"
+                        )
+                        conn.commit()
+                except Exception as _e:
+                    print(f'[REVIEW-REMINDER] cancel error: {_e}')
                 notify_new_review(photographer_id, author, rating, text)
                 return resp(200, {'ok': True, 'moderation': True})
         finally:

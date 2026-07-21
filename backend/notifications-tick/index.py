@@ -22,6 +22,7 @@ SHOOTING_REMINDERS_URL = 'https://functions.poehali.dev/de28f751-d390-4a12-9abd-
 BIRTHDAY_CHECKER_URL = 'https://functions.poehali.dev/e8f71ffe-1b27-4576-b601-7f01793bd5e2'
 RECURRING_CRON_URL = 'https://functions.poehali.dev/3ed78003-2909-425d-9e2c-ec1788b7ef66'
 EMAIL_NOTIFICATIONS_URL = 'https://functions.poehali.dev/26301a69-7e80-461b-bc17-2ad62cd57d4f'
+REVIEW_REMINDERS_URL = 'https://functions.poehali.dev/e159cc2f-c043-400b-95f1-06848fb596ce'
 
 CRON_TOKEN = os.environ.get('CRON_TOKEN', '')
 
@@ -92,6 +93,7 @@ def run_all_checks():
     results['birthdays'] = call_worker('birthdays', BIRTHDAY_CHECKER_URL, {'action': 'cron_run'})
     results['recurring'] = call_worker('recurring', RECURRING_CRON_URL, {})
     results['storage_warnings'] = call_worker('storage_warnings', EMAIL_NOTIFICATIONS_URL, {})
+    results['review_reminders'] = call_worker('review_reminders', REVIEW_REMINDERS_URL, {'source': 'cron'})
     return results
 
 

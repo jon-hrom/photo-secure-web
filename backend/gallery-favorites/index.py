@@ -88,6 +88,50 @@ def build_photo_urls(s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url,
     preview_url = presign(thumbnail_s3_key) or photo_url
     return photo_url, thumbnail_url, preview_url
 
+def schedule_review_reminder(cur, gallery_code: str, client_id: int) -> None:
+    '''Планирует напоминание клиенту оставить отзыв через 2 дня после входа в галерею.
+    Отправляется по Email/MAX только если у фотографа есть опубликованное портфолио
+    и клиент ещё не оставил отзыв. Одна задача на клиента (UNIQUE client_id).'''
+    try:
+        cur.execute('''
+            SELECT p.user_id, p.slug
+            FROM t_p28211681_photo_secure_web.folder_short_links fsl
+            JOIN t_p28211681_photo_secure_web.portfolios p
+              ON p.user_id = fsl.user_id AND p.is_published = TRUE
+            WHERE fsl.short_code = %s
+            LIMIT 1
+        ''', (gallery_code,))
+        row = cur.fetchone()
+        if not row:
+            return  # нет опубликованного портфолио — некуда вести за отзывом
+        photographer_id, slug = row[0], row[1]
+
+        cur.execute('''
+            SELECT full_name, phone, email
+            FROM t_p28211681_photo_secure_web.favorite_clients
+            WHERE id = %s
+        ''', (client_id,))
+        c = cur.fetchone()
+        full_name = (c[0] if c else '') or ''
+        phone = (c[1] if c else '') or ''
+        email = (c[2] if c else '') or ''
+
+        # Нет ни одного контактного канала (email/телефон) — уведомить нечем
+        if not email and not phone:
+            return
+
+        cur.execute('''
+            INSERT INTO t_p28211681_photo_secure_web.review_reminders
+                (client_id, gallery_code, photographer_id, portfolio_slug,
+                 full_name, phone, email, send_at, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW() + INTERVAL '2 days', 'pending')
+            ON CONFLICT (client_id) DO NOTHING
+        ''', (client_id, gallery_code, photographer_id, slug,
+              full_name, phone, email or None))
+    except Exception as e:
+        print(f'[REVIEW-REMINDER] schedule error: {e}')
+
+
 def handler(event: dict, context) -> dict:
     '''API для работы с избранными фото клиентов галереи'''
     method = event.get('httpMethod', 'GET')
@@ -233,6 +277,7 @@ def handler(event: dict, context) -> dict:
                     ON CONFLICT (client_id, photo_id) DO NOTHING
                 ''', (client_id, photo_id))
                 
+                schedule_review_reminder(cur, gallery_code, client_id)
                 conn.commit()
                 
                 return {
@@ -322,6 +367,7 @@ def handler(event: dict, context) -> dict:
                     client_id = cur.fetchone()[0]
                     print(f'[REGISTER_CLIENT] Inserted new client_id={client_id}')
                 
+                schedule_review_reminder(cur, gallery_code, client_id)
                 conn.commit()
                 
                 return {
