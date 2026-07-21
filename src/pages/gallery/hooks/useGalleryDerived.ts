@@ -50,7 +50,9 @@ export function useGalleryDerived({
     if (loadThreshold > 0 && photosLoaded >= loadThreshold) {
       setTimeout(() => state.setShowProgress(false), 300);
 
-      if (!state.clientData && code) {
+      // Приветственное окно про Избранное показываем ТОЛЬКО если фотограф
+      // включил функцию "Избранное" для этой ссылки (favorite_config задан).
+      if (!state.clientData && code && gallery?.favorite_config) {
         const welcomeShown = localStorage.getItem(`welcome_shown_${code}`);
         if (!welcomeShown) {
           setTimeout(() => state.setIsWelcomeModalOpen(true), 800);
@@ -59,7 +61,7 @@ export function useGalleryDerived({
     } else if (loadThreshold > 0 && photosLoaded < loadThreshold) {
       state.setShowProgress(true);
     }
-  }, [photosLoaded, loadThreshold, state.clientData, code, state.setShowProgress, state.setIsWelcomeModalOpen]);
+  }, [photosLoaded, loadThreshold, state.clientData, code, gallery?.favorite_config, state.setShowProgress, state.setIsWelcomeModalOpen]);
 
   // Аварийный предохранитель: если по какой-то причине фото не досчитались
   // (кэш, ошибки загрузки, ленивая подгрузка) — скрываем оверлей через 4 сек.
