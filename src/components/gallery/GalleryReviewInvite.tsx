@@ -79,11 +79,8 @@ const GalleryReviewInvite = ({
               <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg bg-white">
                 <Icon name="Heart" size={38} style={{ color: accent }} />
               </div>
-              <h3 className="text-xl font-bold mb-2">Как вам эмоции? 💛</h3>
               <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                Если фотографии откликнулись — поделитесь парой тёплых слов.
-                Ваш отзыв очень вдохновляет и помогает создавать ещё красивее.
-                Можно прикрепить любимые кадры из этой галереи.
+                Если съёмка оставила приятные впечатления, будем рады, если вы поделитесь отзывом. Для нас очень важны ваши тёплые слова — они вдохновляют и помогают создавать ещё более красивые работы. Также можно добавить любимые фотографии из галереи.
               </p>
               <Button
                 onClick={openForm}
