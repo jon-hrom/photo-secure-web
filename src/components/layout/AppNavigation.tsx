@@ -50,6 +50,25 @@ const AppNavigation = ({
   const [energyBalance, setEnergyBalance] = useState<number>(0);
   const [topupOpen, setTopupOpen] = useState(false);
   const [celebration, setCelebration] = useState<null | 'energy' | 'tariff'>(null);
+  const [smsBalance, setSmsBalance] = useState<number | null>(null);
+  const [smsLoading, setSmsLoading] = useState(false);
+
+  const isAdmin = (userEmail || '').toLowerCase() === 'jonhrom2012@gmail.com';
+
+  const loadSmsBalance = () => {
+    setSmsLoading(true);
+    fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'check-sms-balance' }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.balance === 'number') setSmsBalance(data.balance);
+      })
+      .catch(() => {})
+      .finally(() => setSmsLoading(false));
+  };
 
   const loadEnergy = (cb?: (balance: number) => void) => {
     if (!userId) return;
@@ -87,6 +106,7 @@ const AppNavigation = ({
       })
       .catch(() => {});
     loadEnergy();
+    if (isAdmin) loadSmsBalance();
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -117,7 +137,7 @@ const AppNavigation = ({
   return (
     <nav className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-border/50 dark:border-gray-700/50 sticky top-0 z-50 shadow-lg animate-fade-in">
       <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4">
-        <div className="flex items-center justify-between gap-1 sm:gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-y-2 gap-1 sm:gap-2">
           <div className="flex items-center space-x-1 sm:space-x-3 min-w-0">
             <div className="flex items-center space-x-2 sm:space-x-3 group cursor-pointer min-w-0">
               <div className="p-1.5 sm:p-2 bg-gradient-to-br from-primary to-secondary rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300 shrink-0">
@@ -205,6 +225,24 @@ const AppNavigation = ({
           </div>
           
           <div className="flex items-center space-x-1 sm:space-x-3 shrink-0">
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                onClick={loadSmsBalance}
+                disabled={smsLoading}
+                className={`flex items-center gap-1.5 rounded-full px-2 sm:px-3 transition-all duration-300 ${smsBalance !== null && smsBalance < 10 ? 'hover:bg-red-500/10' : 'hover:bg-green-500/10'}`}
+                title="Баланс SMS (нажмите для обновления)"
+              >
+                <Icon
+                  name="MessageSquare"
+                  size={16}
+                  className={`shrink-0 ${smsBalance !== null && smsBalance < 10 ? 'text-red-500' : 'text-green-500'} ${smsLoading ? 'animate-pulse' : ''}`}
+                />
+                <span className={`text-sm font-semibold ${smsBalance !== null && smsBalance < 10 ? 'text-red-500' : 'text-green-500'}`}>
+                  {smsBalance !== null ? `${smsBalance.toFixed(2)} ₽` : '—'}
+                </span>
+              </Button>
+            )}
             <Button
               variant="ghost"
               onClick={() => setTopupOpen(true)}
