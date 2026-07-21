@@ -13,7 +13,7 @@ interface GalleryPhotoCardProps {
   watermark?: WatermarkSettings;
   onPhotoClick: (photo: Photo) => void;
   onDownloadPhoto: (photo: Photo) => void;
-  onAddToFavorites: (photo: Photo) => void;
+  onAddToFavorites?: (photo: Photo) => void;
   onPhotoLoad?: () => void;
   selectionMode?: boolean;
   isSelected?: boolean;
@@ -167,17 +167,19 @@ const GalleryPhotoCard = React.forwardRef<HTMLDivElement, GalleryPhotoCardProps>
         </div>
       ) : (
         <div className="absolute bottom-0 right-0 flex z-10 p-1" style={{ gap: '2px' }}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToFavorites(photo);
-            }}
-            className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full active:bg-yellow-500 transition-all touch-manipulation"
-            style={{ width: 34, height: 34 }}
-            title="Добавить в избранное"
-          >
-            <Icon name="Star" size={13} className="text-white" />
-          </button>
+          {onAddToFavorites && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToFavorites(photo);
+              }}
+              className="flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full active:bg-yellow-500 transition-all touch-manipulation"
+              style={{ width: 34, height: 34 }}
+              title="Добавить в избранное"
+            >
+              <Icon name="Star" size={13} className="text-white" />
+            </button>
+          )}
           {!downloadDisabled && (
             <button
               onClick={(e) => {

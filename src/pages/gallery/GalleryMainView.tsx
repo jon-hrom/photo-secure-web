@@ -64,6 +64,9 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
 
   const accent = gallery?.accent_color || '#7c3aed';
 
+  // Функция "Избранное" доступна клиенту только если фотограф включил её для ссылки.
+  const favoritesEnabled = !!gallery?.favorite_config;
+
   // «Просмотрел всё» — клиент долистал галерею до конца
   const [viewedAll, setViewedAll] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -101,13 +104,13 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
         savingToYandexDisk={savingToYandexDisk}
         onPhotoClick={state.setSelectedPhoto}
         onDownloadPhoto={downloadPhoto}
-        onAddToFavorites={handlers.handleAddToFavorites}
-        onOpenFavoriteFolders={() => state.setIsFavoritesModalOpen(true)}
+        onAddToFavorites={favoritesEnabled ? handlers.handleAddToFavorites : undefined}
+        onOpenFavoriteFolders={favoritesEnabled ? () => state.setIsFavoritesModalOpen(true) : undefined}
         formatFileSize={formatFileSize}
         onPhotoLoad={() => setPhotosLoaded(prev => prev + 1)}
         clientName={state.clientData?.full_name || state.clientData?.phone || state.clientData?.email || ''}
         onClientLogin={() => state.setIsLoginModalOpen(true)}
-        onOpenMyFavorites={() => state.setIsMyFavoritesOpen(true)}
+        onOpenMyFavorites={favoritesEnabled ? () => state.setIsMyFavoritesOpen(true) : undefined}
         onOpenChat={() => state.setIsChatOpen(true)}
         unreadMessagesCount={state.unreadCount}
         onLogout={handlers.handleLogout}
@@ -125,11 +128,11 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
         }}
         onRegisterToDownload={handlers.handleRegisterToDownload}
         onOpenSubfolder={subfolder.handleOpenSubfolder}
-        onCreateFavoriteList={state.clientData?.client_id ? favoriteLists.handleOpenCreateList : undefined}
+        onCreateFavoriteList={favoritesEnabled && state.clientData?.client_id ? favoriteLists.handleOpenCreateList : undefined}
         activeFavoriteList={favoriteLists.activeFavoriteList}
         onSubmitListSelection={favoriteLists.handleSubmitListSelection}
         onCancelListSelection={() => favoriteLists.setActiveFavoriteList(null)}
-        favoriteLists={state.clientData?.client_id ? favoriteLists.favoriteLists : []}
+        favoriteLists={favoritesEnabled && state.clientData?.client_id ? favoriteLists.favoriteLists : []}
         onOpenFavoriteList={favoriteLists.handleOpenList}
       />
 
@@ -174,7 +177,7 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
         onClientLogin={handlers.handleClientLogin}
         onRemoveFromFavorites={handlers.handleRemoveFromFavorites}
         onDownloadPhoto={downloadPhoto}
-        onAddToFavorites={handlers.handleAddToFavorites}
+        onAddToFavorites={favoritesEnabled ? handlers.handleAddToFavorites : undefined}
         loadClientFavorites={handlers.loadClientFavorites}
         isDarkTheme={isDarkTheme}
       />

@@ -209,6 +209,9 @@ export const SubfolderPhotosView = ({
     return pool;
   })();
 
+  // Функция "Избранное" доступна клиенту только если фотограф включил её для ссылки.
+  const favoritesEnabled = !!gallery?.favorite_config;
+
   return (
     <div className="min-h-screen" style={galleryBgStyles}>
       {downloadingAll && downloadProgress && downloadProgress.show && cancelDownload && (
@@ -242,13 +245,13 @@ export const SubfolderPhotosView = ({
           savingToYandexDisk={savingToYandexDisk}
           onPhotoClick={state.setSelectedPhoto}
           onDownloadPhoto={downloadPhoto}
-          onAddToFavorites={handlers.handleAddToFavorites}
-          onOpenFavoriteFolders={() => state.setIsFavoritesModalOpen(true)}
+          onAddToFavorites={favoritesEnabled ? handlers.handleAddToFavorites : undefined}
+          onOpenFavoriteFolders={favoritesEnabled ? () => state.setIsFavoritesModalOpen(true) : undefined}
           formatFileSize={formatFileSize}
           onPhotoLoad={() => {}}
           clientName={state.clientData?.full_name || state.clientData?.phone || ''}
           onClientLogin={() => state.setIsLoginModalOpen(true)}
-          onOpenMyFavorites={() => state.setIsMyFavoritesOpen(true)}
+          onOpenMyFavorites={favoritesEnabled ? () => state.setIsMyFavoritesOpen(true) : undefined}
           onOpenChat={() => state.setIsChatOpen(true)}
           unreadMessagesCount={state.unreadCount}
           onRegisterToDownload={handlers.handleRegisterToDownload}
@@ -282,7 +285,7 @@ export const SubfolderPhotosView = ({
         onClientLogin={handlers.handleClientLogin}
         onRemoveFromFavorites={handlers.handleRemoveFromFavorites}
         onDownloadPhoto={downloadPhoto}
-        onAddToFavorites={handlers.handleAddToFavorites}
+        onAddToFavorites={favoritesEnabled ? handlers.handleAddToFavorites : undefined}
         isDarkTheme={isDarkTheme}
         loadClientFavorites={handlers.loadClientFavorites}
         favoritesPhotoPool={favoritesPhotoPool}

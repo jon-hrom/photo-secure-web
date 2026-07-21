@@ -82,7 +82,7 @@ interface GalleryModalsProps {
   onClientLogin: (clientData: { client_id: number; full_name: string; phone: string; email?: string }) => void;
   onRemoveFromFavorites: (photoId: number) => void;
   onDownloadPhoto: (photo: Photo) => void;
-  onAddToFavorites: (photo: Photo) => void;
+  onAddToFavorites?: (photo: Photo) => void;
   loadClientFavorites: (clientId: number) => void;
   isDarkTheme?: boolean;
   // Полный пул фото (все уровни, включая избранные) для поиска избранного.

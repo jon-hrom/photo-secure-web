@@ -80,8 +80,8 @@ export interface GalleryGridProps {
   savingToYandexDisk?: boolean;
   onPhotoClick: (photo: Photo) => void;
   onDownloadPhoto: (photo: Photo) => void;
-  onAddToFavorites: (photo: Photo) => void;
-  onOpenFavoriteFolders: () => void;
+  onAddToFavorites?: (photo: Photo) => void;
+  onOpenFavoriteFolders?: () => void;
   formatFileSize: (bytes: number) => string;
   onPhotoLoad?: () => void;
   clientName?: string;

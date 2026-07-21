@@ -135,17 +135,19 @@ export default function GalleryToolbar({
                   </span>
                 )}
               </button>
-              <button
-                onClick={onOpenMyFavorites}
-                className="relative flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-yellow-500 text-white rounded-full sm:rounded-lg active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
-                style={{ minWidth: 40, minHeight: 40 }}
-              >
-                {pulseStarBtn && (
-                  <span className="absolute inset-0 rounded-full bg-yellow-400 animate-ping opacity-75 pointer-events-none" />
-                )}
-                <Icon name="Star" size={16} className="relative flex-shrink-0" />
-                <span className="hidden sm:inline pr-0.5 relative">Избранное</span>
-              </button>
+              {onOpenMyFavorites && (
+                <button
+                  onClick={onOpenMyFavorites}
+                  className="relative flex items-center justify-center sm:gap-1.5 sm:px-2.5 bg-yellow-500 text-white rounded-full sm:rounded-lg active:bg-yellow-700 transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
+                  style={{ minWidth: 40, minHeight: 40 }}
+                >
+                  {pulseStarBtn && (
+                    <span className="absolute inset-0 rounded-full bg-yellow-400 animate-ping opacity-75 pointer-events-none" />
+                  )}
+                  <Icon name="Star" size={16} className="relative flex-shrink-0" />
+                  <span className="hidden sm:inline pr-0.5 relative">Избранное</span>
+                </button>
+              )}
               {onCreateFavoriteList && (
                 <button
                   ref={createBtnRef}
