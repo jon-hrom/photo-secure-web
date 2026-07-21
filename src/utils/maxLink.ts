@@ -21,13 +21,20 @@ export const maxHref = (raw: string): string => {
 
 export interface ContactEntry { icon?: string; img?: string; label: string; href: string }
 
-// Возвращает контакт-кнопку из значения поля MAX/WhatsApp:
-//  - ник или ссылка MAX → кнопка MAX;
-//  - номер телефона → кнопка WhatsApp (wa.me работает по номеру), т.к. по номеру в MAX не зайти.
-export const maxContacts = (raw: string | undefined | null, maxIcon: string): ContactEntry[] => {
+// Возвращает контакт-кнопку из значения поля.
+// source='whatsapp' — поле WhatsApp: номер превращаем в кнопку WhatsApp (wa.me работает по номеру).
+// source='max'      — поле MAX: только ник/ссылка → кнопка MAX. В MAX нельзя открыть чат по номеру
+//                     телефона, поэтому номер в этом поле НЕ превращаем в WhatsApp (это чужой канал),
+//                     а просто не создаём кнопку.
+export const maxContacts = (
+  raw: string | undefined | null,
+  maxIcon: string,
+  source: 'max' | 'whatsapp' = 'max',
+): ContactEntry[] => {
   const v = (raw || '').trim();
   if (!v) return [];
   if (isMaxPhone(v)) {
+    if (source !== 'whatsapp') return [];
     let phone = v.replace(/[^\d]/g, '');
     if (phone.length === 11 && phone.startsWith('8')) phone = '7' + phone.slice(1);
     return [{ icon: 'MessageCircle', label: 'WhatsApp', href: `https://wa.me/${phone}` }];

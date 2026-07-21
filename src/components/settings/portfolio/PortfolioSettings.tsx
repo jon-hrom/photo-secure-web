@@ -347,7 +347,7 @@ const PortfolioSettings = ({ userId }: Props) => {
               <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="Instagram (ссылка)" />
               <Input value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder="Telegram (@ник или ссылка)" />
               <Input value={vk} onChange={(e) => setVk(e.target.value)} placeholder="ВКонтакте (ссылка)" />
-              <Input value={max} onChange={(e) => setMax(e.target.value)} placeholder="MAX (ссылка или номер)" />
+              <Input value={max} onChange={(e) => setMax(e.target.value)} placeholder="MAX (ссылка на профиль или @ник)" />
             </div>
           </div>
         )}

@@ -60,8 +60,8 @@ const PublicPortfolioContacts = () => {
 
   const contacts = [
     portfolio.vk && { icon: 'Share2', label: 'ВКонтакте', href: portfolio.vk },
-    ...maxContacts(portfolio.whatsapp, MAX_ICON),
-    ...maxContacts(portfolio.max, MAX_ICON),
+    ...maxContacts(portfolio.whatsapp, MAX_ICON, 'whatsapp'),
+    ...maxContacts(portfolio.max, MAX_ICON, 'max'),
     portfolio.telegram && { icon: 'Send', label: 'Telegram', href: portfolio.telegram.startsWith('http') ? portfolio.telegram : `https://t.me/${portfolio.telegram.replace('@', '')}` },
     portfolio.instagram && { icon: 'Instagram', label: 'Instagram', href: portfolio.instagram },
     portfolio.phone && { icon: 'Phone', label: portfolio.phone, href: `tel:${portfolio.phone}` },
