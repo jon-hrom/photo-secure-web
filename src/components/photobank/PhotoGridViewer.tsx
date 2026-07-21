@@ -118,7 +118,9 @@ const PhotoGridViewer = ({
       .forEach((i) => {
         const p = photos[i];
         if (p.is_video) return;
-        const src = p.thumbnail_s3_url || getThumbUrl(p.s3_url, 1600);
+        const src = p.is_raw
+          ? (p.thumbnail_s3_url || getThumbUrl(p.s3_url, 1600))
+          : (getThumbUrl(p.s3_url, 1600) || p.thumbnail_s3_url);
         if (!src) return;
         const img = new Image();
         img.src = src;
@@ -192,7 +194,9 @@ const PhotoGridViewer = ({
                 {/* Thumbnail или s3_url для быстрой навигации (показывается при zoom = 0) */}
                 {zoom === 0 && (
                   <img
-                    src={viewPhoto.thumbnail_s3_url || getThumbUrl(viewPhoto.s3_url, 1600) || viewPhoto.data_url || ''}
+                    src={viewPhoto.is_raw
+                      ? (viewPhoto.thumbnail_s3_url || getThumbUrl(viewPhoto.s3_url, 1600) || viewPhoto.data_url || '')
+                      : (getThumbUrl(viewPhoto.s3_url, 1600) || viewPhoto.thumbnail_s3_url || viewPhoto.data_url || '')}
                     alt={viewPhoto.file_name}
                     className="object-contain cursor-zoom-in select-none touch-manipulation absolute inset-0"
                     style={{
