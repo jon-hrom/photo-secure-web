@@ -955,7 +955,92 @@ def handler(event: dict, context) -> dict:
                     print(f'[CHAT] Notification error: {str(e)}', flush=True)
                     import traceback
                     traceback.print_exc()
-            
+
+            # Уведомление КЛИЕНТУ в MAX, когда пишет фотограф, а клиент офлайн (не в чате)
+            if sender_type == 'photographer':
+                print(f'===NOTIF-CLIENT=== START msg_id={message_id} client={client_id}', flush=True)
+                try:
+                    import requests as req_c
+
+                    # Данные клиента (телефон, имя, онлайн-статус). Клиент галереи — в favorite_clients.
+                    client_phone_c = None
+                    client_name_c = author_name or ''
+                    gallery_code_c = None
+                    client_is_online = False
+                    cur.execute('''
+                        SELECT phone, full_name, gallery_code, is_online, last_seen_at
+                        FROM t_p28211681_photo_secure_web.favorite_clients WHERE id = %s
+                    ''', (client_id,))
+                    fc_row = cur.fetchone()
+                    if fc_row:
+                        client_phone_c = fc_row[0]
+                        client_name_c = fc_row[1] or client_name_c
+                        gallery_code_c = fc_row[2]
+                        client_is_online = bool(fc_row[3])
+                        last_seen_c = fc_row[4]
+                        # Онлайн только если активность была менее 60 секунд назад
+                        if client_is_online and last_seen_c is not None:
+                            if (datetime.utcnow() - last_seen_c).total_seconds() > 60:
+                                client_is_online = False
+                    else:
+                        # CRM-клиент (создан вручную) — телефон в clients
+                        cur.execute('''
+                            SELECT phone, name FROM t_p28211681_photo_secure_web.clients WHERE id = %s
+                        ''', (client_id,))
+                        c_row = cur.fetchone()
+                        if c_row:
+                            client_phone_c = c_row[0]
+                            client_name_c = c_row[1] or client_name_c
+                        # Ссылку на чат ищем через галерею, привязанную к клиенту
+                        cur.execute('''
+                            SELECT fsl.short_code
+                            FROM t_p28211681_photo_secure_web.folder_short_links fsl
+                            JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
+                            WHERE pf.client_id = %s AND COALESCE(fsl.is_blocked, FALSE) = FALSE
+                            ORDER BY fsl.created_at DESC NULLS LAST, fsl.id DESC
+                            LIMIT 1
+                        ''', (client_id,))
+                        link_c = cur.fetchone()
+                        if link_c and link_c[0]:
+                            gallery_code_c = link_c[0]
+
+                    max_instance_id_c = os.environ.get('MAX_INSTANCE_ID', '')
+                    max_token_c = os.environ.get('MAX_TOKEN', '')
+
+                    if client_is_online:
+                        print(f'===NOTIF-CLIENT=== client ONLINE — skip MAX', flush=True)
+                    elif not client_phone_c:
+                        print(f'===NOTIF-CLIENT=== NO client phone — skip MAX', flush=True)
+                    elif not max_instance_id_c or not max_token_c:
+                        print(f'===NOTIF-CLIENT=== NO MAX creds — skip', flush=True)
+                    else:
+                        first_name_c = client_name_c.strip().split()[0] if client_name_c.strip() else ''
+                        if message:
+                            preview_c = message[:150] + ('...' if len(message) > 150 else '')
+                        elif len(final_image_urls) > 1:
+                            preview_c = f'фотограф отправил(а) {len(final_image_urls)} файлов'
+                        else:
+                            preview_c = 'фотограф отправил(а) вложение'
+
+                        greet_c = f'{first_name_c}, вам написал фотограф' if first_name_c else 'Вам написал фотограф'
+                        text_c = f'💬 {greet_c}:\n\n{preview_c}'
+                        if gallery_code_c:
+                            text_c += f'\n\n➡️ Чтобы ответить, перейдите в чат: https://foto-mix.ru/g/{gallery_code_c}'
+
+                        media_server_c = max_instance_id_c[:4] if len(max_instance_id_c) >= 4 else '7103'
+                        green_url_c = f"https://{media_server_c}.api.green-api.com/v3/waInstance{max_instance_id_c}/sendMessage/{max_token_c}"
+                        clean_phone_c = ''.join(filter(str.isdigit, client_phone_c))
+                        if not clean_phone_c.startswith('7'):
+                            clean_phone_c = '7' + clean_phone_c.lstrip('8')
+                        green_payload_c = {"chatId": f"{clean_phone_c}@c.us", "message": text_c}
+                        print(f'===NOTIF-CLIENT=== sending MAX to {clean_phone_c}', flush=True)
+                        green_resp_c = req_c.post(green_url_c, json=green_payload_c, timeout=15)
+                        print(f'===NOTIF-CLIENT=== GREEN-API status={green_resp_c.status_code} body={green_resp_c.text[:300]}', flush=True)
+                except Exception as e:
+                    print(f'[CHAT] Client notification error: {str(e)}', flush=True)
+                    import traceback
+                    traceback.print_exc()
+
             conn.commit()
             cur.close()
             conn.close()
