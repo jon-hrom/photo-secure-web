@@ -644,7 +644,7 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
             days_left = 1
         link_title = folder_name or 'Ваша галерея'
         link_url = f"{app_base_url}/g/{short_code}"
-        chat_url = f"{app_base_url}/chat/{short_code}"
+        chat_url = f"{app_base_url}/g/{short_code}"
         photographer_link = f"{photographer_name or 'фотографу'} ({chat_url})"
 
         message = template_text
