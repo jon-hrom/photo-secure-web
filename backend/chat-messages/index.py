@@ -1018,7 +1018,8 @@ def handler(event: dict, context) -> dict:
                     elif not max_instance_id_c or not max_token_c:
                         print(f'===NOTIF-CLIENT=== NO MAX creds — skip', flush=True)
                     else:
-                        first_name_c = client_name_c.strip().split()[0] if client_name_c.strip() else ''
+                        _parts_c = client_name_c.strip().split()
+                        first_name_c = _parts_c[1] if len(_parts_c) >= 2 else (_parts_c[0] if _parts_c else '')
                         if message:
                             preview_c = message[:150] + ('...' if len(message) > 150 else '')
                         elif len(final_image_urls) > 1:
