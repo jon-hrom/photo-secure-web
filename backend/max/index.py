@@ -483,7 +483,8 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
     
     # Собираем текст для MAX: обращение по имени + сообщение + приписка со ссылкой на чат.
     # В базе (в истории чата) сохраняем оригинальный текст без приписки, чтобы чат оставался чистым.
-    first_name = client_name.strip().split()[0] if client_name.strip() else ''
+    _name_parts = client_name.strip().split()
+    first_name = _name_parts[1] if len(_name_parts) >= 2 else (_name_parts[0] if _name_parts else '')
     max_message = message
     if first_name:
         max_message = f"{first_name}, вам написал фотограф:\n\n{message}"

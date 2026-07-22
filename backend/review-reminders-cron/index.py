@@ -45,8 +45,16 @@ def portfolio_url(slug: str) -> str:
     return f'{PORTFOLIO_BASE}{slug}/otzyvy'
 
 
+def extract_first_name(full_name: str) -> str:
+    # ФИО хранится в формате "Фамилия Имя [Отчество]" — имя это второе слово.
+    parts = (full_name or '').strip().split()
+    if len(parts) >= 2:
+        return parts[1]
+    return parts[0] if parts else ''
+
+
 def build_message(full_name: str, slug: str) -> str:
-    name = (full_name or '').strip().split()[0] if full_name else ''
+    name = extract_first_name(full_name)
     hello = f'{name}, здравствуйте!' if name else 'Здравствуйте!'
     link = portfolio_url(slug)
     return (
@@ -59,7 +67,7 @@ def build_message(full_name: str, slug: str) -> str:
 
 
 def build_email_html(full_name: str, slug: str) -> str:
-    name = (full_name or '').strip().split()[0] if full_name else ''
+    name = extract_first_name(full_name)
     hello = f'{name}, здравствуйте!' if name else 'Здравствуйте!'
     link = portfolio_url(slug)
     return f'''
