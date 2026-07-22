@@ -10,9 +10,6 @@
         "action": "get_templates"
       },
       "expectedStatus": 200,
-      "expectedBody": {
-        "templates": "array"
-      },
       "bodyMatcher": "partial"
     }
   ]

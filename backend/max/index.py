@@ -452,16 +452,45 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
     if not check_client_belongs_to_photographer(conn, user_id, client_id):
         return {'error': 'Доступ запрещён: клиент не принадлежит вам'}
     
-    # Получить телефон клиента
+    # Получить телефон и имя клиента
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT phone FROM t_p28211681_photo_secure_web.clients
+            SELECT phone, name FROM t_p28211681_photo_secure_web.clients
             WHERE id = %s
         """, (client_id,))
         row = cur.fetchone()
         if not row or not row[0]:
             return {'error': 'У клиента не указан телефон'}
         client_phone = row[0]
+        client_name = row[1] or ''
+    
+    # Найти ссылку на чат (галерею, привязанную к клиенту), чтобы клиент мог ответить.
+    # Берём самую свежую активную ссылку на папку этого клиента.
+    chat_url = ''
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT fsl.short_code
+            FROM t_p28211681_photo_secure_web.folder_short_links fsl
+            JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
+            WHERE pf.client_id = %s
+              AND COALESCE(fsl.is_blocked, FALSE) = FALSE
+            ORDER BY fsl.created_at DESC NULLS LAST, fsl.id DESC
+            LIMIT 1
+        """, (client_id,))
+        link_row = cur.fetchone()
+        if link_row and link_row[0]:
+            chat_url = f"https://foto-mix.ru/g/{link_row[0]}"
+    
+    # Собираем текст для MAX: обращение по имени + сообщение + приписка со ссылкой на чат.
+    # В базе (в истории чата) сохраняем оригинальный текст без приписки, чтобы чат оставался чистым.
+    first_name = client_name.strip().split()[0] if client_name.strip() else ''
+    max_message = message
+    if first_name:
+        max_message = f"{first_name}, вам написал фотограф:\n\n{message}"
+    else:
+        max_message = f"Вам написал фотограф:\n\n{message}"
+    if chat_url:
+        max_message += f"\n\n💬 Чтобы ответить, перейдите в чат: {chat_url}"
     
     # Получить админские credentials из секретов
     creds = get_admin_credentials()
@@ -477,7 +506,7 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
             creds['instance_id'],
             creds['token'],
             client_phone,
-            message,
+            max_message,
             conn=conn
         )
         
