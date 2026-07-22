@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import ChatModal from '@/components/gallery/ChatModal';
 import SupportTicketsModal from '@/components/support/SupportTicketsModal';
+import OfflineContactActions from '@/components/photobank/OfflineContactActions';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 import { getTimezoneForRegion } from '@/utils/regionTimezone';
 
@@ -16,6 +17,10 @@ interface Chat {
   last_sender: 'client' | 'photographer';
   last_message_time: string;
   unread_count: number;
+  is_online?: boolean;
+  last_seen_at?: string | null;
+  max_link?: string;
+  gallery_code?: string;
 }
 
 interface PhotographerChatsModalProps {
@@ -263,6 +268,10 @@ export default function PhotographerChatsModal({
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${chat.is_online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                title={chat.is_online ? 'На сайте' : 'Не на сайте'}
+                              />
                               <p className="font-medium truncate">{chat.client_name}</p>
                               {chat.unread_count > 0 && (
                                 <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-white bg-red-600 rounded-full">
@@ -325,6 +334,18 @@ export default function PhotographerChatsModal({
                     Назад
                   </Button>
                 </div>
+
+                {!selectedChat.is_online && (
+                  <div className="p-3 border-b bg-background">
+                    <OfflineContactActions
+                      clientName={selectedChat.client_name}
+                      clientPhone={selectedChat.client_phone}
+                      maxLink={selectedChat.max_link}
+                      galleryCode={selectedChat.gallery_code}
+                      photographerName={photographerName}
+                    />
+                  </div>
+                )}
 
                 <ChatModal
                   isOpen={true}

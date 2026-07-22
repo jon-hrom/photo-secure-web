@@ -66,7 +66,11 @@ def handler(event: dict, context) -> dict:
                     lm.image_url,
                     lm.sender_type,
                     lm.created_at,
-                    COALESCE(uc.cnt, 0)
+                    COALESCE(uc.cnt, 0),
+                    COALESCE(fc.is_online, FALSE),
+                    fc.last_seen_at,
+                    COALESCE(fc.max_link, ''),
+                    COALESCE(fc.gallery_code, '')
                 FROM latest_messages lm
                 LEFT JOIN t_p28211681_photo_secure_web.favorite_clients fc ON fc.id = lm.client_id
                 LEFT JOIN unread_counts uc ON uc.client_id = lm.client_id
@@ -75,6 +79,12 @@ def handler(event: dict, context) -> dict:
             
             chats = []
             for row in cur.fetchall():
+                last_seen = row[10]
+                is_online = row[9]
+                # Клиент считается офлайн, если не был активен более 60 секунд
+                if is_online and last_seen is not None:
+                    if (datetime.now() - last_seen).total_seconds() > 60:
+                        is_online = False
                 chats.append({
                     'client_id': row[0],
                     'client_name': row[1],
@@ -84,7 +94,11 @@ def handler(event: dict, context) -> dict:
                     'last_message_image': row[5],
                     'last_sender': row[6],
                     'last_message_time': row[7].isoformat() if row[7] else None,
-                    'unread_count': row[8]
+                    'unread_count': row[8],
+                    'is_online': is_online,
+                    'last_seen_at': last_seen.isoformat() if last_seen else None,
+                    'max_link': row[11],
+                    'gallery_code': row[12]
                 })
             
             # Сортируем по времени последнего сообщения
