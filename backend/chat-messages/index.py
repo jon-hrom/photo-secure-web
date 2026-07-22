@@ -403,7 +403,7 @@ def handler(event: dict, context) -> dict:
                        m.sender_type, m.is_read, m.created_at, m.image_url, m.is_delivered, m.video_url,
                        m.is_edited, m.edited_at, m.reply_to_id, m.removed_for_all,
                        r.content, r.sender_type, r.image_url, r.video_url,
-                       m.thumbnail_url, r.thumbnail_url
+                       m.thumbnail_url, r.thumbnail_url, m.delivery_status
                 FROM t_p28211681_photo_secure_web.client_messages m
                 LEFT JOIN t_p28211681_photo_secure_web.client_messages r ON r.id = m.reply_to_id
                 WHERE m.client_id = %s AND m.photographer_id = %s AND m.{hidden_col} = FALSE
@@ -445,6 +445,7 @@ def handler(event: dict, context) -> dict:
                     'reply_to': None if removed else reply_payload,
                     'removed_for_all': bool(removed),
                     'thumbnail_url': None if removed else (row[18] if len(row) > 18 else None),
+                    'delivery_status': row[20] if len(row) > 20 else None,
                 })
             
             cur.close()
@@ -1007,10 +1008,13 @@ def handler(event: dict, context) -> dict:
                     max_instance_id_c = os.environ.get('MAX_INSTANCE_ID', '')
                     max_token_c = os.environ.get('MAX_TOKEN', '')
 
+                    max_status_c = None
                     if client_is_online:
                         print(f'===NOTIF-CLIENT=== client ONLINE — skip MAX', flush=True)
+                        max_status_c = 'max_online'
                     elif not client_phone_c:
                         print(f'===NOTIF-CLIENT=== NO client phone — skip MAX', flush=True)
+                        max_status_c = 'max_no_phone'
                     elif not max_instance_id_c or not max_token_c:
                         print(f'===NOTIF-CLIENT=== NO MAX creds — skip', flush=True)
                     else:
@@ -1027,15 +1031,45 @@ def handler(event: dict, context) -> dict:
                         if gallery_code_c:
                             text_c += f'\n\n➡️ Чтобы ответить, перейдите в чат: https://foto-mix.ru/g/{gallery_code_c}'
 
+                        # Проверяем наличие MAX-аккаунта на номере (checkAccount)
                         media_server_c = max_instance_id_c[:4] if len(max_instance_id_c) >= 4 else '7103'
-                        green_url_c = f"https://{media_server_c}.api.green-api.com/v3/waInstance{max_instance_id_c}/sendMessage/{max_token_c}"
                         clean_phone_c = ''.join(filter(str.isdigit, client_phone_c))
                         if not clean_phone_c.startswith('7'):
                             clean_phone_c = '7' + clean_phone_c.lstrip('8')
-                        green_payload_c = {"chatId": f"{clean_phone_c}@c.us", "message": text_c}
-                        print(f'===NOTIF-CLIENT=== sending MAX to {clean_phone_c}', flush=True)
-                        green_resp_c = req_c.post(green_url_c, json=green_payload_c, timeout=15)
-                        print(f'===NOTIF-CLIENT=== GREEN-API status={green_resp_c.status_code} body={green_resp_c.text[:300]}', flush=True)
+
+                        has_account_c = True
+                        try:
+                            check_url_c = f"https://{media_server_c}.api.green-api.com/waInstance{max_instance_id_c}/checkAccount/{max_token_c}"
+                            check_resp_c = req_c.post(check_url_c, json={"phoneNumber": int(clean_phone_c)}, timeout=15)
+                            if check_resp_c.status_code == 200:
+                                cd = check_resp_c.json()
+                                # status:false — лимит/инстанс не готов, не блокируем отправку
+                                if cd.get('status') is not False and cd.get('exist') is False:
+                                    has_account_c = False
+                            print(f'===NOTIF-CLIENT=== checkAccount status={check_resp_c.status_code} exist_ok={has_account_c}', flush=True)
+                        except Exception as chk_e:
+                            print(f'===NOTIF-CLIENT=== checkAccount error: {str(chk_e)}', flush=True)
+
+                        if not has_account_c:
+                            max_status_c = 'max_no_account'
+                            print(f'===NOTIF-CLIENT=== client has NO MAX account', flush=True)
+                        else:
+                            green_url_c = f"https://{media_server_c}.api.green-api.com/v3/waInstance{max_instance_id_c}/sendMessage/{max_token_c}"
+                            green_payload_c = {"chatId": f"{clean_phone_c}@c.us", "message": text_c}
+                            print(f'===NOTIF-CLIENT=== sending MAX to {clean_phone_c}', flush=True)
+                            green_resp_c = req_c.post(green_url_c, json=green_payload_c, timeout=15)
+                            print(f'===NOTIF-CLIENT=== GREEN-API status={green_resp_c.status_code} body={green_resp_c.text[:300]}', flush=True)
+                            max_status_c = 'max_sent' if green_resp_c.status_code == 200 else 'max_failed'
+
+                    # Сохраняем статус доставки в MAX для этого сообщения
+                    if max_status_c and message_id:
+                        try:
+                            cur.execute(
+                                'UPDATE t_p28211681_photo_secure_web.client_messages SET delivery_status = %s WHERE id = %s',
+                                (max_status_c, message_id),
+                            )
+                        except Exception as upd_e:
+                            print(f'===NOTIF-CLIENT=== status update error: {str(upd_e)}', flush=True)
                 except Exception as e:
                     print(f'[CHAT] Client notification error: {str(e)}', flush=True)
                     import traceback

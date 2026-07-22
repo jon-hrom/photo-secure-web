@@ -353,6 +353,23 @@ export default function ChatMessage({
               )
             )}
           </div>
+          {isMyMessage && !isRemoved && message.delivery_status && (() => {
+            const s = message.delivery_status;
+            const map: Record<string, { icon: string; text: string; cls: string }> = {
+              max_sent: { icon: 'Send', text: 'Отправлено в MAX', cls: isMyMessage && !isEmbedded ? 'text-blue-100' : 'text-muted-foreground' },
+              max_no_account: { icon: 'TriangleAlert', text: 'У клиента нет MAX', cls: 'text-amber-300' },
+              max_no_phone: { icon: 'TriangleAlert', text: 'Нет номера телефона', cls: 'text-amber-300' },
+              max_failed: { icon: 'TriangleAlert', text: 'MAX не доставлено', cls: 'text-amber-300' },
+            };
+            const info = map[s];
+            if (!info) return null;
+            return (
+              <div className={`flex items-center gap-1 mt-0.5 text-[10px] ${info.cls}`}>
+                <Icon name={info.icon} size={11} className="shrink-0" />
+                <span>{info.text}</span>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>

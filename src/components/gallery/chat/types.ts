@@ -22,6 +22,7 @@ export interface ChatMessageData {
   reply_to_id?: number | null;
   reply_to?: ReplyPreview | null;
   removed_for_all?: boolean;
+  delivery_status?: string | null;
 }
 
 export type ChatAction =
