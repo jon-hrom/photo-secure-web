@@ -259,19 +259,20 @@ export default function GalleryViewerImage({
 
       {/* Нижняя панель с информацией */}
       <div
-        className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-4 pt-8 transition-opacity duration-300"
+        className="absolute bottom-0 left-0 right-0 px-4 pt-8 transition-opacity duration-300"
         style={{
           paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
           paddingLeft: 'max(1rem, env(safe-area-inset-left))',
           paddingRight: 'max(4rem, env(safe-area-inset-right))',
           opacity: showUI ? 1 : 0,
           pointerEvents: showUI ? 'auto' : 'none',
+          textShadow: '0 1px 3px rgba(0,0,0,0.8)',
         }}
       >
         <p className="text-white font-medium text-sm sm:text-base mb-0.5 truncate">{fileName}</p>
         <div className="flex items-center gap-4 text-xs">
-          {fileSize && <span className="text-white/60">{(fileSize / 1024 / 1024).toFixed(2)} МБ</span>}
-          {width && height && <span className="text-white/60">{width} × {height}</span>}
+          {fileSize && <span className="text-white/80">{(fileSize / 1024 / 1024).toFixed(2)} МБ</span>}
+          {width && height && <span className="text-white/80">{width} × {height}</span>}
         </div>
       </div>
     </>
