@@ -1,8 +1,55 @@
 import json
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from urllib.parse import quote
 import psycopg2
+import boto3
+from botocore.client import Config
+
+
+def make_presigned_url(s3_key: str) -> Optional[str]:
+    '''
+    Генерирует presigned URL для прямого скачивания фото с S3.
+    Сначала пробует Yandex Cloud (foto-mix), затем проектный bucket (files).
+    Прямая ссылка на S3 не имеет лимита размера ответа функции и
+    поддерживает CORS, поэтому подходит для сборки архива на клиенте.
+    '''
+    # Yandex Cloud
+    try:
+        yc = boto3.client(
+            's3',
+            endpoint_url='https://storage.yandexcloud.net',
+            region_name='ru-central1',
+            aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+            aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+            config=Config(signature_version='s3v4')
+        )
+        yc.head_object(Bucket='foto-mix', Key=s3_key)
+        return yc.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': 'foto-mix', 'Key': s3_key},
+            ExpiresIn=3600
+        )
+    except Exception:
+        pass
+
+    # Проектный bucket
+    try:
+        proj = boto3.client(
+            's3',
+            endpoint_url='https://bucket.poehali.dev',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+        )
+        proj.head_object(Bucket='files', Key=s3_key)
+        return proj.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': 'files', 'Key': s3_key},
+            ExpiresIn=3600
+        )
+    except Exception as e:
+        print(f'[PRESIGN_ERROR] {s3_key}: {e}')
+        return None
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
@@ -183,17 +230,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     file_urls = []
     for s3_key, file_name, s3_url in photos:
-        try:
-            # Все файлы скачиваем через прокси (это решает CORS проблемы)
-            proxy_url = f"{proxy_endpoint}?s3_key={quote(s3_key)}"
-            
+        # Прямая presigned-ссылка на S3: без лимита размера ответа функции,
+        # с корректным CORS — фото любого размера попадают в архив.
+        direct_url = make_presigned_url(s3_key)
+        if direct_url:
             file_urls.append({
                 'filename': file_name,
-                'url': proxy_url
+                'url': direct_url
             })
-        except Exception as e:
-            print(f"Failed to generate URL for {file_name}: {e}")
-            continue
+        else:
+            # Фолбэк на прокси, если presigned сгенерировать не удалось
+            file_urls.append({
+                'filename': file_name,
+                'url': f"{proxy_endpoint}?s3_key={quote(s3_key)}"
+            })
     
     return {
         'statusCode': 200,
