@@ -652,6 +652,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'UPDATE users SET email_verified_at = NOW(), email_verification_hash = NULL, email_verification_expires_at = NULL, email_verification_attempts = 0, email_verification_sends = 0, email_verification_locked_until = NULL WHERE id = %s',
                     (user['id'],)
                 )
+                # Синхронизируем статус в новой таблице user_emails (её читают настройки профиля)
+                cursor.execute(
+                    f"UPDATE {SCHEMA}.user_emails SET is_verified = TRUE, verified_at = NOW() WHERE user_id = %s AND is_primary = TRUE",
+                    (user['id'],)
+                )
                 conn.commit()
                 log_event(conn, user['id'], 'verified', ip_address, user_agent)
                 
