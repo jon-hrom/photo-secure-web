@@ -586,6 +586,77 @@ def _format_ru_date(dt: datetime) -> str:
     return f"{dt.day} {months[dt.month - 1]} {dt.year}"
 
 
+# Правильный endpoint отправки писем (функция settings, action send-booking-notification)
+EMAIL_API_URL = 'https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0'
+
+
+def _send_email(to_email: str, subject: str, html_body: str, name: str = '') -> bool:
+    """Отправить письмо через settings API. Возвращает True при успехе."""
+    if not to_email or '@' not in to_email:
+        return False
+    try:
+        resp = requests.post(EMAIL_API_URL, json={
+            'action': 'send-booking-notification',
+            'to_email': to_email,
+            'client_name': name or '',
+            'html_body': html_body,
+            'subject': subject,
+        }, headers={'Content-Type': 'application/json'}, timeout=15)
+        return resp.status_code == 200
+    except Exception as e:
+        print(f'[EMAIL_SEND] error to {to_email}: {e}')
+        return False
+
+
+def _expiring_email_client(client_name: str, folder_name: str, days_left: int,
+                           expires_date: str, link_url: str, photographer_name: str) -> str:
+    """Письмо КЛИЕНТУ: срок ссылки скоро истекает — успейте скачать."""
+    hello = f'Здравствуйте, {client_name}!' if client_name else 'Здравствуйте!'
+    photog = f' от фотографа {photographer_name}' if photographer_name else ''
+    return f"""<!DOCTYPE html>
+<html><body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">
+<div style="background:linear-gradient(135deg,#f59e0b 0%,#ef4444 100%);padding:30px;border-radius:12px;text-align:center;margin-bottom:24px;">
+<h1 style="color:#fff;margin:0;font-size:23px;">⏳ Ваши фото скоро станут недоступны</h1>
+</div>
+<div style="background:#f8f9fa;padding:24px;border-radius:12px;">
+<p style="font-size:16px;">{hello}</p>
+<p style="font-size:15px;">Ваша галерея <b>«{folder_name}»</b>{photog} доступна по ссылке ещё <b>{days_left} дн.</b> — до <b>{expires_date}</b>.</p>
+<div style="background:#fff3cd;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:8px;margin:20px 0;font-size:15px;">
+После этой даты доступ к галерее закроется, а фотографии будут <b>удалены без возможности восстановления</b>.
+</div>
+<p style="font-size:15px;">📥 Пожалуйста, скачайте свои фотографии, пока ссылка активна:</p>
+<p style="text-align:center;margin:22px 0;"><a href="{link_url}" style="background:#7c3aed;color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;display:inline-block;font-size:16px;font-weight:bold;">Открыть и скачать фото</a></p>
+<p style="font-size:13px;color:#6b7280;">Совет: в галерее есть кнопка «Скачать всё» — она сохранит все фотографии одним архивом.</p>
+</div>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+<p style="color:#9ca3af;font-size:12px;text-align:center;">🤖 Письмо сформировано автоматически сервисом Foto-mix.ru. Отвечать на него не нужно.</p>
+</body></html>"""
+
+
+def _expiring_email_photographer(photographer_name: str, folder_name: str, days_left: int,
+                                 expires_date: str, link_url: str, client_name: str) -> str:
+    """Письмо ФОТОГРАФУ: срок общей ссылки скоро истекает."""
+    hello = f'Здравствуйте, {photographer_name}!' if photographer_name else 'Здравствуйте!'
+    who = f' (клиент: {client_name})' if client_name else ''
+    return f"""<!DOCTYPE html>
+<html><body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">
+<div style="background:linear-gradient(135deg,#7c3aed 0%,#ec4899 100%);padding:30px;border-radius:12px;text-align:center;margin-bottom:24px;">
+<h1 style="color:#fff;margin:0;font-size:23px;">⏳ Срок общей ссылки подходит к концу</h1>
+</div>
+<div style="background:#f8f9fa;padding:24px;border-radius:12px;">
+<p style="font-size:16px;">{hello}</p>
+<p style="font-size:15px;">Срок действия общей ссылки на проект <b>«{folder_name}»</b>{who} истекает через <b>{days_left} дн.</b> — <b>{expires_date}</b>.</p>
+<div style="background:#fff3cd;border-left:4px solid #f59e0b;padding:14px 16px;border-radius:8px;margin:20px 0;font-size:15px;">
+После этой даты галерея будет перемещена в корзину, а затем фотографии <b>удалятся без возможности восстановления</b>.
+</div>
+<p style="font-size:15px;">Мы напомнили об этом и вашему клиенту. Если нужно — продлите срок ссылки в настройках галереи или убедитесь, что клиент успел скачать файлы.</p>
+<p style="text-align:center;margin:22px 0;"><a href="{link_url}" style="background:#7c3aed;color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;display:inline-block;font-size:16px;font-weight:bold;">Открыть галерею</a></p>
+</div>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+<p style="color:#9ca3af;font-size:12px;text-align:center;">🤖 Письмо сформировано автоматически сервисом Foto-mix.ru для фотографов.</p>
+</body></html>"""
+
+
 def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
     """Найти ссылки фотографа с истечением через 3-8 дней и отправить MAX клиенту и фотографу.
     Идемпотентно через folder_short_links.expire_notified_at.
@@ -618,7 +689,10 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
                 c.phone,
                 c.name,
                 u.name,
-                u.phone
+                u.phone,
+                c.email,
+                u.email,
+                u.display_name
             FROM t_p28211681_photo_secure_web.folder_short_links fsl
             JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
             LEFT JOIN t_p28211681_photo_secure_web.clients c ON c.id = pf.client_id
@@ -637,7 +711,8 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
 
     for row in rows:
         (link_id, short_code, expires_at, _folder_id, folder_name,
-         _client_id, client_phone, _client_name, photographer_name, photographer_phone) = row
+         _client_id, client_phone, client_name, photographer_name, photographer_phone,
+         client_email, photographer_email, photographer_display_name) = row
 
         try:
             days_left = max(1, (expires_at - datetime.now()).days)
@@ -647,6 +722,16 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
         link_url = f"{app_base_url}/g/{short_code}"
         chat_url = f"{app_base_url}/g/{short_code}"
         photographer_link = f"{photographer_name or 'фотографу'} ({chat_url})"
+
+        expires_date_str = _format_ru_date(expires_at)
+
+        # Имя фотографа для писем: не показываем email/телефон вместо имени
+        photog_name = (photographer_display_name or photographer_name or '').strip()
+        if not photog_name or '@' in photog_name or re.match(r'^\+?[\d\s()-]{7,}$', photog_name):
+            photog_name = ''
+        client_display = (client_name or '').strip()
+        if '@' in client_display or re.match(r'^\+?[\d\s()-]{7,}$', client_display):
+            client_display = ''
 
         message = template_text
         replacements = {
@@ -677,6 +762,24 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
                 sent_photographer = True
             except Exception as e:
                 log_message(conn, user_id, photographer_phone, 'link_expiring', False, str(e))
+
+        # Email клиенту (обязательно) — успейте скачать файлы
+        if client_email:
+            client_html = _expiring_email_client(
+                client_display, link_title, days_left, expires_date_str, link_url, photog_name)
+            if _send_email(client_email,
+                           f'⏳ Ваши фото «{link_title}» скоро удалятся — успейте скачать',
+                           client_html, client_display):
+                sent_client = True
+
+        # Email фотографу
+        if photographer_email:
+            photog_html = _expiring_email_photographer(
+                photog_name, link_title, days_left, expires_date_str, link_url, client_display)
+            if _send_email(photographer_email,
+                           f'⏳ Срок ссылки на «{link_title}» подходит к концу — {expires_date_str}',
+                           photog_html, photog_name):
+                sent_photographer = True
 
         if sent_client or sent_photographer:
             with conn.cursor() as cur2:
@@ -816,15 +919,12 @@ def trash_expired_folders(conn, user_id: str) -> Dict[str, Any]:
 <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
 <p style="color:#9ca3af;font-size:12px;text-align:center;">🤖 Сообщение сформировано автоматической системой для фотографов Foto-mix.ru, отвечать на это сообщение не нужно!</p>
 </body></html>"""
-                email_api = 'https://functions.poehali.dev/26301a69-7e80-461b-bc17-2ad62cd57d4f'
-                resp = _req.post(email_api, json={
-                    'action': 'send-booking-notification',
-                    'to_email': photographer_email,
-                    'client_name': photographer_name_safe,
-                    'html_body': html_body,
-                    'subject': f'🗑 Папка «{title}» перемещена в корзину — Foto-mix.ru'
-                }, timeout=10)
-                notified_email = resp.ok
+                notified_email = _send_email(
+                    photographer_email,
+                    f'🗑 Папка «{title}» перемещена в корзину — Foto-mix.ru',
+                    html_body,
+                    photographer_name_safe,
+                )
             except Exception as e:
                 print(f'[TRASH_EXPIRED] email send error: {e}')
 
