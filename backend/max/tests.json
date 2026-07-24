@@ -11,6 +11,15 @@
       },
       "expectedStatus": 200,
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Global expiring check without auth",
+      "method": "POST",
+      "body": {
+        "action": "check_expiring_links_all"
+      },
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
     }
   ]
 }

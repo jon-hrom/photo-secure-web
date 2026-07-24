@@ -11,9 +11,16 @@ import { useSubfolderState } from './gallery/hooks/useSubfolderState';
 import { useYandexDisk } from './gallery/hooks/useYandexDisk';
 import { useFavoriteLists } from './gallery/hooks/useFavoriteLists';
 import { useGalleryDerived } from './gallery/hooks/useGalleryDerived';
+import { runGlobalLinkExpiryCheck } from '@/utils/linkExpiryCheck';
 
 export default function PublicGallery() {
   const { code } = useParams<{ code: string }>();
+
+  useEffect(() => {
+    // Заход клиента/гостя по общей ссылке тоже запускает
+    // глобальную проверку истекающих ссылок (с кулдауном).
+    runGlobalLinkExpiryCheck();
+  }, []);
 
   const state = useGalleryState();
 

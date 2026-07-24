@@ -12,6 +12,7 @@ import { useClientsSync } from '@/hooks/useClientsSync';
 import { useVerificationChecks } from '@/hooks/useVerificationChecks';
 import { useSessionWatcher } from '@/hooks/useSessionWatcher';
 import { settingsSync } from '@/utils/settingsSync';
+import { runGlobalLinkExpiryCheck } from '@/utils/linkExpiryCheck';
 import { toast } from 'sonner';
 
 const Index = () => {
@@ -101,36 +102,10 @@ const Index = () => {
   }, [isAuthenticated, userId]);
 
   useEffect(() => {
-    if (!isAuthenticated || !userId) return;
-    const key = `link_expiry_checked_${userId}`;
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, '1');
-    const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
-    fetch(MAX_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-User-Id': userId.toString() },
-      body: JSON.stringify({ action: 'check_expiring_links' }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data && data.checked > 0) {
-          console.log('[LINK_EXPIRY] Уведомления отправлены:', data.items);
-        }
-      })
-      .catch(() => {});
-    fetch(MAX_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-User-Id': userId.toString() },
-      body: JSON.stringify({ action: 'trash_expired_folders' }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data && data.trashed > 0) {
-          console.log('[LINK_EXPIRY] Папки перемещены в корзину:', data.items);
-        }
-      })
-      .catch(() => {});
-  }, [isAuthenticated, userId]);
+    // Глобальная проверка истекающих ссылок по всем фотографам.
+    // Запускается при заходе на сайт (в т.ч. без авторизации), с кулдауном.
+    runGlobalLinkExpiryCheck();
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated || !userId) return;

@@ -28,8 +28,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     headers = event.get('headers', {})
     user_id = headers.get('x-user-id') or headers.get('X-User-Id')
-    
-    if not user_id:
+
+    # Глобальные проверки истечения ссылок доступны без авторизации:
+    # они не отдают данные, только рассылают уведомления по бизнес-правилам.
+    # Запускаются при заходе на сайт любого (фотографа, клиента, гостя по ссылке).
+    public_actions = {'check_expiring_links_all', 'trash_expired_folders_all'}
+    try:
+        _body_action = json.loads(event.get('body', '{}')).get('action') if method == 'POST' else None
+    except Exception:
+        _body_action = None
+
+    if not user_id and _body_action not in public_actions:
         return {
             'statusCode': 401,
             'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
@@ -62,6 +71,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 result = check_expiring_links(conn, user_id)
             elif action == 'trash_expired_folders':
                 result = trash_expired_folders(conn, user_id)
+            elif action == 'check_expiring_links_all':
+                result = check_expiring_links(conn, None)
+            elif action == 'trash_expired_folders_all':
+                result = trash_expired_folders(conn, None)
             else:
                 result = {'error': 'Неизвестный action'}
             
@@ -657,14 +670,17 @@ def _expiring_email_photographer(photographer_name: str, folder_name: str, days_
 </body></html>"""
 
 
-def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
-    """Найти ссылки фотографа с истечением через 3-8 дней и отправить MAX клиенту и фотографу.
+def check_expiring_links(conn, user_id=None) -> Dict[str, Any]:
+    """Найти ссылки с истечением через 3-8 дней и отправить MAX/email клиенту, фотографу и гостям.
+    Если user_id передан — только по этому фотографу, иначе по всем (глобальная проверка).
     Идемпотентно через folder_short_links.expire_notified_at.
     """
     app_base_url = 'https://foto-mix.ru'
     creds = get_admin_credentials()
     if not creds.get('instance_id') or not creds.get('token'):
         return {'success': False, 'error': 'MAX не настроен'}
+
+    user_filter = f"fsl.user_id = {int(user_id)} AND" if user_id else ""
 
     with conn.cursor() as cur:
         cur.execute("""
@@ -692,18 +708,20 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
                 u.phone,
                 c.email,
                 u.email,
-                u.display_name
+                u.display_name,
+                fsl.user_id
             FROM t_p28211681_photo_secure_web.folder_short_links fsl
             JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
             LEFT JOIN t_p28211681_photo_secure_web.clients c ON c.id = pf.client_id
             JOIN t_p28211681_photo_secure_web.users u ON u.id = fsl.user_id
-            WHERE fsl.user_id = {int(user_id)}
-              AND fsl.expires_at IS NOT NULL
+            WHERE {user_filter}
+              fsl.expires_at IS NOT NULL
               AND fsl.expire_notified_at IS NULL
               AND COALESCE(fsl.is_blocked, FALSE) = FALSE
               AND fsl.expires_at > NOW() + INTERVAL '3 days'
               AND fsl.expires_at <= NOW() + INTERVAL '8 days'
             ORDER BY fsl.expires_at ASC
+            LIMIT 200
         """)
         rows = cur.fetchall()
 
@@ -712,7 +730,10 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
     for row in rows:
         (link_id, short_code, expires_at, _folder_id, folder_name,
          _client_id, client_phone, client_name, photographer_name, photographer_phone,
-         client_email, photographer_email, photographer_display_name) = row
+         client_email, photographer_email, photographer_display_name, link_user_id) = row
+
+        # Владелец ссылки — для логирования (в глобальном режиме user_id общий None)
+        log_uid = link_user_id
 
         try:
             days_left = max(1, (expires_at - datetime.now()).days)
@@ -752,19 +773,19 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
             try:
                 res = send_via_green_api(creds['instance_id'], creds['token'], client_phone, message, conn=conn)
                 if not res.get('no_account'):
-                    log_message(conn, user_id, client_phone, 'link_expiring', True)
+                    log_message(conn, log_uid, client_phone, 'link_expiring', True)
                     sent_client = True
             except Exception as e:
-                log_message(conn, user_id, client_phone, 'link_expiring', False, str(e))
+                log_message(conn, log_uid, client_phone, 'link_expiring', False, str(e))
 
         if photographer_phone:
             try:
                 res = send_via_green_api(creds['instance_id'], creds['token'], photographer_phone, message, conn=conn)
                 if not res.get('no_account'):
-                    log_message(conn, user_id, photographer_phone, 'link_expiring', True)
+                    log_message(conn, log_uid, photographer_phone, 'link_expiring', True)
                     sent_photographer = True
             except Exception as e:
-                log_message(conn, user_id, photographer_phone, 'link_expiring', False, str(e))
+                log_message(conn, log_uid, photographer_phone, 'link_expiring', False, str(e))
 
         # Email клиенту (обязательно) — успейте скачать файлы
         if client_email:
@@ -818,10 +839,10 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
                 try:
                     res = send_via_green_api(creds['instance_id'], creds['token'], g_phone, message, conn=conn)
                     if not res.get('no_account'):
-                        log_message(conn, user_id, g_phone, 'link_expiring', True)
+                        log_message(conn, log_uid, g_phone, 'link_expiring', True)
                         g_sent = True
                 except Exception as e:
-                    log_message(conn, user_id, g_phone, 'link_expiring', False, str(e))
+                    log_message(conn, log_uid, g_phone, 'link_expiring', False, str(e))
             # Запасной канал: email
             if g_email:
                 g_html = _expiring_email_client(
@@ -856,13 +877,16 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
     return {'success': True, 'checked': len(notified_items), 'items': notified_items}
 
 
-def trash_expired_folders(conn, user_id: str) -> Dict[str, Any]:
-    """Найти ссылки фотографа, у которых срок истёк и папка ещё не в корзине.
-    Переместить такие папки в корзину (is_trashed=TRUE) и отправить уведомление фотографу.
+def trash_expired_folders(conn, user_id=None) -> Dict[str, Any]:
+    """Найти ссылки, у которых срок истёк и папка ещё не в корзине.
+    Переместить такие папки в корзину (is_trashed=TRUE) и уведомить фотографа.
+    Если user_id передан — только по нему, иначе по всем (глобальная проверка).
     Идемпотентно через folder_short_links.expired_trash_notified_at.
     """
     app_base_url = 'https://foto-mix.ru'
     creds = get_admin_credentials()
+
+    user_filter = f"fsl.user_id = {int(user_id)} AND" if user_id else ""
 
     cur_main = conn.cursor()
     cur_main.execute(f"""
@@ -873,22 +897,25 @@ def trash_expired_folders(conn, user_id: str) -> Dict[str, Any]:
             pf.folder_name,
             u.display_name,
             u.phone,
-            u.email
+            u.email,
+            fsl.user_id
         FROM t_p28211681_photo_secure_web.folder_short_links fsl
         JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
         JOIN t_p28211681_photo_secure_web.users u ON u.id = fsl.user_id
-        WHERE fsl.user_id = {int(user_id)}
-          AND fsl.expires_at IS NOT NULL
+        WHERE {user_filter}
+          fsl.expires_at IS NOT NULL
           AND fsl.expires_at < NOW()
           AND fsl.expired_trash_notified_at IS NULL
           AND COALESCE(pf.is_trashed, FALSE) = FALSE
+        LIMIT 200
     """)
     rows = cur_main.fetchall()
     cur_main.close()
 
     processed = []
     for row in rows:
-        link_id, folder_id, expires_at, folder_name, photographer_name, photographer_phone, photographer_email = row
+        link_id, folder_id, expires_at, folder_name, photographer_name, photographer_phone, photographer_email, link_user_id = row
+        log_uid = link_user_id
 
         try:
             cur_upd = conn.cursor()
@@ -944,13 +971,13 @@ def trash_expired_folders(conn, user_id: str) -> Dict[str, Any]:
                         '{trash_url}': trash_url,
                     }.items():
                         message = message.replace(k, v)
-                    send_via_green_api(creds['instance_id'], creds['token'], photographer_phone, message)
-                    log_message(conn, user_id, photographer_phone, 'link_expired_folder_trashed', True)
+                    send_via_green_api(creds['instance_id'], creds['token'], photographer_phone, message, conn=conn)
+                    log_message(conn, log_uid, photographer_phone, 'link_expired_folder_trashed', True)
                     notified_max = True
             except Exception as e:
                 print(f'[TRASH_EXPIRED] MAX send error: {e}')
                 try:
-                    log_message(conn, user_id, photographer_phone or '', 'link_expired_folder_trashed', False, str(e))
+                    log_message(conn, log_uid, photographer_phone or '', 'link_expired_folder_trashed', False, str(e))
                 except Exception:
                     pass
 
