@@ -747,19 +747,22 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
         sent_client = False
         sent_photographer = False
 
+        # Приоритетный канал — MAX по телефону
         if client_phone:
             try:
-                send_via_green_api(creds['instance_id'], creds['token'], client_phone, message)
-                log_message(conn, user_id, client_phone, 'link_expiring', True)
-                sent_client = True
+                res = send_via_green_api(creds['instance_id'], creds['token'], client_phone, message, conn=conn)
+                if not res.get('no_account'):
+                    log_message(conn, user_id, client_phone, 'link_expiring', True)
+                    sent_client = True
             except Exception as e:
                 log_message(conn, user_id, client_phone, 'link_expiring', False, str(e))
 
         if photographer_phone:
             try:
-                send_via_green_api(creds['instance_id'], creds['token'], photographer_phone, message)
-                log_message(conn, user_id, photographer_phone, 'link_expiring', True)
-                sent_photographer = True
+                res = send_via_green_api(creds['instance_id'], creds['token'], photographer_phone, message, conn=conn)
+                if not res.get('no_account'):
+                    log_message(conn, user_id, photographer_phone, 'link_expiring', True)
+                    sent_photographer = True
             except Exception as e:
                 log_message(conn, user_id, photographer_phone, 'link_expiring', False, str(e))
 
@@ -781,6 +784,57 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
                            photog_html, photog_name):
                 sent_photographer = True
 
+        # Гости галереи, оставившие контакты (избранное / регистрация по ссылке).
+        # Приоритет — MAX по телефону, затем email как запасной канал.
+        guests_notified = 0
+        try:
+            with conn.cursor() as gcur:
+                gcur.execute("""
+                    SELECT DISTINCT ON (LOWER(COALESCE(full_name,'')), phone, LOWER(COALESCE(email,'')))
+                        full_name, phone, email
+                    FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE gallery_code = %s
+                      AND (COALESCE(phone,'') <> '' OR COALESCE(email,'') <> '')
+                """, (short_code,))
+                guests = gcur.fetchall()
+        except Exception as e:
+            print(f'[EXPIRING_GUESTS] fetch error: {e}')
+            guests = []
+
+        for g_name, g_phone, g_email in guests:
+            # Не дублируем основному клиенту папки
+            if client_phone and g_phone and normalize_phone(g_phone) == normalize_phone(client_phone):
+                continue
+            if client_email and g_email and g_email.strip().lower() == client_email.strip().lower():
+                continue
+
+            g_display = (g_name or '').strip()
+            if '@' in g_display or re.match(r'^\+?[\d\s()-]{7,}$', g_display):
+                g_display = ''
+
+            g_sent = False
+            # Приоритет: MAX
+            if g_phone:
+                try:
+                    res = send_via_green_api(creds['instance_id'], creds['token'], g_phone, message, conn=conn)
+                    if not res.get('no_account'):
+                        log_message(conn, user_id, g_phone, 'link_expiring', True)
+                        g_sent = True
+                except Exception as e:
+                    log_message(conn, user_id, g_phone, 'link_expiring', False, str(e))
+            # Запасной канал: email
+            if g_email:
+                g_html = _expiring_email_client(
+                    g_display, link_title, days_left, expires_date_str, link_url, photog_name)
+                if _send_email(g_email,
+                               f'⏳ Ваши фото «{link_title}» скоро удалятся — успейте скачать',
+                               g_html, g_display):
+                    g_sent = True
+
+            if g_sent:
+                guests_notified += 1
+                sent_client = True
+
         if sent_client or sent_photographer:
             with conn.cursor() as cur2:
                 cur2.execute(
@@ -796,6 +850,7 @@ def check_expiring_links(conn, user_id: str) -> Dict[str, Any]:
             'days_left': days_left,
             'client_notified': sent_client,
             'photographer_notified': sent_photographer,
+            'guests_notified': guests_notified,
         })
 
     return {'success': True, 'checked': len(notified_items), 'items': notified_items}
