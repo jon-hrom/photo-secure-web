@@ -251,17 +251,12 @@ export function useFavoritesData(folderId: number | null, userId: number) {
     const proxyBase = 'https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215';
     const total = displayPhotos.length;
 
-    // Для каждого фото берём прямой URL для архива.
-    // Большие/RAW файлы (CR2/NEF/ARW) НЕЛЬЗЯ тянуть через прокси — он отдаёт
-    // файл в base64 и упирается в лимит функции, поэтому архив выходит пустым.
-    // Для них запрашиваем presigned URL и качаем напрямую из хранилища.
+    // Для каждого фото берём presigned URL и качаем НАПРЯМУЮ из хранилища.
+    // Прокси-функция отдаёт файл в base64 и упирается в лимит ответа (~3.5 МБ),
+    // поэтому крупные фото (обычные JPG 8-10 МБ и RAW) через неё падают с 502
+    // и в архив попадает только одно маленькое фото. Хранилище же отдаёт файл
+    // потоком с корректным Content-Length и поддержкой Range — то, что нужно zip.js.
     const resolveDownloadUrl = async (photo: Photo): Promise<string> => {
-      const isLargeFile = photo.file_name.toUpperCase().endsWith('.CR2') ||
-                         photo.file_name.toUpperCase().endsWith('.NEF') ||
-                         photo.file_name.toUpperCase().endsWith('.ARW');
-      if (!isLargeFile) {
-        return `${proxyBase}?photo_id=${photo.id}`;
-      }
       try {
         const resp = await fetch(`${proxyBase}?photo_id=${photo.id}&presigned=true`);
         if (resp.ok) {
@@ -271,6 +266,7 @@ export function useFavoritesData(folderId: number | null, userId: number) {
       } catch (e) {
         console.error(`[FAVORITES] presigned failed for ${photo.file_name}:`, e);
       }
+      // Фолбэк на прокси (для маленьких фото), если presigned недоступен
       return `${proxyBase}?photo_id=${photo.id}`;
     };
 
