@@ -51,7 +51,7 @@ export default function YandexDiskModal(props: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className={step === 'browse' ? 'max-w-md sm:max-w-2xl lg:max-w-3xl' : 'max-w-md'}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon name="HardDrive" size={20} className="text-[#FC3F1D]" />
@@ -114,7 +114,7 @@ export default function YandexDiskModal(props: Props) {
               </span>
             </div>
 
-            <div className="max-h-64 overflow-y-auto border rounded-lg divide-y">
+            <div className="max-h-[55vh] min-h-[280px] overflow-y-auto border rounded-lg divide-y">
               {folders.length === 0 && (
                 <div className="p-4 text-sm text-muted-foreground text-center">Вложенных папок нет</div>
               )}
