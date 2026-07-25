@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,18 @@ export default function YandexDiskModal(props: Props) {
     exportFolderName, onSubmitCode, onBrowse, onRunImport,
   } = props;
   const [code, setCode] = useState('');
+  const [search, setSearch] = useState('');
+
+  // Сбрасываем поиск при переходе в другую папку Диска
+  useEffect(() => {
+    setSearch('');
+  }, [diskPath]);
+
+  const filteredFolders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return folders;
+    return folders.filter((f) => (f.name || '').toLowerCase().includes(q));
+  }, [folders, search]);
 
   const title = mode === 'import' ? 'Импорт с Яндекс.Диска' : 'Сохранить на Яндекс.Диск';
 
@@ -121,11 +133,35 @@ export default function YandexDiskModal(props: Props) {
               </span>
             </div>
 
+            {folders.length > 0 && (
+              <div className="relative">
+                <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Поиск папки..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 pr-9"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                  >
+                    <Icon name="X" size={16} />
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="max-h-[45vh] sm:max-h-[55vh] min-h-[200px] sm:min-h-[280px] overflow-y-auto border rounded-lg divide-y">
               {folders.length === 0 && (
                 <div className="p-4 text-sm text-muted-foreground text-center">Вложенных папок нет</div>
               )}
-              {folders.map((f) => (
+              {folders.length > 0 && filteredFolders.length === 0 && (
+                <div className="p-4 text-sm text-muted-foreground text-center">Ничего не найдено</div>
+              )}
+              {filteredFolders.map((f) => (
                 <button
                   key={f.path}
                   onClick={() => onBrowse(f.path)}
