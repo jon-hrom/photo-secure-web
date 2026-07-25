@@ -8,6 +8,23 @@ export interface DiskFolder {
   path: string;
 }
 
+export interface DiskPhoto {
+  name: string;
+  path: string;
+  preview: string;
+  file: string;
+  size: number;
+  mime_type: string;
+}
+
+export const YANDEX_DISK_FN_URL = YD_URL;
+
+// Строит URL картинки через прокси бэкенда (превью или оригинал)
+export function diskImageUrl(path: string, token: string, size: 'preview' | 'orig' = 'preview'): string {
+  const p = new URLSearchParams({ action: 'image', path, token, size });
+  return `${YD_URL}?${p.toString()}`;
+}
+
 type Mode = 'import' | 'export';
 
 interface Options {
@@ -27,6 +44,8 @@ export function useYandexDiskPhotobank({ userId, onImportDone }: Options) {
   const [diskPath, setDiskPath] = useState('/');
   const [folders, setFolders] = useState<DiskFolder[]>([]);
   const [photosHere, setPhotosHere] = useState(0);
+  const [diskPhotos, setDiskPhotos] = useState<DiskPhoto[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
 
   const [progress, setProgress] = useState(0);
   const [progressTotal, setProgressTotal] = useState(0);
@@ -43,6 +62,8 @@ export function useYandexDiskPhotobank({ userId, onImportDone }: Options) {
     setDiskPath('/');
     setFolders([]);
     setPhotosHere(0);
+    setDiskPhotos([]);
+    setPhotosLoading(false);
     setProgress(0);
     setProgressTotal(0);
     setProgressDone(0);
@@ -78,6 +99,24 @@ export function useYandexDiskPhotobank({ userId, onImportDone }: Options) {
     if (await fetchAuthUrl()) setOpen(true);
   }, []);
 
+  const loadPhotos = useCallback(async (path: string, tok: string) => {
+    if (!tok) return;
+    setPhotosLoading(true);
+    setDiskPhotos([]);
+    try {
+      const r = await fetch(YD_URL, {
+        method: 'POST', headers: authHeaders,
+        body: JSON.stringify({ op: 'list_photos', path, token: tok }),
+      });
+      const d = await r.json();
+      if (r.ok) setDiskPhotos(d.photos || []);
+    } catch {
+      /* тихо — просмотр фото не критичен для выбора папки */
+    } finally {
+      setPhotosLoading(false);
+    }
+  }, [authHeaders]);
+
   const browse = useCallback(async (path: string) => {
     if (!token) return;
     setBusy(true);
@@ -88,9 +127,11 @@ export function useYandexDiskPhotobank({ userId, onImportDone }: Options) {
       });
       const d = await r.json();
       if (!r.ok) { toast.error(d.error || 'Не удалось открыть папку'); return; }
-      setDiskPath(d.path || path);
+      const newPath = d.path || path;
+      setDiskPath(newPath);
       setFolders(d.folders || []);
       setPhotosHere(d.photos_here || 0);
+      loadPhotos(newPath, token);
     } catch {
       toast.error('Ошибка соединения с Яндекс.Диском');
     } finally {
@@ -160,10 +201,12 @@ export function useYandexDiskPhotobank({ userId, onImportDone }: Options) {
         const d = await r.json();
         if (!r.ok || !d.token) { toast.error(d.error || 'Ошибка авторизации Яндекс.Диска'); return; }
         setToken(d.token);
-        setDiskPath(d.path || '/');
+        const newPath = d.path || '/';
+        setDiskPath(newPath);
         setFolders(d.folders || []);
         setPhotosHere(d.photos_here || 0);
         setStep('browse');
+        loadPhotos(newPath, d.token);
       } else {
         // Экспорт: получаем токен и запускаем выгрузку выбранной папки
         const r = await fetch(YD_URL, {
@@ -180,7 +223,7 @@ export function useYandexDiskPhotobank({ userId, onImportDone }: Options) {
     } finally {
       setBusy(false);
     }
-  }, [mode, authHeaders, runExport]);
+  }, [mode, authHeaders, runExport, loadPhotos]);
 
   const runImport = useCallback(async (path: string) => {
     if (!token) return;
@@ -230,8 +273,8 @@ export function useYandexDiskPhotobank({ userId, onImportDone }: Options) {
   }, [token, authHeaders, onImportDone]);
 
   return {
-    open, setOpen, mode, step, authUrl, busy,
-    diskPath, folders, photosHere,
+    open, setOpen, mode, step, authUrl, busy, token,
+    diskPath, folders, photosHere, diskPhotos, photosLoading,
     progress, progressTotal, progressDone,
     exportFolderName,
     openImport, openExport,

@@ -15,6 +15,13 @@
       },
       "expectedStatus": 401,
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Image proxy without params rejected",
+      "method": "GET",
+      "path": "/?action=image",
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
     }
   ]
 }

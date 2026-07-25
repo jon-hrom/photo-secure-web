@@ -138,6 +138,48 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         return _resp(200, {'auth_url': f'{YANDEX_OAUTH_AUTHORIZE}?{urllib.parse.urlencode(params)}'})
 
+    # 1.5) Прокси изображения Яндекс.Диска (превью или оригинал) — для показа в <img>.
+    # Превью-ссылки Яндекса требуют OAuth-заголовок, поэтому качаем на бэкенде.
+    if action == 'image':
+        img_token = str(qs.get('token', '') or '').strip()
+        img_path = str(qs.get('path', '') or '').strip()
+        size = str(qs.get('size', 'preview') or 'preview').strip()
+        if not img_token or not img_path:
+            return _resp(400, {'error': 'Не переданы token или path'})
+        try:
+            if size == 'orig':
+                src_url = _download_href(img_token, img_path)
+            else:
+                info = _disk_request('GET', '/resources', img_token, {
+                    'path': img_path,
+                    'preview_size': 'XXXL',
+                    'preview_crop': 'false',
+                    'fields': 'preview,file',
+                })
+                src_url = (info['data'].get('preview') if info['status'] == 200 else '') or ''
+                if not src_url:
+                    src_url = _download_href(img_token, img_path)
+            if not src_url:
+                return _resp(404, {'error': 'Изображение не найдено'})
+            req = urllib.request.Request(src_url)
+            req.add_header('Authorization', f'OAuth {img_token}')
+            with urllib.request.urlopen(req, timeout=25) as r:
+                content = r.read()
+                ctype = r.headers.get('Content-Type', 'image/jpeg')
+            import base64 as _b64
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': ctype,
+                    'Access-Control-Allow-Origin': '*',
+                    'Cache-Control': 'public, max-age=3600',
+                },
+                'body': _b64.b64encode(content).decode(),
+                'isBase64Encoded': True,
+            }
+        except Exception as e:
+            return _resp(400, {'error': f'Не удалось загрузить изображение: {str(e)[:120]}'})
+
     if method != 'POST':
         return _resp(405, {'error': 'Method not allowed'})
 
@@ -160,6 +202,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     if op == 'list_folders':
         return _list_folders(token, str(body.get('path', '/') or '/'))
+    if op == 'list_photos':
+        return _list_photos(token, str(body.get('path', '/') or '/'))
     if op == 'exchange':
         return _resp(200, {'token': token})
     if op == 'import':
@@ -196,6 +240,50 @@ def _list_folders(token: str, path: str) -> Dict[str, Any]:
                 photos_here += 1
     folders.sort(key=lambda f: (f['name'] or '').lower())
     return _resp(200, {'path': path, 'folders': folders, 'photos_here': photos_here, 'token': token})
+
+
+def _list_photos(token: str, path: str) -> Dict[str, Any]:
+    """Список фото в папке с превью для просмотра (без импорта)."""
+    photos: List[Dict[str, Any]] = []
+    offset = 0
+    while True:
+        res = _disk_request('GET', '/resources', token, {
+            'path': path,
+            'limit': 200,
+            'offset': offset,
+            'preview_size': 'XXXL',
+            'preview_crop': 'false',
+            'fields': ('_embedded.total,_embedded.items.name,_embedded.items.path,'
+                       '_embedded.items.type,_embedded.items.media_type,_embedded.items.mime_type,'
+                       '_embedded.items.size,_embedded.items.preview,_embedded.items.file'),
+        })
+        if res['status'] == 401:
+            return _resp(401, {'error': 'Нет доступа к Яндекс.Диску. Авторизуйтесь заново.'})
+        if res['status'] == 403:
+            return _resp(403, {'error': 'Недостаточно прав. Разрешите приложению чтение Диска (cloud_api:disk.read).'})
+        if res['status'] != 200:
+            return _resp(400, {'error': 'Не удалось получить список фото Яндекс.Диска'})
+        emb = res['data'].get('_embedded', {}) or {}
+        items = emb.get('items', []) or []
+        for it in items:
+            if it.get('type') != 'file':
+                continue
+            nm = (it.get('name') or '')
+            if it.get('media_type') == 'image' or nm.lower().endswith(IMAGE_EXTS):
+                photos.append({
+                    'name': nm.strip(),
+                    'path': (it.get('path', '') or '').replace('disk:', ''),
+                    'preview': it.get('preview', '') or '',
+                    'file': it.get('file', '') or '',
+                    'size': it.get('size', 0) or 0,
+                    'mime_type': it.get('mime_type', '') or '',
+                })
+        total = emb.get('total', 0)
+        offset += len(items)
+        if not items or offset >= total:
+            break
+    photos.sort(key=lambda p: (p['name'] or '').lower())
+    return _resp(200, {'path': path, 'photos': photos, 'count': len(photos), 'token': token})
 
 
 def _list_images(token: str, path: str) -> List[Dict[str, str]]:

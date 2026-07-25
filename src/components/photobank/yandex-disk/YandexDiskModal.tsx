@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
-import type { DiskFolder } from './useYandexDiskPhotobank';
+import type { DiskFolder, DiskPhoto } from './useYandexDiskPhotobank';
+import { diskImageUrl } from './useYandexDiskPhotobank';
+import PhotoGridViewer from '@/components/photobank/PhotoGridViewer';
 
 interface Props {
   open: boolean;
@@ -16,6 +18,9 @@ interface Props {
   diskPath: string;
   folders: DiskFolder[];
   photosHere: number;
+  diskPhotos: DiskPhoto[];
+  photosLoading: boolean;
+  token: string;
   progress: number;
   progressTotal: number;
   progressDone: number;
@@ -24,6 +29,24 @@ interface Props {
   onBrowse: (path: string) => void;
   onRunImport: (path: string) => void;
 }
+
+interface ViewerPhoto {
+  id: number;
+  file_name: string;
+  s3_url?: string;
+  thumbnail_s3_url?: string;
+  file_size: number;
+  width: number | null;
+  height: number | null;
+  created_at: string;
+}
+
+const formatBytes = (bytes: number): string => {
+  if (!bytes) return '—';
+  const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+};
 
 const parentPath = (path: string): string => {
   const p = path.replace(/\/+$/, '');
@@ -35,15 +58,18 @@ const parentPath = (path: string): string => {
 export default function YandexDiskModal(props: Props) {
   const {
     open, onOpenChange, mode, step, authUrl, busy,
-    diskPath, folders, photosHere, progress, progressTotal, progressDone,
+    diskPath, folders, photosHere, diskPhotos, photosLoading, token,
+    progress, progressTotal, progressDone,
     exportFolderName, onSubmitCode, onBrowse, onRunImport,
   } = props;
   const [code, setCode] = useState('');
   const [search, setSearch] = useState('');
+  const [viewIndex, setViewIndex] = useState<number | null>(null);
 
-  // Сбрасываем поиск при переходе в другую папку Диска
+  // Сбрасываем поиск и просмотр при переходе в другую папку Диска
   useEffect(() => {
     setSearch('');
+    setViewIndex(null);
   }, [diskPath]);
 
   const filteredFolders = useMemo(() => {
@@ -51,6 +77,24 @@ export default function YandexDiskModal(props: Props) {
     if (!q) return folders;
     return folders.filter((f) => (f.name || '').toLowerCase().includes(q));
   }, [folders, search]);
+
+  // Мапим фото Яндекс.Диска в формат просмотрщика фотобанка
+  const viewerPhotos: ViewerPhoto[] = useMemo(
+    () =>
+      diskPhotos.map((p, i) => ({
+        id: i,
+        file_name: p.name,
+        thumbnail_s3_url: diskImageUrl(p.path, token, 'preview'),
+        s3_url: diskImageUrl(p.path, token, 'preview'),
+        file_size: p.size || 0,
+        width: null,
+        height: null,
+        created_at: new Date().toISOString(),
+      })),
+    [diskPhotos, token],
+  );
+
+  const noop = async () => {};
 
   const title = mode === 'import' ? 'Импорт с Яндекс.Диска' : 'Сохранить на Яндекс.Диск';
 
@@ -62,6 +106,7 @@ export default function YandexDiskModal(props: Props) {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={
@@ -174,11 +219,46 @@ export default function YandexDiskModal(props: Props) {
               ))}
             </div>
 
-            <div className="text-sm text-muted-foreground">
-              {photosHere > 0
-                ? `В этой папке фото: ${photosHere}`
-                : 'В этой папке нет фото — откройте нужную папку'}
-            </div>
+            {photosHere > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Icon name="Image" size={16} className="text-[#FC3F1D]" />
+                  Фото в этой папке: {photosHere}
+                  {photosLoading && <Icon name="Loader2" size={14} className="animate-spin" />}
+                </div>
+
+                {viewerPhotos.length > 0 && (
+                  <div className="max-h-[40vh] overflow-y-auto rounded-lg border p-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+                      {viewerPhotos.map((p, i) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setViewIndex(i)}
+                          className="relative aspect-square overflow-hidden rounded-md bg-muted group touch-manipulation"
+                        >
+                          <img
+                            src={p.thumbnail_s3_url}
+                            alt={p.file_name}
+                            loading="lazy"
+                            className="w-full h-full object-cover transition group-hover:scale-105 group-active:scale-105"
+                          />
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition">
+                            <Icon name="Eye" size={20} className="text-white opacity-0 group-hover:opacity-100 transition" />
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {photosHere === 0 && (
+              <div className="text-sm text-muted-foreground">
+                В этой папке нет фото — откройте нужную папку
+              </div>
+            )}
 
             <Button
               className="w-full bg-[#FC3F1D] hover:bg-[#e0350f] text-white"
@@ -204,5 +284,24 @@ export default function YandexDiskModal(props: Props) {
         )}
       </DialogContent>
     </Dialog>
+
+    {viewIndex !== null && viewerPhotos[viewIndex] && (
+      <PhotoGridViewer
+        viewPhoto={viewerPhotos[viewIndex]}
+        photos={viewerPhotos}
+        onClose={() => setViewIndex(null)}
+        onNavigate={(dir) =>
+          setViewIndex((idx) => {
+            if (idx === null) return idx;
+            const next = dir === 'prev' ? idx - 1 : idx + 1;
+            return next >= 0 && next < viewerPhotos.length ? next : idx;
+          })
+        }
+        onDownload={noop}
+        formatBytes={formatBytes}
+        downloadDisabled
+      />
+    )}
+  </>
   );
 }

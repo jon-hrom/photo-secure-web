@@ -328,6 +328,9 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
         diskPath={yandexDisk.diskPath}
         folders={yandexDisk.folders}
         photosHere={yandexDisk.photosHere}
+        diskPhotos={yandexDisk.diskPhotos}
+        photosLoading={yandexDisk.photosLoading}
+        token={yandexDisk.token}
         progress={yandexDisk.progress}
         progressTotal={yandexDisk.progressTotal}
         progressDone={yandexDisk.progressDone}
