@@ -354,6 +354,9 @@ export default function YandexDiskModal(props: Props) {
         onDownload={noop}
         formatBytes={formatBytes}
         downloadDisabled
+        selectable
+        isSelected={selected.has(viewerPhotos[viewIndex].file_name)}
+        onToggleSelect={() => toggleSelect(viewerPhotos[viewIndex].file_name)}
       />
     )}
   </>

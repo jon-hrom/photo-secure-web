@@ -35,6 +35,9 @@ interface PhotoGridViewerProps {
   onDownload: (s3Key: string, fileName: string, userId: number) => Promise<void>;
   formatBytes: (bytes: number) => string;
   downloadDisabled?: boolean;
+  selectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 const PhotoGridViewer = ({
@@ -44,7 +47,10 @@ const PhotoGridViewer = ({
   onNavigate,
   onDownload,
   formatBytes,
-  downloadDisabled = false
+  downloadDisabled = false,
+  selectable = false,
+  isSelected = false,
+  onToggleSelect
 }: PhotoGridViewerProps) => {
   const [showExif, setShowExif] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
@@ -170,6 +176,23 @@ const PhotoGridViewer = ({
             }}
             downloadDisabled={downloadDisabled}
           />
+
+          {/* Кнопка выбора фото для импорта */}
+          {selectable && onToggleSelect && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+              className={
+                'absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-lg transition touch-manipulation ' +
+                (isSelected
+                  ? 'bg-[#FC3F1D] text-white'
+                  : 'bg-black/60 text-white hover:bg-black/80 border border-white/40')
+              }
+            >
+              <Icon name={isSelected ? 'CheckCircle2' : 'Circle'} size={18} />
+              {isSelected ? 'Выбрано' : 'Выбрать'}
+            </button>
+          )}
 
           {/* Область с изображением */}
           <div 
