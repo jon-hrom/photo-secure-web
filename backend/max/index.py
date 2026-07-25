@@ -742,10 +742,10 @@ def check_expiring_links(conn, user_id=None) -> Dict[str, Any]:
         link_title = folder_name or 'Ваша галерея'
         link_url = f"{app_base_url}/g/{short_code}"
         chat_url = f"{app_base_url}/g/{short_code}"
-        # URL — на отдельной строке без скобок, чтобы в мессенджере
-        # закрывающая скобка не прилипала к ссылке и не ломала её.
-        _photog_who = photographer_name or 'фотографу'
-        photographer_link = f"{_photog_who}:\n{chat_url}"
+        # Имя фотографа отдельной строкой + ссылка на следующей строке
+        # без скобок, чтобы в мессенджере ничего не прилипало к URL.
+        _photog_who = photographer_name or 'Фотограф'
+        photographer_link = f"{_photog_who}\n{chat_url}"
 
         expires_date_str = _format_ru_date(expires_at)
 
