@@ -50,6 +50,8 @@ interface PhotoBankHeaderProps {
   onShowStats?: () => void;
   onShowAllChats?: () => void;
   totalUnreadMessages?: number;
+  onYandexDiskImport?: () => void;
+  onYandexDiskExport?: () => void;
 }
 
 const PhotoBankHeader = ({
@@ -80,6 +82,8 @@ const PhotoBankHeader = ({
   onShowStats,
   onShowAllChats,
   totalUnreadMessages = 0,
+  onYandexDiskImport,
+  onYandexDiskExport,
 }: PhotoBankHeaderProps) => {
   const navigate = useNavigate();
   const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
@@ -273,6 +277,26 @@ const PhotoBankHeader = ({
                   {totalUnreadMessages}
                 </span>
               )}
+            </Button>
+          )}
+          {!selectionMode && onYandexDiskImport && !selectedFolder && (
+            <Button 
+              variant="outline"
+              onClick={onYandexDiskImport}
+              className="h-[72px] w-[72px] md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-0 p-1.5 md:px-4 bg-gradient-to-r from-red-50 to-orange-50 hover:from-red-100 hover:to-orange-100 border-[#FC3F1D]/30 text-[#c7320f] hover:text-[#a82a0d]"
+            >
+              <Icon name="HardDrive" size={14} className="md:w-4 md:h-4 shrink-0" />
+              <span className="text-[8px] md:text-sm md:ml-1.5 leading-[1.1] text-center md:text-left max-w-[68px] md:max-w-none whitespace-normal">Яндекс Диск</span>
+            </Button>
+          )}
+          {!selectionMode && onYandexDiskExport && selectedFolder && (
+            <Button 
+              variant="outline"
+              onClick={onYandexDiskExport}
+              className="h-[72px] w-[72px] md:h-9 md:w-auto flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-0 p-1.5 md:px-4 bg-gradient-to-r from-red-50 to-orange-50 hover:from-red-100 hover:to-orange-100 border-[#FC3F1D]/30 text-[#c7320f] hover:text-[#a82a0d]"
+            >
+              <Icon name="HardDriveUpload" size={14} className="md:w-4 md:h-4 shrink-0" />
+              <span className="text-[8px] md:text-sm md:ml-1.5 leading-[1.1] text-center md:text-left max-w-[68px] md:max-w-none whitespace-normal">На Яндекс Диск</span>
             </Button>
           )}
         </div>

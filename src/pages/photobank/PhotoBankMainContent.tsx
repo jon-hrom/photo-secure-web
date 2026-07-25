@@ -7,6 +7,8 @@ import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
 import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
 import FavoriteListsViewer from '@/components/photobank/FavoriteListsViewer';
 import ClientUploadViewer from '@/components/photobank/ClientUploadViewer';
+import YandexDiskModal from '@/components/photobank/yandex-disk/YandexDiskModal';
+import { useYandexDiskPhotobank } from '@/components/photobank/yandex-disk/useYandexDiskPhotobank';
 
 interface PhotoFolder {
   id: number;
@@ -132,6 +134,14 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
   const [vkPostOpen, setVkPostOpen] = useState(false);
   const [vkPhotoUrls, setVkPhotoUrls] = useState<string[]>([]);
 
+  const yandexDisk = useYandexDiskPhotobank({
+    userId,
+    onImportDone: () => {
+      fetchFolders();
+      fetchStorageUsage();
+    },
+  });
+
   const handleOpenVKPost = () => {
     const urls = (photos as { id: number; s3_url: string; is_video?: boolean; is_raw?: boolean }[])
       .filter((p) => selectedPhotos.has(p.id) && p.s3_url && !p.is_video && !p.is_raw)
@@ -210,6 +220,12 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
         onShowStats={() => setShowStats(true)}
         onShowAllChats={() => setFolderChatsId(-1)}
         totalUnreadMessages={folders.reduce((sum, f) => sum + (f.unread_messages_count || 0), 0)}
+        onYandexDiskImport={yandexDisk.openImport}
+        onYandexDiskExport={
+          selectedFolder
+            ? () => yandexDisk.openExport(selectedFolder.id, selectedFolder.folder_name)
+            : undefined
+        }
       />
 
       {!selectedFolder ? (
@@ -300,6 +316,25 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
         onClose={() => setVkPostOpen(false)}
         photoUrls={vkPhotoUrls}
         userId={userId}
+      />
+
+      <YandexDiskModal
+        open={yandexDisk.open}
+        onOpenChange={yandexDisk.setOpen}
+        mode={yandexDisk.mode}
+        step={yandexDisk.step}
+        authUrl={yandexDisk.authUrl}
+        busy={yandexDisk.busy}
+        diskPath={yandexDisk.diskPath}
+        folders={yandexDisk.folders}
+        photosHere={yandexDisk.photosHere}
+        progress={yandexDisk.progress}
+        progressTotal={yandexDisk.progressTotal}
+        progressDone={yandexDisk.progressDone}
+        exportFolderName={yandexDisk.exportFolderName}
+        onSubmitCode={yandexDisk.submitAuthCode}
+        onBrowse={yandexDisk.browse}
+        onRunImport={yandexDisk.runImport}
       />
     </div>
   );

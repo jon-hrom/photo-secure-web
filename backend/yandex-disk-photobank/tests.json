@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "Get auth url",
+      "method": "GET",
+      "path": "/?action=auth_url",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST without auth rejected",
+      "method": "POST",
+      "body": {
+        "op": "list_folders"
+      },
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
