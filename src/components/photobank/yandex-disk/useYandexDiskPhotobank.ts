@@ -225,15 +225,16 @@ export function useYandexDiskPhotobank({ userId, onImportDone }: Options) {
     }
   }, [mode, authHeaders, runExport, loadPhotos]);
 
-  const runImport = useCallback(async (path: string) => {
+  const runImport = useCallback(async (path: string, names?: string[]) => {
     if (!token) return;
+    const selected = names && names.length ? names : undefined;
     setStep('progress');
     setBusy(true);
     setProgress(0); setProgressDone(0); setProgressTotal(0);
     try {
       let resp = await fetch(YD_URL, {
         method: 'POST', headers: authHeaders,
-        body: JSON.stringify({ op: 'import', disk_path: path, token, offset: 0 }),
+        body: JSON.stringify({ op: 'import', disk_path: path, token, offset: 0, names: selected }),
       });
       let data = await resp.json();
       if (!resp.ok) { toast.error(data.error || 'Не удалось импортировать фото'); return; }
@@ -248,7 +249,7 @@ export function useYandexDiskPhotobank({ userId, onImportDone }: Options) {
       while (!data.done && offset < total) {
         resp = await fetch(YD_URL, {
           method: 'POST', headers: authHeaders,
-          body: JSON.stringify({ op: 'import', disk_path: path, folder_id: folderId, token, offset }),
+          body: JSON.stringify({ op: 'import', disk_path: path, folder_id: folderId, token, offset, names: selected }),
         });
         data = await resp.json();
         if (!resp.ok) break;

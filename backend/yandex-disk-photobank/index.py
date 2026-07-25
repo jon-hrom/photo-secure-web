@@ -403,6 +403,11 @@ def _import(token: str, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
 
         # Полный список изображений папки Диска
         images = _list_images(token, disk_path)
+        # Если фронт передал выбранные имена — импортируем только их
+        selected = body.get('names')
+        if isinstance(selected, list) and selected:
+            wanted = {str(n).strip().lower() for n in selected}
+            images = [im for im in images if (im.get('name') or '').strip().lower() in wanted]
         total = len(images)
         if total == 0:
             return _resp(400, {'error': 'В папке Яндекс.Диска нет фото', 'folder_id': target_folder_id})
