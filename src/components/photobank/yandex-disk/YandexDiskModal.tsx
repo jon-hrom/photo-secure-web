@@ -51,7 +51,14 @@ export default function YandexDiskModal(props: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={step === 'browse' ? 'max-w-md sm:max-w-2xl lg:max-w-3xl' : 'max-w-md'}>
+      <DialogContent
+        className={
+          (step === 'browse'
+            ? 'w-[calc(100vw-1.5rem)] max-w-md sm:max-w-2xl lg:max-w-3xl'
+            : 'w-[calc(100vw-1.5rem)] max-w-md') +
+          ' p-4 sm:p-6 max-h-[90vh] overflow-y-auto'
+        }
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon name="HardDrive" size={20} className="text-[#FC3F1D]" />
@@ -114,7 +121,7 @@ export default function YandexDiskModal(props: Props) {
               </span>
             </div>
 
-            <div className="max-h-[55vh] min-h-[280px] overflow-y-auto border rounded-lg divide-y">
+            <div className="max-h-[45vh] sm:max-h-[55vh] min-h-[200px] sm:min-h-[280px] overflow-y-auto border rounded-lg divide-y">
               {folders.length === 0 && (
                 <div className="p-4 text-sm text-muted-foreground text-center">Вложенных папок нет</div>
               )}
@@ -123,7 +130,7 @@ export default function YandexDiskModal(props: Props) {
                   key={f.path}
                   onClick={() => onBrowse(f.path)}
                   disabled={busy}
-                  className="w-full flex items-center gap-2 p-3 text-left hover:bg-accent text-sm disabled:opacity-50"
+                  className="w-full flex items-center gap-2 p-3.5 sm:p-3 text-left hover:bg-accent active:bg-accent text-sm disabled:opacity-50 touch-manipulation"
                 >
                   <Icon name="Folder" size={18} className="text-[#FC3F1D] shrink-0" />
                   <span className="truncate">{f.name}</span>
