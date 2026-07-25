@@ -621,6 +621,20 @@ def _send_email(to_email: str, subject: str, html_body: str, name: str = '') -> 
         return False
 
 
+def _photographer_signature_html(photographer_name: str, link_url: str) -> str:
+    """Аккуратный блок-подпись с именем фотографа и ссылкой для связи."""
+    name = (photographer_name or 'Фотограф').strip()
+    return (
+        '<div style="margin-top:8px;padding:16px 18px;background:#f3f0ff;'
+        'border-radius:10px;font-size:14px;color:#4b5563;">'
+        'Если появятся вопросы, напишите вашему фотографу:'
+        f'<div style="margin-top:6px;font-size:16px;font-weight:bold;color:#111827;">{name}</div>'
+        f'<div style="margin-top:2px;"><a href="{link_url}" '
+        'style="color:#7c3aed;text-decoration:none;">Открыть галерею и связаться</a></div>'
+        '</div>'
+    )
+
+
 def _expiring_email_client(client_name: str, folder_name: str, days_left: int,
                            expires_date: str, link_url: str, photographer_name: str) -> str:
     """Письмо КЛИЕНТУ: срок ссылки скоро истекает — успейте скачать."""
@@ -641,6 +655,7 @@ def _expiring_email_client(client_name: str, folder_name: str, days_left: int,
 <p style="text-align:center;margin:22px 0;"><a href="{link_url}" style="background:#7c3aed;color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;display:inline-block;font-size:16px;font-weight:bold;">Открыть и скачать фото</a></p>
 <p style="font-size:13px;color:#6b7280;">Совет: в галерее есть кнопка «Скачать всё» — она сохранит все фотографии одним архивом.</p>
 </div>
+{_photographer_signature_html(photographer_name, link_url)}
 <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
 <p style="color:#9ca3af;font-size:12px;text-align:center;">🤖 Письмо сформировано автоматически сервисом Foto-mix.ru. Отвечать на него не нужно.</p>
 </body></html>"""
