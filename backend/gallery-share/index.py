@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import psycopg2
 import random
 import string
@@ -509,6 +510,10 @@ def handler(event: dict, context) -> dict:
                 }
 
             short_code = qs.get('code')
+            # Защита от «прилипших» к ссылке символов (скобка, точка, пробел
+            # и т.п.), которые мессенджеры иногда добавляют к URL.
+            if short_code:
+                short_code = re.sub(r'[^A-Za-z0-9_-]', '', short_code.strip())
             subfolder_id = qs.get('subfolder_id')
             subfolder_password = qs.get('subfolder_password', '')
             lookup_folder_id = qs.get('folder_id')
