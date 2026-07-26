@@ -22,6 +22,7 @@ interface LinkSettings {
   watermarkOpacity: number;
   watermarkRotation: number;
   screenshotProtection: boolean;
+  requestReview: boolean;
 }
 
 interface LinkSettingsFormProps {
@@ -143,6 +144,21 @@ export default function LinkSettingsForm({
           <Switch
             checked={linkSettings.downloadDisabled}
             onCheckedChange={(checked) => setLinkSettings({ ...linkSettings, downloadDisabled: checked })}
+            className="flex-shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <Icon name="Star" size={20} className="text-gray-500 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900 dark:text-white">Запрашивать отзыв</p>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Предложить клиенту оставить отзыв после просмотра</p>
+            </div>
+          </div>
+          <Switch
+            checked={linkSettings.requestReview}
+            onCheckedChange={(checked) => setLinkSettings({ ...linkSettings, requestReview: checked })}
             className="flex-shrink-0"
           />
         </div>

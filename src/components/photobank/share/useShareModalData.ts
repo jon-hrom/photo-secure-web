@@ -68,7 +68,8 @@ export default function useShareModalData(folderId: number, folderName: string, 
     clientUploadEnabled: false,
     clientFoldersVisibility: false,
     coverSelectEnabled: false,
-    vignetteSelectEnabled: false
+    vignetteSelectEnabled: false,
+    requestReview: true
   });
 
   const [error, setError] = useState('');
@@ -150,7 +151,8 @@ export default function useShareModalData(folderId: number, folderName: string, 
           client_upload_enabled: ls.clientUploadEnabled,
           client_folders_visibility: ls.clientFoldersVisibility,
           cover_select_enabled: ls.coverSelectEnabled,
-          vignette_select_enabled: ls.vignetteSelectEnabled
+          vignette_select_enabled: ls.vignetteSelectEnabled,
+          request_review: ls.requestReview
         })
       });
       console.log('[SHARE_MODAL] Настройки автосохранены');
@@ -246,6 +248,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
       clientFoldersVisibility: (data.client_folders_visibility as boolean) || false,
       coverSelectEnabled: (data.cover_select_enabled as boolean) || false,
       vignetteSelectEnabled: (data.vignette_select_enabled as boolean) || false,
+      requestReview: data.request_review !== false,
       expiresIn: restoredExpiresIn,
       customDate: restoredCustomDate,
       watermarkEnabled: (wm?.enabled as boolean) || false,

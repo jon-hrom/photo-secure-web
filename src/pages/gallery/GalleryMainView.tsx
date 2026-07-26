@@ -141,7 +141,7 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
 
       {/* Приглашение оставить отзыв после просмотра/скачивания */}
       <GalleryReviewInvite
-        portfolioSlug={gallery?.portfolio_slug}
+        portfolioSlug={gallery?.request_review === false ? null : gallery?.portfolio_slug}
         galleryCode={code}
         clientData={state.clientData}
         accent={accent}

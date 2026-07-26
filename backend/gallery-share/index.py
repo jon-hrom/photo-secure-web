@@ -220,6 +220,7 @@ def handler(event: dict, context) -> dict:
             client_folders_visibility = data.get('client_folders_visibility', False)
             cover_select_enabled = data.get('cover_select_enabled', False)
             vignette_select_enabled = data.get('vignette_select_enabled', False)
+            request_review = data.get('request_review', True)
             
             cover_photo_id = data.get('cover_photo_id')
             cover_orientation = data.get('cover_orientation', 'horizontal')
@@ -320,6 +321,7 @@ def handler(event: dict, context) -> dict:
                         mobile_cover_photo_id = %s, mobile_cover_focus_x = %s, mobile_cover_focus_y = %s,
                         client_upload_enabled = %s, client_folders_visibility = %s,
                         cover_select_enabled = %s, vignette_select_enabled = %s,
+                        request_review = %s,
                         view_notified = FALSE
                     WHERE short_code = %s
                     """,
@@ -334,7 +336,7 @@ def handler(event: dict, context) -> dict:
                      cover_title, cover_font_size,
                      mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
                      client_upload_enabled, client_folders_visibility,
-                     cover_select_enabled, vignette_select_enabled, short_code)
+                     cover_select_enabled, vignette_select_enabled, request_review, short_code)
                 )
             else:
                 # Создаём новую ссылку
@@ -350,8 +352,8 @@ def handler(event: dict, context) -> dict:
                      cover_title, cover_font_size,
                      mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
                      client_upload_enabled, client_folders_visibility,
-                     cover_select_enabled, vignette_select_enabled)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     cover_select_enabled, vignette_select_enabled, request_review)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (short_code, folder_id, user_id, expires_at, password_hash, download_disabled,
                      watermark_enabled, watermark_type, watermark_text, watermark_image_url,
@@ -362,7 +364,7 @@ def handler(event: dict, context) -> dict:
                      cover_title, cover_font_size,
                      mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
                      client_upload_enabled, client_folders_visibility,
-                     cover_select_enabled, vignette_select_enabled)
+                     cover_select_enabled, vignette_select_enabled, request_review)
                 )
             conn.commit()
             
@@ -575,7 +577,8 @@ def handler(event: dict, context) -> dict:
                                    COALESCE(fsl.client_upload_enabled, FALSE) as client_upload_enabled,
                                    COALESCE(fsl.client_folders_visibility, FALSE) as client_folders_visibility,
                                    COALESCE(fsl.cover_select_enabled, FALSE) as cover_select_enabled,
-                                   COALESCE(fsl.vignette_select_enabled, FALSE) as vignette_select_enabled
+                                   COALESCE(fsl.vignette_select_enabled, FALSE) as vignette_select_enabled,
+                                   COALESCE(fsl.request_review, TRUE) as request_review
                             FROM t_p28211681_photo_secure_web.folder_short_links fsl
                             WHERE fsl.short_code = %s
                             """,
@@ -630,7 +633,8 @@ def handler(event: dict, context) -> dict:
                                 'client_upload_enabled': link_row[29],
                                 'client_folders_visibility': link_row[30],
                                 'cover_select_enabled': link_row[31],
-                                'vignette_select_enabled': link_row[32]
+                                'vignette_select_enabled': link_row[32],
+                                'request_review': link_row[33]
                             })
                         }
                 else:
@@ -668,7 +672,8 @@ def handler(event: dict, context) -> dict:
                        COALESCE(fsl.client_folders_visibility, FALSE) as client_folders_visibility,
                        COALESCE(fsl.grid_size, 280) as grid_size,
                        COALESCE(fsl.cover_select_enabled, FALSE) as cover_select_enabled,
-                       COALESCE(fsl.vignette_select_enabled, FALSE) as vignette_select_enabled
+                       COALESCE(fsl.vignette_select_enabled, FALSE) as vignette_select_enabled,
+                       COALESCE(fsl.request_review, TRUE) as request_review
                 FROM t_p28211681_photo_secure_web.folder_short_links fsl
                 JOIN t_p28211681_photo_secure_web.photo_folders pf ON pf.id = fsl.folder_id
                 WHERE fsl.short_code = %s
@@ -728,7 +733,7 @@ def handler(event: dict, context) -> dict:
              cover_title, cover_font_size,
              mobile_cover_photo_id, mobile_cover_focus_x, mobile_cover_focus_y,
              _is_blocked, client_upload_enabled, link_id, client_folders_visibility, grid_size,
-             cover_select_enabled, vignette_select_enabled) = result
+             cover_select_enabled, vignette_select_enabled, request_review) = result
             
             if password_hash and not is_owner_lookup:
                 provided_password = event.get('queryStringParameters', {}).get('password', '')
@@ -1204,6 +1209,7 @@ def handler(event: dict, context) -> dict:
                     'client_folders_visibility': client_folders_visibility,
                     'cover_select_enabled': cover_select_enabled,
                     'vignette_select_enabled': vignette_select_enabled,
+                    'request_review': request_review,
                     'link_id': link_id,
                     'subfolders': subfolders_data,
                     'portfolio_slug': portfolio_slug

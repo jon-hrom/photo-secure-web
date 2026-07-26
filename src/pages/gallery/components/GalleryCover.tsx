@@ -19,6 +19,13 @@ export default function GalleryCover({
   focusY,
   scrollToGrid
 }: GalleryCoverProps) {
+  const hasVideo = gallery.photos.some(p => p.is_video);
+  const hasPhoto = gallery.photos.some(p => !p.is_video);
+  const viewLabel = hasVideo && !hasPhoto
+    ? 'Просмотр видео'
+    : hasVideo && hasPhoto
+    ? 'Просмотр фото и видео'
+    : 'Просмотр фото';
   return (
     <div 
       className="relative overflow-hidden"
@@ -87,7 +94,7 @@ export default function GalleryCover({
                 minWidth: 44
               }}
             >
-              <span>Просмотр фото</span>
+              <span>{viewLabel}</span>
               <Icon name="ChevronDown" size={16} className="animate-bounce" />
             </button>
           </div>
