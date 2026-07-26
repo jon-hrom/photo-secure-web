@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { getThumbUrl } from '@/utils/imageThumb';
 import type { Photo, GalleryData } from '../GalleryGrid';
@@ -26,6 +27,24 @@ export default function GalleryCover({
     : hasVideo && hasPhoto
     ? 'Просмотр фото и видео'
     : 'Просмотр фото';
+
+  // Для видео берём постер (сам .mp4 как картинку показать нельзя).
+  const coverSrc = coverPhoto.is_video
+    ? (coverPhoto.thumbnail_url || getThumbUrl(coverPhoto.thumbnail_url, isMobile ? 1080 : 1920))
+    : (getThumbUrl(coverPhoto.photo_url, isMobile ? 1080 : 1920) || coverPhoto.thumbnail_url);
+
+  // На телефоне горизонтальную обложку не обрезаем, а вписываем целиком (contain).
+  // Вертикальную — заполняем экран (cover) с учётом точки фокуса.
+  const [isLandscape, setIsLandscape] = useState(false);
+  useEffect(() => {
+    setIsLandscape(false);
+    if (!coverSrc) return;
+    const img = new Image();
+    img.onload = () => setIsLandscape(img.naturalWidth > img.naturalHeight);
+    img.src = coverSrc;
+  }, [coverSrc]);
+  const objectFitClass = isMobile ? (isLandscape ? 'object-contain' : 'object-cover') : 'object-contain';
+
   return (
     <div 
       className="relative overflow-hidden"
@@ -39,24 +58,14 @@ export default function GalleryCover({
         background: '#0a0a0a'
       }}
     >
-      {(() => {
-        // Для видео-обложки нельзя показать сам .mp4 как картинку — берём его
-        // постер (thumbnail_url), иначе получится чёрный экран. Для фото —
-        // обычное уменьшенное превью оригинала.
-        const coverSrc = coverPhoto.is_video
-          ? (coverPhoto.thumbnail_url || getThumbUrl(coverPhoto.thumbnail_url, isMobile ? 1080 : 1920))
-          : (getThumbUrl(coverPhoto.photo_url, isMobile ? 1080 : 1920) || coverPhoto.thumbnail_url);
-        return (
-          <img
-            src={coverSrc}
-            alt={gallery.folder_name}
-            className={`w-full h-full ${isMobile ? 'object-cover' : 'object-contain'}`}
-            style={{ objectPosition: `${focusX * 100}% ${focusY * 100}%` }}
-            draggable={false}
-            onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
-          />
-        );
-      })()}
+      <img
+        src={coverSrc}
+        alt={gallery.folder_name}
+        className={`w-full h-full ${objectFitClass}`}
+        style={isLandscape && isMobile ? undefined : { objectPosition: `${focusX * 100}% ${focusY * 100}%` }}
+        draggable={false}
+        onContextMenu={(e) => gallery.screenshot_protection && e.preventDefault()}
+      />
       {isMobile && (
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" style={{ pointerEvents: 'none' }} />
       )}

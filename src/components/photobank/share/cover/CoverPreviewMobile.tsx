@@ -16,9 +16,20 @@ export default function CoverPreviewMobile({
   folderName,
 }: CoverPreviewMobileProps) {
   const [isMobileDragging, setIsMobileDragging] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
   const mobileCoverImageRef = useRef<HTMLDivElement>(null);
 
   const mobileCoverUrl = getThumbUrl(mobileCoverPhoto?.thumbnail_url || mobileCoverPhoto?.photo_url, 600);
+
+  // Горизонтальное изображение не обрезаем под вертикальный экран телефона,
+  // а вписываем целиком (contain). Вертикальное — заполняет кадр (cover).
+  useEffect(() => {
+    setIsLandscape(false);
+    if (!mobileCoverUrl) return;
+    const img = new Image();
+    img.onload = () => setIsLandscape(img.naturalWidth > img.naturalHeight);
+    img.src = mobileCoverUrl;
+  }, [mobileCoverUrl]);
 
   const calcPosition = useCallback((clientX: number, clientY: number) => {
     if (!mobileCoverImageRef.current) return;
@@ -89,21 +100,23 @@ export default function CoverPreviewMobile({
             <img
               src={mobileCoverUrl}
               alt="mobile cover"
-              className="w-full h-full object-cover pointer-events-none"
-              style={{ objectPosition: `${settings.mobileCoverFocusX * 100}% ${settings.mobileCoverFocusY * 100}%` }}
+              className={`w-full h-full pointer-events-none ${isLandscape ? 'object-contain' : 'object-cover'}`}
+              style={isLandscape ? undefined : { objectPosition: `${settings.mobileCoverFocusX * 100}% ${settings.mobileCoverFocusY * 100}%` }}
               draggable={false}
             />
-            <div
-              className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
-              style={{
-                left: `${settings.mobileCoverFocusX * 100}%`,
-                top: `${settings.mobileCoverFocusY * 100}%`
-              }}
-            >
-              <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg bg-blue-500/60 flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-white" />
+            {!isLandscape && (
+              <div
+                className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
+                style={{
+                  left: `${settings.mobileCoverFocusX * 100}%`,
+                  top: `${settings.mobileCoverFocusY * 100}%`
+                }}
+              >
+                <div className="w-6 h-6 rounded-full border-2 border-white shadow-lg bg-blue-500/60 flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-white" />
+                </div>
               </div>
-            </div>
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
             <div className={`absolute inset-0 flex flex-col p-2 pointer-events-none ${
               settings.coverTextPosition === 'center' ? 'items-center justify-center text-center' :
@@ -124,7 +137,9 @@ export default function CoverPreviewMobile({
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-            Перетащите точку для выбора центра кадра на мобильных
+            {isLandscape
+              ? 'Горизонтальное фото показывается целиком в рамке телефона'
+              : 'Перетащите точку для выбора центра кадра на мобильных'}
           </p>
           {settings.mobileCoverPhotoId && settings.mobileCoverPhotoId !== settings.coverPhotoId && (
             <button
