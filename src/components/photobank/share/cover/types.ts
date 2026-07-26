@@ -5,6 +5,7 @@ export interface Photo {
   thumbnail_url?: string;
   width?: number;
   height?: number;
+  is_video?: boolean;
 }
 
 export interface PageDesignSettings {

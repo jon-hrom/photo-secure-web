@@ -254,7 +254,10 @@ export default function GalleryGrid({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const firstPhoto = gallery.photos.length > 0 ? gallery.photos[0] : null;
+  // Для автообложки предпочитаем первое ФОТО (у видео обложкой служит его постер).
+  // Если в папке только видео — берём первое видео (в шапке покажется его постер).
+  const firstPhoto = gallery.photos.find(p => !p.is_video)
+    || (gallery.photos.length > 0 ? gallery.photos[0] : null);
 
   const desktopCoverPhoto = gallery.cover_photo_id 
     ? gallery.photos.find(p => p.id === gallery.cover_photo_id) || firstPhoto

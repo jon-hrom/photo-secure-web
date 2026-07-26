@@ -36,12 +36,14 @@ function CoverPhotoSelector({
         className="grid gap-2 max-h-56 overflow-y-auto pr-1"
         style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}
       >
-        {photos.filter(p => !p.file_name?.toLowerCase().endsWith('.mp4')).map(photo => {
+        {photos.map(photo => {
           const isSelected = selectedPhotoId === photo.id;
           // В мелкую плитку грузим лёгкое превью (~150px), а не оригинал на 15+ МБ.
           // RAW/.CR2 не рендерятся как картинка — для них нужен готовый thumbnail.
+          // Видео (.mp4) тоже нельзя рисовать как картинку — берём его постер.
           const isRaw = /\.(cr2|cr3|nef|arw|dng|orf|rw2|raw|raf)$/i.test(photo.file_name || '');
-          const source = photo.thumbnail_url || (isRaw ? '' : photo.photo_url);
+          const isVideo = photo.is_video || /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(photo.file_name || '');
+          const source = photo.thumbnail_url || ((isRaw || isVideo) ? '' : photo.photo_url);
           const thumbSrc = source ? getThumbUrl(source, 150) : '';
           return (
             <button
@@ -63,7 +65,14 @@ function CoverPhotoSelector({
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400">
-                  <Icon name="Image" size={16} />
+                  <Icon name={isVideo ? 'Video' : 'Image'} size={16} />
+                </div>
+              )}
+              {isVideo && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center">
+                    <Icon name="Play" size={12} className="text-white" />
+                  </div>
                 </div>
               )}
               {isSelected && (
