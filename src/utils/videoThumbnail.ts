@@ -1,3 +1,60 @@
+// Генерирует превью (первый кадр) видео как Blob (JPEG). Используется для
+// автоматической обложки при загрузке видео в фотобанк.
+export async function generateVideoThumbnailBlob(videoFile: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      reject(new Error('Could not get canvas context'));
+      return;
+    }
+
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+
+    const cleanup = () => {
+      URL.revokeObjectURL(video.src);
+      video.remove();
+    };
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('Video thumbnail timeout'));
+    }, 20000);
+
+    video.addEventListener('loadedmetadata', () => {
+      video.currentTime = Math.min((video.duration || 1) * 0.1, 1);
+    });
+
+    video.addEventListener('seeked', () => {
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          clearTimeout(timeout);
+          cleanup();
+          if (blob) resolve(blob);
+          else reject(new Error('Could not generate thumbnail'));
+        },
+        'image/jpeg',
+        0.8
+      );
+    });
+
+    video.addEventListener('error', () => {
+      clearTimeout(timeout);
+      cleanup();
+      reject(new Error('Video loading error'));
+    });
+
+    video.src = URL.createObjectURL(videoFile);
+  });
+}
+
 export async function generateVideoThumbnail(videoFile: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');

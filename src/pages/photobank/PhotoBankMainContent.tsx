@@ -258,6 +258,8 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
             selectionMode={selectionMode}
             selectedPhotos={selectedPhotos}
             emailVerified={emailVerified}
+            userId={userId}
+            onRefreshPhotos={() => { if (selectedFolder) fetchPhotos(selectedFolder.id); }}
             onUploadPhoto={handleUploadPhoto}
             onDeletePhoto={handleDeletePhoto}
             onTogglePhotoSelection={togglePhotoSelection}

@@ -993,12 +993,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         file_ext_lower = os.path.splitext(file_name.lower())[1]
                         is_raw = file_ext_lower in raw_extensions
                         
+                        # Постер видео (первый кадр), сгенерированный на фронте и уже
+                        # залитый в S3 — сохраняем как thumbnail_s3_url для превью.
+                        poster_url = photo_data.get('thumbnail_s3_url')
+                        poster_key = None
+                        if poster_url and 'foto-mix/' in poster_url:
+                            poster_key = poster_url.split('foto-mix/')[-1]
+                        
                         cur.execute('''
                             INSERT INTO photo_bank 
-                            (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video, is_raw)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video, is_raw, thumbnail_s3_url, thumbnail_s3_key)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                             RETURNING id
-                        ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video, is_raw))
+                        ''', (user_id, folder_id, file_name, s3_key, s3_url, file_size, content_type, is_video, is_raw, poster_url, poster_key))
                         
                         photo_id = cur.fetchone()['id']
                         inserted_ids.append(photo_id)
@@ -1028,6 +1035,103 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'statusCode': 200,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                     'body': json.dumps({'success': True, 'inserted': len(inserted_ids), 'photo_ids': inserted_ids}),
+                    'isBase64Encoded': False
+                }
+            
+            elif action == 'set_video_poster':
+                # Устанавливает обложку (постер) для видео.
+                # image_data — base64 картинки (свой кадр от фотографа или сгенерированный
+                # первый кадр). reset=true — сбросить обложку (вернётся первый кадр на лету).
+                import base64 as _b64
+                photo_id = body_data.get('photo_id')
+                image_data = body_data.get('image_data')
+                reset = body_data.get('reset', False)
+                
+                if not photo_id:
+                    return {
+                        'statusCode': 400,
+                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                        'body': json.dumps({'error': 'photo_id required'}),
+                        'isBase64Encoded': False
+                    }
+                
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(
+                        'SELECT id, s3_key, is_video FROM photo_bank WHERE id = %s AND user_id = %s',
+                        (photo_id, user_id)
+                    )
+                    row = cur.fetchone()
+                    if not row:
+                        return {
+                            'statusCode': 404,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'Photo not found'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    if reset:
+                        cur.execute(
+                            'UPDATE photo_bank SET thumbnail_s3_url = NULL, thumbnail_s3_key = NULL WHERE id = %s AND user_id = %s',
+                            (photo_id, user_id)
+                        )
+                        conn.commit()
+                        return {
+                            'statusCode': 200,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'success': True, 'thumbnail_s3_url': None}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    if not image_data:
+                        return {
+                            'statusCode': 400,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': 'image_data or reset required'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    if image_data.startswith('data:'):
+                        image_data = image_data.split(',', 1)[-1]
+                    try:
+                        img_bytes = _b64.b64decode(image_data)
+                    except Exception as e:
+                        return {
+                            'statusCode': 400,
+                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                            'body': json.dumps({'error': f'Invalid image data: {str(e)}'}),
+                            'isBase64Encoded': False
+                        }
+                    
+                    # Нормализуем в JPEG (единый формат превью)
+                    try:
+                        im = Image.open(io.BytesIO(img_bytes))
+                        if im.mode not in ('RGB',):
+                            im = im.convert('RGB')
+                        im.thumbnail((1280, 1280))
+                        buf = io.BytesIO()
+                        im.save(buf, format='JPEG', quality=85)
+                        img_bytes = buf.getvalue()
+                    except Exception as e:
+                        print(f'[SET_VIDEO_POSTER] image normalize failed: {e}')
+                    
+                    src_key = row['s3_key'] or f'photobank/{user_id}/{photo_id}'
+                    base_dir = src_key.rsplit('/', 1)[0] if '/' in src_key else f'photobank/{user_id}'
+                    poster_key = f'{base_dir}/posters/{photo_id}_{uuid.uuid4().hex}.jpg'
+                    yc_s3_client.put_object(
+                        Bucket=yc_bucket, Key=poster_key, Body=img_bytes, ContentType='image/jpeg'
+                    )
+                    poster_url = f'https://storage.yandexcloud.net/{yc_bucket}/{poster_key}'
+                    
+                    cur.execute(
+                        'UPDATE photo_bank SET thumbnail_s3_url = %s, thumbnail_s3_key = %s WHERE id = %s AND user_id = %s',
+                        (poster_url, poster_key, photo_id, user_id)
+                    )
+                    conn.commit()
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                    'body': json.dumps({'success': True, 'thumbnail_s3_url': poster_url}),
                     'isBase64Encoded': False
                 }
             

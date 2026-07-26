@@ -1,4 +1,5 @@
 import { useToast } from '@/hooks/use-toast';
+import { generateVideoThumbnailBlob } from '@/utils/videoThumbnail';
 
 interface PhotoFolder {
   id: number;
@@ -275,7 +276,7 @@ export const usePhotoBankHandlers = (
       return presignedByIndex.get(index)!;
     };
     // Накопитель записей в БД для батч-вставки
-    const pendingDbWrites: Array<{ file_name: string; s3_url: string; file_size: number; content_type: string }> = [];
+    const pendingDbWrites: Array<{ file_name: string; s3_url: string; file_size: number; content_type: string; thumbnail_s3_url?: string }> = [];
     const flushDbWrites = async () => {
       if (pendingDbWrites.length === 0 || !selectedFolder) return;
       const writes = pendingDbWrites.splice(0, pendingDbWrites.length);
@@ -425,11 +426,49 @@ export const usePhotoBankHandlers = (
       }
 
       const s3Url = `https://storage.yandexcloud.net/foto-mix/${key}`;
+
+      // Для видео генерируем обложку (первый кадр) и грузим её в S3 отдельным объектом.
+      // Ошибка на этом шаге не должна ломать загрузку самого видео.
+      let posterUrl: string | undefined;
+      const isVideoFile = (file.type || '').startsWith('video/');
+      if (isVideoFile) {
+        try {
+          const posterBlob = await generateVideoThumbnailBlob(file);
+          const posterName = `${file.name.replace(/\.[^.]+$/, '')}__poster.jpg`;
+          const posterRes = await fetch(DIRECT_UPLOAD_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+            body: JSON.stringify({
+              action: 'batch-urls',
+              files: [{ name: posterName, type: 'image/jpeg', size: posterBlob.size }],
+              folder_id: selectedFolder?.id,
+            }),
+          });
+          if (posterRes.ok) {
+            const posterData = await posterRes.json();
+            const pUpload = (posterData.uploads || [])[0];
+            if (pUpload?.url && pUpload?.key) {
+              const putRes = await fetch(pUpload.url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'image/jpeg' },
+                body: posterBlob,
+              });
+              if (putRes.ok) {
+                posterUrl = `https://storage.yandexcloud.net/foto-mix/${pUpload.key}`;
+              }
+            }
+          }
+        } catch (posterErr) {
+          console.warn(`[UPLOAD] Не удалось создать обложку для ${file.name}:`, posterErr);
+        }
+      }
+
       pendingDbWrites.push({
         file_name: file.name,
         s3_url: s3Url,
         file_size: file.size,
         content_type: file.type || 'application/octet-stream',
+        ...(posterUrl ? { thumbnail_s3_url: posterUrl } : {}),
       });
       if (pendingDbWrites.length >= 20) {
         // Промежуточная запись не должна ронять уже загруженный в S3 файл:

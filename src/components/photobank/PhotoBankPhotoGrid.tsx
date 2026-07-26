@@ -1,7 +1,10 @@
 import { Card, CardContent } from '@/components/ui/card';
 import Icon from '@/components/ui/icon';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { PHOTOBANK_FOLDERS_API } from '@/components/photobank/camera-upload/CameraUploadTypes';
 import PhotoGridHeader from './PhotoGridHeader';
 import PhotoGridCard from './PhotoGridCard';
 import PhotoGridViewer from './PhotoGridViewer';
@@ -67,6 +70,8 @@ interface PhotoBankPhotoGridProps {
   onNavigateToParent?: () => void;
   clientUploadSlot?: React.ReactNode;
   onRetouchFolder?: (folderId: number, folderName: string, photoId?: number) => void;
+  userId?: string;
+  onRefreshPhotos?: () => void;
 }
 
 const handleDownload = async (s3Key: string, fileName: string, userId: number) => {
@@ -125,11 +130,16 @@ const PhotoBankPhotoGrid = ({
   onDeleteSubfolder,
   onNavigateToParent,
   clientUploadSlot,
-  onRetouchFolder
+  onRetouchFolder,
+  userId,
+  onRefreshPhotos
 }: PhotoBankPhotoGridProps) => {
   const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
   const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
   const [viewVideo, setViewVideo] = useState<Photo | null>(null);
+  const [posterPhoto, setPosterPhoto] = useState<Photo | null>(null);
+  const [posterBusy, setPosterBusy] = useState(false);
+  const posterFileInputRef = useRef<HTMLInputElement | null>(null);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const { frameMode, setFrameMode, getFrameStyle } = usePhotoFrames();
@@ -264,6 +274,39 @@ const PhotoBankPhotoGrid = ({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
+
+  const applyVideoPoster = async (payload: Record<string, unknown>) => {
+    if (!posterPhoto || !userId) return;
+    setPosterBusy(true);
+    try {
+      const res = await fetch(PHOTOBANK_FOLDERS_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({ action: 'set_video_poster', photo_id: posterPhoto.id, ...payload }),
+      });
+      if (!res.ok) throw new Error('bad status');
+      toast.success('Обложка обновлена');
+      setPosterPhoto(null);
+      onRefreshPhotos?.();
+    } catch (e) {
+      console.error('[VIDEO_POSTER] failed:', e);
+      toast.error('Не удалось обновить обложку');
+    } finally {
+      setPosterBusy(false);
+    }
+  };
+
+  const handlePosterFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => applyVideoPoster({ image_data: reader.result as string });
+    reader.onerror = () => toast.error('Не удалось прочитать файл');
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetPoster = () => applyVideoPoster({ reset: true });
 
   const handlePhotoClick = (photo: Photo) => {
     if (!selectionMode) {
@@ -432,6 +475,7 @@ const PhotoBankPhotoGrid = ({
                         ? () => onRetouchFolder(selectedFolder.id, selectedFolder.folder_name, photo.id)
                         : undefined
                     }
+                    onSetVideoPoster={userId ? (p) => setPosterPhoto(p) : undefined}
                     frameMode={frameMode}
                     getFrameStyle={getFrameStyle}
                   />
@@ -487,6 +531,58 @@ const PhotoBankPhotoGrid = ({
           onClose={() => setViewVideo(null)}
         />
       )}
+
+      <input
+        ref={posterFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePosterFileSelected}
+      />
+
+      <Dialog open={!!posterPhoto} onOpenChange={(open) => !open && !posterBusy && setPosterPhoto(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Обложка видео</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {posterPhoto?.thumbnail_s3_url ? (
+              <img
+                src={posterPhoto.thumbnail_s3_url}
+                alt="Текущая обложка"
+                className="w-full rounded-lg object-contain max-h-48 bg-muted"
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Сейчас обложка берётся из первого кадра видео. Можно загрузить свою картинку.
+              </p>
+            )}
+            <Button
+              className="w-full"
+              disabled={posterBusy}
+              onClick={() => posterFileInputRef.current?.click()}
+            >
+              {posterBusy ? (
+                <Icon name="Loader2" size={16} className="animate-spin mr-2" />
+              ) : (
+                <Icon name="Upload" size={16} className="mr-2" />
+              )}
+              Загрузить свою картинку
+            </Button>
+            {posterPhoto?.thumbnail_s3_url && (
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={posterBusy}
+                onClick={handleResetPoster}
+              >
+                <Icon name="RotateCcw" size={16} className="mr-2" />
+                Сбросить на первый кадр
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

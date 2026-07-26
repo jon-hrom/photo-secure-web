@@ -35,6 +35,7 @@ interface PhotoGridCardProps {
   onDeletePhoto: (photoId: number, fileName: string) => void;
   onShowExif?: (photo: Photo) => void;
   onRetouch?: () => void;
+  onSetVideoPoster?: (photo: Photo) => void;
   isAdminViewing?: boolean;
   frameMode?: FrameMode;
   getFrameStyle?: (dominantColor?: string) => CSSProperties;
@@ -50,6 +51,7 @@ const PhotoGridCard = ({
   onDeletePhoto,
   onShowExif,
   onRetouch,
+  onSetVideoPoster,
   isAdminViewing = false,
   frameMode = 'none',
   getFrameStyle
@@ -151,7 +153,31 @@ const PhotoGridCard = ({
           </button>
         )}
         <div className="w-full h-full flex items-center justify-center p-1">
-          {(photo.thumbnail_s3_url || photo.s3_url) ? (
+          {photo.is_video && !photo.thumbnail_s3_url && photo.s3_url ? (
+            <>
+              {/* У видео нет обложки — показываем первый кадр прямо из видеофайла */}
+              <video
+                src={`${fixDoubleSpacesInUrl(photo.s3_url)}#t=0.1`}
+                preload="metadata"
+                muted
+                playsInline
+                className="max-w-full max-h-full object-contain"
+                onContextMenu={(e) => e.preventDefault()}
+                style={{ pointerEvents: 'none' } as React.CSSProperties}
+              />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                  <Icon name="Play" size={32} className="text-white" />
+                </div>
+              </div>
+              {(photo.photo_download_count ?? 0) > 0 && (
+                <div className="absolute bottom-2 left-2 z-10 px-2 py-1 rounded-md bg-emerald-600/90 backdrop-blur-sm flex items-center gap-1.5" title="Скачиваний клиентами">
+                  <Icon name="Download" size={14} className="text-white" />
+                  <span className="text-white text-xs font-medium">{photo.photo_download_count}</span>
+                </div>
+              )}
+            </>
+          ) : (photo.thumbnail_s3_url || photo.s3_url) ? (
             <>
               {!imageLoaded && !imageError && (
                 <div className="w-full h-full flex items-center justify-center bg-muted animate-pulse rounded">
@@ -233,7 +259,7 @@ const PhotoGridCard = ({
             >
               <Icon name="Trash2" size={10} className="text-white" />
             </button>
-            {onRetouch && (
+            {onRetouch && !photo.is_video && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -243,6 +269,19 @@ const PhotoGridCard = ({
                 className="absolute top-0.5 left-1/2 -translate-x-1/2 z-10 w-5 h-5 rounded-full bg-rose-500/80 hover:bg-rose-600 backdrop-blur-sm flex items-center justify-center transition-all touch-manipulation"
               >
                 <Icon name="Sparkles" size={10} className="text-white" />
+              </button>
+            )}
+            {photo.is_video && onSetVideoPoster && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetVideoPoster(photo);
+                }}
+                title="Обложка видео"
+                className="absolute top-0.5 left-1/2 -translate-x-1/2 z-10 h-5 px-2 rounded-full bg-purple-600/85 hover:bg-purple-700 backdrop-blur-sm flex items-center gap-1 transition-all touch-manipulation"
+              >
+                <Icon name="Image" size={10} className="text-white" />
+                <span className="text-white text-[10px] font-medium leading-none">Обложка</span>
               </button>
             )}
             {emailVerified && photo.s3_key && (
