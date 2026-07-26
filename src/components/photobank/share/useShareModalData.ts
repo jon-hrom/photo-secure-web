@@ -14,6 +14,7 @@ interface GalleryPhoto {
   thumbnail_url?: string;
   width?: number;
   height?: number;
+  is_video?: boolean;
 }
 
 const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
@@ -186,14 +187,20 @@ export default function useShareModalData(folderId: number, folderName: string, 
       if (res.ok) {
         const data = await res.json();
         if (data.photos && data.photos.length > 0) {
-          const mapped = data.photos.map((p: { id: number; file_name: string; s3_url?: string; thumbnail_s3_url?: string; width?: number; height?: number }) => ({
-            id: p.id,
-            file_name: p.file_name,
-            photo_url: p.s3_url || '',
-            thumbnail_url: p.thumbnail_s3_url || p.s3_url || '',
-            width: p.width,
-            height: p.height
-          }));
+          const mapped = data.photos.map((p: { id: number; file_name: string; s3_url?: string; thumbnail_s3_url?: string; width?: number; height?: number; is_video?: boolean }) => {
+            const isVideo = p.is_video || /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(p.file_name || '');
+            return {
+              id: p.id,
+              file_name: p.file_name,
+              photo_url: p.s3_url || '',
+              // Для видео в thumbnail держим только постер: сам .mp4 как картинку
+              // показывать нельзя (будет чёрный кадр). Без постера — пусто.
+              thumbnail_url: isVideo ? (p.thumbnail_s3_url || '') : (p.thumbnail_s3_url || p.s3_url || ''),
+              width: p.width,
+              height: p.height,
+              is_video: isVideo,
+            };
+          });
           setGalleryPhotos(prev => prev.length > 0 ? prev : mapped);
         }
       }

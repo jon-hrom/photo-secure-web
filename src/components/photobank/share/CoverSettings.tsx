@@ -25,12 +25,11 @@ export default function CoverSettings({
   onModeChange,
   previewMode,
 }: CoverSettingsProps) {
-  // Единый источник для предпросмотра и галереи выбора: сортируем по имени файла
-  // и исключаем видео (.mp4) — иначе в галерее видео нет, а в превью оно попадало
-  // как "первое" фото, из-за чего обложка не совпадала с выбором.
+  // Единый источник для предпросмотра и галереи выбора: сортируем по имени файла.
+  // Видео тоже участвует — для обложки берётся его постер (thumbnail_url), так что
+  // папку с одним лишь видео можно оформить (иначе список был пустым).
   const sortedPhotos = useMemo(() => {
     return [...photos]
-      .filter(p => !p.file_name?.toLowerCase().endsWith('.mp4'))
       .sort((a, b) =>
         (a.file_name || '').localeCompare(b.file_name || '', 'ru', { numeric: true, sensitivity: 'base' })
       );

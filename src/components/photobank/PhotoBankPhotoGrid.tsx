@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PHOTOBANK_FOLDERS_API } from '@/components/photobank/camera-upload/CameraUploadTypes';
+import { downscaleImageToDataUrl } from '@/utils/downscaleImage';
 import PhotoGridHeader from './PhotoGridHeader';
 import PhotoGridCard from './PhotoGridCard';
 import PhotoGridViewer from './PhotoGridViewer';
@@ -284,13 +285,16 @@ const PhotoBankPhotoGrid = ({
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({ action: 'set_video_poster', photo_id: posterPhoto.id, ...payload }),
       });
-      if (!res.ok) throw new Error('bad status');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Ошибка сервера (${res.status})`);
+      }
       toast.success('Обложка обновлена');
       setPosterPhoto(null);
       onRefreshPhotos?.();
     } catch (e) {
       console.error('[VIDEO_POSTER] failed:', e);
-      toast.error('Не удалось обновить обложку');
+      toast.error(e instanceof Error ? `Не удалось обновить обложку: ${e.message}` : 'Не удалось обновить обложку');
     } finally {
       setPosterBusy(false);
     }
@@ -300,10 +304,17 @@ const PhotoBankPhotoGrid = ({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => applyVideoPoster({ image_data: reader.result as string });
-    reader.onerror = () => toast.error('Не удалось прочитать файл');
-    reader.readAsDataURL(file);
+    setPosterBusy(true);
+    try {
+      // Уменьшаем картинку до отправки — иначе большой JPG в base64 упирается
+      // в лимит тела облачной функции и обложка не сохраняется.
+      const imageData = await downscaleImageToDataUrl(file, 1280, 0.85);
+      await applyVideoPoster({ image_data: imageData });
+    } catch (err) {
+      console.error('[VIDEO_POSTER] prepare failed:', err);
+      toast.error('Не удалось обработать картинку');
+      setPosterBusy(false);
+    }
   };
 
   const handleResetPoster = () => applyVideoPoster({ reset: true });
