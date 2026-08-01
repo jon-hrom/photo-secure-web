@@ -1,6 +1,8 @@
 """Выдаёт браузеру безопасную конфигурацию для сессии голосового агента
 Yandex Realtime API. Постоянный API-ключ остаётся на сервере и клиенту не передаётся.
 
+Секреты: YANDEX_AI_STUDIO_API_KEY (ключ AI Studio), YANDEX_GPT_FOLDER_ID (каталог).
+
 Возвращает:
 - folder_id — каталог Yandex Cloud;
 - модель и параметры голоса по умолчанию;
@@ -37,7 +39,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({'error': 'unauthorized'}),
         }
 
-    api_key = os.environ.get('YANDEX_GPT_API_KEY', '').strip()
+    # Отдельный ключ AI Studio для голосовых агентов (Realtime).
+    # Fallback на YANDEX_GPT_API_KEY — на случай общего сервисного аккаунта.
+    api_key = os.environ.get('YANDEX_AI_STUDIO_API_KEY', '').strip() \
+        or os.environ.get('YANDEX_GPT_API_KEY', '').strip()
     folder_id = os.environ.get('YANDEX_GPT_FOLDER_ID', '').strip()
     configured = bool(api_key and folder_id)
 
@@ -50,7 +55,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'sample_rate': 24000,
     }
     if not configured:
-        body['message'] = 'Не заданы секреты YANDEX_GPT_API_KEY / YANDEX_GPT_FOLDER_ID'
+        body['message'] = 'Не заданы секреты YANDEX_AI_STUDIO_API_KEY / YANDEX_GPT_FOLDER_ID'
 
     return {
         'statusCode': 200,
