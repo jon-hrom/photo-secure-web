@@ -9,8 +9,10 @@ import { useToast } from '@/components/ui/use-toast';
 import useSpeechRecognition from './useSpeechRecognition';
 import parseBooking, { type ParsedBooking } from './parseBooking';
 import { createBooking } from './bookingService';
+import func2url from '../../../backend/func2url.json';
 
 const EMPTY: ParsedBooking = { name: '', phone: '', date: '', shootType: '', comment: '' };
+const REALTIME_API = (func2url as Record<string, string>)['voice-realtime'];
 
 export default function VoiceBookingAssistant() {
   const { toast } = useToast();
@@ -18,6 +20,16 @@ export default function VoiceBookingAssistant() {
     useSpeechRecognition('ru-RU');
   const [fields, setFields] = useState<ParsedBooking>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [yandexReady, setYandexReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (!userId || !REALTIME_API) return;
+    fetch(REALTIME_API, { headers: { 'X-User-Id': userId } })
+      .then((r) => r.json())
+      .then((d) => setYandexReady(!!d.configured))
+      .catch(() => setYandexReady(false));
+  }, []);
 
   useEffect(() => {
     if (!finalText) return;
@@ -69,6 +81,21 @@ export default function VoiceBookingAssistant() {
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Нажмите на микрофон и продиктуйте заявку: имя, телефон, дату и тип съёмки
         </p>
+        {yandexReady !== null && (
+          <div className="flex justify-center pt-1">
+            <Badge
+              variant="outline"
+              className={
+                yandexReady
+                  ? 'border-emerald-300 text-emerald-600 dark:text-emerald-400'
+                  : 'border-gray-300 text-gray-500'
+              }
+            >
+              <Icon name={yandexReady ? 'CheckCircle2' : 'Circle'} size={12} className="mr-1" />
+              {yandexReady ? 'Yandex Realtime подключён' : 'Yandex Realtime не настроен'}
+            </Badge>
+          </div>
+        )}
       </div>
 
       {!supported && (

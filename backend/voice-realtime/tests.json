@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Unauthorized without X-User-Id",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Returns config for authorized user",
+      "method": "GET",
+      "path": "/",
+      "headers": {"X-User-Id": "1"},
+      "expectedStatus": 200,
+      "expectedBody": {"model": "speech-realtime-250923"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
