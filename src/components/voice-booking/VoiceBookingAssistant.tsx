@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/components/ui/use-toast';
 import useSpeechRecognition from './useSpeechRecognition';
+import useRealtimeVoice from './useRealtimeVoice';
 import parseBooking, { type ParsedBooking } from './parseBooking';
 import { createBooking } from './bookingService';
 import func2url from '../../../backend/func2url.json';
@@ -14,13 +15,33 @@ import func2url from '../../../backend/func2url.json';
 const EMPTY: ParsedBooking = { name: '', phone: '', date: '', shootType: '', comment: '' };
 const REALTIME_API = (func2url as Record<string, string>)['voice-realtime'];
 
+const AGENT_INSTRUCTIONS =
+  'Ты — вежливый голосовой ассистент фотографа, принимаешь заявки на съёмку по-русски. ' +
+  'Поздоровайся, узнай у клиента имя, номер телефона, желаемую дату и тип съёмки ' +
+  '(свадебная, love story, семейная, портретная и т.д.). Задавай по одному короткому вопросу. ' +
+  'Когда все данные собраны — кратко повтори их и попрощайся. Говори тепло и лаконично.';
+
 export default function VoiceBookingAssistant() {
   const { toast } = useToast();
   const { supported, listening, finalText, interimText, error, start, stop, reset } =
     useSpeechRecognition('ru-RU');
+  const rt = useRealtimeVoice();
   const [fields, setFields] = useState<ParsedBooking>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [yandexReady, setYandexReady] = useState<boolean | null>(null);
+
+  // Из реплик клиента в голосовом диалоге заполняем поля заявки.
+  useEffect(() => {
+    if (!rt.userTranscript) return;
+    const parsed = parseBooking(rt.userTranscript);
+    setFields((prev) => ({
+      name: parsed.name || prev.name,
+      phone: parsed.phone || prev.phone,
+      date: parsed.date || prev.date,
+      shootType: parsed.shootType || prev.shootType,
+      comment: rt.userTranscript,
+    }));
+  }, [rt.userTranscript]);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -51,6 +72,7 @@ export default function VoiceBookingAssistant() {
   const handleReset = () => {
     stop();
     reset();
+    rt.disconnect();
     setFields(EMPTY);
   };
 
@@ -98,6 +120,60 @@ export default function VoiceBookingAssistant() {
         )}
       </div>
 
+      {/* Живой голосовой диалог через Yandex Realtime (агент отвечает голосом) */}
+      {yandexReady && (
+        <Card className="border-violet-200 dark:border-violet-800">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Icon name="Sparkles" size={18} className="text-violet-500" />
+              Голосовой диалог с агентом
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-4">
+            <button
+              onClick={rt.connected ? rt.disconnect : () => rt.connect(AGENT_INSTRUCTIONS)}
+              className={`w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                rt.status === 'speaking'
+                  ? 'bg-emerald-500 animate-pulse'
+                  : rt.connected
+                  ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                  : 'bg-violet-500 hover:bg-violet-600'
+              }`}
+              aria-label={rt.connected ? 'Завершить диалог' : 'Начать диалог'}
+            >
+              <Icon
+                name={rt.status === 'connecting' ? 'Loader' : rt.connected ? 'PhoneOff' : 'Phone'}
+                size={38}
+                className={`text-white ${rt.status === 'connecting' ? 'animate-spin' : ''}`}
+              />
+            </button>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+              {rt.status === 'connecting' && 'Подключаюсь…'}
+              {rt.status === 'listening' && 'Слушаю вас…'}
+              {rt.status === 'speaking' && 'Агент отвечает…'}
+              {rt.status === 'idle' && 'Нажмите, чтобы начать голосовой разговор'}
+              {rt.status === 'error' && 'Ошибка соединения'}
+            </p>
+
+            {(rt.assistantTranscript || rt.userTranscript) && (
+              <div className="w-full space-y-2">
+                {rt.assistantTranscript && (
+                  <div className="rounded-lg bg-violet-50 dark:bg-violet-950/40 p-3 text-sm text-violet-900 dark:text-violet-100">
+                    <span className="font-semibold">Агент: </span>{rt.assistantTranscript}
+                  </div>
+                )}
+                {rt.userTranscript && (
+                  <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 text-sm text-gray-700 dark:text-gray-200">
+                    <span className="font-semibold">Клиент: </span>{rt.userTranscript}
+                  </div>
+                )}
+              </div>
+            )}
+            {rt.error && <p className="text-sm text-red-500">{rt.error}</p>}
+          </CardContent>
+        </Card>
+      )}
+
       {!supported && (
         <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
           <CardContent className="pt-6 text-sm text-amber-800 dark:text-amber-200">
@@ -108,21 +184,27 @@ export default function VoiceBookingAssistant() {
       )}
 
       <Card>
-        <CardContent className="pt-6 flex flex-col items-center gap-4">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Icon name="Mic" size={18} className="text-gray-500" />
+            {yandexReady ? 'Быстрая диктовка (без диалога)' : 'Голосовая диктовка'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-4">
           <button
             onClick={listening ? stop : start}
             disabled={!supported}
-            className={`w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-lg disabled:opacity-40 ${
+            className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg disabled:opacity-40 ${
               listening
                 ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-                : 'bg-violet-500 hover:bg-violet-600'
+                : 'bg-gray-500 hover:bg-gray-600'
             }`}
             aria-label={listening ? 'Остановить' : 'Говорить'}
           >
-            <Icon name={listening ? 'Square' : 'Mic'} size={40} className="text-white" />
+            <Icon name={listening ? 'Square' : 'Mic'} size={34} className="text-white" />
           </button>
           <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
-            {listening ? 'Слушаю… говорите' : 'Нажмите, чтобы говорить'}
+            {listening ? 'Слушаю… говорите' : 'Нажмите, чтобы продиктовать заявку'}
           </p>
 
           {liveText && (
@@ -179,8 +261,9 @@ export default function VoiceBookingAssistant() {
       </Card>
 
       <p className="text-xs text-center text-gray-400 dark:text-gray-500">
-        Распознавание работает через ваш браузер. Позже его можно подключить к Yandex Realtime API
-        для полноценного голосового диалога.
+        {yandexReady
+          ? 'Голосовой диалог работает через Yandex Realtime API — агент слышит и отвечает голосом.'
+          : 'Быстрая диктовка работает через ваш браузер. Подключите Yandex Realtime для полноценного голосового диалога.'}
       </p>
     </div>
   );
