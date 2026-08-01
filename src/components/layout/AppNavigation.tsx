@@ -176,6 +176,10 @@ const AppNavigation = ({
                   <Icon name="BarChart3" size={18} className="mr-2" />
                   Статистика
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/voice-booking')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
+                  <Icon name="Mic" size={18} className="mr-2" />
+                  Голосовые заявки
+                </DropdownMenuItem>
                 {PHOTOBOOK_ALLOWED_EMAILS.includes((userEmail || '').toLowerCase()) && (
                   <DropdownMenuItem onClick={() => setCurrentPage('photobook')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200" data-tour="photobook-nav">
                     <Icon name="Book" size={18} className="mr-2" />

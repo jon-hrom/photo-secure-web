@@ -27,6 +27,7 @@ import Tariffs from "./pages/webapp/Tariffs";
 import Clients from "./pages/webapp/Clients";
 import MobileUpload from "./pages/webapp/MobileUpload";
 import Statistics from "./pages/webapp/Statistics";
+import VoiceBooking from "./pages/webapp/VoiceBooking";
 import AdminCleanup from "./pages/AdminCleanup";
 import AdminPipelineEditor from "./pages/AdminPipelineEditor";
 import NewYearDecorations from "./components/NewYearDecorations";
@@ -214,6 +215,7 @@ const App = () => {
           <Route path="/tariffs" element={<Tariffs />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/statistics" element={<Statistics />} />
+          <Route path="/voice-booking" element={<VoiceBooking />} />
           <Route path="/mobile-upload" element={<MobileUpload />} />
           <Route path="/photo-bank" element={<PhotoBank />} />
           <Route path="/photo-bank/trash" element={<PhotoBankTrash />} />
