@@ -94,14 +94,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     if configured:
         # Realtime авторизуется заголовком "Authorization: Api-Key <key>".
-        # Браузер не может задать заголовок при WS-подключении, поэтому передаём
-        # значение авторизации клиенту, а он использует его через ?authorization=
-        # (query-параметр) либо подпротокол — в зависимости от точки подключения.
+        # Браузер не может задать заголовок при WS-подключении и передаёт токен
+        # через Sec-WebSocket-Protocol (подпротокол). Отдаём клиенту:
+        # - client_secret — сам токен для подпротокола;
+        # - auth_scheme — как его подписать (api-key / bearer);
+        # - authorization — готовая строка заголовка (для не-браузерных клиентов).
         iam = _get_iam_token(api_key)
         if iam:
+            body['client_secret'] = iam
             body['authorization'] = f'Bearer {iam}'
             body['auth_scheme'] = 'bearer'
         else:
+            body['client_secret'] = api_key
             body['authorization'] = f'Api-Key {api_key}'
             body['auth_scheme'] = 'api-key'
     else:

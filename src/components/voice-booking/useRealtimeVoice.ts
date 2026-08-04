@@ -16,6 +16,7 @@ interface RealtimeConfig {
   configured: boolean;
   ws_url?: string;
   authorization?: string;
+  client_secret?: string;
   auth_scheme?: string;
   model?: string;
   voice?: string;
@@ -166,12 +167,18 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
         throw new Error(cfg.message || 'Голосовой сервис не настроен');
       }
 
-      // Авторизация передаётся query-параметром, т.к. браузер не задаёт заголовки для WS.
+      // В браузере токен передаётся через WS-подпротокол (Sec-WebSocket-Protocol),
+      // т.к. заголовки для WebSocket задать нельзя (OpenAI-совместимая схема).
       const url = new URL(cfg.ws_url);
       if (cfg.model) url.searchParams.set('model', cfg.model);
-      if (cfg.authorization) url.searchParams.set('authorization', cfg.authorization);
 
-      const ws = new WebSocket(url.toString());
+      const secret = cfg.client_secret || '';
+      const protocols = secret
+        ? ['realtime', `openai-insecure-api-key.${secret}`, 'openai-beta.realtime-v1']
+        : undefined;
+
+      console.log('[voice] connecting to', url.toString(), 'model=', cfg.model);
+      const ws = new WebSocket(url.toString(), protocols);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -198,13 +205,20 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
       ws.onmessage = (ev) => {
         try { handleServerEvent(JSON.parse(ev.data)); } catch { /* ignore non-json */ }
       };
-      ws.onerror = () => {
+      ws.onerror = (ev) => {
+        console.error('[voice] ws error', ev);
         setError('Не удалось подключиться к голосовому сервису');
         setStatus('error');
       };
-      ws.onclose = () => {
+      ws.onclose = (ev) => {
+        console.warn('[voice] ws closed', { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
         setConnected(false);
-        if (status !== 'error') setStatus('idle');
+        if (!ev.wasClean && ev.code !== 1000) {
+          setError(`Соединение закрыто (код ${ev.code}${ev.reason ? ': ' + ev.reason : ''})`);
+          setStatus('error');
+        } else if (status !== 'error') {
+          setStatus('idle');
+        }
       };
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка подключения');
