@@ -31,9 +31,10 @@ interface ClientsPageProps {
   clients?: Client[];
   onClientsUpdate?: (clients: Client[]) => void;
   onNavigateToTariffs?: () => void;
+  onNavigateHome?: () => void;
 }
 
-const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, userId: propUserId, clients: propClients, onClientsUpdate, onNavigateToTariffs }: ClientsPageProps) => {
+const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, userId: propUserId, clients: propClients, onClientsUpdate, onNavigateToTariffs, onNavigateHome }: ClientsPageProps) => {
   const userId = propUserId || localStorage.getItem('userId');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -220,6 +221,7 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
         onFilterChange={setActiveFilter}
         clients={searchFilteredClients}
         userId={userId}
+        onNavigateHome={onNavigateHome}
       />
 
       {dialogsState.viewMode === 'table' ? (

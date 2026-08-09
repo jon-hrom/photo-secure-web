@@ -45,6 +45,7 @@ interface ClientsHeaderProps {
   handleOpenAddDialog?: () => void;
   hasUnsavedData?: boolean;
   userId?: string | null;
+  onNavigateHome?: () => void;
 }
 
 const ClientsHeader = ({
@@ -79,8 +80,31 @@ const ClientsHeader = ({
   handleOpenAddDialog,
   hasUnsavedData = false,
   userId,
+  onNavigateHome,
 }: ClientsHeaderProps) => {
   const navigate = useNavigate();
+
+  const handleGoHome = () => {
+    // Раздел клиентов рендерится внутри главной страницы переключением состояния,
+    // поэтому возвращаемся через колбэк. Запасной вариант — переход по адресу.
+    if (onNavigateHome) {
+      onNavigateHome();
+      return;
+    }
+    try {
+      const saved = localStorage.getItem('authSession');
+      if (saved) {
+        const session = JSON.parse(saved);
+        localStorage.setItem(
+          'authSession',
+          JSON.stringify({ ...session, currentPage: 'dashboard' }),
+        );
+      }
+    } catch (e) {
+      console.error('Не удалось обновить сессию перед переходом на главную', e);
+    }
+    navigate('/');
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -120,7 +144,7 @@ const ClientsHeader = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/')}
+            onClick={handleGoHome}
             className="h-10 rounded-full gap-1.5 border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all hover:scale-105 active:scale-95"
             title="Вернуться на главную"
           >
