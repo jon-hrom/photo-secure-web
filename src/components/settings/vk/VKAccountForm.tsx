@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { VKAccount } from './VKAccountsList';
+import VKUserTokenHelp from './VKUserTokenHelp';
 
 interface Props {
   editing: VKAccount | null;
@@ -69,6 +70,8 @@ const VKAccountForm = ({ editing, saving, onSave, onCancel }: Props) => {
         </Button>
       </div>
 
+      {kind === 'user' && <VKUserTokenHelp />}
+
       {kind === 'group' && (
         <div className="space-y-2">
           <Label htmlFor="vk-target">ID или короткое имя сообщества</Label>
@@ -88,11 +91,20 @@ const VKAccountForm = ({ editing, saving, onSave, onCancel }: Props) => {
         </Label>
         <Input
           id="vk-token"
-          type="password"
+          type={kind === 'user' ? 'text' : 'password'}
           value={token}
           onChange={(e) => setToken(e.target.value)}
-          placeholder="vk1.a.xxxxxxxxxxxx"
+          placeholder={
+            kind === 'user'
+              ? 'Вставьте адрес из адресной строки целиком'
+              : 'vk1.a.xxxxxxxxxxxx'
+          }
         />
+        {kind === 'user' && (
+          <p className="text-xs text-muted-foreground">
+            Можно вставить весь адрес — система сама найдёт в нём токен.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">

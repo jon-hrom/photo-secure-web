@@ -27,6 +27,19 @@ def resp(status: int, payload: dict):
     }
 
 
+def extract_token(raw: str) -> str:
+    '''Достаёт токен из вставленной ссылки oauth.vk.com или возвращает как есть.'''
+    value = (raw or '').strip()
+    if not value:
+        return ''
+    if 'access_token=' in value:
+        tail = value.split('access_token=', 1)[1]
+        for sep in ('&', '#', ' '):
+            tail = tail.split(sep, 1)[0]
+        return tail.strip()
+    return value
+
+
 def verify_token(kind: str, target: str, token: str):
     '''Проверяет токен в ВК и возвращает название и числовой id.'''
     if kind == 'group':
@@ -160,11 +173,15 @@ def handler(event: dict, context):
                 return resp(404, {'error': 'Подключение не найдено'})
             token = decrypt_token(row['access_token'] or '')
 
+        token = extract_token(token)
+
         if not token:
             return resp(400, {'error': 'Укажите токен доступа'})
 
         if not token.startswith('vk1.'):
-            return resp(400, {'error': 'Токен должен начинаться с vk1.'})
+            return resp(400, {
+                'error': 'Не похоже на токен ВК. Вставьте ссылку из адресной строки целиком — токен начинается с vk1.a'
+            })
 
         if kind == 'group' and not target:
             return resp(400, {'error': 'Укажите ID или короткое имя сообщества'})
