@@ -54,6 +54,56 @@ def resolve_vk_id(screen_name: str) -> str:
     return ''
 
 
+def build_invite_link(user_id: str):
+    '''Ссылка на диалог с сообществом фотографа, чтобы клиент написал первым.'''
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute(
+            f'SELECT vk_group_id, vk_group_token FROM {SCHEMA}.vk_settings WHERE user_id = %s',
+            (user_id,)
+        )
+        settings = cur.fetchone() or {}
+        group_id = (settings.get('vk_group_id') or '').strip()
+        group_token = decrypt_token(settings.get('vk_group_token') or '').strip()
+
+        if not group_id:
+            return resp(400, {'error': 'Сначала укажите сообщество ВК в настройках'})
+
+        numeric_id = group_id if group_id.isdigit() else ''
+        screen_name = '' if group_id.isdigit() else group_id
+
+        if group_token:
+            r = requests.get('https://api.vk.com/method/groups.getById', params={
+                'group_id': group_id,
+                'access_token': group_token,
+                'v': VK_API_VERSION,
+            }, timeout=15)
+            info = r.json().get('response')
+            group = None
+            if isinstance(info, dict):
+                group = (info.get('groups') or [None])[0]
+            elif isinstance(info, list) and info:
+                group = info[0]
+            if group:
+                numeric_id = str(group.get('id') or numeric_id)
+                screen_name = group.get('screen_name') or screen_name
+
+        if numeric_id:
+            invite_url = f'https://vk.me/club{numeric_id}'
+        else:
+            invite_url = f'https://vk.me/{screen_name}'
+
+        return resp(200, {
+            'success': True,
+            'invite_url': invite_url,
+            'group_url': f'https://vk.com/{screen_name or ("club" + numeric_id)}',
+        })
+    finally:
+        cur.close()
+        conn.close()
+
+
 def handler(event: dict, context):
     '''Отправка уведомления клиенту в личные сообщения ВКонтакте от имени сообщества фотографа.'''
     method = event.get('httpMethod', 'POST')
@@ -75,12 +125,16 @@ def handler(event: dict, context):
         body = {}
     client_id = body.get('client_id')
     message = (body.get('message') or '').strip()
-
-    if not client_id or not message:
-        return resp(400, {'error': 'Нужны client_id и текст сообщения'})
+    action = (body.get('action') or '').strip()
 
     if not DATABASE_URL:
         return resp(500, {'error': 'Database not configured'})
+
+    if action == 'invite_link':
+        return build_invite_link(user_id)
+
+    if not client_id or not message:
+        return resp(400, {'error': 'Нужны client_id и текст сообщения'})
 
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor(cursor_factory=RealDictCursor)

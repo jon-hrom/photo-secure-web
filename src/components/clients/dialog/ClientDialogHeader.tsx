@@ -17,10 +17,12 @@ interface ClientDialogHeaderProps {
 }
 
 const INVITE_API = 'https://functions.poehali.dev/3128bc7e-f0d6-4d0a-a73e-91eb657795a0';
+const VK_NOTIFY_API = 'https://functions.poehali.dev/9e969787-1b8b-439d-8e29-8031cab6fc89';
 
 const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = [], onTransferred }: ClientDialogHeaderProps) => {
   const client = localClient;
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [vkInviteLoading, setVkInviteLoading] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const hasTelegram = !!client.telegram_chat_id;
@@ -32,6 +34,32 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
 
   const handleClientDataLocalUpdate = (updated: Client) => {
     setLocalClient(updated);
+  };
+
+  const handleInviteVk = async () => {
+    setVkInviteLoading(true);
+    try {
+      const userId = localStorage.getItem('userId');
+      const res = await fetch(VK_NOTIFY_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
+        body: JSON.stringify({ action: 'invite_link' }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error(data.error || 'Не удалось создать ссылку');
+        return;
+      }
+      await navigator.clipboard.writeText(data.invite_url);
+      toast.success(
+        'Ссылка скопирована! Отправьте её клиенту — как только он напишет вам в ВК, вы сможете отвечать',
+        { duration: 10000 },
+      );
+    } catch {
+      toast.error('Не удалось создать ссылку');
+    } finally {
+      setVkInviteLoading(false);
+    }
   };
 
   const handleInviteTelegram = async () => {
@@ -143,6 +171,17 @@ const ClientDialogHeader = ({ localClient, onUpdate, setLocalClient, projects = 
             {inviteLoading ? 'Создаю...' : 'Пригласить в Telegram'}
           </Button>
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+          onClick={handleInviteVk}
+          disabled={vkInviteLoading}
+          title="Ссылка на диалог с вашим сообществом ВК"
+        >
+          <Icon name="MessageCircle" size={12} className="mr-1" />
+          {vkInviteLoading ? 'Создаю...' : 'Пригласить в ВК'}
+        </Button>
       </div>
       <TransferClientDialog
         open={transferOpen}
