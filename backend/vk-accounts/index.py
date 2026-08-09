@@ -128,6 +128,19 @@ def handler(event: dict, context):
 
         action = (body.get('action') or 'save').strip()
 
+        if action == 'auth_url':
+            client_id = os.environ.get('VK_CLIENT_ID', '').strip()
+            if not client_id:
+                return resp(400, {'error': 'Приложение ВК не настроено'})
+            url = (
+                'https://oauth.vk.com/authorize'
+                f'?client_id={client_id}'
+                '&scope=messages,offline'
+                '&redirect_uri=https://oauth.vk.com/blank.html'
+                '&display=page&response_type=token&revoke=1'
+            )
+            return resp(200, {'success': True, 'auth_url': url})
+
         if action == 'delete':
             account_id = body.get('id')
             if not account_id:
