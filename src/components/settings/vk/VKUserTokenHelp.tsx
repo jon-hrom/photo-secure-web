@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
@@ -6,31 +6,32 @@ import { toast } from 'sonner';
 const VK_ACCOUNTS_API = 'https://functions.poehali.dev/52780632-e8cf-495e-a573-78e5eeea2ef9';
 
 const VKUserTokenHelp = () => {
-  const [loading, setLoading] = useState(false);
+  const [authUrl, setAuthUrl] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const openAuth = async () => {
-    setLoading(true);
-    const tab = window.open('', '_blank', 'noopener');
-    try {
-      const userId = localStorage.getItem('userId');
-      const res = await fetch(VK_ACCOUNTS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
-        body: JSON.stringify({ action: 'auth_url' }),
-      });
-      const data = await res.json();
-      if (data.success && tab) {
-        tab.location.href = data.auth_url;
-      } else {
-        tab?.close();
-        toast.error(data.error || 'Не удалось открыть страницу ВК');
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const userId = localStorage.getItem('userId');
+        const res = await fetch(VK_ACCOUNTS_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
+          body: JSON.stringify({ action: 'auth_url' }),
+        });
+        const data = await res.json();
+        if (data.success) setAuthUrl(data.auth_url);
+      } catch {
+        // ссылку покажем как недоступную
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      tab?.close();
-      toast.error('Не удалось открыть страницу ВК');
-    } finally {
-      setLoading(false);
-    }
+    };
+    load();
+  }, []);
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(authUrl);
+    toast.success('Ссылка скопирована — вставьте её в адресную строку браузера');
   };
 
   return (
@@ -51,19 +52,29 @@ const VKUserTokenHelp = () => {
         <li>Вставьте его в поле «Токен» ниже — нужное система возьмёт сама.</li>
       </ol>
 
-      <Button
-        type="button"
-        className="w-full bg-blue-600 hover:bg-blue-700"
-        onClick={openAuth}
-        disabled={loading}
-      >
-        {loading ? (
+      {loading ? (
+        <Button className="w-full" disabled>
           <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-        ) : (
-          <Icon name="ExternalLink" size={16} className="mr-2" />
-        )}
-        Открыть страницу получения токена
-      </Button>
+          Готовлю ссылку...
+        </Button>
+      ) : authUrl ? (
+        <div className="space-y-2">
+          <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+            <a href={authUrl} target="_blank" rel="noreferrer">
+              <Icon name="ExternalLink" size={16} className="mr-2" />
+              Открыть страницу получения токена
+            </a>
+          </Button>
+          <Button variant="outline" className="w-full" onClick={copyLink}>
+            <Icon name="Copy" size={16} className="mr-2" />
+            Не открылось? Скопировать ссылку
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-red-600">
+          Не удалось подготовить ссылку. Обновите страницу и попробуйте снова.
+        </p>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Токен даёт доступ только к отправке сообщений. Пароль мы не видим и не храним.
