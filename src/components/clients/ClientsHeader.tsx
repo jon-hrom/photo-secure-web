@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
@@ -79,6 +80,8 @@ const ClientsHeader = ({
   hasUnsavedData = false,
   userId,
 }: ClientsHeaderProps) => {
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3">
@@ -113,7 +116,18 @@ const ClientsHeader = ({
               </Button>
             </div>
           )}
-          
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="h-10 rounded-full gap-1.5 border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all hover:scale-105 active:scale-95"
+            title="Вернуться на главную"
+          >
+            <Icon name="Home" size={16} />
+            <span className="text-sm">На главную</span>
+          </Button>
+
           <ClientDialogs
             isAddDialogOpen={isAddDialogOpen}
             setIsAddDialogOpen={setIsAddDialogOpen}
