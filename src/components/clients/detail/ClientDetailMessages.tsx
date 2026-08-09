@@ -208,7 +208,7 @@ const ClientDetailMessages = ({
         setSelectedTemplate('');
         window.location.reload();
       } else if (data.need_permission) {
-        toast.error(data.error, { duration: 8000 });
+        toast.error(data.error, { duration: 15000 });
       } else {
         toast.error(data.error || 'Ошибка отправки');
       }
@@ -225,7 +225,7 @@ const ClientDetailMessages = ({
   );
 
   return (
-    <div className="flex flex-col h-[500px] bg-background rounded-lg overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-19rem)] min-h-[320px] sm:h-[calc(100vh-17rem)] sm:min-h-[420px] bg-background rounded-lg overflow-hidden">
       <MessagesList
         messages={messages}
         sortedMessages={sortedMessages}

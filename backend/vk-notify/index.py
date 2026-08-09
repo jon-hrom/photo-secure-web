@@ -131,13 +131,40 @@ def handler(event: dict, context):
         if 'error' in data:
             err = data['error']
             code = err.get('error_code')
+            print(f'[vk-notify] VK error {code}: {err.get("error_msg")} (vk_id={vk_client_id})')
+
             if code == 901:
                 return resp(200, {
                     'success': False,
                     'need_permission': True,
-                    'error': 'Клиент ещё не разрешил сообщения от сообщества. Попросите его написать в вашу группу ВК или нажать «Разрешить сообщения».'
+                    'vk_error_code': code,
+                    'error': 'ВКонтакте запрещает сообществу писать первым. Клиент должен сам написать в вашу группу ВК хотя бы одно сообщение (кнопка «Написать сообщение» на странице группы) — подписки на группу недостаточно.'
                 })
-            return resp(400, {'success': False, 'error': err.get('error_msg', 'Ошибка VK')})
+            if code == 902:
+                return resp(200, {
+                    'success': False,
+                    'need_permission': True,
+                    'vk_error_code': code,
+                    'error': 'Клиент запретил сообщения от сообществ в настройках приватности ВКонтакте.'
+                })
+            if code in (7, 15):
+                return resp(200, {
+                    'success': False,
+                    'need_permission': True,
+                    'vk_error_code': code,
+                    'error': 'Нет прав на отправку. Проверьте: в настройках группы ВК включены «Сообщения сообщества», а токен создан с правом «Сообщения сообщества».'
+                })
+            if code in (5, 27, 28):
+                return resp(200, {
+                    'success': False,
+                    'vk_error_code': code,
+                    'error': 'Токен сообщества недействителен или устарел. Создайте новый токен группы в настройках и сохраните его.'
+                })
+            return resp(400, {
+                'success': False,
+                'vk_error_code': code,
+                'error': f'ВКонтакте отклонил отправку: {err.get("error_msg", "неизвестная ошибка")}',
+            })
 
         cur.execute(
             f'UPDATE {SCHEMA}.clients SET vk_messages_allowed = TRUE WHERE id = %s',
