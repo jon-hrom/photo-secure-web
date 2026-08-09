@@ -1,83 +1,54 @@
-import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
-const VK_ACCOUNTS_API = 'https://functions.poehali.dev/52780632-e8cf-495e-a573-78e5eeea2ef9';
+const VK_APPS_URL = 'https://vk.com/editapp?act=create';
 
 const VKUserTokenHelp = () => {
-  const [authUrl, setAuthUrl] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const userId = localStorage.getItem('userId');
-        const res = await fetch(VK_ACCOUNTS_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '' },
-          body: JSON.stringify({ action: 'auth_url' }),
-        });
-        const data = await res.json();
-        if (data.success) setAuthUrl(data.auth_url);
-      } catch {
-        // ссылку покажем как недоступную
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
-
-  const copyLink = async () => {
-    await navigator.clipboard.writeText(authUrl);
-    toast.success('Ссылка скопирована — вставьте её в адресную строку браузера');
+  const copyTemplate = async () => {
+    await navigator.clipboard.writeText(
+      'https://oauth.vk.com/authorize?client_id=ВАШ_ID&scope=messages,offline&redirect_uri=https://oauth.vk.com/blank.html&display=page&response_type=token&revoke=1',
+    );
+    toast.success('Шаблон скопирован — замените ВАШ_ID на номер вашего приложения');
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900 dark:bg-blue-950/20">
-      <p className="flex items-center gap-2 text-sm font-semibold text-blue-700 dark:text-blue-300">
-        <Icon name="HelpCircle" size={16} />
-        Где взять токен своей страницы
+    <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+      <p className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
+        <Icon name="TriangleAlert" size={16} />
+        Личная страница: нужен свой ключ ВК
+      </p>
+
+      <p className="text-sm text-muted-foreground">
+        ВКонтакте больше не выдаёт доступ к личным сообщениям через чужие приложения — поэтому
+        нужно создать своё. Это бесплатно и делается один раз за 5 минут.
       </p>
 
       <ol className="list-inside list-decimal space-y-1.5 text-sm text-muted-foreground">
-        <li>Войдите во ВКонтакте в этом же браузере.</li>
-        <li>Нажмите синюю кнопку ниже — откроется страница ВК.</li>
-        <li>Нажмите <strong>«Разрешить»</strong>.</li>
-        <li>
-          Откроется пустая белая страница — это нормально. Скопируйте{' '}
-          <strong>весь адрес из адресной строки</strong> браузера.
-        </li>
-        <li>Вставьте его в поле «Токен» ниже — нужное система возьмёт сама.</li>
+        <li>Нажмите кнопку ниже — откроется создание приложения ВК.</li>
+        <li>Тип — <strong>«Веб-сайт»</strong>, адрес сайта: <code className="rounded bg-muted px-1">https://foto-mix.ru</code></li>
+        <li>После создания откройте <strong>Настройки</strong> и скопируйте <strong>ID приложения</strong>.</li>
+        <li>Скопируйте шаблон ссылки (вторая кнопка) и подставьте в неё свой ID.</li>
+        <li>Откройте эту ссылку, нажмите <strong>«Разрешить»</strong>.</li>
+        <li>Скопируйте <strong>весь адрес из адресной строки</strong> и вставьте в поле «Токен».</li>
       </ol>
 
-      {loading ? (
-        <Button className="w-full" disabled>
-          <Icon name="Loader2" size={16} className="mr-2 animate-spin" />
-          Готовлю ссылку...
+      <div className="space-y-2">
+        <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+          <a href={VK_APPS_URL} target="_blank" rel="noreferrer">
+            <Icon name="ExternalLink" size={16} className="mr-2" />
+            Создать приложение ВК
+          </a>
         </Button>
-      ) : authUrl ? (
-        <div className="space-y-2">
-          <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
-            <a href={authUrl} target="_blank" rel="noreferrer">
-              <Icon name="ExternalLink" size={16} className="mr-2" />
-              Открыть страницу получения токена
-            </a>
-          </Button>
-          <Button variant="outline" className="w-full" onClick={copyLink}>
-            <Icon name="Copy" size={16} className="mr-2" />
-            Не открылось? Скопировать ссылку
-          </Button>
-        </div>
-      ) : (
-        <p className="text-sm text-red-600">
-          Не удалось подготовить ссылку. Обновите страницу и попробуйте снова.
-        </p>
-      )}
+        <Button variant="outline" className="w-full" onClick={copyTemplate}>
+          <Icon name="Copy" size={16} className="mr-2" />
+          Скопировать шаблон ссылки
+        </Button>
+      </div>
 
       <p className="text-xs text-muted-foreground">
-        Токен даёт доступ только к отправке сообщений. Пароль мы не видим и не храним.
+        Проще вариант — подключить <strong>сообщество</strong>: там токен создаётся прямо в
+        настройках группы, без отдельного приложения.
       </p>
     </div>
   );

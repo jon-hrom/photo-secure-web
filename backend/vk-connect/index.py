@@ -10,6 +10,7 @@ import urllib.request
 import urllib.parse
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from crypto_utils import encrypt_token
 
 VK_CLIENT_ID = os.environ.get('VK_CLIENT_ID', '')
 VK_CLIENT_SECRET = os.environ.get('VK_CLIENT_SECRET', '')
@@ -172,7 +173,8 @@ def get_vk_user_info(access_token: str) -> dict:
 
 
 def save_vk_token(user_id: str, token: str, vk_user_id: str, vk_user_name: str) -> None:
-    '''Сохранить токен ВК в настройках пользователя'''
+    '''Сохранить токен ВК в настройках пользователя и в списке подключений'''
+    enc_token = encrypt_token(token)
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     try:
         with conn.cursor() as cur:
@@ -186,7 +188,33 @@ def save_vk_token(user_id: str, token: str, vk_user_id: str, vk_user_name: str) 
                     vk_user_id = EXCLUDED.vk_user_id,
                     vk_user_name = EXCLUDED.vk_user_name,
                     updated_at = CURRENT_TIMESTAMP
-            """, (user_id, token, str(vk_user_id), vk_user_name))
+            """, (user_id, enc_token, str(vk_user_id), vk_user_name))
+
+            title = vk_user_name or 'Моя страница ВК'
+            cur.execute(f"""
+                SELECT id FROM {SCHEMA}.vk_accounts
+                WHERE user_id = %s AND kind = 'user' AND vk_target_id = %s
+            """, (user_id, str(vk_user_id)))
+            existing = cur.fetchone()
+
+            if existing:
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.vk_accounts
+                    SET access_token = %s, title = %s, is_active = TRUE,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (enc_token, title, existing['id']))
+            else:
+                cur.execute(
+                    f"SELECT COUNT(*) AS cnt FROM {SCHEMA}.vk_accounts WHERE user_id = %s",
+                    (user_id,)
+                )
+                is_first = (cur.fetchone() or {}).get('cnt', 0) == 0
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.vk_accounts
+                    (user_id, title, kind, vk_target_id, access_token, is_default)
+                    VALUES (%s, %s, 'user', %s, %s, %s)
+                """, (user_id, title, str(vk_user_id), enc_token, is_first))
         conn.commit()
     finally:
         conn.close()
