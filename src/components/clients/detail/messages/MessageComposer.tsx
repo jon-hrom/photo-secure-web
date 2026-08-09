@@ -16,6 +16,9 @@ interface MessageComposerProps {
   onSendViaMax: () => void;
   sendingViaVk: boolean;
   onSendViaVk: () => void;
+  vkAccounts?: { id: number; title: string; kind: string }[];
+  selectedVkAccount?: string;
+  onVkAccountChange?: (id: string) => void;
 }
 
 const MessageComposer = ({
@@ -30,6 +33,9 @@ const MessageComposer = ({
   onSendViaMax,
   sendingViaVk,
   onSendViaVk,
+  vkAccounts = [],
+  selectedVkAccount,
+  onVkAccountChange,
 }: MessageComposerProps) => {
   return (
     <div className="p-4 pb-20 bg-background border-t-2 border-border rounded-b-2xl shadow-lg">
@@ -92,6 +98,24 @@ const MessageComposer = ({
               </>
             )}
           </Button>
+        )}
+
+        {clientId && vkAccounts.length > 1 && (
+          <Select value={selectedVkAccount} onValueChange={onVkAccountChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Отправить от имени..." />
+            </SelectTrigger>
+            <SelectContent>
+              {vkAccounts.map((acc) => (
+                <SelectItem key={acc.id} value={String(acc.id)}>
+                  <div className="flex items-center gap-2">
+                    <Icon name={acc.kind === 'group' ? 'Users' : 'User'} size={14} />
+                    <span>{acc.title}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
 
         {clientId && (

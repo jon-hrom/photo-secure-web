@@ -4,6 +4,7 @@ import { Message } from '@/components/clients/ClientsTypes';
 export const MAX_URL = 'https://functions.poehali.dev/6bd5e47e-49f9-4af3-a814-d426f5cd1f6d';
 export const CLIENTS_API = 'https://functions.poehali.dev/2834d022-fea5-4fbb-9582-ed0dec4c047d';
 export const VK_NOTIFY_URL = 'https://functions.poehali.dev/9e969787-1b8b-439d-8e29-8031cab6fc89';
+export const VK_ACCOUNTS_URL = 'https://functions.poehali.dev/52780632-e8cf-495e-a573-78e5eeea2ef9';
 
 export interface Template {
   template_type: string;

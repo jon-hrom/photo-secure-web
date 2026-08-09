@@ -4,6 +4,7 @@ import {
   MAX_URL,
   CLIENTS_API,
   VK_NOTIFY_URL,
+  VK_ACCOUNTS_URL,
   Template,
   DeliveryStatus,
   ClientDetailMessagesProps,
@@ -30,6 +31,29 @@ const ClientDetailMessages = ({
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [resendingIds, setResendingIds] = useState<Set<number>>(new Set());
   const [localStatuses, setLocalStatuses] = useState<Record<number, { status: DeliveryStatus; error?: string | null }>>({});
+  const [vkAccounts, setVkAccounts] = useState<{ id: number; title: string; kind: string; is_default: boolean }[]>([]);
+  const [selectedVkAccount, setSelectedVkAccount] = useState<string>('');
+
+  useEffect(() => {
+    const loadVkAccounts = async () => {
+      const userId = localStorage.getItem('userId');
+      if (!userId) return;
+      try {
+        const res = await fetch(VK_ACCOUNTS_URL, {
+          headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        });
+        const data = await res.json();
+        if (data.success && data.accounts?.length) {
+          setVkAccounts(data.accounts);
+          const def = data.accounts.find((a: { is_default: boolean }) => a.is_default) || data.accounts[0];
+          setSelectedVkAccount(String(def.id));
+        }
+      } catch {
+        // список аккаунтов необязателен
+      }
+    };
+    loadVkAccounts();
+  }, []);
 
   const handleResendMessage = async (messageId: number) => {
     setResendingIds((prev) => {
@@ -199,7 +223,11 @@ const ClientDetailMessages = ({
       const response = await fetch(VK_NOTIFY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId || '1' },
-        body: JSON.stringify({ client_id: clientId, message: newMessage.content }),
+        body: JSON.stringify({
+          client_id: clientId,
+          message: newMessage.content,
+          account_id: selectedVkAccount ? Number(selectedVkAccount) : undefined,
+        }),
       });
       const data = await response.json();
       if (data.success) {
@@ -252,6 +280,9 @@ const ClientDetailMessages = ({
         onSendViaMax={handleSendViaMax}
         sendingViaVk={sendingViaVk}
         onSendViaVk={handleSendViaVk}
+        vkAccounts={vkAccounts}
+        selectedVkAccount={selectedVkAccount}
+        onVkAccountChange={setSelectedVkAccount}
       />
     </div>
   );

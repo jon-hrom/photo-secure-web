@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "No user id returns 401",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401
+    },
+    {
+      "name": "Method not allowed",
+      "method": "PUT",
+      "path": "/",
+      "headers": {"X-User-Id": "1"},
+      "expectedStatus": 405
+    }
+  ]
+}

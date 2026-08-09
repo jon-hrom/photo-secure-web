@@ -54,11 +54,37 @@ def resolve_vk_id(screen_name: str) -> str:
     return ''
 
 
-def build_invite_link(user_id: str):
-    '''Ссылка на диалог с сообществом фотографа, чтобы клиент написал первым.'''
+def build_invite_link(user_id: str, account_id=None):
+    '''Ссылка на диалог с сообществом или страницей фотографа, чтобы клиент написал первым.'''
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
+        if account_id:
+            cur.execute(
+                f'SELECT kind, vk_target_id, vk_screen_name FROM {SCHEMA}.vk_accounts '
+                f'WHERE id = %s AND user_id = %s',
+                (str(account_id), user_id)
+            )
+        else:
+            cur.execute(
+                f'SELECT kind, vk_target_id, vk_screen_name FROM {SCHEMA}.vk_accounts '
+                f'WHERE user_id = %s AND is_active ORDER BY is_default DESC, id LIMIT 1',
+                (user_id,)
+            )
+        acc = cur.fetchone()
+        if acc:
+            screen = (acc.get('vk_screen_name') or '').strip()
+            target = (acc.get('vk_target_id') or '').strip()
+            if acc.get('kind') == 'user':
+                path = screen or f'id{target}'
+            else:
+                path = screen or f'club{target}'
+            return resp(200, {
+                'success': True,
+                'invite_url': f'https://vk.me/{path}',
+                'group_url': f'https://vk.com/{path}',
+            })
+
         cur.execute(
             f'SELECT vk_group_id, vk_group_token FROM {SCHEMA}.vk_settings WHERE user_id = %s',
             (user_id,)
@@ -131,7 +157,7 @@ def handler(event: dict, context):
         return resp(500, {'error': 'Database not configured'})
 
     if action == 'invite_link':
-        return build_invite_link(user_id)
+        return build_invite_link(user_id, body.get('account_id'))
 
     if not client_id or not message:
         return resp(400, {'error': 'Нужны client_id и текст сообщения'})
@@ -140,15 +166,7 @@ def handler(event: dict, context):
     cur = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cur.execute(
-            f'SELECT vk_group_token FROM {SCHEMA}.vk_settings WHERE user_id = %s',
-            (user_id,)
-        )
-        settings = cur.fetchone()
-        group_token = (settings.get('vk_group_token') if settings else '') or ''
-        group_token = decrypt_token(group_token).strip()
-
-        cur.execute(
-            f'SELECT name, vk_client_id, vk_profile, vk_username '
+            f'SELECT name, vk_client_id, vk_profile, vk_username, vk_account_id '
             f'FROM {SCHEMA}.clients WHERE id = %s AND user_id = %s',
             (str(client_id), user_id)
         )
@@ -157,8 +175,40 @@ def handler(event: dict, context):
         if not client:
             return resp(404, {'error': 'Клиент не найден'})
 
-        if not group_token:
-            return resp(400, {'error': 'Не подключено сообщество ВК для отправки сообщений (укажите токен группы в настройках)'})
+        account_id = body.get('account_id') or client.get('vk_account_id')
+        account = None
+
+        if account_id:
+            cur.execute(
+                f'SELECT id, kind, title, access_token FROM {SCHEMA}.vk_accounts '
+                f'WHERE id = %s AND user_id = %s AND is_active',
+                (str(account_id), user_id)
+            )
+            account = cur.fetchone()
+
+        if not account:
+            cur.execute(
+                f'SELECT id, kind, title, access_token FROM {SCHEMA}.vk_accounts '
+                f'WHERE user_id = %s AND is_active ORDER BY is_default DESC, id LIMIT 1',
+                (user_id,)
+            )
+            account = cur.fetchone()
+
+        send_token = ''
+        account_kind = 'group'
+        if account:
+            send_token = decrypt_token(account.get('access_token') or '').strip()
+            account_kind = account.get('kind') or 'group'
+        else:
+            cur.execute(
+                f'SELECT vk_group_token FROM {SCHEMA}.vk_settings WHERE user_id = %s',
+                (user_id,)
+            )
+            settings = cur.fetchone()
+            send_token = decrypt_token((settings.get('vk_group_token') if settings else '') or '').strip()
+
+        if not send_token:
+            return resp(400, {'error': 'Не подключён аккаунт ВК для отправки сообщений. Добавьте сообщество или личную страницу в настройках.'})
 
         vk_client_id = (client.get('vk_client_id') or '').strip()
         if not vk_client_id:
@@ -177,7 +227,7 @@ def handler(event: dict, context):
             'user_id': vk_client_id,
             'message': message + FOOTER,
             'random_id': random.randint(1, 2_000_000_000),
-            'access_token': group_token,
+            'access_token': send_token,
             'v': VK_API_VERSION,
         }, timeout=20)
         data = r.json()
@@ -192,7 +242,11 @@ def handler(event: dict, context):
                     'success': False,
                     'need_permission': True,
                     'vk_error_code': code,
-                    'error': 'ВКонтакте запрещает сообществу писать первым. Клиент должен сам написать в вашу группу ВК хотя бы одно сообщение (кнопка «Написать сообщение» на странице группы) — подписки на группу недостаточно.'
+                    'error': (
+                        'ВКонтакте запрещает писать первым от лица страницы. Клиент должен сам написать вам хотя бы одно сообщение.'
+                        if account_kind == 'user' else
+                        'ВКонтакте запрещает сообществу писать первым. Клиент должен сам написать в вашу группу ВК хотя бы одно сообщение (кнопка «Написать сообщение» на странице группы) — подписки на группу недостаточно.'
+                    )
                 })
             if code == 902:
                 return resp(200, {
@@ -220,13 +274,23 @@ def handler(event: dict, context):
                 'error': f'ВКонтакте отклонил отправку: {err.get("error_msg", "неизвестная ошибка")}',
             })
 
-        cur.execute(
-            f'UPDATE {SCHEMA}.clients SET vk_messages_allowed = TRUE WHERE id = %s',
-            (str(client_id),)
-        )
+        if account:
+            cur.execute(
+                f'UPDATE {SCHEMA}.clients SET vk_messages_allowed = TRUE, vk_account_id = %s WHERE id = %s',
+                (account['id'], str(client_id))
+            )
+        else:
+            cur.execute(
+                f'UPDATE {SCHEMA}.clients SET vk_messages_allowed = TRUE WHERE id = %s',
+                (str(client_id),)
+            )
         conn.commit()
 
-        return resp(200, {'success': True, 'message_id': data.get('response')})
+        return resp(200, {
+            'success': True,
+            'message_id': data.get('response'),
+            'account_title': (account or {}).get('title', ''),
+        })
     except Exception as e:
         return resp(400, {'success': False, 'error': str(e)})
     finally:

@@ -1,4 +1,5 @@
 {
+  "vk-accounts": "https://functions.poehali.dev/52780632-e8cf-495e-a573-78e5eeea2ef9",
   "voice-realtime": "https://functions.poehali.dev/812d3d4c-8542-4fc9-9e94-c46082ab1032",
   "yandex-disk-photobank": "https://functions.poehali.dev/76f7709b-71a3-414b-ae0f-429082000126",
   "review-reminders-cron": "https://functions.poehali.dev/e159cc2f-c043-400b-95f1-06848fb596ce",
