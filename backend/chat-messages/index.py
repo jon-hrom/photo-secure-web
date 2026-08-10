@@ -785,8 +785,9 @@ def handler(event: dict, context) -> dict:
                         except Exception as e:
                             print(f'[NOTIFICATION] Error getting client details: {str(e)}', flush=True)
                         
-                        # Находим название папки проекта через которую клиент связался
+                        # Находим название проекта/общей ссылки через которую клиент связался
                         folder_name = 'Проект'
+                        gallery_link = None
                         try:
                             cur.execute('''
                                 SELECT f.folder_name
@@ -799,15 +800,20 @@ def handler(event: dict, context) -> dict:
                                 folder_name = folder_row[0]
                             else:
                                 cur.execute('''
-                                    SELECT folder_name
-                                    FROM t_p28211681_photo_secure_web.photo_folders
-                                    WHERE user_id = %s
-                                    ORDER BY created_at DESC
+                                    SELECT COALESCE(NULLIF(TRIM(fsl.cover_title), ''), f.folder_name),
+                                           fsl.short_code
+                                    FROM t_p28211681_photo_secure_web.favorite_clients fc
+                                    JOIN t_p28211681_photo_secure_web.folder_short_links fsl
+                                      ON fsl.short_code = fc.gallery_code
+                                    JOIN t_p28211681_photo_secure_web.photo_folders f
+                                      ON f.id = fsl.folder_id
+                                    WHERE fc.id = %s AND fsl.user_id = %s
                                     LIMIT 1
-                                ''', (photographer_id,))
-                                folder_row = cur.fetchone()
-                                if folder_row:
-                                    folder_name = folder_row[0]
+                                ''', (client_id, photographer_id))
+                                gallery_row = cur.fetchone()
+                                if gallery_row:
+                                    folder_name = gallery_row[0] or 'Общая ссылка'
+                                    gallery_link = f'https://foto-mix.ru/s/{gallery_row[1]}'
                         except Exception as e:
                             print(f'[CHAT] Error finding folder name: {str(e)}', flush=True)
                         
@@ -833,6 +839,11 @@ def handler(event: dict, context) -> dict:
                             print(f'[NOTIFICATION] Sending email to {photographer_email}', flush=True)
                             try:
                                 from shared_email import send_email
+                                
+                                project_label = 'Общая ссылка' if gallery_link else 'Проект'
+                                gallery_link_html = ''
+                                if gallery_link:
+                                    gallery_link_html = f'<p style="margin: 6px 0 0 0; font-size: 14px;"><a href="{gallery_link}" style="color: #667eea; text-decoration: none;">{gallery_link}</a></p>'
                                 
                                 client_details_html = f'<p style="margin: 0; color: #111827; font-size: 20px; font-weight: 600;">{client_name}</p>'
                                 if client_phone:
@@ -861,8 +872,9 @@ def handler(event: dict, context) -> dict:
             </div>
             
             <div style="margin-bottom: 25px;">
-                <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Проект</p>
+                <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">{project_label}</p>
                 <p style="margin: 0; color: #111827; font-size: 16px; font-weight: 500;">{folder_name}</p>
+                {gallery_link_html}
             </div>
             
             <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin-bottom: 25px;">
@@ -887,7 +899,8 @@ def handler(event: dict, context) -> dict:
 </html>
                                 '''
                                 
-                                result = send_email(photographer_email, f'💬 Сообщение от {client_name} | {folder_name}', html_body, 'Foto-Mix')
+                                email_subject = f'💬 {client_name} — {folder_name}' if gallery_link else f'💬 Сообщение от {client_name} | {folder_name}'
+                                result = send_email(photographer_email, email_subject, html_body, 'Foto-Mix')
                                 if result:
                                     print(f'[NOTIFICATION] Email sent successfully', flush=True)
                                 else:
@@ -927,7 +940,8 @@ def handler(event: dict, context) -> dict:
                                 tz_label = f"UTC+{offset_hours}" if offset_hours != 3 else "МСК"
                                 time_str = local_time.strftime('%d.%m.%Y %H:%M') + f' ({tz_label})'
                                 
-                                whatsapp_text = f'📬 *Новое сообщение в Foto-Mix*\n🕐 *Время:* {time_str}\n\n{client_info_str}\n📁 *Проект:* {folder_name}\n\n💬 *Сообщение:*\n{message_preview}\n\n➡️ Войдите на foto-mix.ru чтобы ответить клиенту'
+                                project_line = f'🔗 *Общая ссылка:* {folder_name}\n{gallery_link}' if gallery_link else f'📁 *Проект:* {folder_name}'
+                                whatsapp_text = f'📬 *Новое сообщение в Foto-Mix*\n🕐 *Время:* {time_str}\n\n{client_info_str}\n{project_line}\n\n💬 *Сообщение:*\n{message_preview}\n\n➡️ Войдите на foto-mix.ru чтобы ответить клиенту'
                                 
                                 media_server = max_instance_id[:4] if len(max_instance_id) >= 4 else '7103'
                                 green_url = f"https://{media_server}.api.green-api.com/v3/waInstance{max_instance_id}/sendMessage/{max_token}"
