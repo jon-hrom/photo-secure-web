@@ -156,6 +156,22 @@ export const formatDuration = (
 };
 
 /**
+ * Форматирует длительность съёмки, заданную в минутах
+ * @example 45 → "45 мин", 120 → "2 ч", 90 → "1 ч 30 мин"
+ */
+export const formatMinutes = (minutes?: number | string | null): string => {
+  const total = Number(minutes);
+  if (!Number.isFinite(total) || total <= 0) return '—';
+
+  const rounded = Math.round(total);
+  if (rounded < 60) return `${rounded} мин`;
+
+  const hours = Math.floor(rounded / 60);
+  const rest = rounded % 60;
+  return rest > 0 ? `${hours} ч ${rest} мин` : `${hours} ч`;
+};
+
+/**
  * Возвращает локализованное название часового пояса пользователя
  * @example "GMT+3 (Москва)" или "GMT-5 (Нью-Йорк)"
  */

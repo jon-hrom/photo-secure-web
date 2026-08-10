@@ -1,6 +1,7 @@
 import { Client, Project } from '@/components/clients/ClientsTypes';
 import { createBookingEmailTemplate, createUpdateEmailTemplate } from './EmailTemplate';
 import { toast } from 'sonner';
+import { formatMinutes } from '@/utils/dateFormat';
 
 export interface NotificationDeliveryReport {
   whatsappClient: 'sent' | 'failed' | 'skipped';
@@ -228,7 +229,7 @@ export const sendProjectUpdateNotification = async (
       changes.push(`Адрес: ${oldProject.shooting_address || 'не указан'} → ${newProject.shooting_address || 'не указан'}`);
     }
     if (oldProject.shooting_duration !== newProject.shooting_duration) {
-      changes.push(`Длительность: ${oldProject.shooting_duration || '—'}ч → ${newProject.shooting_duration || '—'}ч`);
+      changes.push(`Длительность: ${formatMinutes(oldProject.shooting_duration)} → ${formatMinutes(newProject.shooting_duration)}`);
     }
     if (oldProject.status !== newProject.status) {
       const statusNames: Record<string, string> = {
