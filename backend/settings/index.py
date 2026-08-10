@@ -628,6 +628,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'isBase64Encoded': False
             }
         
+        # Подписка MAX: получить дату оплаты и остаток дней
+        if action == 'max-subscription-get':
+            from max_subscription import get_subscription, check_and_notify
+            result = get_subscription(conn)
+            try:
+                check_and_notify(conn, send_email)
+            except Exception as sub_err:
+                print(f'[MAX_SUB] notify error: {str(sub_err)}')
+            cursor.close()
+            conn.close()
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(result),
+                'isBase64Encoded': False
+            }
+
+        # Подписка MAX: сохранить дату следующей оплаты
+        if action == 'max-subscription-set':
+            from max_subscription import save_subscription
+            result = save_subscription(conn, body_data.get('paidUntil'), body_data.get('note'))
+            cursor.close()
+            conn.close()
+            return {
+                'statusCode': 200,
+                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+                'body': json.dumps(result),
+                'isBase64Encoded': False
+            }
+
         # Check SMS balance via get_profile method
         if action == 'check-sms-balance':
             print('[SMS_BALANCE] Checking SMS.SU balance via get_profile...')

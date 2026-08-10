@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 import { EnergyTopupDialog } from '@/components/EnergyTopupDialog';
 import { CelebrationDialog } from '@/components/CelebrationDialog';
+import MaxSubscriptionBadge from '@/components/layout/MaxSubscriptionBadge';
 import { toast } from 'sonner';
 
 const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
@@ -247,6 +248,7 @@ const AppNavigation = ({
                 </span>
               </Button>
             )}
+            {isAdmin && <MaxSubscriptionBadge />}
             <Button
               variant="ghost"
               onClick={() => setTopupOpen(true)}
