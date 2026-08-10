@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import PhotoBankDialogsContainer from '@/components/photobank/PhotoBankDialogsContainer';
 import MobileNavigation from '@/components/layout/MobileNavigation';
 import PhotoBankAdminBanner from '@/pages/photobank/PhotoBankAdminBanner';
@@ -38,6 +38,15 @@ const PhotoBank = () => {
   const [subfolderSettings, setSubfolderSettings] = useState<{ id: number; folder_name: string; has_password?: boolean; is_hidden?: boolean } | null>(null);
   const [retouchFolder, setRetouchFolder] = useState<{ id: number; name: string; photoId?: number } | null>(null);
   const [viewsStatsFolder, setViewsStatsFolder] = useState<{ id: number; name: string } | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const chatParam = searchParams.get('chat');
+    if (chatParam && folderChatsId === null) {
+      setFolderChatsId(0);
+    }
+  }, [searchParams, folderChatsId]);
 
   const navigation = usePhotoBankNavigationHistory();
 
@@ -308,7 +317,14 @@ const PhotoBank = () => {
         setShowStats={setShowStats}
         setShowVideoUrlUpload={setShowVideoUrlUpload}
         setChatClient={setChatClient}
-        setFolderChatsId={setFolderChatsId}
+        setFolderChatsId={(value) => {
+          setFolderChatsId(value);
+          if (value === null && searchParams.get('chat')) {
+            const next = new URLSearchParams(searchParams);
+            next.delete('chat');
+            setSearchParams(next, { replace: true });
+          }
+        }}
         fetchPhotos={fetchPhotos}
         fetchFolders={fetchFolders}
         fetchStorageUsage={fetchStorageUsage}

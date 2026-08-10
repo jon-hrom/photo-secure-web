@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import ChatModal from '@/components/gallery/ChatModal';
@@ -45,6 +46,7 @@ export default function PhotographerChatsModal({
   const [photographerTimezone, setPhotographerTimezone] = useState<string>('Europe/Moscow');
   const [showSupport, setShowSupport] = useState(false);
   const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+  const [searchParams] = useSearchParams();
 
   // Получаем имя фотографа из localStorage
   useEffect(() => {
@@ -112,8 +114,13 @@ export default function PhotographerChatsModal({
       console.log('[PHOTOGRAPHER_CHATS] Loaded chats:', data);
       setChats(data.chats || []);
       
-      if (data.chats && data.chats.length > 0) {
-        setSelectedClientId(data.chats[0].client_id);
+      const loadedChats: Chat[] = data.chats || [];
+      if (loadedChats.length > 0) {
+        const requested = Number(searchParams.get('chat'));
+        const target = requested && loadedChats.some((c) => c.client_id === requested)
+          ? requested
+          : loadedChats[0].client_id;
+        setSelectedClientId(target);
       }
     } catch (error) {
       console.error('Error loading chats:', error);

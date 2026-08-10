@@ -840,6 +840,7 @@ def handler(event: dict, context) -> dict:
                             try:
                                 from shared_email import send_email
                                 
+                                chat_url = f'https://foto-mix.ru/photo-bank?chat={client_id}'
                                 project_label = 'Общая ссылка' if gallery_link else 'Проект'
                                 gallery_link_html = ''
                                 if gallery_link:
@@ -883,8 +884,8 @@ def handler(event: dict, context) -> dict:
             </div>
             
             <div style="text-align: center; margin-top: 30px;">
-                <a href="https://foto-mix.ru" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
-                    Открыть Foto-Mix и ответить
+                <a href="{chat_url}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
+                    Ответить {client_name}
                 </a>
             </div>
             
@@ -941,7 +942,7 @@ def handler(event: dict, context) -> dict:
                                 time_str = local_time.strftime('%d.%m.%Y %H:%M') + f' ({tz_label})'
                                 
                                 project_line = f'🔗 *Общая ссылка:* {folder_name}\n{gallery_link}' if gallery_link else f'📁 *Проект:* {folder_name}'
-                                whatsapp_text = f'📬 *Новое сообщение в Foto-Mix*\n🕐 *Время:* {time_str}\n\n{client_info_str}\n{project_line}\n\n💬 *Сообщение:*\n{message_preview}\n\n➡️ Войдите на foto-mix.ru чтобы ответить клиенту'
+                                whatsapp_text = f'📬 *Новое сообщение в Foto-Mix*\n🕐 *Время:* {time_str}\n\n{client_info_str}\n{project_line}\n\n💬 *Сообщение:*\n{message_preview}\n\n➡️ Ответить: https://foto-mix.ru/photo-bank?chat={client_id}'
                                 
                                 media_server = max_instance_id[:4] if len(max_instance_id) >= 4 else '7103'
                                 green_url = f"https://{media_server}.api.green-api.com/v3/waInstance{max_instance_id}/sendMessage/{max_token}"
