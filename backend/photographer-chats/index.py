@@ -56,26 +56,43 @@ def handler(event: dict, context) -> dict:
                       AND sender_type = 'client' 
                       AND is_read = FALSE
                     GROUP BY client_id
+                ),
+                own_clients AS (
+                    SELECT id, name, phone, COALESCE(email, '') AS email
+                    FROM t_p28211681_photo_secure_web.clients
+                    WHERE photographer_id = %s
+                ),
+                own_gallery_clients AS (
+                    SELECT fc.id, fc.full_name, fc.phone, COALESCE(fc.email, '') AS email,
+                           fc.is_online, fc.last_seen_at, COALESCE(fc.max_link, '') AS max_link,
+                           fc.gallery_code
+                    FROM t_p28211681_photo_secure_web.favorite_clients fc
+                    JOIN t_p28211681_photo_secure_web.folder_short_links fsl
+                      ON fsl.short_code = fc.gallery_code
+                    JOIN t_p28211681_photo_secure_web.photo_folders pf
+                      ON pf.id = fsl.folder_id AND pf.user_id = %s
                 )
                 SELECT 
                     lm.client_id,
-                    COALESCE(fc.full_name, lm.author, 'Клиент'),
-                    COALESCE(fc.phone, ''),
-                    COALESCE(fc.email, ''),
+                    COALESCE(oc.name, gc.full_name),
+                    COALESCE(oc.phone, gc.phone, ''),
+                    COALESCE(oc.email, gc.email, ''),
                     lm.content,
                     lm.image_url,
                     lm.sender_type,
                     lm.created_at,
                     COALESCE(uc.cnt, 0),
-                    COALESCE(fc.is_online, FALSE),
-                    fc.last_seen_at,
-                    COALESCE(fc.max_link, ''),
-                    COALESCE(fc.gallery_code, '')
+                    COALESCE(gc.is_online, FALSE),
+                    gc.last_seen_at,
+                    COALESCE(gc.max_link, ''),
+                    COALESCE(gc.gallery_code, '')
                 FROM latest_messages lm
-                LEFT JOIN t_p28211681_photo_secure_web.favorite_clients fc ON fc.id = lm.client_id
+                LEFT JOIN own_clients oc ON oc.id = lm.client_id
+                LEFT JOIN own_gallery_clients gc ON gc.id = lm.client_id
                 LEFT JOIN unread_counts uc ON uc.client_id = lm.client_id
+                WHERE oc.id IS NOT NULL OR gc.id IS NOT NULL
                 ORDER BY lm.created_at DESC
-            """, (photographer_id, photographer_id))
+            """, (photographer_id, photographer_id, photographer_id, photographer_id))
             
             chats = []
             for row in cur.fetchall():
