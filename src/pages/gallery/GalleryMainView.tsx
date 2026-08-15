@@ -114,8 +114,11 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
         onOpenChat={() => state.setIsChatOpen(true)}
         unreadMessagesCount={state.unreadCount}
         onLogout={handlers.handleLogout}
-        clientUploadEnabled={!!state.clientData?.upload_enabled}
-        onOpenUpload={() => subfolder.setIsUploadOpen(true)}
+        clientUploadEnabled={!!state.clientData?.upload_enabled || !!gallery.client_folders_visibility}
+        onOpenUpload={async () => {
+          const ok = await handlers.ensureClientForUpload();
+          if (ok) subfolder.setIsUploadOpen(true);
+        }}
         clientFolders={subfolder.clientUploadFolders}
         showClientFolders={!!(subfolder.clientUploadFolders.length > 0 && (gallery.client_folders_visibility || subfolder.clientUploadFolders.some((f: { is_own?: boolean }) => f.is_own !== false)))}
         onOpenClientFolder={(folder) => {
@@ -200,7 +203,7 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
         authUrl={yandexDiskAuthUrl}
       />
 
-      {state.clientData?.upload_enabled && code && state.clientData?.client_id && (
+      {(state.clientData?.upload_enabled || gallery.client_folders_visibility) && code && state.clientData?.client_id && (
         <ClientUploadModal
           isOpen={subfolder.isUploadOpen}
           onClose={() => { subfolder.setIsUploadOpen(false); subfolder.setFolderToOpen(null); }}

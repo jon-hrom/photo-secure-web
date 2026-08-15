@@ -228,9 +228,71 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     }
   };
 
+  /**
+   * Фотограф снял все галочки (ФИО, телефон, e-mail) — значит данные
+   * клиента ему не нужны. В этом случае избранное работает анонимно:
+   * гость создаётся автоматически, окно входа не показываем.
+   */
+  const isAnonymousFavorites = (): boolean => {
+    const f = gallery?.favorite_config?.fields;
+    if (!f) return false;
+    return f.fullName === false && f.phone === false && f.email === false;
+  };
+
+  const createAnonymousClient = async (forUpload = false): Promise<{
+    client_id: number; full_name: string; phone: string; email?: string; upload_enabled?: boolean;
+  } | null> => {
+    if (!code) return null;
+    const guestKey = `guest_${code}`;
+    let guestName = localStorage.getItem(guestKey);
+    if (!guestName) {
+      guestName = `Гость ${Math.random().toString(36).slice(2, 8)}`;
+      localStorage.setItem(guestKey, guestName);
+    }
+    try {
+      const resp = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'register_client',
+          gallery_code: code,
+          full_name: guestName,
+          phone: '',
+          email: null,
+        }),
+      });
+      const result = await resp.json();
+      if (!resp.ok || !result.client_id) return null;
+      const guest = {
+        client_id: result.client_id,
+        full_name: guestName,
+        phone: '',
+        email: undefined,
+        upload_enabled: result.upload_enabled ?? forUpload,
+      };
+      setClientData(guest);
+      if (gallery) {
+        localStorage.setItem(`client_${gallery.photographer_id}_${code}`, JSON.stringify(guest));
+      }
+      return guest;
+    } catch (e) {
+      console.error('[FAVORITES] guest create failed', e);
+      return null;
+    }
+  };
+
   const handleAddToFavorites = async (photo: Photo) => {
     if (clientData && clientData.client_id > 0) {
       await addPhotoToFavoritesForClient(photo, clientData);
+    } else if (isAnonymousFavorites()) {
+      const guest = await createAnonymousClient();
+      if (guest) {
+        await addPhotoToFavoritesForClient(photo, guest);
+        return;
+      }
+      pendingFavoritePhotoRef.current = photo;
+      setPhotoToAdd(photo);
+      setIsLoginModalOpen(true);
     } else {
       // Сначала авторизация: запоминаем фото и открываем окно входа.
       // После успешного входа фото добавится в избранное автоматически.
@@ -363,6 +425,18 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
   };
 
   return {
+    /**
+     * Клиент нажал «Загрузить фото» в общей галерее.
+     * Если он ещё не представился — заводим гостя автоматически,
+     * чтобы папка для его снимков создалась без лишних вопросов.
+     */
+    ensureClientForUpload: async (): Promise<boolean> => {
+      if (clientData && clientData.client_id > 0) return true;
+      const guest = await createAnonymousClient(true);
+      if (guest) return true;
+      setIsLoginModalOpen(true);
+      return false;
+    },
     handleAddToFavorites,
     handleFavoriteSubmit,
     handleClientLogin,
