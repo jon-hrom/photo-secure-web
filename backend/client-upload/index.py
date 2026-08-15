@@ -207,7 +207,7 @@ def get_link_info(cur, short_code):
 
 def check_client_upload_allowed(cur, client_id, gallery_code):
     """Загрузка разрешена, если она включена лично клиенту
-    ИЛИ фотограф открыл общий доступ к папкам клиентов по этой ссылке."""
+    ИЛИ фотограф разрешил загрузку всем по этой ссылке."""
     cur.execute(
         f"""
         SELECT id FROM {SCHEMA}.favorite_clients
@@ -222,7 +222,7 @@ def check_client_upload_allowed(cur, client_id, gallery_code):
         f"""
         SELECT 1 FROM {SCHEMA}.folder_short_links
         WHERE short_code = %s
-          AND COALESCE(client_folders_visibility, FALSE) = TRUE
+          AND COALESCE(client_upload_enabled, FALSE) = TRUE
         """,
         (gallery_code,)
     )

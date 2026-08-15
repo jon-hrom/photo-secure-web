@@ -113,6 +113,8 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
               <FeaturesTab
                 galleryCode={shareUrl ? shareUrl.split('/').pop() || '' : ''}
                 userId={userId}
+                clientUploadEnabled={linkSettings.clientUploadEnabled}
+                onClientUploadEnabledChange={(value) => setLinkSettings(prev => ({ ...prev, clientUploadEnabled: value }))}
                 clientFoldersVisibility={linkSettings.clientFoldersVisibility}
                 onClientFoldersVisibilityChange={(value) => setLinkSettings(prev => ({ ...prev, clientFoldersVisibility: value }))}
                 coverSelectEnabled={linkSettings.coverSelectEnabled}

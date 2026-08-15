@@ -29,6 +29,7 @@ interface FavoriteFolder {
 interface GalleryData {
   photographer_id?: number;
   favorite_config?: FavoriteFolder | null;
+  photos?: Photo[];
 }
 
 interface GalleryHandlersParams {
@@ -324,9 +325,12 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
 
     // Регистрация была ради скачивания — сразу запускаем архив,
     // чтобы клиенту не пришлось жать кнопку второй раз.
+    // В пустой галерее качать нечего — архив не запускаем.
     if (pendingDownloadAllRef.current) {
       pendingDownloadAllRef.current = false;
-      onDownloadAll?.();
+      if ((gallery?.photos?.length ?? 0) > 0) {
+        onDownloadAll?.();
+      }
     }
   };
 
@@ -350,7 +354,9 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
 
     if (pendingDownloadAllRef.current) {
       pendingDownloadAllRef.current = false;
-      onDownloadAll?.();
+      if ((gallery?.photos?.length ?? 0) > 0) {
+        onDownloadAll?.();
+      }
     }
   };
 
@@ -431,6 +437,8 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
      * чтобы папка для его снимков создалась без лишних вопросов.
      */
     ensureClientForUpload: async (): Promise<boolean> => {
+      // Клиент пришёл загружать, а не скачивать — гасим авто-архив.
+      pendingDownloadAllRef.current = false;
       if (clientData && clientData.client_id > 0) return true;
       const guest = await createAnonymousClient(true);
       if (guest) return true;

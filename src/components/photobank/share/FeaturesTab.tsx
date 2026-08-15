@@ -18,6 +18,8 @@ interface RegisteredClient {
 interface FeaturesTabProps {
   galleryCode: string;
   userId: number;
+  clientUploadEnabled?: boolean;
+  onClientUploadEnabledChange?: (value: boolean) => void;
   clientFoldersVisibility?: boolean;
   onClientFoldersVisibilityChange?: (value: boolean) => void;
   coverSelectEnabled?: boolean;
@@ -29,6 +31,8 @@ interface FeaturesTabProps {
 export default function FeaturesTab({
   galleryCode,
   userId,
+  clientUploadEnabled = false,
+  onClientUploadEnabledChange,
   clientFoldersVisibility = false,
   onClientFoldersVisibilityChange,
   coverSelectEnabled = false,
@@ -126,17 +130,24 @@ export default function FeaturesTab({
 
   return (
     <div className="space-y-4">
-      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
-            <Icon name="Upload" size={20} className="text-blue-600 dark:text-blue-400" />
+      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+              <Icon name="Upload" size={20} className="text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900 dark:text-white text-sm">Загрузка фото для всех по ссылке</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Кнопку «Загрузить фото» увидит каждый, кто откроет ссылку — даже если папка пустая.
+                Ниже можно включить загрузку персонально для отдельного клиента.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-medium text-gray-900 dark:text-white text-sm">Загрузка фото клиентом</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Включите загрузку напротив нужного клиента. Только он увидит кнопку «Загрузить фото».
-            </p>
-          </div>
+          <Switch
+            checked={clientUploadEnabled}
+            onCheckedChange={onClientUploadEnabledChange}
+          />
         </div>
       </div>
 
