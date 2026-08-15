@@ -1,111 +1,9 @@
-import { Card, CardContent } from '@/components/ui/card';
-import Icon from '@/components/ui/icon';
-import { useState, useMemo, useRef } from 'react';
-import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { PHOTOBANK_FOLDERS_API } from '@/components/photobank/camera-upload/CameraUploadTypes';
-import { downscaleImageToDataUrl } from '@/utils/downscaleImage';
+import { Card } from '@/components/ui/card';
 import PhotoGridHeader from './PhotoGridHeader';
-import PhotoGridCard from './PhotoGridCard';
-import PhotoGridViewer from './PhotoGridViewer';
-import PhotoExifDialog from './PhotoExifDialog';
-import VideoPlayer from './VideoPlayer';
-import { usePhotoFrames } from '@/hooks/usePhotoFrames';
-
-type SortField = 'name' | 'shot_date' | 'created_at' | 'shot_time';
-type SortDirection = 'asc' | 'desc';
-
-interface Photo {
-  id: number;
-  file_name: string;
-  data_url?: string;
-  s3_url?: string;
-  s3_key?: string;
-  thumbnail_s3_url?: string;
-  is_raw?: boolean;
-  is_video?: boolean;
-  content_type?: string;
-  file_size: number;
-  width: number | null;
-  height: number | null;
-  created_at: string;
-  shot_date?: string | null;
-  tech_reject_reason?: string | null;
-  tech_analyzed?: boolean;
-  photo_download_count?: number;
-}
-
-interface PhotoFolder {
-  id: number;
-  folder_name: string;
-  created_at: string;
-  updated_at: string;
-  photo_count: number;
-  folder_type?: 'originals' | 'tech_rejects' | 'retouch';
-  parent_folder_id?: number | null;
-}
-
-interface PhotoBankPhotoGridProps {
-  selectedFolder: PhotoFolder | null;
-  photos: Photo[];
-  loading: boolean;
-  uploading: boolean;
-  uploadProgress: { current: number; total: number; percent: number; currentFileName: string };
-  selectionMode: boolean;
-  selectedPhotos: Set<number>;
-  emailVerified: boolean;
-  onUploadPhoto: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onDeletePhoto: (photoId: number, fileName: string) => void;
-  onTogglePhotoSelection: (photoId: number) => void;
-  onCancelUpload: () => void;
-  onRestorePhoto?: (photoId: number) => void;
-  isAdminViewing?: boolean;
-  onRenameFolder?: () => void;
-  storageUsage?: { usedGb: number; limitGb: number; percent: number };
-  subfolders?: PhotoFolder[];
-  onSelectSubfolder?: (subfolder: PhotoFolder) => void;
-  onCreateSubfolder?: () => void;
-  onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
-  onDeleteSubfolder?: (subfolder: PhotoFolder) => void;
-  onNavigateToParent?: () => void;
-  clientUploadSlot?: React.ReactNode;
-  onRetouchFolder?: (folderId: number, folderName: string, photoId?: number) => void;
-  userId?: string;
-  onRefreshPhotos?: () => void;
-}
-
-const handleDownload = async (s3Key: string, fileName: string, userId: number) => {
-  try {
-    console.log('[DOWNLOAD] Starting download:', { s3Key, fileName, userId });
-    const response = await fetch(
-      `https://functions.poehali.dev/8a60ca41-e494-417e-b881-2ce4f1f4247e?key=${encodeURIComponent(s3Key)}&userId=${userId}`
-    );
-    console.log('[DOWNLOAD] Download URL response:', response.status);
-    
-    if (!response.ok) {
-      throw new Error('Failed to get download URL');
-    }
-    
-    const data = await response.json();
-    console.log('[DOWNLOAD] Pre-signed URL received:', data.url ? 'yes' : 'no');
-    
-    const fileResponse = await fetch(data.url);
-    if (!fileResponse.ok) throw new Error('Failed to fetch file');
-    const blob = await fileResponse.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
-  } catch (error) {
-    console.error('[DOWNLOAD] Download failed:', error);
-    alert('Ошибка при скачивании файла. Попробуйте позже.');
-  }
-};
+import PhotoGridContent from './photoGrid/PhotoGridContent';
+import PhotoGridDialogs from './photoGrid/PhotoGridDialogs';
+import usePhotoGridState from './photoGrid/usePhotoGridState';
+import type { PhotoBankPhotoGridProps } from './photoGrid/photoGridTypes';
 
 const PhotoBankPhotoGrid = ({
   selectedFolder,
@@ -135,228 +33,16 @@ const PhotoBankPhotoGrid = ({
   userId,
   onRefreshPhotos
 }: PhotoBankPhotoGridProps) => {
-  const [viewPhoto, setViewPhoto] = useState<Photo | null>(null);
-  const [exifPhoto, setExifPhoto] = useState<Photo | null>(null);
-  const [viewVideo, setViewVideo] = useState<Photo | null>(null);
-  const [posterPhoto, setPosterPhoto] = useState<Photo | null>(null);
-  const [posterBusy, setPosterBusy] = useState(false);
-  const posterFileInputRef = useRef<HTMLInputElement | null>(null);
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const { frameMode, setFrameMode, getFrameStyle } = usePhotoFrames();
-  const [regenerating, setRegenerating] = useState(false);
-  const [regenProgress, setRegenProgress] = useState<{ done: number; total: number } | null>(null);
-
-  const rawPhotoIds = useMemo(
-    () => photos.filter((p) => p.is_raw).map((p) => p.id),
-    [photos]
-  );
-
-  const handleRegenerateThumbnails = async () => {
-    if (regenerating || rawPhotoIds.length === 0) return;
-    setRegenerating(true);
-    setRegenProgress({ done: 0, total: rawPhotoIds.length });
-
-    const GEN_URL = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c';
-    const BATCH = 5;
-    let done = 0;
-    let failed = 0;
-    const toastId = toast.loading(`Пересоздаю превью: 0 из ${rawPhotoIds.length}`);
-
-    try {
-      for (let i = 0; i < rawPhotoIds.length; i += BATCH) {
-        const batch = rawPhotoIds.slice(i, i + BATCH);
-        try {
-          const res = await fetch(GEN_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ photo_ids: batch, force: true }),
-          });
-          const data = await res.json();
-          done += data?.successful ?? batch.length;
-        } catch (e) {
-          failed += batch.length;
-        }
-        setRegenProgress({ done: Math.min(done, rawPhotoIds.length), total: rawPhotoIds.length });
-        toast.loading(`Пересоздаю превью: ${Math.min(done, rawPhotoIds.length)} из ${rawPhotoIds.length}`, { id: toastId });
-      }
-
-      if (failed === 0) {
-        toast.success(`Готово! Обновлено превью: ${done}. Обновите страницу (Ctrl+F5), если картинки не изменились.`, { id: toastId, duration: 8000 });
-      } else {
-        toast.warning(`Обновлено ${done}, не удалось ${failed}. Попробуйте ещё раз позже.`, { id: toastId, duration: 8000 });
-      }
-    } finally {
-      setRegenerating(false);
-      setRegenProgress(null);
-    }
-  };
-
-  const naturalCompare = (a: string, b: string): number => {
-    const re = /(\d+)|(\D+)/g;
-    const aParts = a.match(re) || [];
-    const bParts = b.match(re) || [];
-    for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-      if (i >= aParts.length) return -1;
-      if (i >= bParts.length) return 1;
-      const aNum = parseInt(aParts[i]);
-      const bNum = parseInt(bParts[i]);
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        if (aNum !== bNum) return aNum - bNum;
-      } else {
-        const cmp = aParts[i].localeCompare(bParts[i]);
-        if (cmp !== 0) return cmp;
-      }
-    }
-    return 0;
-  };
-
-  const sortedPhotos = useMemo(() => {
-    const sorted = [...photos].sort((a, b) => {
-      let cmp = 0;
-      if (sortField === 'name') {
-        cmp = naturalCompare(a.file_name.toLowerCase(), b.file_name.toLowerCase());
-      } else if (sortField === 'shot_date') {
-        const aDate = a.shot_date || a.created_at || '';
-        const bDate = b.shot_date || b.created_at || '';
-        cmp = aDate.localeCompare(bDate);
-      } else if (sortField === 'shot_time') {
-        const toTime = (d?: string | null) => {
-          if (!d) return '';
-          const t = new Date(d);
-          return `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
-        };
-        cmp = toTime(a.shot_date).localeCompare(toTime(b.shot_date));
-      } else {
-        const aDate = a.created_at || '';
-        const bDate = b.created_at || '';
-        cmp = aDate.localeCompare(bDate);
-      }
-      return sortDirection === 'asc' ? cmp : -cmp;
-    });
-    return sorted;
-  }, [photos, sortField, sortDirection]);
-
-  // Анализ пропусков в нумерации кадров — признак того, что не все файлы догрузились
-  const missingFrames = useMemo(() => {
-    if (selectedFolder?.folder_type === 'tech_rejects') return null;
-    const nums: number[] = [];
-    for (const p of photos) {
-      const base = (p.file_name || '').replace(/\.[A-Za-z0-9]+$/, '');
-      const matches = base.match(/\d+/g);
-      if (matches && matches.length > 0) nums.push(parseInt(matches[matches.length - 1], 10));
-    }
-    if (nums.length < 5) return null;
-    const set = new Set(nums);
-    const lo = Math.min(...nums);
-    const hi = Math.max(...nums);
-    if (hi - lo <= 0 || hi - lo > 100000) return null;
-    const missing: number[] = [];
-    for (let n = lo; n <= hi; n++) {
-      if (!set.has(n)) missing.push(n);
-    }
-    if (missing.length === 0) return null;
-    return { count: missing.length, expected: hi - lo + 1, actual: set.size, sample: missing.slice(0, 30) };
-  }, [photos, selectedFolder]);
-
-  const handleSortChange = (field: SortField) => {
-    if (field === sortField) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection(field === 'name' ? 'asc' : 'desc');
-    }
-  };
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 Б';
-    const k = 1024;
-    const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-  };
-
-  const applyVideoPoster = async (payload: Record<string, unknown>) => {
-    if (!posterPhoto || !userId) return;
-    setPosterBusy(true);
-    try {
-      const res = await fetch(PHOTOBANK_FOLDERS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({ action: 'set_video_poster', photo_id: posterPhoto.id, ...payload }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Ошибка сервера (${res.status})`);
-      }
-      toast.success('Обложка обновлена');
-      setPosterPhoto(null);
-      onRefreshPhotos?.();
-    } catch (e) {
-      console.error('[VIDEO_POSTER] failed:', e);
-      toast.error(e instanceof Error ? `Не удалось обновить обложку: ${e.message}` : 'Не удалось обновить обложку');
-    } finally {
-      setPosterBusy(false);
-    }
-  };
-
-  const handlePosterFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setPosterBusy(true);
-    try {
-      // Уменьшаем картинку до отправки — иначе большой JPG в base64 упирается
-      // в лимит тела облачной функции и обложка не сохраняется.
-      const imageData = await downscaleImageToDataUrl(file, 1280, 0.85);
-      await applyVideoPoster({ image_data: imageData });
-    } catch (err) {
-      console.error('[VIDEO_POSTER] prepare failed:', err);
-      toast.error('Не удалось обработать картинку');
-      setPosterBusy(false);
-    }
-  };
-
-  const handleResetPoster = () => applyVideoPoster({ reset: true });
-
-  const handlePhotoClick = (photo: Photo) => {
-    if (!selectionMode) {
-      if (photo.is_video) {
-        setViewVideo(photo);
-      } else {
-        setViewPhoto(photo);
-      }
-    } else {
-      onTogglePhotoSelection(photo.id);
-    }
-  };
-
-  const handleNavigate = (direction: 'prev' | 'next') => {
-    if (!viewPhoto) return;
-    const currentIndex = sortedPhotos.findIndex(p => p.id === viewPhoto.id);
-    if (currentIndex === -1) return;
-    
-    const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex >= 0 && newIndex < sortedPhotos.length) {
-      setViewPhoto(sortedPhotos[newIndex]);
-    }
-  };
+  const grid = usePhotoGridState({
+    photos,
+    selectedFolder,
+    selectionMode,
+    onTogglePhotoSelection,
+    userId,
+    onRefreshPhotos,
+  });
 
   const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
-  
-  const getRejectionReasonLabel = (reason?: string | null) => {
-    const labels: Record<string, string> = {
-      blur: 'Размытие',
-      overexposed: 'Пересвет',
-      underexposed: 'Недосвет',
-      noise: 'Шум',
-      low_contrast: 'Низкий контраст',
-      corrupt_file: 'Поврежденный файл',
-      analysis_error: 'Ошибка анализа',
-      ok: 'OK'
-    };
-    return reason ? labels[reason] || reason : 'Неизвестно';
-  };
 
   return (
     <Card>
@@ -375,225 +61,55 @@ const PhotoBankPhotoGrid = ({
         onOpenSubfolderSettings={onOpenSubfolderSettings}
         onDeleteSubfolder={onDeleteSubfolder}
         onNavigateToParent={onNavigateToParent}
-        missingFrames={missingFrames}
-        rawCount={rawPhotoIds.length}
-        regenerating={regenerating}
-        regenProgress={regenProgress}
-        onRegenerateThumbnails={handleRegenerateThumbnails}
-      />
-      <CardContent>
-        {isTechRejectsFolder && photos.length > 0 && (
-          <div className="mb-4 p-2 sm:p-3 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-2 text-red-700">
-              <Icon name="AlertTriangle" size={16} className="sm:w-[18px] sm:h-[18px] flex-shrink-0" />
-              <p className="text-xs sm:text-sm font-medium">
-                Папка с техническим браком ({photos.length} фото)
-              </p>
-            </div>
-            <p className="text-[10px] sm:text-xs text-red-600 mt-1">
-              Эти фото автоматически определены как технический брак. Вы можете восстановить их в оригиналы.
-            </p>
-          </div>
-        )}
-
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Icon name="Loader2" size={32} className="animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {!loading && !selectedFolder && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Icon name="FolderOpen" size={48} className="mx-auto mb-4 opacity-50" />
-            <p>Выберите папку для просмотра фотографий</p>
-          </div>
-        )}
-
-        {!loading && selectedFolder && photos.length === 0 && !uploading && (
-          <>
-            {clientUploadSlot}
-            <div className="text-center py-12 text-muted-foreground">
-              <Icon name="ImageOff" size={48} className="mx-auto mb-4 opacity-50" />
-              <p>В этой папке пока нет фотографий</p>
-              {!isTechRejectsFolder && <p className="text-sm mt-2">Загрузите фото, чтобы начать работу</p>}
-            </div>
-          </>
-        )}
-
-        {!loading && photos.length > 0 && (
-          <>
-            <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-              <span className="text-xs text-muted-foreground mr-1">Сортировка:</span>
-              {([
-                { field: 'name' as SortField, label: 'По имени' },
-                { field: 'shot_date' as SortField, label: 'По дате съёмки' },
-                { field: 'shot_time' as SortField, label: 'По времени' },
-                { field: 'created_at' as SortField, label: 'По дате загрузки' },
-              ]).map(({ field, label }) => (
-                <button
-                  key={field}
-                  onClick={() => handleSortChange(field)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                    sortField === field 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                >
-                  {label}
-                  {sortField === field && (
-                    <Icon name={sortDirection === 'asc' ? 'ArrowUp' : 'ArrowDown'} size={12} />
-                  )}
-                </button>
-              ))}
-              <div className="ml-auto flex items-center gap-1">
-                <span className="text-xs text-muted-foreground mr-1">Рамки:</span>
-                {([
-                  { mode: 'none' as const, label: 'Нет', icon: 'Square' },
-                  { mode: 'theme' as const, label: 'Тема', icon: 'Frame' },
-                  { mode: 'adaptive' as const, label: 'Адаптивные', icon: 'Palette' },
-                ]).map(({ mode, label, icon }) => (
-                  <button
-                    key={mode}
-                    onClick={() => setFrameMode(mode)}
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                      frameMode === mode
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    <Icon name={icon} size={12} />
-                    <span className="hidden sm:inline">{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            {clientUploadSlot}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-              {sortedPhotos.map((photo) => (
-                <div key={photo.id} className="relative">
-                  <PhotoGridCard
-                    photo={photo}
-                    selectionMode={selectionMode}
-                    isSelected={selectedPhotos.has(photo.id)}
-                    emailVerified={emailVerified}
-                    isAdminViewing={isAdminViewing}
-                    onPhotoClick={handlePhotoClick}
-                    onDownload={handleDownload}
-                    onDeletePhoto={onDeletePhoto}
-                    onShowExif={(photo) => setExifPhoto(photo)}
-                    onRetouch={
-                      onRetouchFolder && selectedFolder
-                        ? () => onRetouchFolder(selectedFolder.id, selectedFolder.folder_name, photo.id)
-                        : undefined
-                    }
-                    onSetVideoPoster={userId ? (p) => setPosterPhoto(p) : undefined}
-                    frameMode={frameMode}
-                    getFrameStyle={getFrameStyle}
-                  />
-                {isTechRejectsFolder && photo.tech_reject_reason && (
-                  <div className="mt-1 space-y-1">
-                    <div className="text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 bg-red-100 text-red-700 rounded text-center truncate" title={getRejectionReasonLabel(photo.tech_reject_reason)}>
-                      {getRejectionReasonLabel(photo.tech_reject_reason)}
-                    </div>
-                    {onRestorePhoto && (
-                      <button
-                        onClick={() => onRestorePhoto(photo.id)}
-                        className="w-full text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 bg-green-100 hover:bg-green-200 active:bg-green-300 text-green-700 rounded transition-colors flex items-center justify-center gap-1 touch-manipulation"
-                      >
-                        <Icon name="RotateCcw" size={12} />
-                        <span className="hidden xs:inline">Восстановить</span>
-                        <span className="xs:hidden">↻</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          </>
-        )}
-      </CardContent>
-
-      <PhotoGridViewer
-        viewPhoto={viewPhoto}
-        photos={sortedPhotos}
-        onClose={() => setViewPhoto(null)}
-        onNavigate={handleNavigate}
-        onDownload={handleDownload}
-        formatBytes={formatBytes}
+        missingFrames={grid.missingFrames}
+        rawCount={grid.rawPhotoIds.length}
+        regenerating={grid.regenerating}
+        regenProgress={grid.regenProgress}
+        onRegenerateThumbnails={grid.handleRegenerateThumbnails}
       />
 
-      {exifPhoto && (
-        <PhotoExifDialog
-          open={!!exifPhoto}
-          onOpenChange={(open) => !open && setExifPhoto(null)}
-          s3Key={exifPhoto.s3_key || ''}
-          fileName={exifPhoto.file_name}
-          photoUrl={exifPhoto.thumbnail_s3_url || exifPhoto.s3_url || exifPhoto.data_url}
-          photo={exifPhoto}
-        />
-      )}
-
-      {viewVideo && (
-        <VideoPlayer
-          src={viewVideo.s3_url || ''}
-          poster={viewVideo.thumbnail_s3_url}
-          fileName={viewVideo.file_name}
-          onClose={() => setViewVideo(null)}
-        />
-      )}
-
-      <input
-        ref={posterFileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handlePosterFileSelected}
+      <PhotoGridContent
+        loading={loading}
+        uploading={uploading}
+        photos={photos}
+        sortedPhotos={grid.sortedPhotos}
+        selectedFolder={selectedFolder}
+        isTechRejectsFolder={isTechRejectsFolder}
+        clientUploadSlot={clientUploadSlot}
+        sortField={grid.sortField}
+        sortDirection={grid.sortDirection}
+        onSortChange={grid.handleSortChange}
+        frameMode={grid.frameMode}
+        setFrameMode={grid.setFrameMode}
+        selectionMode={selectionMode}
+        selectedPhotos={selectedPhotos}
+        emailVerified={emailVerified}
+        isAdminViewing={isAdminViewing}
+        onPhotoClick={grid.handlePhotoClick}
+        onDeletePhoto={onDeletePhoto}
+        onShowExif={(photo) => grid.setExifPhoto(photo)}
+        onRetouchFolder={onRetouchFolder}
+        onSetVideoPoster={userId ? (p) => grid.setPosterPhoto(p) : undefined}
+        getFrameStyle={grid.getFrameStyle}
+        onRestorePhoto={onRestorePhoto}
       />
 
-      <Dialog open={!!posterPhoto} onOpenChange={(open) => !open && !posterBusy && setPosterPhoto(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Обложка видео</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            {posterPhoto?.thumbnail_s3_url ? (
-              <img
-                src={posterPhoto.thumbnail_s3_url}
-                alt="Текущая обложка"
-                className="w-full rounded-lg object-contain max-h-48 bg-muted"
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Сейчас обложка берётся из первого кадра видео. Можно загрузить свою картинку.
-              </p>
-            )}
-            <Button
-              className="w-full"
-              disabled={posterBusy}
-              onClick={() => posterFileInputRef.current?.click()}
-            >
-              {posterBusy ? (
-                <Icon name="Loader2" size={16} className="animate-spin mr-2" />
-              ) : (
-                <Icon name="Upload" size={16} className="mr-2" />
-              )}
-              Загрузить свою картинку
-            </Button>
-            {posterPhoto?.thumbnail_s3_url && (
-              <Button
-                variant="outline"
-                className="w-full"
-                disabled={posterBusy}
-                onClick={handleResetPoster}
-              >
-                <Icon name="RotateCcw" size={16} className="mr-2" />
-                Сбросить на первый кадр
-              </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PhotoGridDialogs
+        viewPhoto={grid.viewPhoto}
+        sortedPhotos={grid.sortedPhotos}
+        onCloseViewer={() => grid.setViewPhoto(null)}
+        onNavigate={grid.handleNavigate}
+        exifPhoto={grid.exifPhoto}
+        setExifPhoto={grid.setExifPhoto}
+        viewVideo={grid.viewVideo}
+        setViewVideo={grid.setViewVideo}
+        posterPhoto={grid.posterPhoto}
+        setPosterPhoto={grid.setPosterPhoto}
+        posterBusy={grid.posterBusy}
+        posterFileInputRef={grid.posterFileInputRef}
+        onPosterFileSelected={grid.handlePosterFileSelected}
+        onResetPoster={grid.handleResetPoster}
+      />
     </Card>
   );
 };
