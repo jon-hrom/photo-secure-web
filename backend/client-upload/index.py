@@ -170,7 +170,7 @@ def handler(event: dict, context) -> dict:
             
             if action == 'photographer_rename':
                 upload_folder_id = params.get('upload_folder_id')
-                folder_name = params.get('folder_name', '').strip()
+                folder_name = (params.get('folder_name') or '').strip()
                 if not upload_folder_id or not folder_name:
                     return error_response(400, 'upload_folder_id and folder_name required')
                 return photographer_rename_folder(cur, conn, int(upload_folder_id), int(user_id), folder_name)
@@ -223,7 +223,8 @@ def check_client_upload_allowed(cur, client_id, gallery_code):
         f"""
         SELECT 1 FROM {SCHEMA}.folder_short_links
         WHERE short_code = %s
-          AND COALESCE(client_upload_enabled, FALSE) = TRUE
+          AND (COALESCE(client_upload_enabled, FALSE) = TRUE
+               OR COALESCE(client_folders_visibility, FALSE) = TRUE)
         """,
         (gallery_code,)
     )
@@ -457,8 +458,8 @@ def photographer_delete_folder(cur, conn, upload_folder_id, user_id):
 
 def create_client_folder(cur, conn, data):
     short_code = data.get('short_code')
-    folder_name = data.get('folder_name', '').strip()
-    client_name = data.get('client_name', '').strip()
+    folder_name = (data.get('folder_name') or '').strip()
+    client_name = (data.get('client_name') or '').strip()
     client_id = data.get('client_id')
     
     if not short_code or not folder_name or not client_id:
@@ -900,7 +901,7 @@ def rename_client_folder(cur, conn, data):
     upload_folder_id = data.get('upload_folder_id')
     short_code = data.get('short_code')
     client_id = data.get('client_id')
-    folder_name = data.get('folder_name', '').strip()
+    folder_name = (data.get('folder_name') or '').strip()
 
     if not upload_folder_id or not short_code or not client_id or not folder_name:
         return error_response(400, 'upload_folder_id, short_code, client_id and folder_name required')

@@ -295,6 +295,31 @@ const ClientUploadViewer = ({
         </span>
       </div>
 
+      {/* Быстрый доступ: папки клиентов строкой, как подпапки фотобанка */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+        {folders.map((f) => {
+          const isActive = expandedId === f.id;
+          return (
+            <button
+              key={f.id}
+              onClick={() => toggleExpand(f.id)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 border flex-shrink-0 ${
+                isActive
+                  ? 'bg-teal-600 text-white border-teal-600'
+                  : 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800'
+              }`}
+              title={f.client_name ? `Клиент: ${f.client_name}` : undefined}
+            >
+              <Icon name="FolderHeart" size={14} className="flex-shrink-0" />
+              <span>{f.folder_name}</span>
+              <span className={isActive ? 'opacity-80' : 'opacity-60'}>
+                {f.photo_count || 0}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {folders.map((folder) => (
         <ClientUploadFolderCard
           key={folder.id}
