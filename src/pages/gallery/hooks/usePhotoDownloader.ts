@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import * as zip from '@zip.js/zip.js';
+import { saveBlobToDevice } from '@/utils/savePhoto';
 
 interface Photo {
   id: number;
@@ -57,31 +58,16 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         throw new Error(errorData.error || 'Ошибка скачивания файла');
       }
 
-      // Для presigned URL получаем JSON с ссылкой
+      let blob: Blob;
       if (isLargeFile) {
         const data = await response.json();
         const fileResponse = await fetch(data.download_url);
-        const blob = await fileResponse.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = photo.file_name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        blob = await fileResponse.blob();
       } else {
-        // Для маленьких файлов получаем blob напрямую
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = photo.file_name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        blob = await response.blob();
       }
+
+      await saveBlobToDevice(blob, photo.file_name);
     } catch (err) {
       console.error('Ошибка скачивания:', err);
       alert('Ошибка при скачивании файла. Попробуйте ещё раз.');

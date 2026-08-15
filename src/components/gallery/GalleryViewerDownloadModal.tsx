@@ -1,4 +1,5 @@
 import Icon from '@/components/ui/icon';
+import { savePhotoToDevice, isIOS } from '@/utils/savePhoto';
 
 interface Photo {
   id: number;
@@ -15,44 +16,24 @@ interface GalleryViewerDownloadModalProps {
 }
 
 export default function GalleryViewerDownloadModal({ photo, onClose, onDownload }: GalleryViewerDownloadModalProps) {
-  const downloadFile = async (url: string, fileName: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const objectUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(objectUrl);
-    } catch {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-  };
+  const ios = isIOS();
 
   const handleWebVersion = async () => {
+    const url = photo.thumbnail_url!;
+    const name = `web_${photo.file_name.replace(/\.[^.]+$/, '.jpg')}`;
+    await savePhotoToDevice(url, name);
     onClose();
-    await downloadFile(
-      photo.thumbnail_url!,
-      `web_${photo.file_name.replace(/\.[^.]+$/, '.jpg')}`
-    );
   };
 
   const handleOriginal = async () => {
-    onClose();
-    if (onDownload) {
+    if (onDownload && !ios) {
+      onClose();
       onDownload(photo);
-    } else {
-      await downloadFile(photo.photo_url, photo.file_name);
+      return;
     }
+    await savePhotoToDevice(photo.photo_url, photo.file_name);
+    if (onDownload) onDownload(photo);
+    onClose();
   };
 
   return (
@@ -95,6 +76,12 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
             </div>
           </button>
         </div>
+
+        {ios && (
+          <p className="mt-4 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            Откроется меню iPhone — выберите «Сохранить в Фото», и снимок попадёт прямо в галерею.
+          </p>
+        )}
 
         <button
           onClick={onClose}

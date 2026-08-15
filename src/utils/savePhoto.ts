@@ -1,0 +1,75 @@
+export const isIOS = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  const iOSDevice = /iPad|iPhone|iPod/.test(ua);
+  const iPadOS = /Macintosh/.test(ua) && typeof document !== 'undefined' && 'ontouchend' in document;
+  return iOSDevice || iPadOS;
+};
+
+const canShareFiles = (files: File[]): boolean => {
+  const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+  return typeof nav.share === 'function' && typeof nav.canShare === 'function' && nav.canShare({ files });
+};
+
+const fallbackDownload = (url: string, fileName: string) => {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
+/**
+ * Сохраняет уже загруженный файл на устройство.
+ * На iPhone/iPad предлагает системное «Сохранить в Фото»,
+ * на остальных устройствах — обычная загрузка в папку загрузок.
+ */
+export const saveBlobToDevice = async (
+  blob: Blob,
+  fileName: string
+): Promise<'shared' | 'downloaded'> => {
+  const isImage = (blob.type || '').startsWith('image/') || /\.(jpe?g|png|heic|webp|gif)$/i.test(fileName);
+
+  if (isIOS() && isImage) {
+    try {
+      const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+      if (canShareFiles([file])) {
+        await (navigator as Navigator & { share: (d: ShareData) => Promise<void> }).share({
+          files: [file],
+        });
+        return 'shared';
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return 'shared';
+    }
+  }
+
+  const objectUrl = window.URL.createObjectURL(blob);
+  fallbackDownload(objectUrl, fileName);
+  setTimeout(() => window.URL.revokeObjectURL(objectUrl), 10000);
+  return 'downloaded';
+};
+
+/**
+ * Сохраняет фото на устройство.
+ * На iPhone/iPad открывает системное окно «Поделиться» с пунктом
+ * «Сохранить в Фото» — снимок попадает прямо в галерею,
+ * минуя папку «Загрузки». На остальных устройствах — обычная загрузка.
+ */
+export const savePhotoToDevice = async (
+  url: string,
+  fileName: string
+): Promise<'shared' | 'downloaded'> => {
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    return await saveBlobToDevice(blob, fileName);
+  } catch {
+    fallbackDownload(url, fileName);
+    return 'downloaded';
+  }
+};

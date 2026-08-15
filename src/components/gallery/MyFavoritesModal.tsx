@@ -5,6 +5,7 @@ import PhotoGridViewer from '@/components/photobank/PhotoGridViewer';
 import { Photo, FavoritePhoto, FAVORITES_URL } from './myFavorites/types';
 import MyFavoritesSelectionBar from './myFavorites/MyFavoritesSelectionBar';
 import MyFavoritesGrid from './myFavorites/MyFavoritesGrid';
+import { saveBlobToDevice, savePhotoToDevice } from '@/utils/savePhoto';
 
 interface MyFavoritesModalProps {
   isOpen: boolean;
@@ -221,23 +222,10 @@ export default function MyFavoritesModal({
             
             if (isLargeFile) {
               const data = await response.json();
-              const a = document.createElement('a');
-              a.href = data.download_url;
-              a.download = fileName;
-              a.target = '_blank';
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
+              await savePhotoToDevice(data.download_url, fileName);
             } else {
               const blob = await response.blob();
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = fileName;
-              document.body.appendChild(a);
-              a.click();
-              window.URL.revokeObjectURL(url);
-              document.body.removeChild(a);
+              await saveBlobToDevice(blob, fileName);
             }
           } catch (e) {
             console.error('Download failed:', e);
