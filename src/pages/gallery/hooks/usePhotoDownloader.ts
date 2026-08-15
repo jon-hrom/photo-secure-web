@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as zip from '@zip.js/zip.js';
-import { saveBlobToDevice } from '@/utils/savePhoto';
+import { saveBlobToDevice, isIOS, savePhotosToGallery } from '@/utils/savePhoto';
 
 interface Photo {
   id: number;
@@ -129,6 +129,37 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       const totalFiles = data.files.length;
 
       setDownloadProgress({ show: true, current: 0, total: totalFiles, status: 'downloading' });
+
+      // На iPhone предлагаем сохранить снимки прямо в «Фото»,
+      // чтобы клиенту не пришлось распаковывать архив на телефоне.
+      if (isIOS() && !supportsFileSystemAccess) {
+        try {
+          const items: { blob: Blob; fileName: string }[] = [];
+          for (let i = 0; i < data.files.length; i++) {
+            if (abortController.signal.aborted) break;
+            const file = data.files[i];
+            try {
+              const fileResponse = await fetch(file.url, { signal: abortController.signal });
+              if (fileResponse.ok) {
+                items.push({ blob: await fileResponse.blob(), fileName: file.filename });
+              }
+            } catch (err: any) {
+              if (err.name === 'AbortError') break;
+            }
+            setDownloadProgress({ show: true, current: i + 1, total: totalFiles, status: 'downloading' });
+          }
+
+          if (!abortController.signal.aborted && await savePhotosToGallery(items)) {
+            setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
+            setTimeout(() => {
+              setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
+              setDownloadingAll(false);
+              setDownloadAbortController(null);
+            }, 5000);
+            return;
+          }
+        } catch { /* соберём архив как обычно */ }
+      }
 
       if (supportsFileSystemAccess && writable) {
         const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true, zip64: false });

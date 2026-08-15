@@ -6,6 +6,7 @@ import GallerySubfolderGrid from './components/GallerySubfolderGrid';
 import GalleryJustifiedLayout from './components/GalleryJustifiedLayout';
 import GallerySelectionBar from './components/GallerySelectionBar';
 import useGalleryTheme from './hooks/useGalleryTheme';
+import { isIOS, savePhotosToGallery } from '@/utils/savePhoto';
 
 export interface Photo {
   id: number;
@@ -208,6 +209,26 @@ export default function GalleryGrid({
     if (!photos.length) return;
     setDownloadingSelected(true);
     setSelectedProgress(0);
+
+    if (isIOS()) {
+      try {
+        const items: { blob: Blob; fileName: string }[] = [];
+        for (let i = 0; i < photos.length; i++) {
+          const resp = await fetch(photos[i].photo_url);
+          if (resp.ok) {
+            items.push({ blob: await resp.blob(), fileName: photos[i].file_name });
+          }
+          setSelectedProgress(Math.round(((i + 1) / photos.length) * 100));
+        }
+        if (await savePhotosToGallery(items)) {
+          setSelectionMode(false);
+          setSelectedIds(new Set());
+          setDownloadingSelected(false);
+          return;
+        }
+      } catch { /* соберём архив как обычно */ }
+    }
+
     try {
       const zipFileStream = new zip.BlobWriter();
       const zipWriter = new zip.ZipWriter(zipFileStream, { zip64: false });

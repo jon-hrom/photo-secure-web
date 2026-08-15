@@ -54,6 +54,31 @@ export const saveBlobToDevice = async (
 };
 
 /**
+ * Пытается сохранить сразу несколько фото в галерею iPhone
+ * одним системным окном «Поделиться» → «Сохранить N изображений».
+ * Возвращает false, если устройство или браузер так не умеют —
+ * тогда вызывающий код должен собрать привычный ZIP-архив.
+ */
+export const savePhotosToGallery = async (
+  items: { blob: Blob; fileName: string }[]
+): Promise<boolean> => {
+  if (!isIOS() || items.length === 0) return false;
+
+  try {
+    const files = items.map(
+      ({ blob, fileName }) => new File([blob], fileName, { type: blob.type || 'image/jpeg' })
+    );
+    if (!canShareFiles(files)) return false;
+
+    await (navigator as Navigator & { share: (d: ShareData) => Promise<void> }).share({ files });
+    return true;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return true;
+    return false;
+  }
+};
+
+/**
  * Сохраняет фото на устройство.
  * На iPhone/iPad открывает системное окно «Поделиться» с пунктом
  * «Сохранить в Фото» — снимок попадает прямо в галерею,
