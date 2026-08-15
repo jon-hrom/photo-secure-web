@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { isIOS, saveBlobToDevice, shareBlobNow, canShareBlob } from '@/utils/savePhoto';
+import { getThumbUrl } from '@/utils/imageThumb';
 
 interface Photo {
   id: number;
@@ -23,54 +24,82 @@ const DOWNLOAD_API = 'https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32
 export default function GalleryViewerDownloadModal({ photo, onClose, onDownload }: GalleryViewerDownloadModalProps) {
   const ios = isIOS();
   const [busy, setBusy] = useState<'web' | 'original' | null>(null);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [readyBlob, setReadyBlob] = useState<{ blob: Blob; fileName: string } | null>(null);
+  const [directUrl, setDirectUrl] = useState<{ url: string; fileName: string } | null>(null);
 
-  const fetchOriginal = async (): Promise<Blob> => {
-    if (photo.s3_key || photo.id) {
-      const params = new URLSearchParams({
-        photo_id: photo.id.toString(),
-        presigned: 'true',
-        ...(photo.s3_key ? { s3_key: photo.s3_key } : {}),
-        ...(photo.folder_id ? { folder_id: photo.folder_id.toString() } : {}),
-      });
-      try {
-        const resp = await fetch(`${DOWNLOAD_API}?${params.toString()}`);
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data.download_url) {
-            const file = await fetch(data.download_url, { mode: 'cors' });
-            if (file.ok) return await file.blob();
-          }
-        }
-      } catch { /* пробуем прямую ссылку ниже */ }
+  const getOriginalUrl = async (): Promise<string> => {
+    const params = new URLSearchParams({
+      photo_id: photo.id.toString(),
+      presigned: 'true',
+      ...(photo.s3_key ? { s3_key: photo.s3_key } : {}),
+      ...(photo.folder_id ? { folder_id: photo.folder_id.toString() } : {}),
+    });
+    try {
+      const resp = await fetch(`${DOWNLOAD_API}?${params.toString()}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.download_url) return data.download_url;
+      }
+    } catch { /* ниже вернём прямую ссылку */ }
+    return photo.photo_url;
+  };
+
+  const fetchWithProgress = async (url: string): Promise<Blob> => {
+    const resp = await fetch(url, { mode: 'cors' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const total = Number(resp.headers.get('content-length')) || photo.file_size || 0;
+    if (!resp.body || !total) return await resp.blob();
+
+    const reader = resp.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        loaded += value.length;
+        setProgress(Math.min(99, Math.round((loaded / total) * 100)));
+      }
     }
-
-    const direct = await fetch(photo.photo_url, { mode: 'cors' });
-    if (!direct.ok) throw new Error(`HTTP ${direct.status}`);
-    return await direct.blob();
+    setProgress(100);
+    return new Blob(chunks as BlobPart[], { type: resp.headers.get('content-type') || 'image/jpeg' });
   };
 
   const run = async (kind: 'web' | 'original') => {
     setError(null);
     setBusy(kind);
+    setProgress(0);
     try {
-      let blob: Blob;
-      let fileName: string;
+      const fileName =
+        kind === 'web'
+          ? `web_${photo.file_name.trim().replace(/\.[^.]+$/, '')}.jpg`
+          : photo.file_name.trim() || `photo_${photo.id}.jpg`;
 
-      if (kind === 'web') {
-        fileName = `web_${photo.file_name.trim().replace(/\.[^.]+$/, '')}.jpg`;
-        const resp = await fetch(photo.thumbnail_url!, { mode: 'cors' });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        blob = await resp.blob();
-      } else {
-        fileName = photo.file_name.trim() || `photo_${photo.id}.jpg`;
-        blob = await fetchOriginal();
-      }
+      const originalUrl = await getOriginalUrl();
+      // Веб-версия: уменьшаем оригинал на лету до 2560px — это ~1,5 МБ
+      // и отличное качество, вместо крошечного превью 500px.
+      const url = kind === 'web' ? getThumbUrl(originalUrl, 2560) || photo.thumbnail_url! : originalUrl;
 
-      if (ios && canShareBlob(blob, fileName)) {
-        setReadyBlob({ blob, fileName });
+      // Ссылка на файл — гарантированный запасной путь для iPhone,
+      // если системное «Сохранить в Фото» окажется недоступным.
+      setDirectUrl({ url, fileName });
+
+      const blob = await fetchWithProgress(url);
+
+      if (ios) {
+        if (canShareBlob(blob, fileName)) {
+          setReadyBlob({ blob, fileName });
+          setBusy(null);
+          return;
+        }
+        // Safari не даёт сохранить файл напрямую — открываем фото,
+        // клиент сохранит его долгим нажатием.
         setBusy(null);
+        setError(null);
         return;
       }
 
@@ -78,15 +107,19 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
       if (kind === 'original' && onDownload) onDownload(photo);
       setBusy(null);
       onClose();
-    } catch (e) {
+    } catch {
       setBusy(null);
-      setError('Не удалось подготовить файл. Проверьте соединение и попробуйте ещё раз.');
+      setError('Не удалось загрузить файл. Проверьте связь или откройте фото по ссылке ниже.');
     }
   };
 
   const handleSaveReady = async () => {
     if (!readyBlob) return;
     const ok = await shareBlobNow(readyBlob.blob, readyBlob.fileName);
+    if (!ok && directUrl) {
+      window.location.href = directUrl.url;
+      return;
+    }
     if (!ok) {
       await saveBlobToDevice(readyBlob.blob, readyBlob.fileName);
     }
@@ -122,6 +155,47 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
             <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
               Откроется меню iPhone — пролистайте до пункта «Сохранить изображение», и снимок появится в галерее.
             </p>
+            {directUrl && (
+              <a
+                href={directUrl.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-center text-xs text-blue-600 dark:text-blue-400 underline py-1"
+              >
+                Не получилось? Открыть фото и сохранить долгим нажатием
+              </a>
+            )}
+          </div>
+        ) : busy ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+              <Icon name="Loader" size={18} className="animate-spin" />
+              <span>Загружаем фото… {progress}%</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+              <div
+                className="h-full bg-green-600 transition-all duration-200"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Оригинал весит около {Math.max(1, Math.round((photo.file_size || 0) / (1024 * 1024)))} МБ — не закрывайте окно.
+            </p>
+          </div>
+        ) : ios && directUrl && !readyBlob ? (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-700 dark:text-gray-200">
+              Фото готово. Откройте его и удерживайте палец на снимке, затем выберите «Добавить в Фото».
+            </p>
+            <a
+              href={directUrl.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition-colors"
+            >
+              <Icon name="ExternalLink" size={18} />
+              Открыть фото
+            </a>
           </div>
         ) : (
           <div className="space-y-3">
@@ -137,7 +211,7 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white text-sm">Веб-версия</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {busy === 'web' ? 'Готовим файл…' : 'Меньше размер, быстрее загрузка'}
+                    Хорошее качество, быстро — для телефона и соцсетей
                   </p>
                 </div>
               </button>
@@ -153,7 +227,7 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
               <div>
                 <p className="font-medium text-gray-900 dark:text-white text-sm">Оригинал</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {busy === 'original' ? 'Готовим файл, это может занять время…' : 'Полное качество, оригинальный файл'}
+                  Максимальное качество{photo.file_size ? `, ~${Math.max(1, Math.round(photo.file_size / (1024 * 1024)))} МБ` : ''}
                 </p>
               </div>
             </button>
@@ -161,7 +235,19 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
         )}
 
         {error && (
-          <p className="mt-4 text-xs text-red-600 dark:text-red-400 leading-relaxed">{error}</p>
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-red-600 dark:text-red-400 leading-relaxed">{error}</p>
+            {directUrl && (
+              <a
+                href={directUrl.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-center text-xs text-blue-600 dark:text-blue-400 underline py-1"
+              >
+                Открыть фото по прямой ссылке
+              </a>
+            )}
+          </div>
         )}
 
         {!readyBlob && !busy && ios && (
