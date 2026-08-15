@@ -348,7 +348,7 @@ const PhotoBankFoldersList = ({
                             <Icon name="Sparkles" size={14} />
                           </Button>
                         )}
-                        {onShareFolder && folder.photo_count > 0 && (
+                        {onShareFolder && (
                           <Button
                             variant="ghost"
                             size="icon"
