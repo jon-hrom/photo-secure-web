@@ -305,7 +305,7 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     }
   };
 
-  const handleFavoriteSubmit = async (data: { fullName: string; phone: string; email?: string; client_id?: number }) => {
+  const handleFavoriteSubmit = async (data: { fullName: string; phone: string; email?: string; client_id?: number; upload_enabled?: boolean }) => {
     if (!data.client_id) {
       console.error('[FAVORITES] No client_id in response');
       return;
@@ -315,7 +315,8 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
       client_id: data.client_id,
       full_name: data.fullName,
       phone: data.phone,
-      email: data.email
+      email: data.email,
+      upload_enabled: data.upload_enabled
     };
     
     setClientData(newClientData);

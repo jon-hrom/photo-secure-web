@@ -93,7 +93,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
           full_name: fullName.trim(),
           phone: normalizedPhone,
           email: email.trim() || '',
-          upload_enabled: false
+          upload_enabled: regResult.upload_enabled || false
         };
       } else {
         const response = await fetch('https://functions.poehali.dev/0ba5ca79-a9a1-4c3f-94b6-c11a71538723', {

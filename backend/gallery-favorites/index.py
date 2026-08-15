@@ -89,6 +89,24 @@ def build_photo_urls(s3_key, s3_url, thumbnail_s3_key, thumbnail_s3_url,
     preview_url = presign(thumbnail_s3_key) or photo_url
     return photo_url, thumbnail_url, preview_url
 
+def default_upload_enabled(cur, gallery_code: str) -> bool:
+    '''Если фотограф открыл загрузку всем по ссылке или включил видимость папок клиентов,
+    новым клиентам сразу разрешаем загружать фото — иначе им пришлось бы ждать,
+    пока фотограф включит ползунок вручную.'''
+    try:
+        cur.execute('''
+            SELECT COALESCE(client_upload_enabled, FALSE), COALESCE(client_folders_visibility, FALSE)
+            FROM t_p28211681_photo_secure_web.folder_short_links
+            WHERE short_code = %s
+            LIMIT 1
+        ''', (gallery_code,))
+        row = cur.fetchone()
+        return bool(row and (row[0] or row[1]))
+    except Exception as e:
+        print(f'[DEFAULT_UPLOAD] failed: {e}')
+        return False
+
+
 def schedule_review_reminder(cur, gallery_code: str, client_id: int) -> None:
     '''Планирует напоминание клиенту оставить отзыв через 2 дня после входа в галерею.
     Отправляется по Email/MAX только если у фотографа есть опубликованное портфолио
@@ -266,10 +284,10 @@ def handler(event: dict, context) -> dict:
                 else:
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
-                        (gallery_code, full_name, phone, email, is_online, last_seen_at)
-                        VALUES (%s, %s, %s, %s, TRUE, NOW())
+                        (gallery_code, full_name, phone, email, is_online, last_seen_at, upload_enabled)
+                        VALUES (%s, %s, %s, %s, TRUE, NOW(), %s)
                         RETURNING id
-                    ''', (gallery_code, full_name, phone, email))
+                    ''', (gallery_code, full_name, phone, email, default_upload_enabled(cur, gallery_code)))
                     client_id = cur.fetchone()[0]
 
                     contacts = ' · '.join([x for x in [phone, email] if x])
@@ -288,12 +306,21 @@ def handler(event: dict, context) -> dict:
                 ''', (client_id, photo_id))
                 
                 schedule_review_reminder(cur, gallery_code, client_id)
+
+                cur.execute('''
+                    SELECT COALESCE(upload_enabled, FALSE)
+                    FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE id = %s
+                ''', (client_id,))
+                up_row = cur.fetchone()
+                client_upload = bool(up_row[0]) if up_row else False
+
                 conn.commit()
                 
                 return {
                     'statusCode': 200,
                     'headers': {**cors_headers, 'Content-Type': 'application/json'},
-                    'body': json.dumps({'success': True, 'client_id': client_id})
+                    'body': json.dumps({'success': True, 'client_id': client_id, 'upload_enabled': client_upload})
                 }
             
             elif action == 'register_client':
@@ -370,10 +397,10 @@ def handler(event: dict, context) -> dict:
                 else:
                     cur.execute('''
                         INSERT INTO t_p28211681_photo_secure_web.favorite_clients 
-                        (gallery_code, full_name, phone, email, is_online, last_seen_at)
-                        VALUES (%s, %s, %s, %s, TRUE, NOW())
+                        (gallery_code, full_name, phone, email, is_online, last_seen_at, upload_enabled)
+                        VALUES (%s, %s, %s, %s, TRUE, NOW(), %s)
                         RETURNING id
-                    ''', (gallery_code, full_name or '', phone or '', email))
+                    ''', (gallery_code, full_name or '', phone or '', email, default_upload_enabled(cur, gallery_code)))
                     client_id = cur.fetchone()[0]
                     print(f'[REGISTER_CLIENT] Inserted new client_id={client_id}')
 
@@ -386,12 +413,24 @@ def handler(event: dict, context) -> dict:
                     )
 
                 schedule_review_reminder(cur, gallery_code, client_id)
+
+                cur.execute('''
+                    SELECT COALESCE(upload_enabled, FALSE)
+                    FROM t_p28211681_photo_secure_web.favorite_clients
+                    WHERE id = %s
+                ''', (client_id,))
+                reg_up = cur.fetchone()
+
                 conn.commit()
                 
                 return {
                     'statusCode': 200,
                     'headers': {**cors_headers, 'Content-Type': 'application/json'},
-                    'body': json.dumps({'success': True, 'client_id': client_id})
+                    'body': json.dumps({
+                        'success': True,
+                        'client_id': client_id,
+                        'upload_enabled': bool(reg_up[0]) if reg_up else False
+                    })
                 }
             
             elif action == 'list_registered_clients':

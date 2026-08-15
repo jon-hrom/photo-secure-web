@@ -18,7 +18,7 @@ interface FavoritesModalProps {
   isOpen: boolean;
   onClose: () => void;
   folder: FavoriteFolder;
-  onSubmit: (data: { fullName: string; phone: string; email?: string; client_id?: number }) => void;
+  onSubmit: (data: { fullName: string; phone: string; email?: string; client_id?: number; upload_enabled?: boolean }) => void;
   galleryCode: string;
   photoId?: number | null;
   mode?: 'favorites' | 'register' | 'signup';
@@ -118,7 +118,8 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
         fullName: formData.fullName,
         phone: normalizedPhone,
         email: formData.email || undefined,
-        client_id: result.client_id
+        client_id: result.client_id,
+        upload_enabled: result.upload_enabled
       });
       
       setFormData({ fullName: '', phone: '', email: '' });
