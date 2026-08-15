@@ -255,6 +255,7 @@ export const SubfolderPhotosView = ({
           onOpenChat={() => state.setIsChatOpen(true)}
           unreadMessagesCount={state.unreadCount}
           onRegisterToDownload={handlers.handleRegisterToDownload}
+          onRegisterAccount={handlers.handleRegisterAccount}
         />
       </div>
       <GalleryModals
@@ -270,6 +271,7 @@ export const SubfolderPhotosView = ({
         isWelcomeModalOpen={false}
         favoriteFolder={state.favoriteFolder}
         photoToAdd={state.photoToAdd}
+        registerIntent={state.registerIntent}
         unreadCount={state.unreadCount}
         code={state.code}
         setSelectedPhoto={state.setSelectedPhoto}

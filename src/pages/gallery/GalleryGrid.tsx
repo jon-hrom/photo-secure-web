@@ -97,6 +97,7 @@ export interface GalleryGridProps {
   showClientFolders?: boolean;
   onOpenClientFolder?: (folder: ClientFolder) => void;
   onRegisterToDownload?: () => void;
+  onRegisterAccount?: () => void;
   onOpenSubfolder?: (subfolder: GallerySubfolder) => void;
   onCreateFavoriteList?: () => void;
   activeFavoriteList?: { id: number; name: string } | null;
@@ -130,6 +131,7 @@ export default function GalleryGrid({
   showClientFolders = false,
   onOpenClientFolder,
   onRegisterToDownload,
+  onRegisterAccount,
   onOpenSubfolder,
   onCreateFavoriteList,
   activeFavoriteList,
@@ -343,6 +345,7 @@ export default function GalleryGrid({
         selectionMode={selectionMode}
         onToggleSelectionMode={toggleSelectionMode}
         onRegisterToDownload={onRegisterToDownload}
+        onRegisterAccount={onRegisterAccount}
         onToggleTheme={toggleClientTheme}
         onCreateFavoriteList={onCreateFavoriteList}
         favoriteLists={favoriteLists}

@@ -43,6 +43,7 @@ interface GalleryHandlersParams {
   setClientFavoritePhotoIds: (ids: number[] | ((prev: number[]) => number[])) => void;
   setUnreadCount: (count: number) => void;
   setPhotoToAdd: (photo: Photo | null) => void;
+  setRegisterIntent?: (intent: 'download' | 'signup') => void;
   setIsFavoritesModalOpen: (open: boolean) => void;
   setIsLoginModalOpen: (open: boolean) => void;
   previousUnreadCount: React.MutableRefObject<number>;
@@ -61,6 +62,7 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     setClientFavoritePhotoIds,
     setUnreadCount,
     setPhotoToAdd,
+    setRegisterIntent,
     setIsFavoritesModalOpen,
     setIsLoginModalOpen,
     previousUnreadCount,
@@ -454,7 +456,15 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     loadClientFavorites,
     handleRegisterToDownload: () => {
       setPhotoToAdd(null);
+      setRegisterIntent?.('download');
       pendingDownloadAllRef.current = true;
+      setIsFavoritesModalOpen(true);
+    },
+    /** Кнопка «Регистрация» — клиент заводит личный кабинет, архив не качаем. */
+    handleRegisterAccount: () => {
+      setPhotoToAdd(null);
+      setRegisterIntent?.('signup');
+      pendingDownloadAllRef.current = false;
       setIsFavoritesModalOpen(true);
     }
   };

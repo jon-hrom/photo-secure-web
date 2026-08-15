@@ -66,6 +66,7 @@ interface GalleryModalsProps {
   isWelcomeModalOpen: boolean;
   favoriteFolder: FavoriteFolder | null;
   photoToAdd: Photo | null;
+  registerIntent?: 'download' | 'signup';
   unreadCount: number;
   code?: string;
   isDarkTheme?: boolean;
@@ -103,6 +104,7 @@ export default function GalleryModals({
   isWelcomeModalOpen,
   favoriteFolder,
   photoToAdd,
+  registerIntent = 'download',
   unreadCount,
   code,
   isDarkTheme = false,
@@ -162,7 +164,7 @@ export default function GalleryModals({
           onSubmit={onFavoriteSubmit}
           galleryCode={code}
           photoId={photoToAdd?.id ?? null}
-          mode={photoToAdd ? 'favorites' : 'register'}
+          mode={photoToAdd ? 'favorites' : registerIntent === 'signup' ? 'signup' : 'register'}
         />
       )}
 

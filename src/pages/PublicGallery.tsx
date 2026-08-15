@@ -81,6 +81,7 @@ export default function PublicGallery() {
     setClientFavoritePhotoIds: state.setClientFavoritePhotoIds,
     setUnreadCount: state.setUnreadCount,
     setPhotoToAdd: state.setPhotoToAdd,
+    setRegisterIntent: state.setRegisterIntent,
     setIsFavoritesModalOpen: state.setIsFavoritesModalOpen,
     setIsLoginModalOpen: state.setIsLoginModalOpen,
     previousUnreadCount: state.previousUnreadCount,

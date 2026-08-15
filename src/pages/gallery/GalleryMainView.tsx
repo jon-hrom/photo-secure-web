@@ -130,6 +130,7 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
           }
         }}
         onRegisterToDownload={handlers.handleRegisterToDownload}
+        onRegisterAccount={handlers.handleRegisterAccount}
         onOpenSubfolder={subfolder.handleOpenSubfolder}
         onCreateFavoriteList={favoritesEnabled && state.clientData?.client_id ? favoriteLists.handleOpenCreateList : undefined}
         activeFavoriteList={favoriteLists.activeFavoriteList}
@@ -165,6 +166,7 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
         isWelcomeModalOpen={state.isWelcomeModalOpen}
         favoriteFolder={state.favoriteFolder}
         photoToAdd={state.photoToAdd}
+        registerIntent={state.registerIntent}
         unreadCount={state.unreadCount}
         code={code}
         setSelectedPhoto={state.setSelectedPhoto}

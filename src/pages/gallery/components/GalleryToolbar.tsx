@@ -35,6 +35,7 @@ interface GalleryToolbarProps {
   selectionMode?: boolean;
   onToggleSelectionMode?: () => void;
   onRegisterToDownload?: () => void;
+  onRegisterAccount?: () => void;
   onToggleTheme?: () => void;
   onCreateFavoriteList?: () => void;
   favoriteLists?: Array<{ id: number; name: string; photo_count: number }>;
@@ -66,6 +67,7 @@ export default function GalleryToolbar({
   selectionMode = false,
   onToggleSelectionMode,
   onRegisterToDownload,
+  onRegisterAccount,
   onToggleTheme,
   onCreateFavoriteList,
   favoriteLists = [],
@@ -237,7 +239,7 @@ export default function GalleryToolbar({
                 Войти
               </button>
               <button
-                onClick={onRegisterToDownload}
+                onClick={onRegisterAccount || onRegisterToDownload}
                 className="flex items-center gap-1.5 px-3 rounded-lg transition-colors text-xs sm:text-sm touch-manipulation whitespace-nowrap flex-shrink-0"
                 style={{
                   background: isDarkBg ? 'rgba(34,197,94,0.2)' : '#dcfce7',

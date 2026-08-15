@@ -21,7 +21,7 @@ interface FavoritesModalProps {
   onSubmit: (data: { fullName: string; phone: string; email?: string; client_id?: number }) => void;
   galleryCode: string;
   photoId?: number | null;
-  mode?: 'favorites' | 'register';
+  mode?: 'favorites' | 'register' | 'signup';
 }
 
 export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, galleryCode, photoId, mode = 'favorites' }: FavoritesModalProps) {
@@ -39,7 +39,8 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
 
   if (!isOpen) return null;
 
-  const isRegisterMode = mode === 'register';
+  const isSignupMode = mode === 'signup';
+  const isRegisterMode = mode === 'register' || isSignupMode;
 
   const validateForm = () => {
     const newErrors = {
@@ -136,12 +137,14 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full p-6 border border-transparent dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            {isRegisterMode
-              ? <Icon name="Download" size={24} className="text-blue-500" />
-              : <Icon name="Star" size={24} className="text-yellow-500 fill-yellow-500" />
+            {isSignupMode
+              ? <Icon name="UserPlus" size={24} className="text-green-500" />
+              : isRegisterMode
+                ? <Icon name="Download" size={24} className="text-blue-500" />
+                : <Icon name="Star" size={24} className="text-yellow-500 fill-yellow-500" />
             }
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {isRegisterMode ? 'Скачать фото' : 'Добавить в избранное'}
+              {isSignupMode ? 'Регистрация' : isRegisterMode ? 'Скачать фото' : 'Добавить в избранное'}
             </h2>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
@@ -149,7 +152,13 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
           </button>
         </div>
 
-        {isRegisterMode
+        {isSignupMode
+          ? (
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              Введите свои данные для открытия личного кабинета
+            </p>
+          )
+          : isRegisterMode
           ? (
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
               Чтобы скачать все фото архивом, введите данные ниже, после нажмите{' '}
@@ -213,15 +222,19 @@ export default function FavoritesModal({ isOpen, onClose, folder, onSubmit, gall
             </Button>
             <Button 
               type="submit" 
-              className={`flex-1 gap-2 ${isRegisterMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'}`}
+              className={`flex-1 gap-2 ${isSignupMode ? 'bg-green-600 hover:bg-green-700 text-white' : isRegisterMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-yellow-500 hover:bg-yellow-600 text-gray-900'}`}
               disabled={isSubmitting}
             >
               {isRegisterMode && (
-                <Icon name={isSubmitting ? 'Loader2' : 'Download'} size={18} className={isSubmitting ? 'animate-spin' : ''} />
+                <Icon
+                  name={isSubmitting ? 'Loader2' : isSignupMode ? 'UserPlus' : 'Download'}
+                  size={18}
+                  className={isSubmitting ? 'animate-spin' : ''}
+                />
               )}
               {isSubmitting
                 ? (isRegisterMode ? 'Регистрация...' : 'Добавление...')
-                : (isRegisterMode ? 'Скачать' : 'Добавить')
+                : (isSignupMode ? 'Зарегистрироваться' : isRegisterMode ? 'Скачать' : 'Добавить')
               }
             </Button>
           </div>
