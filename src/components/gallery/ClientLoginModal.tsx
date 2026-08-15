@@ -30,7 +30,26 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
   const [isLoading, setIsLoading] = useState(false);
   // 'login' — проверяем, есть ли такой клиент; 'register' — клиента нет, предлагаем создать профиль
   const [mode, setMode] = useState<'login' | 'register'>('login');
+  // Данные, по которым клиент не нашёлся. Как только их правят —
+  // возвращаем форму ко входу, чтобы проверить заново
+  const [notFoundData, setNotFoundData] = useState<{ fullName: string; phone: string; email: string } | null>(null);
   const isRegisterMode = mode === 'register';
+
+  /** Поля изменили — снова пробуем «Вход», пока данные не совпадут с непройденной проверкой. */
+  const handleFieldChange = (next: { fullName?: string; phone?: string; email?: string }) => {
+    setError('');
+    if (!notFoundData) return;
+    const candidate = {
+      fullName: next.fullName ?? fullName,
+      phone: next.phone ?? phone,
+      email: next.email ?? email,
+    };
+    const sameAsChecked =
+      candidate.fullName.trim() === notFoundData.fullName &&
+      candidate.phone.trim() === notFoundData.phone &&
+      candidate.email.trim() === notFoundData.email;
+    setMode(sameAsChecked ? 'register' : 'login');
+  };
   
   const showFullName = favoriteConfig?.fields.fullName !== false;
   const showPhone = favoriteConfig?.fields.phone !== false;
@@ -114,6 +133,11 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
           if (response.status === 404) {
             // Такого клиента нет — форма превращается в регистрацию,
             // введённые данные сохраняются
+            setNotFoundData({
+              fullName: fullName.trim(),
+              phone: phone.trim(),
+              email: email.trim(),
+            });
             setMode('register');
             setError('');
             setIsLoading(false);
@@ -136,6 +160,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
       setEmail('');
       setError('');
       setMode('login');
+      setNotFoundData(null);
       onClose();
     } catch (error) {
       console.error('[CLIENT_LOGIN] Error:', error);
@@ -167,8 +192,12 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
         {isRegisterMode ? (
           <div className="mb-6 rounded-lg border border-green-500/40 bg-green-50 dark:bg-green-900/20 p-3">
             <p className="text-sm text-green-800 dark:text-green-300">
-              Такой клиент пока не найден. Проверьте данные и нажмите
-              «Зарегистрироваться» — откроем вам личный кабинет.
+              Клиент с такими данными не найден.
+            </p>
+            <p className="text-sm text-green-800/90 dark:text-green-300/90 mt-1.5">
+              Если ошиблись — исправьте данные, и мы снова поищем вас. А если всё
+              верно и вы здесь впервые — нажмите «Зарегистрироваться», и мы
+              откроем вам личный кабинет с этими данными.
             </p>
           </div>
         ) : (
@@ -187,7 +216,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
                 value={fullName}
                 onChange={(e) => {
                   setFullName(e.target.value);
-                  setError('');
+                  handleFieldChange({ fullName: e.target.value });
                 }}
                 placeholder="Иванов Иван Иванович"
                 className={error && !phone.trim() ? '' : (error ? 'border-red-500' : '')}
@@ -205,7 +234,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value);
-                  setError('');
+                  handleFieldChange({ phone: e.target.value });
                 }}
                 placeholder="+7 (900) 123-45-67"
                 className={error && fullName.trim() ? 'border-red-500' : ''}
@@ -222,7 +251,7 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
-                  setError('');
+                  handleFieldChange({ email: e.target.value });
                 }}
                 placeholder="example@mail.com"
               />
@@ -241,10 +270,17 @@ export default function ClientLoginModal({ isOpen, onClose, onLogin, galleryCode
             <Button
               type="button"
               variant="outline"
-              onClick={() => (isRegisterMode ? setMode('login') : onClose())}
+              onClick={() => {
+                if (isRegisterMode) {
+                  setNotFoundData(null);
+                  setMode('login');
+                } else {
+                  onClose();
+                }
+              }}
               className="flex-1"
             >
-              {isRegisterMode ? 'Назад' : 'Отмена'}
+              {isRegisterMode ? 'Войти заново' : 'Отмена'}
             </Button>
             <Button 
               type="submit" 
