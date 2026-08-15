@@ -19,6 +19,7 @@ from PIL import Image
 from face_quality import (
     detect_faces,
     face_sharpness,
+    face_exposure,
     face_is_measurable,
     eyes_state,
     EYES_CLOSED,
@@ -31,6 +32,11 @@ from face_quality import (
 # Между порогами — спорно, уходит в папку «Проверить».
 FACE_BLUR_REJECT = 12.0
 FACE_BLUR_OK = 35.0
+
+# Пороги экспозиции ПО ЛИЦУ (средняя яркость кожи, шкала 0-255).
+# Нормальная кожа обычно 90-200. За пределами — кожа не читается.
+FACE_TOO_BRIGHT = 235.0
+FACE_TOO_DARK = 45.0
 
 # Причины, которые считаются спорными и идут в папку «Проверить»
 REVIEW_REASONS = ('review_blur', 'review_eyes')
@@ -414,24 +420,38 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
         
         # Проверяем технические параметры в порядке приоритета
 
-        # 1. Экспозиция — считается по всему кадру, лица не нужны
-        if detect_overexposed(img):
-            return True, 'overexposed'
-
-        if detect_underexposed(img):
-            return True, 'underexposed'
-
-        # 2. Ищем лица нейросетью — она видит их и в профиль,
-        #    и даёт координаты глаз для точной оценки
+        # 1. Сначала ищем лица нейросетью — она видит их и в профиль.
+        #    Если люди есть, ВСЕ проверки идут по лицу, а не по кадру:
+        #    тёмный фон студии и белая циклорама больше не дают ложный брак.
         faces = detect_faces(img)
 
         if not faces:
-            # Людей в кадре нет — резкость меряем по всему кадру,
-            # но мягче: пейзаж/детали не должны массово уходить в брак
+            # Людей в кадре нет — судим по всему кадру, как раньше
+            if detect_overexposed(img):
+                return True, 'overexposed'
+
+            if detect_underexposed(img):
+                return True, 'underexposed'
+
             if detect_blur(img):
                 return True, 'blur'
+
             print('[TECH_SORT] ✅ No faces, photo passed all checks')
             return False, ''
+
+        # 2. Экспозиция ПО ЛИЦУ: важно, чтобы читалась кожа,
+        #    а не то, какой яркости фон за спиной.
+        main_face_exp = max(faces, key=lambda f: f['box'][2] * f['box'][3])
+        mean, blown, crushed = face_exposure(img, main_face_exp)
+        print(f'[TECH_SORT] Face exposure: mean={mean:.1f}, blown={blown*100:.1f}%, crushed={crushed*100:.1f}%')
+
+        if mean > FACE_TOO_BRIGHT or blown > 0.5:
+            print('[TECH_SORT] ❌ Face overexposed → REJECT')
+            return True, 'overexposed'
+
+        if mean < FACE_TOO_DARK or crushed > 0.6:
+            print('[TECH_SORT] ❌ Face underexposed → REJECT')
+            return True, 'underexposed'
 
         # 3. Резкость по САМОМУ КРУПНОМУ лицу, а не по всему кадру.
         #    Портрет с размытым фоном больше не считается мыльным.

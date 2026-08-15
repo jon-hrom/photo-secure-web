@@ -142,6 +142,34 @@ def face_sharpness(img: np.ndarray, face: dict) -> float:
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 
+def face_exposure(img: np.ndarray, face: dict) -> Tuple[float, float, float]:
+    '''
+    Экспозиция ПО ЛИЦУ, а не по всему кадру.
+    Тёмный фон в студии и белый циклорама больше не выдают
+    ложный «недосвет»/«пересвет», если кожа проэкспонирована верно.
+
+    Returns: (средняя яркость лица, доля выбитых в белое, доля провалов в чёрное)
+    '''
+    x, y, w, h = face['box']
+    # Центральная зона лица — щёки, лоб, нос. Без волос и фона по краям.
+    pad_x = int(w * 0.15)
+    pad_y = int(h * 0.15)
+    x0 = max(0, x + pad_x)
+    y0 = max(0, y + pad_y)
+    x1 = min(img.shape[1], x + w - pad_x)
+    y1 = min(img.shape[0], y + h - pad_y)
+    if x1 - x0 < 6 or y1 - y0 < 6:
+        return 128.0, 0.0, 0.0
+
+    roi = img[y0:y1, x0:x1]
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY) if len(roi.shape) == 3 else roi
+
+    mean = float(np.mean(gray))
+    blown = float(np.sum(gray > 250)) / gray.size
+    crushed = float(np.sum(gray < 25)) / gray.size
+    return mean, blown, crushed
+
+
 def face_is_measurable(img: np.ndarray, face: dict) -> bool:
     '''
     Можно ли доверять оценке резкости по этому лицу.
