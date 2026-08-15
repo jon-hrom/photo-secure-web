@@ -21,6 +21,24 @@ interface GalleryViewerDownloadModalProps {
 
 const DOWNLOAD_API = 'https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215';
 
+/**
+ * Приводит имя файла к безопасному виду.
+ * У фото из фотобанка имена вида "  (1).jpg" — с пробелами и скобками.
+ * Такое имя ломает сохранение на iPhone, поэтому чистим его.
+ */
+const safeFileName = (raw: string, photoId: number, prefix = ''): string => {
+  const cleaned = (raw || '')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/^[_.]+/, '');
+
+  const hasExt = /\.(jpe?g|png|heic|webp|gif)$/i.test(cleaned);
+  const base = hasExt ? cleaned.replace(/\.[^.]+$/, '') : cleaned;
+  const safeBase = base.length >= 1 ? base : `photo_${photoId}`;
+  return `${prefix}${safeBase}.jpg`;
+};
+
 export default function GalleryViewerDownloadModal({ photo, onClose, onDownload }: GalleryViewerDownloadModalProps) {
   const ios = isIOS();
   const [busy, setBusy] = useState<'web' | 'original' | null>(null);
@@ -28,6 +46,7 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
   const [error, setError] = useState<string | null>(null);
   const [readyBlob, setReadyBlob] = useState<{ blob: Blob; fileName: string } | null>(null);
   const [directUrl, setDirectUrl] = useState<{ url: string; fileName: string } | null>(null);
+  const [shareFailed, setShareFailed] = useState(false);
 
   const getOriginalUrl = async (): Promise<string> => {
     const params = new URLSearchParams({
@@ -40,9 +59,15 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
       const resp = await fetch(`${DOWNLOAD_API}?${params.toString()}`);
       if (resp.ok) {
         const data = await resp.json();
-        if (data.download_url) return data.download_url;
+        if (data.download_url) {
+          console.log('[DL] got presigned url');
+          return data.download_url;
+        }
       }
-    } catch { /* ниже вернём прямую ссылку */ }
+      console.warn('[DL] presigned failed, status', resp.status);
+    } catch (e) {
+      console.warn('[DL] presigned error', e);
+    }
     return photo.photo_url;
   };
 
@@ -54,52 +79,47 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
     if (!resp.body || !total) return await resp.blob();
 
     const reader = resp.body.getReader();
-    const chunks: Uint8Array[] = [];
+    const chunks: BlobPart[] = [];
     let loaded = 0;
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       if (value) {
-        chunks.push(value);
+        chunks.push(value.slice().buffer as ArrayBuffer);
         loaded += value.length;
         setProgress(Math.min(99, Math.round((loaded / total) * 100)));
       }
     }
     setProgress(100);
-    return new Blob(chunks as BlobPart[], { type: resp.headers.get('content-type') || 'image/jpeg' });
+    return new Blob(chunks, { type: resp.headers.get('content-type') || 'image/jpeg' });
   };
 
   const run = async (kind: 'web' | 'original') => {
     setError(null);
+    setShareFailed(false);
     setBusy(kind);
     setProgress(0);
     try {
       const fileName =
         kind === 'web'
-          ? `web_${photo.file_name.trim().replace(/\.[^.]+$/, '')}.jpg`
-          : photo.file_name.trim() || `photo_${photo.id}.jpg`;
+          ? safeFileName(photo.file_name, photo.id, 'web_')
+          : safeFileName(photo.file_name, photo.id);
 
       const originalUrl = await getOriginalUrl();
-      // Веб-версия: уменьшаем оригинал на лету до 2560px — это ~1,5 МБ
-      // и отличное качество, вместо крошечного превью 500px.
-      const url = kind === 'web' ? getThumbUrl(originalUrl, 2560) || photo.thumbnail_url! : originalUrl;
+      const url = kind === 'web' ? getThumbUrl(originalUrl, 2560) || originalUrl : originalUrl;
 
-      // Ссылка на файл — гарантированный запасной путь для iPhone,
-      // если системное «Сохранить в Фото» окажется недоступным.
+      // Прямая ссылка — запасной путь, если системное сохранение не сработает
       setDirectUrl({ url, fileName });
 
       const blob = await fetchWithProgress(url);
+      console.log('[DL] blob ready', blob.size, blob.type, fileName);
 
       if (ios) {
-        if (canShareBlob(blob, fileName)) {
-          setReadyBlob({ blob, fileName });
-          setBusy(null);
-          return;
-        }
-        // Safari не даёт сохранить файл напрямую — открываем фото,
-        // клиент сохранит его долгим нажатием.
+        const canShare = canShareBlob(blob, fileName);
+        console.log('[DL] iOS canShare =', canShare);
+        setReadyBlob({ blob, fileName });
+        if (!canShare) setShareFailed(true);
         setBusy(null);
-        setError(null);
         return;
       }
 
@@ -107,7 +127,8 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
       if (kind === 'original' && onDownload) onDownload(photo);
       setBusy(null);
       onClose();
-    } catch {
+    } catch (e) {
+      console.error('[DL] failed', e);
       setBusy(null);
       setError('Не удалось загрузить файл. Проверьте связь или откройте фото по ссылке ниже.');
     }
@@ -116,15 +137,26 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
   const handleSaveReady = async () => {
     if (!readyBlob) return;
     const ok = await shareBlobNow(readyBlob.blob, readyBlob.fileName);
-    if (!ok && directUrl) {
-      window.location.href = directUrl.url;
+    console.log('[DL] share result =', ok);
+
+    if (!ok) {
+      // Меню не открылось — показываем запасной путь, окно НЕ закрываем,
+      // чтобы клиент не остался ни с чем.
+      setShareFailed(true);
       return;
     }
-    if (!ok) {
-      await saveBlobToDevice(readyBlob.blob, readyBlob.fileName);
-    }
+
     if (onDownload) onDownload(photo);
     onClose();
+  };
+
+  const openDirect = () => {
+    if (!directUrl) return;
+    const objectUrl = URL.createObjectURL(readyBlob?.blob ?? new Blob());
+    const target = readyBlob ? objectUrl : directUrl.url;
+    window.open(target, '_blank', 'noopener');
+    if (readyBlob) setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    if (onDownload) onDownload(photo);
   };
 
   return (
@@ -133,7 +165,7 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
       onClick={busy ? undefined : onClose}
     >
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl p-6 mx-4 max-w-sm w-full shadow-2xl"
+        className="bg-white dark:bg-gray-900 rounded-2xl p-6 mx-4 max-w-sm w-full shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Скачать фото</h3>
@@ -143,28 +175,41 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
               <Icon name="CheckCircle" size={18} />
-              <span>Фото готово</span>
+              <span>Фото загружено</span>
             </div>
-            <button
-              onClick={handleSaveReady}
-              className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition-colors"
-            >
-              <Icon name="Download" size={18} />
-              Сохранить в Фото
-            </button>
-            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-              Откроется меню iPhone — пролистайте до пункта «Сохранить изображение», и снимок появится в галерее.
-            </p>
-            {directUrl && (
-              <a
-                href={directUrl.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-center text-xs text-blue-600 dark:text-blue-400 underline py-1"
-              >
-                Не получилось? Открыть фото и сохранить долгим нажатием
-              </a>
+
+            {!shareFailed && (
+              <>
+                <button
+                  onClick={handleSaveReady}
+                  className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition-colors"
+                >
+                  <Icon name="Download" size={18} />
+                  Сохранить в Фото
+                </button>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Откроется меню iPhone — пролистайте до пункта «Сохранить изображение».
+                </p>
+              </>
             )}
+
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+              <p className="text-xs font-medium text-gray-900 dark:text-white">
+                {shareFailed ? 'Сохраните фото так:' : 'Не получилось? Способ, который работает всегда:'}
+              </p>
+              <ol className="text-xs text-gray-600 dark:text-gray-400 space-y-1 list-decimal list-inside">
+                <li>Нажмите кнопку ниже — фото откроется на весь экран</li>
+                <li>Задержите на нём палец на пару секунд</li>
+                <li>Выберите «Добавить в Фото» или «Сохранить в Фото»</li>
+              </ol>
+              <button
+                onClick={openDirect}
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition-colors"
+              >
+                <Icon name="ExternalLink" size={18} />
+                Открыть фото
+              </button>
+            </div>
           </div>
         ) : busy ? (
           <div className="space-y-3">
@@ -179,34 +224,20 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
               />
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Оригинал весит около {Math.max(1, Math.round((photo.file_size || 0) / (1024 * 1024)))} МБ — не закрывайте окно.
+              {busy === 'original'
+                ? `Оригинал весит около ${Math.max(1, Math.round((photo.file_size || 0) / (1024 * 1024)))} МБ — не закрывайте окно.`
+                : 'Готовим уменьшенную копию — это быстро.'}
             </p>
-          </div>
-        ) : ios && directUrl && !readyBlob ? (
-          <div className="space-y-3">
-            <p className="text-sm text-gray-700 dark:text-gray-200">
-              Фото готово. Откройте его и удерживайте палец на снимке, затем выберите «Добавить в Фото».
-            </p>
-            <a
-              href={directUrl.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium text-sm transition-colors"
-            >
-              <Icon name="ExternalLink" size={18} />
-              Открыть фото
-            </a>
           </div>
         ) : (
           <div className="space-y-3">
             {photo.thumbnail_url && (
               <button
                 onClick={() => run('web')}
-                disabled={!!busy}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left disabled:opacity-60"
+                className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
               >
                 <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
-                  <Icon name={busy === 'web' ? 'Loader' : 'Image'} size={20} className={`text-blue-600 dark:text-blue-400 ${busy === 'web' ? 'animate-spin' : ''}`} />
+                  <Icon name="Image" size={20} className="text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white text-sm">Веб-версия</p>
@@ -218,11 +249,10 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
             )}
             <button
               onClick={() => run('original')}
-              disabled={!!busy}
-              className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left disabled:opacity-60"
+              className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
             >
               <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
-                <Icon name={busy === 'original' ? 'Loader' : 'Download'} size={20} className={`text-green-600 dark:text-green-400 ${busy === 'original' ? 'animate-spin' : ''}`} />
+                <Icon name="Download" size={20} className="text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="font-medium text-gray-900 dark:text-white text-sm">Оригинал</p>
@@ -250,18 +280,12 @@ export default function GalleryViewerDownloadModal({ photo, onClose, onDownload 
           </div>
         )}
 
-        {!readyBlob && !busy && ios && (
-          <p className="mt-4 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-            На iPhone фото можно сохранить прямо в галерею — мы подскажем, как, после подготовки файла.
-          </p>
-        )}
-
         {!busy && (
           <button
             onClick={onClose}
             className="mt-4 w-full text-center text-sm text-gray-500 dark:text-gray-400 py-2"
           >
-            Отмена
+            {readyBlob ? 'Готово' : 'Отмена'}
           </button>
         )}
       </div>
