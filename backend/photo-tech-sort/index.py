@@ -16,6 +16,24 @@ from botocore.client import Config
 import cv2
 import numpy as np
 from PIL import Image
+from face_quality import (
+    detect_faces,
+    face_sharpness,
+    face_is_measurable,
+    eyes_state,
+    EYES_CLOSED,
+    EYES_UNCERTAIN,
+)
+
+# Пороги резкости ПО ЛИЦУ. Анализ идёт по уменьшенной копии кадра
+# (640-800px), поэтому абсолютные значения невысокие.
+# Ниже FACE_BLUR_REJECT — однозначно мыло, в техбрак.
+# Между порогами — спорно, уходит в папку «Проверить».
+FACE_BLUR_REJECT = 12.0
+FACE_BLUR_OK = 35.0
+
+# Причины, которые считаются спорными и идут в папку «Проверить»
+REVIEW_REASONS = ('review_blur', 'review_eyes')
 
 
 def detect_closed_eyes(img: np.ndarray) -> bool:
@@ -395,23 +413,66 @@ def analyze_photo(s3_client, bucket: str, s3_key: str) -> Tuple[bool, str]:
         gc.collect()
         
         # Проверяем технические параметры в порядке приоритета
-        
-        # 1. Размытие (blur)
-        if detect_blur(img):
-            return True, 'blur'
-        
-        # 2. Пересвет (overexposure)
+
+        # 1. Экспозиция — считается по всему кадру, лица не нужны
         if detect_overexposed(img):
             return True, 'overexposed'
-        
-        # 3. Недосвет (underexposure)
+
         if detect_underexposed(img):
             return True, 'underexposed'
-        
-        # 4. Закрытые глаза (СТРОЖЕ - только ОДНОЗНАЧНЫЕ случаи)
-        if detect_closed_eyes(img):
+
+        # 2. Ищем лица нейросетью — она видит их и в профиль,
+        #    и даёт координаты глаз для точной оценки
+        faces = detect_faces(img)
+
+        if not faces:
+            # Людей в кадре нет — резкость меряем по всему кадру,
+            # но мягче: пейзаж/детали не должны массово уходить в брак
+            if detect_blur(img):
+                return True, 'blur'
+            print('[TECH_SORT] ✅ No faces, photo passed all checks')
+            return False, ''
+
+        # 3. Резкость по САМОМУ КРУПНОМУ лицу, а не по всему кадру.
+        #    Портрет с размытым фоном больше не считается мыльным.
+        main_face = max(faces, key=lambda f: f['box'][2] * f['box'][3])
+
+        if face_is_measurable(img, main_face):
+            sharpness = face_sharpness(img, main_face)
+            print(f'[TECH_SORT] Face sharpness: {sharpness:.1f} (blur<{FACE_BLUR_REJECT}, ok>{FACE_BLUR_OK})')
+
+            if sharpness < FACE_BLUR_REJECT:
+                return True, 'blur'
+
+            if sharpness < FACE_BLUR_OK:
+                # Пограничная резкость — не решаем сами, отдаём фотографу
+                return True, 'review_blur'
+        else:
+            # Лицо слишком мелкое для оценки — судим по всему кадру
+            print(f'[TECH_SORT] Face too small ({main_face["box"][2]}x{main_face["box"][3]}), using frame blur')
+            if detect_blur(img):
+                return True, 'blur'
+
+        # 4. Глаза: проверяем ВСЕ лица в кадре по точкам от нейросети.
+        #    Взгляд в сторону при резком кадре браком НЕ считается.
+        closed = 0
+        uncertain = 0
+        for face in faces:
+            state, detail = eyes_state(img, face)
+            print(f'[TECH_SORT] Face {face["box"]}: eyes={state} ({detail})')
+            if state == EYES_CLOSED:
+                closed += 1
+            elif state == EYES_UNCERTAIN:
+                uncertain += 1
+
+        if closed > 0:
+            print(f'[TECH_SORT] ❌ Closed eyes on {closed} face(s) → REJECT')
             return True, 'closed_eyes'
-        
+
+        if uncertain > 0:
+            print(f'[TECH_SORT] ⚠️ Uncertain eyes on {uncertain} face(s) → REVIEW')
+            return True, 'review_eyes'
+
         # Все проверки пройдены - фото ОК
         print(f'[TECH_SORT] ✅ Photo passed all checks')
         return False, ''
@@ -530,7 +591,32 @@ def handler(event: dict, context) -> dict:
                     ''', (tech_rejects_id,))
                     
                     print('[TECH_SORT] Deleted empty tech_rejects folder')
-                
+
+                # Возвращаем фото и из папки «Проверить»
+                cur.execute('''
+                    SELECT id FROM t_p28211681_photo_secure_web.photo_folders
+                    WHERE user_id = %s AND parent_folder_id = %s
+                      AND folder_type = 'review' AND is_trashed = FALSE
+                ''', (user_id, folder_id))
+
+                review_folder = cur.fetchone()
+
+                if review_folder:
+                    review_id = review_folder['id']
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.photo_bank
+                        SET folder_id = %s, tech_reject_reason = NULL
+                        WHERE folder_id = %s AND user_id = %s AND is_trashed = FALSE
+                    ''', (folder_id, review_id, user_id))
+                    print(f'[TECH_SORT] Restored {cur.rowcount} photos from review folder')
+
+                    cur.execute('''
+                        UPDATE t_p28211681_photo_secure_web.photo_folders
+                        SET is_trashed = TRUE
+                        WHERE id = %s
+                    ''', (review_id,))
+                    print('[TECH_SORT] Deleted empty review folder')
+
                 # Сбрасываем флаги анализа для всех фото в папке
                 cur.execute('''
                     UPDATE t_p28211681_photo_secure_web.photo_bank
@@ -575,6 +661,47 @@ def handler(event: dict, context) -> dict:
             else:
                 tech_rejects_id = tech_rejects_folder['id']
                 print(f'[TECH_SORT] Using existing tech_rejects folder: {tech_rejects_id}')
+
+            # Папка «Проверить» — для спорных кадров, где алгоритм не уверен.
+            # Создаём лениво: только когда реально появится такое фото.
+            review_folder_id = None
+
+            def get_review_folder_id():
+                '''Возвращает id папки «Проверить», создавая её при первой необходимости.'''
+                nonlocal review_folder_id
+                if review_folder_id is not None:
+                    return review_folder_id
+
+                cur.execute('''
+                    SELECT id FROM t_p28211681_photo_secure_web.photo_folders
+                    WHERE user_id = %s AND parent_folder_id = %s
+                      AND folder_type = 'review' AND is_trashed = FALSE
+                ''', (user_id, folder_id))
+                existing = cur.fetchone()
+
+                if existing:
+                    review_folder_id = existing['id']
+                    print(f'[TECH_SORT] Using existing review folder: {review_folder_id}')
+                    return review_folder_id
+
+                cur.execute('''
+                    SELECT folder_name FROM t_p28211681_photo_secure_web.photo_folders
+                    WHERE id = %s AND user_id = %s
+                ''', (folder_id, user_id))
+                parent = cur.fetchone()
+                parent_name = parent['folder_name'] if parent else 'Загрузка'
+
+                cur.execute('''
+                    INSERT INTO t_p28211681_photo_secure_web.photo_folders
+                    (user_id, parent_folder_id, folder_name, folder_type, created_at)
+                    VALUES (%s, %s, %s, 'review', NOW())
+                    RETURNING id
+                ''', (user_id, folder_id, f'{parent_name} - Проверить'))
+
+                review_folder_id = cur.fetchone()['id']
+                conn.commit()
+                print(f'[TECH_SORT] Created review folder: {review_folder_id}')
+                return review_folder_id
             
             # Находим фото которые ещё не анализировались (batch по 5 фото для оптимизации памяти)
             cur.execute('''
@@ -615,6 +742,7 @@ def handler(event: dict, context) -> dict:
             
             # Анализируем каждое фото
             rejected_count = 0
+            review_count = 0
             processed_count = 0
             
             for photo in photos:
@@ -628,7 +756,18 @@ def handler(event: dict, context) -> dict:
                 try:
                     is_rejected, reject_reason = analyze_photo(s3_client, bucket, s3_key)
                     
-                    if is_rejected:
+                    if is_rejected and reject_reason in REVIEW_REASONS:
+                        # Спорный случай — не браковать, отдать фотографу на решение
+                        target_folder = get_review_folder_id()
+                        cur.execute('''
+                            UPDATE t_p28211681_photo_secure_web.photo_bank
+                            SET folder_id = %s, tech_analyzed = TRUE, tech_reject_reason = %s
+                            WHERE id = %s
+                        ''', (target_folder, reject_reason, photo_id))
+
+                        review_count += 1
+                        print(f'[TECH_SORT] ⚠️ Photo {photo_id} → review: {reject_reason}')
+                    elif is_rejected:
                         # Перемещаем в tech_rejects
                         cur.execute('''
                             UPDATE t_p28211681_photo_secure_web.photo_bank
@@ -676,7 +815,7 @@ def handler(event: dict, context) -> dict:
             
             remaining = cur.fetchone()['remaining']
             
-            print(f'[TECH_SORT] Batch completed: processed={processed_count}, rejected={rejected_count}, remaining={remaining}')
+            print(f'[TECH_SORT] Batch completed: processed={processed_count}, rejected={rejected_count}, review={review_count}, remaining={remaining}')
             
             return {
                 'statusCode': 200,
@@ -684,8 +823,10 @@ def handler(event: dict, context) -> dict:
                 'body': json.dumps({
                     'processed': processed_count,
                     'rejected': rejected_count,
+                    'review': review_count,
                     'remaining': remaining,
-                    'tech_rejects_folder_id': tech_rejects_id
+                    'tech_rejects_folder_id': tech_rejects_id,
+                    'review_folder_id': review_folder_id
                 })
             }
     

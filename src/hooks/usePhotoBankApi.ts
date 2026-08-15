@@ -13,7 +13,7 @@ interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
-  folder_type?: 'originals' | 'tech_rejects';
+  folder_type?: 'originals' | 'tech_rejects' | 'retouch' | 'review';
   parent_folder_id?: number | null;
 }
 

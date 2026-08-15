@@ -8,7 +8,7 @@ interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
-  folder_type?: 'originals' | 'tech_rejects' | 'retouch';
+  folder_type?: 'originals' | 'tech_rejects' | 'retouch' | 'review';
   parent_folder_id?: number | null;
   has_password?: boolean;
   is_hidden?: boolean;
@@ -179,22 +179,26 @@ const PhotoGridHeader = ({
           {subfolders.map((sf) => {
             const isTechRejects = sf.folder_type === 'tech_rejects';
             const isRetouch = sf.folder_type === 'retouch';
+            const isReview = sf.folder_type === 'review';
             const isActive = selectedFolder.id === sf.id;
             const isUserCreated = isUserCreatedSubfolder(sf);
 
             const getButtonStyle = () => {
               if (isActive) {
                 if (isTechRejects) return 'bg-red-600 text-white border-red-600';
+                if (isReview) return 'bg-amber-500 text-white border-amber-500';
                 if (isRetouch) return 'bg-rose-600 text-white border-rose-600';
                 return 'bg-blue-600 text-white border-blue-600';
               }
               if (isTechRejects) return 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100';
+              if (isReview) return 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100';
               if (isRetouch) return 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100';
               return 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
             };
 
             const getIconName = () => {
               if (isTechRejects) return 'AlertTriangle';
+              if (isReview) return 'Eye';
               if (isRetouch) return 'Sparkles';
               return 'FolderOpen';
             };

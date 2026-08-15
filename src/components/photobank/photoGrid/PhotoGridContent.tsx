@@ -12,6 +12,7 @@ interface PhotoGridContentProps {
   sortedPhotos: Photo[];
   selectedFolder: PhotoFolder | null;
   isTechRejectsFolder: boolean;
+  isReviewFolder: boolean;
   clientUploadSlot?: React.ReactNode;
   sortField: SortField;
   sortDirection: SortDirection;
@@ -38,6 +39,7 @@ const PhotoGridContent = ({
   sortedPhotos,
   selectedFolder,
   isTechRejectsFolder,
+  isReviewFolder,
   clientUploadSlot,
   sortField,
   sortDirection,
@@ -68,6 +70,20 @@ const PhotoGridContent = ({
           </div>
           <p className="text-[10px] sm:text-xs text-red-600 mt-1">
             Эти фото автоматически определены как технический брак. Вы можете восстановить их в оригиналы.
+          </p>
+        </div>
+      )}
+
+      {isReviewFolder && photos.length > 0 && (
+        <div className="mb-4 p-2 sm:p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center gap-2 text-amber-800">
+            <Icon name="Eye" size={16} className="sm:w-[18px] sm:h-[18px] flex-shrink-0" />
+            <p className="text-xs sm:text-sm font-medium">
+              Нужно проверить глазами ({photos.length} фото)
+            </p>
+          </div>
+          <p className="text-[10px] sm:text-xs text-amber-700 mt-1">
+            Здесь спорные кадры: алгоритм не уверен, брак это или нет. Удачные — верните в оригиналы, неудачные удалите.
           </p>
         </div>
       )}
@@ -128,6 +144,23 @@ const PhotoGridContent = ({
                   frameMode={frameMode}
                   getFrameStyle={getFrameStyle}
                 />
+              {isReviewFolder && photo.tech_reject_reason && (
+                <div className="mt-1 space-y-1">
+                  <div className="text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 bg-amber-100 text-amber-800 rounded text-center truncate" title={getRejectionReasonLabel(photo.tech_reject_reason)}>
+                    {getRejectionReasonLabel(photo.tech_reject_reason)}
+                  </div>
+                  {onRestorePhoto && (
+                    <button
+                      onClick={() => onRestorePhoto(photo.id)}
+                      className="w-full text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 bg-green-100 hover:bg-green-200 active:bg-green-300 text-green-700 rounded transition-colors flex items-center justify-center gap-1 touch-manipulation"
+                    >
+                      <Icon name="RotateCcw" size={12} />
+                      <span className="hidden xs:inline">Вернуть</span>
+                      <span className="xs:hidden">↻</span>
+                    </button>
+                  )}
+                </div>
+              )}
               {isTechRejectsFolder && photo.tech_reject_reason && (
                 <div className="mt-1 space-y-1">
                   <div className="text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1 bg-red-100 text-red-700 rounded text-center truncate" title={getRejectionReasonLabel(photo.tech_reject_reason)}>

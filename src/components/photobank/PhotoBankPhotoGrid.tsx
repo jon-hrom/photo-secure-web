@@ -43,6 +43,7 @@ const PhotoBankPhotoGrid = ({
   });
 
   const isTechRejectsFolder = selectedFolder?.folder_type === 'tech_rejects';
+  const isReviewFolder = selectedFolder?.folder_type === 'review';
 
   return (
     <Card>
@@ -75,6 +76,7 @@ const PhotoBankPhotoGrid = ({
         sortedPhotos={grid.sortedPhotos}
         selectedFolder={selectedFolder}
         isTechRejectsFolder={isTechRejectsFolder}
+        isReviewFolder={isReviewFolder}
         clientUploadSlot={clientUploadSlot}
         sortField={grid.sortField}
         sortDirection={grid.sortDirection}

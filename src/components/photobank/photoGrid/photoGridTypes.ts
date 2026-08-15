@@ -28,7 +28,7 @@ export interface PhotoFolder {
   created_at: string;
   updated_at: string;
   photo_count: number;
-  folder_type?: 'originals' | 'tech_rejects' | 'retouch';
+  folder_type?: 'originals' | 'tech_rejects' | 'retouch' | 'review';
   parent_folder_id?: number | null;
 }
 
@@ -136,6 +136,9 @@ export const getRejectionReasonLabel = (reason?: string | null) => {
     low_contrast: 'Низкий контраст',
     corrupt_file: 'Поврежденный файл',
     analysis_error: 'Ошибка анализа',
+    closed_eyes: 'Закрытые глаза',
+    review_blur: 'Резкость под вопросом',
+    review_eyes: 'Глаза под вопросом',
     ok: 'OK'
   };
   return reason ? labels[reason] || reason : 'Неизвестно';

@@ -113,12 +113,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'isBase64Encoded': False
                 }
             
-            # Проверяем что фото находится в папке tech_rejects
-            if photo['folder_type'] != 'tech_rejects':
+            # Возвращать можно из «Технического брака» и из «Проверить»
+            if photo['folder_type'] not in ('tech_rejects', 'review'):
                 return {
                     'statusCode': 400,
                     'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                    'body': json.dumps({'error': 'Photo is not in tech_rejects folder'}),
+                    'body': json.dumps({'error': 'Photo is not in tech_rejects or review folder'}),
                     'isBase64Encoded': False
                 }
             
