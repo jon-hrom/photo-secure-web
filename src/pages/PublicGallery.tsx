@@ -83,7 +83,12 @@ export default function PublicGallery() {
     setPhotoToAdd: state.setPhotoToAdd,
     setIsFavoritesModalOpen: state.setIsFavoritesModalOpen,
     setIsLoginModalOpen: state.setIsLoginModalOpen,
-    previousUnreadCount: state.previousUnreadCount
+    previousUnreadCount: state.previousUnreadCount,
+    onDownloadAll: () => {
+      state.setIsFavoritesModalOpen(false);
+      state.setIsLoginModalOpen(false);
+      downloadAll();
+    }
   });
 
   const subfolder = useSubfolderState({

@@ -45,6 +45,7 @@ interface GalleryHandlersParams {
   setIsFavoritesModalOpen: (open: boolean) => void;
   setIsLoginModalOpen: (open: boolean) => void;
   previousUnreadCount: React.MutableRefObject<number>;
+  onDownloadAll?: () => void;
 }
 
 export function useGalleryHandlers(params: GalleryHandlersParams) {
@@ -61,12 +62,17 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     setPhotoToAdd,
     setIsFavoritesModalOpen,
     setIsLoginModalOpen,
-    previousUnreadCount
+    previousUnreadCount,
+    onDownloadAll
   } = params;
 
   // Фото, которое клиент захотел добавить в избранное ДО авторизации.
   // После успешного входа оно автоматически добавится в избранное.
   const pendingFavoritePhotoRef = useRef<Photo | null>(null);
+
+  // Клиент нажал «Скачать всё» и попал на форму с ФИО.
+  // После заполнения архив должен начать качаться сам.
+  const pendingDownloadAllRef = useRef(false);
 
   const loadClientFavorites = useCallback(async (clientId: number) => {
     try {
@@ -253,6 +259,13 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     }
     
     await loadClientFavorites(data.client_id);
+
+    // Регистрация была ради скачивания — сразу запускаем архив,
+    // чтобы клиенту не пришлось жать кнопку второй раз.
+    if (pendingDownloadAllRef.current) {
+      pendingDownloadAllRef.current = false;
+      onDownloadAll?.();
+    }
   };
 
   const handleClientLogin = async (loginData: { client_id: number; full_name: string; phone: string; email?: string; upload_enabled?: boolean }) => {
@@ -271,6 +284,11 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
       pendingFavoritePhotoRef.current = null;
       setPhotoToAdd(null);
       await addPhotoToFavoritesForClient(pendingPhoto, loginData);
+    }
+
+    if (pendingDownloadAllRef.current) {
+      pendingDownloadAllRef.current = false;
+      onDownloadAll?.();
     }
   };
 
@@ -354,6 +372,7 @@ export function useGalleryHandlers(params: GalleryHandlersParams) {
     loadClientFavorites,
     handleRegisterToDownload: () => {
       setPhotoToAdd(null);
+      pendingDownloadAllRef.current = true;
       setIsFavoritesModalOpen(true);
     }
   };
