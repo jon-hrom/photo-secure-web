@@ -37,17 +37,13 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         throw new Error('Отсутствует информация о файле');
       }
 
-      // Для больших файлов (RAW > 3MB) используем presigned URL
-      const isLargeFile = photo.file_name.toUpperCase().endsWith('.CR2') || 
-                         photo.file_name.toUpperCase().endsWith('.NEF') ||
-                         photo.file_name.toUpperCase().endsWith('.ARW') ||
-                         photo.file_size > 3 * 1024 * 1024; // > 3MB
-      
+      // Всегда берём ссылку на файл: отдача самого файла через функцию
+      // ограничена ~3.5 МБ, а обычное фото с камеры весит больше.
       const params = new URLSearchParams({
         s3_key: photo.s3_key,
         photo_id: photo.id.toString(),
+        presigned: 'true',
         ...(photo.folder_id && { folder_id: photo.folder_id.toString() }),
-        ...(isLargeFile && { presigned: 'true' })
       });
       const apiUrl = `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?${params.toString()}`;
       
@@ -58,14 +54,11 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         throw new Error(errorData.error || 'Ошибка скачивания файла');
       }
 
-      let blob: Blob;
-      if (isLargeFile) {
-        const data = await response.json();
-        const fileResponse = await fetch(data.download_url);
-        blob = await fileResponse.blob();
-      } else {
-        blob = await response.blob();
-      }
+      const data = await response.json();
+      if (!data.download_url) throw new Error('Ссылка на файл не получена');
+      const fileResponse = await fetch(data.download_url);
+      if (!fileResponse.ok) throw new Error(`HTTP ${fileResponse.status}`);
+      const blob = await fileResponse.blob();
 
       await saveBlobToDevice(blob, photo.file_name);
     } catch (err) {

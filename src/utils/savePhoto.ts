@@ -11,6 +11,32 @@ const canShareFiles = (files: File[]): boolean => {
   return typeof nav.share === 'function' && typeof nav.canShare === 'function' && nav.canShare({ files });
 };
 
+export const canShareBlob = (blob: Blob, fileName: string): boolean => {
+  try {
+    const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+    return canShareFiles([file]);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Отдаёт файл в системное меню iPhone.
+ * ВАЖНО: вызывать строго из обработчика нажатия — iOS запрещает
+ * открывать это меню, если между касанием и вызовом была загрузка.
+ */
+export const shareBlobNow = async (blob: Blob, fileName: string): Promise<boolean> => {
+  try {
+    const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+    if (!canShareFiles([file])) return false;
+    await (navigator as Navigator & { share: (d: ShareData) => Promise<void> }).share({ files: [file] });
+    return true;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return true;
+    return false;
+  }
+};
+
 const fallbackDownload = (url: string, fileName: string) => {
   const a = document.createElement('a');
   a.href = url;

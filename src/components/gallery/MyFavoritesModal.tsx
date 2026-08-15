@@ -5,7 +5,7 @@ import PhotoGridViewer from '@/components/photobank/PhotoGridViewer';
 import { Photo, FavoritePhoto, FAVORITES_URL } from './myFavorites/types';
 import MyFavoritesSelectionBar from './myFavorites/MyFavoritesSelectionBar';
 import MyFavoritesGrid from './myFavorites/MyFavoritesGrid';
-import { saveBlobToDevice, savePhotoToDevice } from '@/utils/savePhoto';
+import { savePhotoToDevice } from '@/utils/savePhoto';
 
 interface MyFavoritesModalProps {
   isOpen: boolean;
@@ -211,22 +211,14 @@ export default function MyFavoritesModal({
         downloadDisabled={downloadDisabled}
         onDownload={async (s3Key, fileName) => {
           try {
-            const isLargeFile = fileName.toUpperCase().endsWith('.CR2') || 
-                               fileName.toUpperCase().endsWith('.NEF') ||
-                               fileName.toUpperCase().endsWith('.ARW');
-            
             const response = await fetch(
-              `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3Key)}${isLargeFile ? '&presigned=true' : ''}`
+              `https://functions.poehali.dev/f72c163a-adb8-41ae-9555-db32a2f8e215?s3_key=${encodeURIComponent(s3Key)}&presigned=true`
             );
             if (!response.ok) throw new Error('Ошибка скачивания');
-            
-            if (isLargeFile) {
-              const data = await response.json();
-              await savePhotoToDevice(data.download_url, fileName);
-            } else {
-              const blob = await response.blob();
-              await saveBlobToDevice(blob, fileName);
-            }
+
+            const data = await response.json();
+            if (!data.download_url) throw new Error('Ссылка на файл не получена');
+            await savePhotoToDevice(data.download_url, fileName);
           } catch (e) {
             console.error('Download failed:', e);
             alert('Ошибка при скачивании фото');
