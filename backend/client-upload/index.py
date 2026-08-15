@@ -482,6 +482,18 @@ def create_client_folder(cur, conn, data):
         return error_response(404, 'Parent folder not found')
     
     user_id = folder_row[0]
+
+    # Имя клиента не спрашиваем в форме — берём то, что он указал при регистрации
+    if not client_name:
+        cur.execute(
+            f"SELECT COALESCE(full_name, ''), COALESCE(phone, ''), COALESCE(email, '') "
+            f"FROM {SCHEMA}.favorite_clients WHERE id = %s",
+            (client_id,)
+        )
+        c = cur.fetchone()
+        if c:
+            client_name = (c[0] or c[1] or c[2] or '').strip()
+
     s3_prefix = f"client-uploads/{user_id}/{parent_folder_id}/{uuid.uuid4().hex}/"
     
     cur.execute(

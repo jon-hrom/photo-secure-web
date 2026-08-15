@@ -113,7 +113,6 @@ export default function ClientUploadModal({
             checkingOwnFolder={state.checkingOwnFolder}
             existingFolders={existingFolders}
             newFolderName={state.newFolderName}
-            clientName={state.clientName}
             renameValue={state.renameValue}
             renamingFolder={state.renamingFolder}
             uploading={state.uploading}
@@ -131,7 +130,6 @@ export default function ClientUploadModal({
             onViewOtherFolder={handlers.handleViewOtherFolder}
             onCreateFolder={() => state.setStep('create')}
             onChangeFolderName={state.setNewFolderName}
-            onChangeClientName={state.setClientName}
             onSubmitCreate={handlers.handleCreateFolder}
             onChangeRenameValue={state.setRenameValue}
             onSubmitRename={handlers.handleRenameFolder}

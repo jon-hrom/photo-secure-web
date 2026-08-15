@@ -10,7 +10,6 @@ interface ClientUploadContentProps {
   checkingOwnFolder: boolean;
   existingFolders: ClientUploadFolder[];
   newFolderName: string;
-  clientName: string;
   renameValue: string;
   renamingFolder: boolean;
   uploading: boolean;
@@ -28,7 +27,6 @@ interface ClientUploadContentProps {
   onViewOtherFolder: (folder: ClientUploadFolder) => void;
   onCreateFolder: () => void;
   onChangeFolderName: (v: string) => void;
-  onChangeClientName: (v: string) => void;
   onSubmitCreate: () => void;
   onChangeRenameValue: (v: string) => void;
   onSubmitRename: () => void;
@@ -47,7 +45,6 @@ export default function ClientUploadContent({
   checkingOwnFolder,
   existingFolders,
   newFolderName,
-  clientName,
   renameValue,
   renamingFolder,
   uploading,
@@ -65,7 +62,6 @@ export default function ClientUploadContent({
   onViewOtherFolder,
   onCreateFolder,
   onChangeFolderName,
-  onChangeClientName,
   onSubmitCreate,
   onChangeRenameValue,
   onSubmitRename,
@@ -101,11 +97,9 @@ export default function ClientUploadContent({
       {step === 'create' && (
         <ClientUploadStepCreate
           newFolderName={newFolderName}
-          clientName={clientName}
           inputCls={inputCls}
           subText={subText}
           onChangeFolderName={onChangeFolderName}
-          onChangeClientName={onChangeClientName}
           onSubmit={onSubmitCreate}
         />
       )}

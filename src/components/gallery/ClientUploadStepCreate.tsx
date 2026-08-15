@@ -4,11 +4,9 @@ import { Input } from '@/components/ui/input';
 
 interface CreateProps {
   newFolderName: string;
-  clientName: string;
   inputCls: string;
   subText: string;
   onChangeFolderName: (v: string) => void;
-  onChangeClientName: (v: string) => void;
   onSubmit: () => void;
 }
 
@@ -23,11 +21,8 @@ interface RenameProps {
 
 export function ClientUploadStepCreate({
   newFolderName,
-  clientName,
   inputCls,
-  subText,
   onChangeFolderName,
-  onChangeClientName,
   onSubmit,
 }: CreateProps) {
   return (
@@ -41,15 +36,6 @@ export function ClientUploadStepCreate({
           className={`h-11 ${inputCls}`}
           autoFocus
           onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-300">Ваше имя</label>
-        <Input
-          value={clientName}
-          onChange={(e) => onChangeClientName(e.target.value)}
-          placeholder="Как вас зовут?"
-          className={`h-11 ${inputCls}`}
         />
       </div>
       <Button
