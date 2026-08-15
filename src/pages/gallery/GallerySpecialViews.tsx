@@ -1,5 +1,4 @@
 import React from 'react';
-import ClientFolderPage from '@/components/gallery/ClientFolderPage';
 import FavoriteListView from '@/components/gallery/FavoriteListView';
 import GalleryStatusScreens from './GalleryStatusScreens';
 import { SubfolderPasswordView, SubfolderPhotosView } from './SubfolderView';
@@ -101,21 +100,6 @@ export default function GallerySpecialViews(props: GallerySpecialViewsProps): Re
 
   if (!gallery) {
     return null;
-  }
-
-  if (subfolder.viewingClientFolder && state.clientData?.client_id && code) {
-    return (
-      <ClientFolderPage
-        folderId={subfolder.viewingClientFolder.id}
-        folderName={subfolder.viewingClientFolder.folder_name}
-        shortCode={code}
-        clientId={state.clientData.client_id}
-        onBack={() => subfolder.setViewingClientFolder(null)}
-        bgStyles={galleryBgStyles}
-        isDarkBg={isDarkTheme}
-        textColor={galleryTextColor}
-      />
-    );
   }
 
   if (favoriteLists.viewingList && state.clientData?.client_id && code) {

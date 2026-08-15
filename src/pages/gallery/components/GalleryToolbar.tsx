@@ -32,6 +32,7 @@ interface GalleryToolbarProps {
   clientFolders?: ClientFolder[];
   showClientFolders?: boolean;
   onOpenClientFolder?: (folder: ClientFolder) => void;
+  activeClientFolderId?: number;
   selectionMode?: boolean;
   onToggleSelectionMode?: () => void;
   onRegisterToDownload?: () => void;
@@ -64,6 +65,7 @@ export default function GalleryToolbar({
   clientFolders = [],
   showClientFolders = false,
   onOpenClientFolder,
+  activeClientFolderId,
   selectionMode = false,
   onToggleSelectionMode,
   onRegisterToDownload,
@@ -289,11 +291,19 @@ export default function GalleryToolbar({
                     key={folder.id}
                     onClick={() => onOpenClientFolder?.(folder)}
                     className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all active:scale-95"
-                    style={{
-                      background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-                      color: isDarkBg ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)',
-                      border: isDarkBg ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)'
-                    }}
+                    style={
+                      activeClientFolderId === folder.id
+                        ? {
+                            background: '#2563eb',
+                            color: '#fff',
+                            border: '1px solid #2563eb',
+                          }
+                        : {
+                            background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                            color: isDarkBg ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)',
+                            border: isDarkBg ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.08)',
+                          }
+                    }
                   >
                     <Icon name="Folder" size={12} />
                     <span>{folder.folder_name}</span>

@@ -97,7 +97,10 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
       />
       
       <GalleryGrid
-        gallery={{ ...gallery, photos: visiblePhotos }}
+        gallery={{
+          ...gallery,
+          photos: subfolder.viewingClientFolder ? subfolder.clientFolderPhotos : visiblePhotos,
+        }}
         downloadingAll={downloadingAll}
         onDownloadAll={downloadAll}
         onSaveToYandexDisk={state.clientData?.client_id ? saveToYandexDisk : undefined}
@@ -121,9 +124,14 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
         }}
         clientFolders={subfolder.clientUploadFolders}
         showClientFolders={!!(subfolder.clientUploadFolders.length > 0 && (gallery.client_folders_visibility || subfolder.clientUploadFolders.some((f: { is_own?: boolean }) => f.is_own !== false)))}
+        activeClientFolderId={subfolder.viewingClientFolder?.id}
         onOpenClientFolder={(folder) => {
           if (state.clientData?.client_id) {
-            subfolder.setViewingClientFolder(folder);
+            if (subfolder.viewingClientFolder?.id === folder.id) {
+              subfolder.closeClientFolder();
+            } else {
+              subfolder.openClientFolder(folder, state.clientData.client_id);
+            }
           } else {
             subfolder.setFolderToOpen(folder);
             subfolder.setIsUploadOpen(true);

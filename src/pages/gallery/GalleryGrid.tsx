@@ -96,6 +96,7 @@ export interface GalleryGridProps {
   clientFolders?: ClientFolder[];
   showClientFolders?: boolean;
   onOpenClientFolder?: (folder: ClientFolder) => void;
+  activeClientFolderId?: number;
   onRegisterToDownload?: () => void;
   onRegisterAccount?: () => void;
   onOpenSubfolder?: (subfolder: GallerySubfolder) => void;
@@ -130,6 +131,7 @@ export default function GalleryGrid({
   clientFolders = [],
   showClientFolders = false,
   onOpenClientFolder,
+  activeClientFolderId,
   onRegisterToDownload,
   onRegisterAccount,
   onOpenSubfolder,
@@ -342,6 +344,7 @@ export default function GalleryGrid({
         clientFolders={clientFolders}
         showClientFolders={showClientFolders}
         onOpenClientFolder={onOpenClientFolder}
+        activeClientFolderId={activeClientFolderId}
         selectionMode={selectionMode}
         onToggleSelectionMode={toggleSelectionMode}
         onRegisterToDownload={onRegisterToDownload}

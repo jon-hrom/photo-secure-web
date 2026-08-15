@@ -52,6 +52,9 @@ export const useSubfolderState = ({
   const [clientUploadFolders, setClientUploadFolders] = useState<ClientUploadFolder[]>(
     gallery?.client_upload_folders || []
   );
+  // Фото выбранной папки клиента — показываем их прямо в общей сетке галереи
+  const [clientFolderPhotos, setClientFolderPhotos] = useState<Photo[]>([]);
+  const [clientFolderLoading, setClientFolderLoading] = useState(false);
 
   useEffect(() => {
     if (gallery?.client_upload_folders && clientId) {
@@ -125,7 +128,52 @@ export const useSubfolderState = ({
     setSubfolderFolderName('');
   }, []);
 
+  /** Открыть папку клиента: подгружаем её фото в общую сетку галереи. */
+  const openClientFolder = useCallback(async (
+    folder: { id: number; folder_name: string },
+    currentClientId?: number,
+  ) => {
+    if (!code || !currentClientId) return;
+    setViewingClientFolder(folder);
+    setClientFolderLoading(true);
+    setClientFolderPhotos([]);
+    try {
+      const res = await fetch('https://functions.poehali.dev/06dd3267-2ef6-45bc-899c-50f86e9d36e1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'client_list_photos',
+          short_code: code,
+          client_id: currentClientId,
+          upload_folder_id: folder.id,
+        }),
+      });
+      const data = res.ok ? await res.json() : null;
+      const list = (data?.photos || []) as { photo_id: number; file_name: string; s3_url: string }[];
+      setClientFolderPhotos(list.map(p => ({
+        id: p.photo_id,
+        file_name: p.file_name,
+        photo_url: p.s3_url,
+        thumbnail_url: p.s3_url,
+        file_size: 0,
+      })) as Photo[]);
+    } catch (e) {
+      console.error('[CLIENT_FOLDER] load failed', e);
+    } finally {
+      setClientFolderLoading(false);
+    }
+  }, [code]);
+
+  const closeClientFolder = useCallback(() => {
+    setViewingClientFolder(null);
+    setClientFolderPhotos([]);
+  }, []);
+
   return {
+    clientFolderPhotos,
+    clientFolderLoading,
+    openClientFolder,
+    closeClientFolder,
     isUploadOpen,
     setIsUploadOpen,
     folderToOpen,
