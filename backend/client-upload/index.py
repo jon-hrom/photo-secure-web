@@ -6,6 +6,7 @@ import base64
 import uuid
 from datetime import datetime
 from botocore.client import Config
+from gallery_notify import notify_photographer
 
 SCHEMA = 't_p28211681_photo_secure_web'
 S3_ENDPOINT = 'https://storage.yandexcloud.net'
@@ -580,6 +581,7 @@ def upload_client_photo(cur, conn, data):
         """,
         (upload_folder_id,)
     )
+    notify_upload(cur, short_code, client_id, upload_folder_id)
     conn.commit()
     
     cur.close()
@@ -687,6 +689,7 @@ def confirm_client_upload(cur, conn, data):
         f"UPDATE {SCHEMA}.client_upload_folders SET photo_count = photo_count + 1 WHERE id = %s",
         (upload_folder_id,)
     )
+    notify_upload(cur, short_code, client_id, upload_folder_id)
     conn.commit()
 
     cur.close()
@@ -917,6 +920,36 @@ def rename_client_folder(cur, conn, data):
 
 
 _cors_headers = {'Access-Control-Allow-Origin': '*'}
+
+def notify_upload(cur, short_code, client_id, upload_folder_id):
+    '''Сообщаем фотографу, что клиент залил снимки. Не чаще раза в 10 минут на клиента,
+    чтобы пачка из 30 фото не превратилась в 30 сообщений.'''
+    cur.execute(
+        f"""
+        SELECT COALESCE(fc.full_name, ''), COALESCE(cuf.folder_name, ''), COALESCE(cuf.photo_count, 0)
+        FROM {SCHEMA}.client_upload_folders cuf
+        LEFT JOIN {SCHEMA}.favorite_clients fc ON fc.id = %s
+        WHERE cuf.id = %s
+        """,
+        (client_id, upload_folder_id)
+    )
+    row = cur.fetchone()
+    client_name = (row[0] if row else '') or 'Гость'
+    folder_name = (row[1] if row else '') or ''
+    count = row[2] if row else 0
+
+    details = f'Папка клиента: {folder_name}' if folder_name else ''
+    if count:
+        details = (details + f' · всего фото: {count}') if details else f'Всего фото: {count}'
+
+    notify_photographer(
+        cur, short_code, 'client_uploaded',
+        client_id=client_id,
+        client_name=client_name,
+        details=details,
+        throttle_minutes=10,
+    )
+
 
 def error_response(status, message):
     return {

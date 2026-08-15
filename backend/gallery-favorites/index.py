@@ -5,6 +5,7 @@ import psycopg2
 import boto3
 from botocore.client import Config
 from datetime import timedelta
+from gallery_notify import notify_photographer
 
 def generate_presigned_url(s3_url: str, expiration: int = 3600) -> str:
     '''Генерирует presigned URL для S3 объекта'''
@@ -270,7 +271,15 @@ def handler(event: dict, context) -> dict:
                         RETURNING id
                     ''', (gallery_code, full_name, phone, email))
                     client_id = cur.fetchone()[0]
-                
+
+                    contacts = ' · '.join([x for x in [phone, email] if x])
+                    notify_photographer(
+                        cur, gallery_code, 'client_registered',
+                        client_id=client_id,
+                        client_name=full_name or phone or email or 'Гость',
+                        details=(f'Контакты: {contacts}' if contacts else ''),
+                    )
+
                 cur.execute('''
                     INSERT INTO t_p28211681_photo_secure_web.favorite_photos 
                     (client_id, photo_id)
@@ -367,7 +376,15 @@ def handler(event: dict, context) -> dict:
                     ''', (gallery_code, full_name or '', phone or '', email))
                     client_id = cur.fetchone()[0]
                     print(f'[REGISTER_CLIENT] Inserted new client_id={client_id}')
-                
+
+                    contacts = ' · '.join([x for x in [phone, email] if x])
+                    notify_photographer(
+                        cur, gallery_code, 'client_registered',
+                        client_id=client_id,
+                        client_name=full_name or phone or email or 'Гость',
+                        details=(f'Контакты: {contacts}' if contacts else ''),
+                    )
+
                 schedule_review_reminder(cur, gallery_code, client_id)
                 conn.commit()
                 
