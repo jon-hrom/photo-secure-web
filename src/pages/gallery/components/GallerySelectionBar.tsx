@@ -7,6 +7,7 @@ interface GallerySelectionBarProps {
   downloadingSelected: boolean;
   selectedProgress: number;
   onSelectAll: () => void;
+  allSelected?: boolean;
   onDownloadSelected: () => void;
   listMode?: { listName: string; onAdd: () => void; saving?: boolean } | null;
   onCancel?: () => void;
@@ -19,6 +20,7 @@ export default function GallerySelectionBar({
   downloadingSelected,
   selectedProgress,
   onSelectAll,
+  allSelected = false,
   onDownloadSelected,
   listMode,
   onCancel,
@@ -57,8 +59,8 @@ export default function GallerySelectionBar({
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors"
           style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : '#f3f4f6', color: textColor }}
         >
-          <Icon name="CheckSquare" size={15} />
-          Выбрать все
+          <Icon name={allSelected ? 'Square' : 'CheckSquare'} size={15} />
+          {allSelected ? 'Снять всё' : 'Выбрать все'}
         </button>
         {listMode ? (
           <>

@@ -204,8 +204,16 @@ export default function GalleryGrid({
     });
   };
 
+  const allSelected =
+    gallery.photos.length > 0 && selectedIds.size === gallery.photos.length;
+
+  /** Выбрать все фото, а если уже все выбраны — снять выделение. */
   const selectAll = () => {
-    setSelectedIds(new Set(gallery.photos.map(p => p.id)));
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(gallery.photos.map(p => p.id)));
+    }
   };
 
   const downloadSelected = async () => {
@@ -392,6 +400,7 @@ export default function GalleryGrid({
           downloadingSelected={downloadingSelected}
           selectedProgress={selectedProgress}
           onSelectAll={selectAll}
+          allSelected={allSelected}
           onDownloadSelected={downloadSelected}
           listMode={activeFavoriteList ? { listName: activeFavoriteList.name, onAdd: handleSubmitList, saving: savingList } : null}
           onCancel={activeFavoriteList ? handleCancelList : undefined}
