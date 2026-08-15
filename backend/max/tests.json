@@ -13,6 +13,18 @@
       "bodyMatcher": "partial"
     },
     {
+      "name": "Delivery status requires message id",
+      "method": "POST",
+      "headers": {
+        "X-User-Id": "1"
+      },
+      "body": {
+        "action": "get_delivery_status"
+      },
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
       "name": "Global expiring check without auth",
       "method": "POST",
       "body": {

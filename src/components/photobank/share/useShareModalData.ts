@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type { DeliveryReport } from './DeliveryReportModal';
 
 interface Client {
   id: number;
@@ -29,6 +30,7 @@ export default function useShareModalData(folderId: number, folderName: string, 
   const [clients, setClients] = useState<Client[]>([]);
   const [showMaxModal, setShowMaxModal] = useState(false);
   const [showTelegramModal, setShowTelegramModal] = useState(false);
+  const [deliveryReport, setDeliveryReport] = useState<DeliveryReport | null>(null);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [pageDesign, setPageDesign] = useState({
     coverPhotoId: null as number | null,
@@ -565,16 +567,38 @@ export default function useShareModalData(folderId: number, folderName: string, 
       const data = await response.json();
 
       if (data.success) {
-        alert('Сообщение отправлено через MAX ✅');
         setShowMaxModal(false);
+        setDeliveryReport({
+          channel: 'MAX',
+          clientName: selectedClient.name,
+          clientContact: selectedClient.phone || '',
+          photographerNotified: !!data.db_message_id,
+          state: (data.delivery_status as DeliveryReport['state']) || 'sent',
+          dbMessageId: data.db_message_id ?? null,
+          messageId: data.message_id ?? null,
+        });
         await autoCompleteProjectByFolder();
         return true;
       } else {
-        alert('Ошибка отправки: ' + (data.error || 'Неизвестная ошибка'));
+        setDeliveryReport({
+          channel: 'MAX',
+          clientName: selectedClient.name,
+          clientContact: selectedClient.phone || '',
+          photographerNotified: false,
+          state: 'failed',
+          error: data.error || 'Неизвестная ошибка',
+        });
         return false;
       }
     } catch (err: any) {
-      alert('Ошибка: ' + err.message);
+      setDeliveryReport({
+        channel: 'MAX',
+        clientName: selectedClient.name,
+        clientContact: selectedClient.phone || '',
+        photographerNotified: false,
+        state: 'failed',
+        error: err?.message || 'Нет связи с сервером',
+      });
       return false;
     }
   };
@@ -609,17 +633,37 @@ export default function useShareModalData(folderId: number, folderName: string, 
       const data = await response.json();
 
       if (data.success || data.status === 'sent') {
-        alert('Сообщение отправлено в Telegram ✅');
         setShowTelegramModal(false);
+        setDeliveryReport({
+          channel: 'Telegram',
+          clientName: selectedClient.name,
+          clientContact: selectedClient.phone || '',
+          photographerNotified: true,
+          state: 'delivered',
+        });
         await autoCompleteProjectByFolder();
         return true;
       } else {
-        alert('Ошибка отправки: ' + (data.error || 'Неизвестная ошибка'));
+        setDeliveryReport({
+          channel: 'Telegram',
+          clientName: selectedClient.name,
+          clientContact: selectedClient.phone || '',
+          photographerNotified: false,
+          state: 'failed',
+          error: data.error || 'Неизвестная ошибка',
+        });
         return false;
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Неизвестная ошибка';
-      alert('Ошибка: ' + errorMessage);
+      setDeliveryReport({
+        channel: 'Telegram',
+        clientName: selectedClient.name,
+        clientContact: selectedClient.phone || '',
+        photographerNotified: false,
+        state: 'failed',
+        error: errorMessage,
+      });
       return false;
     }
   };
@@ -672,6 +716,8 @@ export default function useShareModalData(folderId: number, folderName: string, 
     setShowMaxModal,
     showTelegramModal,
     setShowTelegramModal,
+    deliveryReport,
+    setDeliveryReport,
     galleryPhotos,
     pageDesign,
     setPageDesign,

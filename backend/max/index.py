@@ -57,6 +57,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 result = send_service_message(conn, user_id, body)
             elif action == 'send_message_to_client':
                 result = send_message_to_client(conn, user_id, body)
+            elif action == 'get_delivery_status':
+                result = get_delivery_status(conn, user_id, body)
             elif action == 'get_templates':
                 result = get_templates(conn)
             elif action == 'save_template':
@@ -556,6 +558,40 @@ def send_message_to_client(conn, user_id: str, body: Dict[str, Any]) -> Dict[str
             'error': 'Ошибка отправки',
             'details': str(e)
         }
+
+def get_delivery_status(conn, user_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Узнать текущий статус доставки отправленного клиенту сообщения"""
+    message_id = body.get('message_id')
+    db_message_id = body.get('db_message_id')
+
+    if not message_id and not db_message_id:
+        return {'error': 'Требуется message_id или db_message_id'}
+
+    with conn.cursor() as cur:
+        if db_message_id:
+            cur.execute("""
+                SELECT delivery_status, delivery_error, external_message_id
+                FROM t_p28211681_photo_secure_web.client_messages
+                WHERE id = %s AND photographer_id = %s
+            """, (db_message_id, user_id))
+        else:
+            cur.execute("""
+                SELECT delivery_status, delivery_error, external_message_id
+                FROM t_p28211681_photo_secure_web.client_messages
+                WHERE external_message_id = %s AND photographer_id = %s
+                ORDER BY id DESC LIMIT 1
+            """, (message_id, user_id))
+        row = cur.fetchone()
+
+    if not row:
+        return {'error': 'Сообщение не найдено'}
+
+    return {
+        'success': True,
+        'delivery_status': row[0] or 'sent',
+        'delivery_error': row[1],
+        'message_id': row[2],
+    }
 
 def get_admin_settings(conn, user_id: str) -> Dict[str, Any]:
     """Получить статус настроек MAX (credentials теперь в секретах)"""

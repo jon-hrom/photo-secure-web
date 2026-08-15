@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import MaxMessageModal from './share/MaxMessageModal';
 import TelegramMessageModal from './share/TelegramMessageModal';
+import DeliveryReportModal from './share/DeliveryReportModal';
 import FavoritesTab from './share/FavoritesTab';
 import FeaturesTab from './share/FeaturesTab';
 import PageDesignTab from './share/PageDesignTab';
@@ -41,16 +42,22 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
     getExpiryText,
     handleCopyLink,
     handleClientChange,
+    deliveryReport,
+    setDeliveryReport,
   } = useShareModalData(folderId, folderName, userId);
 
   const onSendViaMax = async (message: string) => {
-    const success = await handleSendViaMax(message);
-    if (success) onClose();
+    await handleSendViaMax(message);
   };
 
   const onSendViaTelegram = async (message: string) => {
-    const success = await handleSendViaTelegram(message);
-    if (success) onClose();
+    await handleSendViaTelegram(message);
+  };
+
+  const handleDeliveryReportClose = () => {
+    const delivered = deliveryReport?.state !== 'failed';
+    setDeliveryReport(null);
+    if (delivered) onClose();
   };
 
   return (
@@ -145,6 +152,14 @@ export default function ShareFolderModal({ folderId, folderName, userId, onClose
           expiryText={getExpiryText()}
           onSend={onSendViaTelegram}
           onClose={() => setShowTelegramModal(false)}
+        />
+      )}
+
+      {deliveryReport && (
+        <DeliveryReportModal
+          report={deliveryReport}
+          userId={userId}
+          onClose={handleDeliveryReportClose}
         />
       )}
     </div>
