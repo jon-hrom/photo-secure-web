@@ -26,6 +26,8 @@ export default function useGalleryTheme(gallery: GalleryData) {
       const current = prev !== null ? prev === 'dark' : !!originalIsDark;
       const next: 'light' | 'dark' = current ? 'light' : 'dark';
       try { localStorage.setItem('gallery-client-theme', next); } catch { /* noop */ }
+      // Сообщаем остальным частям галереи (модалкам), что тема сменилась
+      window.dispatchEvent(new Event('gallery-theme-change'));
       return next;
     });
   }, [originalIsDark]);

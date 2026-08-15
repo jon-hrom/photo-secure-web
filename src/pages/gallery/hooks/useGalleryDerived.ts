@@ -80,13 +80,39 @@ export function useGalleryDerived({
   };
 
   const bgTheme = gallery?.bg_theme || 'light';
-  const isDarkTheme = bgTheme === 'dark' || ((bgTheme === 'custom' || bgTheme === 'auto') && gallery?.bg_color && (() => {
+  // Клиент мог сам переключить тему кнопкой в галерее — его выбор главнее настроек ссылки
+  const [clientTheme, setClientTheme] = React.useState<'light' | 'dark' | null>(() => {
+    try {
+      const saved = localStorage.getItem('gallery-client-theme');
+      return saved === 'light' || saved === 'dark' ? saved : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const saved = localStorage.getItem('gallery-client-theme');
+        setClientTheme(saved === 'light' || saved === 'dark' ? saved : null);
+      } catch { /* localStorage недоступен */ }
+    };
+    window.addEventListener('gallery-theme-change', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('gallery-theme-change', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+  const originalIsDark = bgTheme === 'dark' || ((bgTheme === 'custom' || bgTheme === 'auto') && gallery?.bg_color && (() => {
     const hex = gallery.bg_color!.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
     return (r * 0.299 + g * 0.587 + b * 0.114) < 150;
   })()) || false;
+
+  const isDarkTheme = clientTheme !== null ? clientTheme === 'dark' : originalIsDark;
 
   const galleryBgStyles: React.CSSProperties = {};
   if (bgTheme === 'dark') {
