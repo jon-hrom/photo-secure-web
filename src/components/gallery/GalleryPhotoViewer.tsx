@@ -43,6 +43,8 @@ interface GalleryPhotoViewerProps {
   onDownload?: (photo: Photo) => void;
   onAddToFavorites?: (photo: Photo) => void;
   clientFavoritePhotoIds?: number[];
+  /** Подпись источника фото, например «Фото: Пономарев» */
+  sourceLabel?: string;
 }
 
 export default function GalleryPhotoViewer({
@@ -55,6 +57,7 @@ export default function GalleryPhotoViewer({
   onDownload,
   onAddToFavorites,
   clientFavoritePhotoIds = [],
+  sourceLabel,
 }: GalleryPhotoViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(() => 
     photos.findIndex(p => p.id === initialPhotoId) || 0
@@ -326,6 +329,7 @@ export default function GalleryPhotoViewer({
             currentIndex={currentIndex}
             totalCount={photos.length}
             fileName={currentPhoto.file_name}
+            sourceLabel={sourceLabel}
             isFullscreen={isFullscreen}
             zoom={zoom}
             downloadDisabled={downloadDisabled}

@@ -4,6 +4,8 @@ interface GalleryViewerTopBarProps {
   currentIndex: number;
   totalCount: number;
   fileName: string;
+  /** Из чьей папки открыто фото — показываем подпись в шапке */
+  sourceLabel?: string;
   isFullscreen: boolean;
   zoom: number;
   downloadDisabled: boolean;
@@ -21,6 +23,7 @@ export default function GalleryViewerTopBar({
   currentIndex,
   totalCount,
   fileName,
+  sourceLabel,
   isFullscreen,
   zoom,
   downloadDisabled,
@@ -51,6 +54,12 @@ export default function GalleryViewerTopBar({
         <div className="text-white/80 text-xs bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-full flex-shrink-0">
           {currentIndex + 1} / {totalCount}
         </div>
+        {sourceLabel && (
+          <div className="text-white/90 text-xs bg-blue-600/70 backdrop-blur-sm px-2.5 py-1 rounded-full flex items-center gap-1 max-w-[45vw] sm:max-w-[220px] flex-shrink">
+            <Icon name="Folder" size={12} className="flex-shrink-0" />
+            <span className="truncate">{sourceLabel}</span>
+          </div>
+        )}
         <div className="text-white/70 text-xs bg-black/30 backdrop-blur-sm px-2.5 py-1 rounded-full truncate hidden sm:block">
           {fileName}
         </div>

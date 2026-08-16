@@ -85,7 +85,8 @@ interface GalleryModalsProps {
   onDownloadPhoto: (photo: Photo) => void;
   onAddToFavorites?: (photo: Photo) => void;
   loadClientFavorites: (clientId: number) => void;
-  isDarkTheme?: boolean;
+  /** Название открытой папки клиента — показываем в просмотрщике */
+  clientFolderName?: string;
   // Полный пул фото (все уровни, включая избранные) для поиска избранного.
   // Нужен в подпапках, где gallery.photos содержит только фото текущей папки.
   favoritesPhotoPool?: Photo[];
@@ -123,6 +124,7 @@ export default function GalleryModals({
   onDownloadPhoto,
   onAddToFavorites,
   loadClientFavorites,
+  clientFolderName,
   favoritesPhotoPool
 }: GalleryModalsProps) {
   const allPhotos: Photo[] = gallery?.photos || [];
@@ -156,6 +158,7 @@ export default function GalleryModals({
           onDownload={onDownloadPhoto}
           onAddToFavorites={onAddToFavorites}
           clientFavoritePhotoIds={clientFavoritePhotoIds}
+          sourceLabel={viewingFavorites ? 'Избранное' : clientFolderName}
         />
       )}
 

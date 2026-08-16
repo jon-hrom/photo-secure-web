@@ -195,6 +195,7 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
         onDownloadPhoto={downloadPhoto}
         onAddToFavorites={favoritesEnabled ? handlers.handleAddToFavorites : undefined}
         loadClientFavorites={handlers.loadClientFavorites}
+        clientFolderName={subfolder.viewingClientFolder?.folder_name}
         isDarkTheme={isDarkTheme}
       />
 
