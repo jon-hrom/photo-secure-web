@@ -125,9 +125,15 @@ export default function GalleryModals({
   loadClientFavorites,
   favoritesPhotoPool
 }: GalleryModalsProps) {
-  const visiblePhotos = (clientData && clientData.client_id > 0 && gallery)
-    ? gallery.photos.filter((p: Photo) => !clientFavoritePhotoIds.includes(p.id))
-    : gallery?.photos || [];
+  const allPhotos: Photo[] = gallery?.photos || [];
+  const filteredPhotos = (clientData && clientData.client_id > 0 && gallery)
+    ? allPhotos.filter((p: Photo) => !clientFavoritePhotoIds.includes(p.id))
+    : allPhotos;
+  // Если открытое фото уже в избранном, оно выпадает из отфильтрованного списка —
+  // тогда показываем полный список, иначе просмотрщик открылся бы пустым
+  const visiblePhotos = (selectedPhoto && !filteredPhotos.some((p: Photo) => p.id === selectedPhoto.id))
+    ? allPhotos
+    : filteredPhotos;
 
   // Пул для избранного: либо полный список (передан из подпапки), либо фото галереи.
   const favoritePool = favoritesPhotoPool && favoritesPhotoPool.length > 0

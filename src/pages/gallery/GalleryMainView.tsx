@@ -163,7 +163,10 @@ export default function GalleryMainView(props: GalleryMainViewProps) {
 
       <GalleryModals
         selectedPhoto={state.selectedPhoto}
-        gallery={gallery}
+        gallery={{
+          ...gallery,
+          photos: subfolder.viewingClientFolder ? subfolder.clientFolderPhotos : gallery.photos,
+        }}
         clientData={state.clientData}
         clientFavoritePhotoIds={state.clientFavoritePhotoIds}
         viewingFavorites={state.viewingFavorites}
