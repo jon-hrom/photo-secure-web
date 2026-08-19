@@ -18,10 +18,17 @@ def _extract_vk_username(value: str) -> str:
     if not value:
         return ''
     value = value.strip()
-    m = re.search(r'(?:vk\.com/|^@)([A-Za-z0-9_.]+)', value)
+    # Ссылка может быть на любом домене ВК: vk.com, vk.ru, m.vk.com, vkontakte.ru
+    m = re.search(r'(?:vk\.com|vk\.ru|vkontakte\.ru)/([A-Za-z0-9_.]+)', value, re.IGNORECASE)
     if m:
         return m.group(1)
-    return re.sub(r'[^A-Za-z0-9_.]', '', value)
+    m = re.match(r'^@([A-Za-z0-9_.]+)', value)
+    if m:
+        return m.group(1)
+    # Просто ник или id без ссылки
+    if re.fullmatch(r'[A-Za-z0-9_.]+', value):
+        return value
+    return ''
 
 
 def _upload_avatar_to_s3(data: bytes, ext: str, content_type: str, photographer_id: str, client_id: int) -> str:

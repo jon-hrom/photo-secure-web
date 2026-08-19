@@ -85,8 +85,8 @@ def extract_vk_id(vk_profile: str) -> str:
     if vk_profile.startswith('@'):
         return vk_profile[1:]
     
-    # Если это ссылка vk.com/...
-    match = re.search(r'vk\.com/([a-zA-Z0-9_]+)', vk_profile)
+    # Если это ссылка на любой домен ВК: vk.com, vk.ru, vkontakte.ru
+    match = re.search(r'(?:vk\.com|vk\.ru|vkontakte\.ru)/([a-zA-Z0-9_.]+)', vk_profile, re.IGNORECASE)
     if match:
         return match.group(1)
     
