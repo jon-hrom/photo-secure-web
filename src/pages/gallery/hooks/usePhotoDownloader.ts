@@ -21,6 +21,27 @@ interface DownloadProgress {
   status: 'preparing' | 'downloading' | 'completed';
 }
 
+// Скачивание одного файла с повторными попытками: сеть у клиентов часто рвётся,
+// а одна неудачная картинка не должна ломать весь архив
+async function fetchFileWithRetry(url: string, signal: AbortSignal, attempts = 3): Promise<Blob | null> {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (signal.aborted) return null;
+    try {
+      const resp = await fetch(url, { signal });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.blob();
+    } catch (err) {
+      if (signal.aborted) return null;
+      if (attempt === attempts) {
+        console.error('[DOWNLOAD_ALL] Файл не скачан после попыток:', url, err);
+        return null;
+      }
+      await new Promise((r) => setTimeout(r, 800 * attempt));
+    }
+  }
+  return null;
+}
+
 export function usePhotoDownloader(code?: string, password?: string, folderName?: string) {
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({
@@ -120,6 +141,8 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       }
 
       const totalFiles = data.files.length;
+      // Имена файлов, которые не удалось скачать — сообщим о них клиенту в конце
+      const failedFiles: string[] = [];
 
       setDownloadProgress({ show: true, current: 0, total: totalFiles, status: 'downloading' });
 
@@ -155,7 +178,7 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
       }
 
       if (supportsFileSystemAccess && writable) {
-        const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true, zip64: false });
+        const zipWriter = new zip.ZipWriter(writable, { bufferedWrite: true, zip64: true });
         const usedFilenames = new Set<string>();
 
         for (let i = 0; i < data.files.length; i++) {
@@ -165,29 +188,31 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
           }
 
           const file = data.files[i];
-          
-          try {
-            const fileResponse = await fetch(file.url, { signal: abortController.signal });
-            if (fileResponse.ok && fileResponse.body) {
-              let filename = file.filename;
-              
-              // Если файл с таким именем уже есть, добавляем счетчик
-              if (usedFilenames.has(filename)) {
-                const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
-                const nameWithoutExt = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
-                let counter = 1;
-                do {
-                  filename = `${nameWithoutExt}_${counter}${ext}`;
-                  counter++;
-                } while (usedFilenames.has(filename));
-              }
-              
-              usedFilenames.add(filename);
-              await zipWriter.add(filename, fileResponse.body, { level: 0, dataDescriptor: false });
+
+          const blob = await fetchFileWithRetry(file.url, abortController.signal);
+          if (blob) {
+            let filename = file.filename;
+
+            // Если файл с таким именем уже есть, добавляем счетчик
+            if (usedFilenames.has(filename)) {
+              const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
+              const nameWithoutExt = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+              let counter = 1;
+              do {
+                filename = `${nameWithoutExt}_${counter}${ext}`;
+                counter++;
+              } while (usedFilenames.has(filename));
             }
-          } catch (err: any) {
-            if (err.name === 'AbortError') break;
-            console.error('Ошибка загрузки файла:', file.filename, err);
+
+            usedFilenames.add(filename);
+            try {
+              await zipWriter.add(filename, new zip.BlobReader(blob), { level: 0, dataDescriptor: false });
+            } catch (err) {
+              console.error('[DOWNLOAD_ALL] Не удалось добавить в архив:', filename, err);
+              failedFiles.push(file.filename);
+            }
+          } else if (!abortController.signal.aborted) {
+            failedFiles.push(file.filename);
           }
 
           setDownloadProgress({ 
@@ -207,39 +232,50 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
           return;
         }
 
-        await zipWriter.close();
+        // Закрываем архив всегда: без этого шага файл на диске остаётся битым и пустым
+        try {
+          await zipWriter.close();
+        } catch (err) {
+          console.error('[DOWNLOAD_ALL] Ошибка закрытия архива:', err);
+          throw new Error('Не удалось завершить архив. Попробуйте скачать ещё раз.');
+        }
         setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
+        if (failedFiles.length > 0) {
+          alert(`Архив сохранён, но ${failedFiles.length} из ${totalFiles} фото не удалось скачать. Попробуйте скачать их отдельно.`);
+        }
       } else {
         const zipFileStream = new zip.BlobWriter();
-        const zipWriter = new zip.ZipWriter(zipFileStream, { zip64: false });
+        const zipWriter = new zip.ZipWriter(zipFileStream, { zip64: true });
         const usedFilenames = new Set<string>();
 
         for (let i = 0; i < data.files.length; i++) {
           if (abortController.signal.aborted) break;
 
           const file = data.files[i];
-          
-          try {
-            const fileResponse = await fetch(file.url, { signal: abortController.signal });
-            if (fileResponse.ok && fileResponse.body) {
-              let filename = file.filename;
-              
-              if (usedFilenames.has(filename)) {
-                const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
-                const nameWithoutExt = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
-                let counter = 1;
-                do {
-                  filename = `${nameWithoutExt}_${counter}${ext}`;
-                  counter++;
-                } while (usedFilenames.has(filename));
-              }
-              
-              usedFilenames.add(filename);
-              await zipWriter.add(filename, fileResponse.body, { level: 0, dataDescriptor: false });
+
+          const blob = await fetchFileWithRetry(file.url, abortController.signal);
+          if (blob) {
+            let filename = file.filename;
+
+            if (usedFilenames.has(filename)) {
+              const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
+              const nameWithoutExt = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+              let counter = 1;
+              do {
+                filename = `${nameWithoutExt}_${counter}${ext}`;
+                counter++;
+              } while (usedFilenames.has(filename));
             }
-          } catch (err: any) {
-            if (err.name === 'AbortError') break;
-            console.error('Ошибка загрузки файла:', file.filename, err);
+
+            usedFilenames.add(filename);
+            try {
+              await zipWriter.add(filename, new zip.BlobReader(blob), { level: 0, dataDescriptor: false });
+            } catch (err) {
+              console.error('[DOWNLOAD_ALL] Не удалось добавить в архив:', filename, err);
+              failedFiles.push(file.filename);
+            }
+          } else if (!abortController.signal.aborted) {
+            failedFiles.push(file.filename);
           }
 
           setDownloadProgress({ 
@@ -262,6 +298,9 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
           document.body.removeChild(link);
           URL.revokeObjectURL(zipUrl);
           setDownloadProgress({ show: true, current: totalFiles, total: totalFiles, status: 'completed' });
+          if (failedFiles.length > 0) {
+            alert(`Архив сохранён, но ${failedFiles.length} из ${totalFiles} фото не удалось скачать. Попробуйте скачать их отдельно.`);
+          }
         } else {
           setDownloadProgress({ show: false, current: 0, total: 0, status: 'preparing' });
           setDownloadingAll(false);

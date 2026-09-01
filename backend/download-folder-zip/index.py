@@ -28,7 +28,7 @@ def make_presigned_url(s3_key: str) -> Optional[str]:
         return yc.generate_presigned_url(
             'get_object',
             Params={'Bucket': 'foto-mix', 'Key': s3_key},
-            ExpiresIn=3600
+            ExpiresIn=21600
         )
     except Exception:
         pass
@@ -45,7 +45,7 @@ def make_presigned_url(s3_key: str) -> Optional[str]:
         return proj.generate_presigned_url(
             'get_object',
             Params={'Bucket': 'files', 'Key': s3_key},
-            ExpiresIn=3600
+            ExpiresIn=21600
         )
     except Exception as e:
         print(f'[PRESIGN_ERROR] {s3_key}: {e}')

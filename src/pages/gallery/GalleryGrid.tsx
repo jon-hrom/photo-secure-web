@@ -243,24 +243,32 @@ export default function GalleryGrid({
 
     try {
       const zipFileStream = new zip.BlobWriter();
-      const zipWriter = new zip.ZipWriter(zipFileStream, { zip64: false });
+      const zipWriter = new zip.ZipWriter(zipFileStream, { zip64: true });
       const usedFilenames = new Set<string>();
       for (let i = 0; i < photos.length; i++) {
         const photo = photos[i];
-        try {
-          const fileResponse = await fetch(photo.photo_url);
-          if (fileResponse.ok && fileResponse.body) {
-            let filename = photo.file_name;
-            if (usedFilenames.has(filename)) {
-              const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
-              const base = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
-              let counter = 1;
-              do { filename = `${base}_${counter}${ext}`; counter++; } while (usedFilenames.has(filename));
-            }
-            usedFilenames.add(filename);
-            await zipWriter.add(filename, fileResponse.body, { level: 0, dataDescriptor: false });
+        // Три попытки: короткий обрыв сети не должен ломать весь архив
+        let blob: Blob | null = null;
+        for (let attempt = 1; attempt <= 3 && !blob; attempt++) {
+          try {
+            const fileResponse = await fetch(photo.photo_url);
+            if (fileResponse.ok) blob = await fileResponse.blob();
+          } catch { /* повторим */ }
+          if (!blob && attempt < 3) await new Promise(r => setTimeout(r, 800 * attempt));
+        }
+        if (blob) {
+          let filename = photo.file_name;
+          if (usedFilenames.has(filename)) {
+            const ext = filename.includes('.') ? filename.substring(filename.lastIndexOf('.')) : '';
+            const base = ext ? filename.substring(0, filename.lastIndexOf('.')) : filename;
+            let counter = 1;
+            do { filename = `${base}_${counter}${ext}`; counter++; } while (usedFilenames.has(filename));
           }
-        } catch { /* skip */ }
+          usedFilenames.add(filename);
+          try {
+            await zipWriter.add(filename, new zip.BlobReader(blob), { level: 0, dataDescriptor: false });
+          } catch { /* пропускаем этот файл */ }
+        }
         setSelectedProgress(Math.round(((i + 1) / photos.length) * 100));
       }
       await zipWriter.close();
