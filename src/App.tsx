@@ -36,6 +36,7 @@ import CookieConsentBanner from "./components/legal/CookieConsentBanner";
 import VpnWarningBanner from "./components/VpnWarningBanner";
 import ShortLink from "./pages/ShortLink";
 import PublicGallery from "./pages/PublicGallery";
+import PromoLanding from "./pages/PromoLanding";
 import PublicPortfolio from "./pages/PublicPortfolio";
 import PublicPortfolioCategory from "./pages/PublicPortfolioCategory";
 import PublicPortfolioShooting from "./pages/PublicPortfolioShooting";
@@ -48,7 +49,7 @@ import NotificationsTicker from "./components/notifications/NotificationsTicker"
 
 const queryClient = new QueryClient();
 
-const PUBLIC_PATHS = ['/', '/vk-callback', '/auth/', '/yandex-disk/', '/privacy-policy', '/offer', '/personal-data', '/confidentiality', '/cookie-policy', '/legal/', '/s/', '/g/', '/p/', '/client/'];
+const PUBLIC_PATHS = ['/', '/start', '/vk-callback', '/auth/', '/yandex-disk/', '/privacy-policy', '/offer', '/personal-data', '/confidentiality', '/cookie-policy', '/legal/', '/s/', '/g/', '/p/', '/client/'];
 
 const LegalConsentGuard = () => {
   const { pathname } = useLocation();
@@ -57,6 +58,7 @@ const LegalConsentGuard = () => {
 
   const isSkippedPath =
     pathname === '/' ||
+    pathname.startsWith('/start') ||
     pathname.startsWith('/auth/') ||
     pathname.startsWith('/vk-callback') ||
     pathname.startsWith('/privacy-policy') ||
@@ -210,6 +212,7 @@ const App = () => {
         <ConditionalNotificationsTicker />
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/start" element={<PromoLanding />} />
           <Route path="/help" element={<Help />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/tariffs" element={<Tariffs />} />

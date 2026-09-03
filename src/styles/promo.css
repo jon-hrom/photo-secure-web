@@ -1,0 +1,196 @@
+/* Оформление рекламной страницы. Всё под .promo-landing,
+   чтобы палитра и шрифты лендинга не влияли на основной сайт. */
+
+@import url("https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,600;0,700;1,400;1,600&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+.promo-landing.promo-landing {
+  --background: 20 12% 4%;
+  --foreground: 32 22% 94%;
+
+  --card: 22 11% 7%;
+  --card-foreground: 32 22% 94%;
+
+  --popover: 22 11% 7%;
+  --popover-foreground: 32 22% 94%;
+
+  --primary: 8 78% 55%;
+  --primary-foreground: 30 30% 98%;
+
+  --secondary: 22 10% 12%;
+  --secondary-foreground: 32 22% 94%;
+
+  --muted: 22 10% 12%;
+  --muted-foreground: 30 8% 64%;
+
+  --accent: 32 90% 58%;
+  --accent-foreground: 20 14% 6%;
+
+  --destructive: 8 78% 55%;
+  --destructive-foreground: 30 30% 98%;
+
+  --border: 24 9% 16%;
+  --input: 22 10% 12%;
+  --ring: 8 78% 55%;
+
+  --radius: 0.25rem;
+
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-feature-settings: "ss01";
+}
+
+.promo-landing .font-display {
+  font-family: "Cormorant", Georgia, serif;
+}
+
+.promo-landing .font-mono {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.promo-landing ::selection {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+/* Тонкая плёночная зернистость поверх тёмных секций */
+.promo-landing .grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+.promo-landing .frame-corners {
+  position: relative;
+}
+
+.promo-landing .frame-corners::before,
+.promo-landing .frame-corners::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: hsl(var(--primary));
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.promo-landing .frame-corners::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid;
+  border-left: 1px solid;
+}
+
+.promo-landing .frame-corners::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 1px solid;
+  border-right: 1px solid;
+}
+
+.promo-landing .frame-corners:hover::before,
+.promo-landing .frame-corners:hover::after {
+  opacity: 1;
+  width: 26px;
+  height: 26px;
+}
+
+.promo-landing .hover-scale {
+  transition: transform 0.3s ease;
+}
+
+.promo-landing .hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.promo-landing .fade-in {
+  animation: promo-fade-in 0.8s ease-out forwards;
+  opacity: 0;
+}
+
+.promo-landing .fade-in-subtitle {
+  animation: promo-fade-in-subtitle 1s ease-out forwards;
+  opacity: 0;
+}
+
+.promo-landing .slide-up {
+  animation: promo-slide-up 0.8s ease-out forwards;
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.promo-landing .glow-border {
+  position: relative;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+    linear-gradient(
+        150deg,
+        hsl(var(--primary) / 0.55),
+        hsl(var(--border)) 45%,
+        hsl(var(--accent) / 0.4)
+      )
+      border-box;
+}
+
+.promo-landing .pulse-button {
+  animation: promo-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes promo-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes promo-fade-in-subtitle {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes promo-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes promo-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo-landing *,
+  .promo-landing *::before,
+  .promo-landing *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
