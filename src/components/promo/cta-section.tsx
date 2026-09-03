@@ -39,15 +39,15 @@ export function CTASection() {
       />
       <div className="absolute inset-0 bg-gradient-to-r from-secondary via-secondary/95 to-secondary/70" />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 py-28 grid lg:grid-cols-2 gap-14 lg:gap-20 items-center">
+      <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 py-20 sm:py-28 grid lg:grid-cols-2 gap-10 sm:gap-14 lg:gap-20 items-center">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary mb-5">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.28em] text-primary mb-5">
             Первая съёмка в Foto-Mix
           </p>
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.06]">
+          <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold leading-[1.06]">
             Заведите ближайшую съёмку — <span className="italic text-primary">остальное покажем</span>
           </h2>
-          <p className="mt-6 text-lg text-secondary-foreground/70 leading-relaxed max-w-lg">
+          <p className="mt-5 sm:mt-6 text-base sm:text-lg text-secondary-foreground/70 leading-relaxed max-w-lg">
             Регистрация бесплатная и занимает минуту. Поможем перенести базу клиентов и настроить
             напоминания под ваш формат съёмок.
           </p>

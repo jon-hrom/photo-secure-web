@@ -54,27 +54,23 @@ export function SafetySection() {
   const [yearly, setYearly] = useState(true)
   const { ref, visible } = useReveal<HTMLDivElement>()
 
-  const scrollToForm = () => {
-    document.querySelector("#zayavka")?.scrollIntoView({ behavior: "smooth", block: "start" })
-  }
-
   return (
-    <section id="tarify" className="py-28 px-5 sm:px-8 bg-background">
+    <section id="tarify" className="py-20 sm:py-28 px-5 sm:px-8 bg-background">
       <div className="max-w-7xl mx-auto" ref={ref}>
         <div className="max-w-3xl mb-12">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary mb-5">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.28em] text-primary mb-5">
             Тарифы
           </p>
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.08]">
+          <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.08]">
             Дешевле одной <span className="italic text-primary">отменённой съёмки</span>
           </h2>
-          <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
+          <p className="mt-5 sm:mt-6 text-base sm:text-lg text-muted-foreground leading-relaxed">
             Без комиссии с ваших заказов и без платы за каждого клиента. Отменить можно в любой
             момент, база выгружается одним файлом.
           </p>
         </div>
 
-        <div className="inline-flex items-center border border-border mb-12">
+        <div className="inline-flex items-center border border-border mb-10 sm:mb-12">
           <button
             onClick={() => setYearly(false)}
             className={`px-5 py-2.5 text-sm transition-colors ${
@@ -99,7 +95,7 @@ export function SafetySection() {
             return (
               <article
                 key={plan.name}
-                className={`relative flex flex-col p-8 lg:p-10 border transition-all duration-500 ${
+                className={`relative flex flex-col p-7 sm:p-8 lg:p-10 border transition-all duration-500 ${
                   plan.featured
                     ? "border-primary bg-card lg:-mt-4 lg:mb-4 shadow-2xl"
                     : "border-border bg-card/40 hover:border-foreground/25"
@@ -132,14 +128,14 @@ export function SafetySection() {
                 </ul>
 
                 <Button
-                  onClick={scrollToForm}
+                  asChild
                   className={`mt-9 h-12 w-full rounded-none tracking-wide ${
                     plan.featured
                       ? "bg-primary text-primary-foreground hover:bg-primary/90"
                       : "bg-transparent border border-border text-foreground hover:bg-secondary hover:text-secondary-foreground"
                   }`}
                 >
-                  {plan.cta}
+                  <a href="https://foto-mix.ru/">{plan.cta}</a>
                 </Button>
               </article>
             )

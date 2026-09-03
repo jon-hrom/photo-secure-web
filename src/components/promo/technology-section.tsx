@@ -101,13 +101,13 @@ export function TechnologySection() {
   const current = tabs.find((t) => t.id === active) ?? tabs[0]
 
   return (
-    <section id="kak-rabotaet" className="relative py-28 px-5 sm:px-8 bg-card border-y border-border">
+    <section id="kak-rabotaet" className="relative py-20 sm:py-28 px-5 sm:px-8 bg-card border-y border-border">
       <div className="max-w-7xl mx-auto" ref={ref}>
         <div className="max-w-3xl mb-14">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary mb-5">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.28em] text-primary mb-5">
             Как это работает
           </p>
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-card-foreground leading-[1.08]">
+          <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold text-card-foreground leading-[1.08]">
             Четыре экрана, в которых <span className="italic text-primary">живёт студия</span>
           </h2>
         </div>

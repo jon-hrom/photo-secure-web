@@ -26,8 +26,8 @@ export function AboutSection() {
   const { ref, visible } = useReveal<HTMLDivElement>()
 
   return (
-    <section id="o-nas" className="py-28 px-5 sm:px-8 bg-card border-y border-border">
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-14 lg:gap-20 items-center" ref={ref}>
+    <section id="o-nas" className="py-20 sm:py-28 px-5 sm:px-8 bg-card border-y border-border">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 sm:gap-14 lg:gap-20 items-center" ref={ref}>
         <div className={`relative ${visible ? "fade-in" : "opacity-0"}`}>
           <div className="frame-corners">
             <img
@@ -46,13 +46,13 @@ export function AboutSection() {
         </div>
 
         <div className={visible ? "fade-in" : "opacity-0"} style={{ animationDelay: "0.15s" }}>
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary mb-5">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.28em] text-primary mb-5">
             Зачем это нужно
           </p>
-          <h2 className="font-display text-4xl sm:text-5xl font-bold text-card-foreground leading-[1.08]">
+          <h2 className="font-display text-3xl sm:text-5xl font-bold text-card-foreground leading-[1.08]">
             Вы фотограф, <span className="italic text-primary">а не администратор</span>
           </h2>
-          <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
+          <p className="mt-5 sm:mt-6 text-base sm:text-lg text-muted-foreground leading-relaxed">
             Съёмок становится больше, и вместе с ними растёт хвост из переписок, дат, предоплат и
             вечного «а вы точно завтра приедете?». Foto-Mix забирает эту часть работы на себя.
           </p>

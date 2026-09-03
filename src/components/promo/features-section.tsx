@@ -50,17 +50,17 @@ export function FeaturesSection() {
   const { ref, visible } = useReveal<HTMLDivElement>()
 
   return (
-    <section id="vozmozhnosti" className="relative py-28 px-5 sm:px-8 bg-background">
+    <section id="vozmozhnosti" className="relative py-20 sm:py-28 px-5 sm:px-8 bg-background">
       <div className="max-w-7xl mx-auto" ref={ref}>
         <div className="max-w-3xl mb-16">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary mb-5">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.28em] text-primary mb-5">
             Возможности
           </p>
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.08]">
+          <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.08]">
             Всё, что вы держали в заметках,{" "}
             <span className="italic text-primary">чатах и голове</span>
           </h2>
-          <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
+          <p className="mt-5 sm:mt-6 text-base sm:text-lg text-muted-foreground leading-relaxed">
             Foto-Mix собирает рутину фотографа в один рабочий стол — от первого сообщения клиента до
             отданной галереи и закрытого счёта.
           </p>

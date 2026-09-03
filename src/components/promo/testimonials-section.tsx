@@ -30,13 +30,13 @@ export function TestimonialsSection() {
   const { ref, visible } = useReveal<HTMLDivElement>()
 
   return (
-    <section id="otzyvy" className="py-28 px-5 sm:px-8 bg-card border-y border-border">
+    <section id="otzyvy" className="py-20 sm:py-28 px-5 sm:px-8 bg-card border-y border-border">
       <div className="max-w-7xl mx-auto" ref={ref}>
         <div className="max-w-3xl mb-14">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary mb-5">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.28em] text-primary mb-5">
             Отзывы
           </p>
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-card-foreground leading-[1.08]">
+          <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold text-card-foreground leading-[1.08]">
             Говорят те, кто <span className="italic text-primary">снимает каждую неделю</span>
           </h2>
         </div>

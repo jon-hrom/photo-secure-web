@@ -38,16 +38,16 @@ export function FAQSection() {
   const { ref, visible } = useReveal<HTMLDivElement>()
 
   return (
-    <section id="voprosy" className="py-28 px-5 sm:px-8 bg-background">
+    <section id="voprosy" className="py-20 sm:py-28 px-5 sm:px-8 bg-background">
       <div className="max-w-7xl mx-auto grid lg:grid-cols-[0.85fr_1.15fr] gap-12 lg:gap-20" ref={ref}>
         <div className="lg:sticky lg:top-32 lg:self-start">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary mb-5">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.28em] text-primary mb-5">
             Вопросы
           </p>
-          <h2 className="font-display text-4xl sm:text-5xl font-bold text-foreground leading-[1.08]">
+          <h2 className="font-display text-3xl sm:text-5xl font-bold text-foreground leading-[1.08]">
             Отвечаем <span className="italic text-primary">до того, как спросите</span>
           </h2>
-          <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
+          <p className="mt-5 sm:mt-6 text-base sm:text-lg text-muted-foreground leading-relaxed">
             Если чего-то не хватает — напишите, разберёмся вместе и подскажем, как перенести вашу
             текущую работу в Foto-Mix.
           </p>

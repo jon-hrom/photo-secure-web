@@ -64,13 +64,13 @@ export function ApplicationsTimeline() {
     <section id="put-klienta" className="py-24 bg-background">
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
         <div className="max-w-3xl mb-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-primary mb-5">
+          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.2em] sm:tracking-[0.28em] text-primary mb-5">
             Путь съёмки
           </p>
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.08]">
+          <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.08]">
             От первого сообщения до <span className="italic text-primary">отданных кадров</span>
           </h2>
-          <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
+          <p className="mt-5 sm:mt-6 text-base sm:text-lg text-muted-foreground leading-relaxed">
             Foto-Mix ведёт каждую съёмку по одному и тому же понятному маршруту — вы всегда знаете, на
             каком этапе находится любой заказ.
           </p>
