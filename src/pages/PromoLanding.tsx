@@ -15,7 +15,7 @@ import "@/styles/promo.css"
 export default function PromoLanding() {
   useEffect(() => {
     const prevTitle = document.title
-    document.title = "Foto-Mix — CRM для фотографов и студий"
+    document.title = "Foto-Mix — рабочее место фотографа"
 
     const meta = document.querySelector('meta[name="description"]')
     const prevDesc = meta?.getAttribute("content") || ""

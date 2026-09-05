@@ -32,7 +32,7 @@ export function AboutSection() {
           <div className="frame-corners">
             <img
               src={PORTRAIT}
-              alt="Фотограф обрабатывает кадры в домашней студии"
+              alt="Фотограф обрабатывает кадры за рабочим столом"
               className="w-full aspect-[4/5] object-cover"
               loading="lazy"
             />

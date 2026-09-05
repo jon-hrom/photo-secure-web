@@ -113,7 +113,7 @@ export const Hero3DWebGL = () => {
           >
             <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
             <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.18em] sm:tracking-[0.24em] text-primary">
-              CRM для фотографов и студий
+              Рабочее место фотографа
             </span>
           </div>
 

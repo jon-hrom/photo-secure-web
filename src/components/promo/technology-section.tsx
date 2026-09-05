@@ -29,7 +29,7 @@ const tabs: Tab[] = [
       rows: [
         { primary: "Мария Ковалёва", secondary: "Семейная · 3 съёмки", badge: "Постоянная" },
         { primary: "Артём Соловьёв", secondary: "Портфолио · 1 съёмка", badge: "Новый" },
-        { primary: "Студия «Тёплый свет»", secondary: "Предметная · 12 съёмок", badge: "Договор" },
+        { primary: "Ирина Гладкова", secondary: "Предметная · 12 съёмок", badge: "Договор" },
       ],
     },
   },
@@ -49,7 +49,7 @@ const tabs: Tab[] = [
       rows: [
         { primary: "Пт, 10:00 — Лофт «Депо»", secondary: "Лавстори · 2 часа", badge: "Оплачено" },
         { primary: "Сб, 14:30 — Парк Горького", secondary: "Семейная · 1,5 часа", badge: "Предоплата" },
-        { primary: "Вс, 12:00 — Студия", secondary: "Предметка · 40 кадров", badge: "Счёт" },
+        { primary: "Вс, 12:00 — Съёмный зал", secondary: "Предметка · 40 кадров", badge: "Счёт" },
       ],
     },
   },
@@ -108,7 +108,7 @@ export function TechnologySection() {
             Как это работает
           </p>
           <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold text-card-foreground leading-[1.08]">
-            Четыре экрана, в которых <span className="italic text-primary">живёт студия</span>
+            Четыре экрана, в которых <span className="italic text-primary">живёт ваша работа</span>
           </h2>
         </div>
 

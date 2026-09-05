@@ -48,7 +48,7 @@ export function Footer() {
             </div>
             <p className="mt-5 max-w-sm text-[15px] text-muted-foreground leading-relaxed">
               Рабочее место фотографа: клиенты, съёмки, напоминания, сдача обработки и статистика
-              студии в одном окне.
+              заработка в одном окне.
             </p>
             <div className="mt-7 flex gap-3">
               {socials.map((s) => (
