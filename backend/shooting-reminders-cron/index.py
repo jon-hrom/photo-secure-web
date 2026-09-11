@@ -898,103 +898,36 @@ def handler(event, context):
             }
 
     immediate_project_id = body.get('immediate_project_id')
-    delay_seconds = int(body.get('delay_seconds', 0))
-
-    if immediate_project_id and delay_seconds > 0:
-        import time as _time
-        import random
-        actual_delay = random.randint(30, 60)
-        print(f"[IMMEDIATE] Waiting {actual_delay}s before sending reminder (let booking notification arrive first)")
-        _time.sleep(actual_delay)
 
     if immediate_project_id:
+        # Уведомление о новой брони уже содержит дату, время, адрес и контакты.
+        # Дублировать его напоминанием «о завтрашней съёмке» не нужно —
+        # помечаем суточное напоминание как доставленное вместе с бронью.
         try:
             with conn.cursor() as cur:
-                cur.execute(f"""
-                    SELECT 
-                        cp.id as project_id, cp.name as project_name,
-                        cp.start_date, cp.shooting_time, cp.shooting_address,
-                        c.id as client_id, c.name as client_name,
-                        c.phone as client_phone, c.telegram_chat_id as client_telegram_id,
-                        c.email as client_email,
-                        u.id as photographer_id, u.display_name as photographer_name,
-                        u.email as photographer_email, u.phone as photographer_phone,
-                        u.telegram_chat_id as photographer_telegram_id,
-                        u.region as photographer_region
-                    FROM {SCHEMA}.client_projects cp
-                    JOIN {SCHEMA}.clients c ON cp.client_id = c.id
-                    JOIN {SCHEMA}.users u ON c.photographer_id = u.id
-                    WHERE cp.id = {escape_sql(immediate_project_id)}
-                """)
-                proj = cur.fetchone()
+                already_sent = get_sent_reminders(cur, immediate_project_id)
 
-            if proj and proj['start_date'] and proj['shooting_time']:
-                region = proj.get('photographer_region') or ''
-                now_local = get_photographer_now(region)
-                tz_label = get_tz_label(region)
-                shooting_datetime = datetime.combine(proj['start_date'], proj['shooting_time'])
-                hours_until = (shooting_datetime - now_local).total_seconds() / 3600
-
-                print(f"[IMMEDIATE] Region: {region}, TZ: {tz_label}, now_local: {now_local}, shooting: {shooting_datetime}, hours_until: {hours_until:.1f}")
-
-                start_date_only = proj['start_date'].date() if hasattr(proj['start_date'], 'date') else proj['start_date']
-                is_today = start_date_only == now_local.date()
-
-                if 0 < hours_until < 24:
-                    client_data = {
-                        'id': proj['client_id'], 'name': proj['client_name'],
-                        'phone': proj['client_phone'], 'telegram_id': proj['client_telegram_id'],
-                        'email': proj['client_email']
-                    }
-                    photographer_data = {
-                        'id': proj['photographer_id'], 'display_name': proj['photographer_name'],
-                        'email': proj['photographer_email'], 'phone': proj['photographer_phone'],
-                        'telegram_id': proj['photographer_telegram_id']
-                    }
-
-                    if hours_until < 1.5:
-                        rtype = '1h'
-                    elif hours_until < 5.5:
-                        rtype = '5h'
-                    elif not is_today:
-                        rtype = '24h'
-                    else:
-                        conn.close()
-                        return {
-                            'statusCode': 200,
-                            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                            'body': json.dumps({'success': True, 'immediate': True, 'skipped': True, 'reason': 'Shooting is today, 24h reminder not applicable'}),
-                            'isBase64Encoded': False
-                        }
-
-                    result = send_reminder(rtype, dict(proj), client_data, photographer_data, creds, tz_label, hours_until)
-                    log_reminder(conn, proj['project_id'], rtype, 'both', True)
-                    print(f"[IMMEDIATE] Sent {rtype} reminder for project {proj['project_id']}, {hours_until:.1f}h until shooting")
-
-                    conn.close()
-                    return {
-                        'statusCode': 200,
-                        'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                        'body': json.dumps({'success': True, 'immediate': True, 'project_id': immediate_project_id, 'reminder_type': rtype, 'hours_until': round(hours_until, 1), 'timezone': tz_label, 'result': result}),
-                        'isBase64Encoded': False
-                    }
-
-            conn.close()
-            return {
-                'statusCode': 200,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'success': True, 'immediate': True, 'skipped': True, 'reason': 'Project not found or shooting > 24h away'}),
-                'isBase64Encoded': False
-            }
+            if '24h' in already_sent or 'today' in already_sent:
+                print(f"[IMMEDIATE] Project {immediate_project_id}: daily reminder already logged, skip")
+            else:
+                log_reminder(conn, immediate_project_id, '24h', 'both', True,
+                             'Covered by booking notification')
+                print(f"[IMMEDIATE] Project {immediate_project_id}: covered by booking notification, daily reminder suppressed")
         except Exception as e:
-            print(f"[IMMEDIATE_ERROR] {e}")
-            conn.close()
-            return {
-                'statusCode': 500,
-                'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
-                'body': json.dumps({'error': str(e)}),
-                'isBase64Encoded': False
-            }
+            print(f"[IMMEDIATE_SUPPRESS_ERROR] {e}")
+
+        conn.close()
+        return {
+            'statusCode': 200,
+            'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({
+                'success': True,
+                'immediate': True,
+                'skipped': True,
+                'reason': 'Booking notification already delivered the same details'
+            }),
+            'isBase64Encoded': False
+        }
 
     try:
         results = {'reminders_sent': [], 'projects_checked': 0, 'skipped': []}

@@ -1763,8 +1763,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     
                     if is_new_project and start_date and project.get('shooting_time'):
                         # Уведомления о новом заказе отправляются из фронтенда через NotificationService.ts
-                        # (WhatsApp + Telegram + Email в расширенном формате)
-                        # Здесь только срочное напоминание если до съёмки < 24 часов
+                        # (WhatsApp + Telegram + Email в расширенном формате).
+                        # Если съёмка уже в ближайшие сутки — уведомление о брони полностью
+                        # заменяет суточное напоминание, помечаем его отправленным,
+                        # чтобы клиент и фотограф не получили два одинаковых сообщения подряд.
                         try:
                             from datetime import time as time_type
                             shooting_time_str = project.get('shooting_time', '12:00')
@@ -1779,12 +1781,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 reminders_cron_url = 'https://functions.poehali.dev/de28f751-d390-4a12-9abd-23d70a40b40c'
                                 try:
                                     requests.post(reminders_cron_url, json={
-                                        'immediate_project_id': project_id,
-                                        'delay_seconds': 30
-                                    }, headers={'Content-Type': 'application/json'}, timeout=1)
-                                except requests.exceptions.ReadTimeout:
+                                        'immediate_project_id': project_id
+                                    }, headers={'Content-Type': 'application/json'}, timeout=5)
+                                except requests.exceptions.RequestException:
                                     pass
-                                print(f'[URGENT_REMINDER] Triggered immediate reminder for project {project_id}, {hours_until:.1f}h until shooting')
+                                print(f'[URGENT_REMINDER] Daily reminder suppressed for project {project_id}, booking notification covers it ({hours_until:.1f}h until shooting)')
                         except Exception as e:
                             print(f'[URGENT_REMINDER] Error: {e}')
             
