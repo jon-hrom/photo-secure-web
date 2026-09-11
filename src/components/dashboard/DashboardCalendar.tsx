@@ -4,6 +4,7 @@ import { Calendar } from '@/components/ui/calendar';
 import Icon from '@/components/ui/icon';
 import { Client, Booking, Project } from '@/components/clients/ClientsTypes';
 import QuickMeetingDialog from '@/components/calendar/QuickMeetingDialog';
+import { useMeetingDates } from '@/hooks/useMeetingDates';
 
 interface DashboardCalendarProps {
   clients: Client[];
@@ -15,6 +16,7 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [meetingDate, setMeetingDate] = useState<Date | null>(null);
   const [isMeetingOpen, setIsMeetingOpen] = useState(false);
+  const { hasMeetingOn } = useMeetingDates();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -102,6 +104,10 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
     else if (bookingsOnDate.length > 0 || projectsOnDate.length > 0) {
       setSelectedDate(date);
     }
+    // На дату уже назначена встреча — не предлагаем создать новую поверх
+    else if (hasMeetingOn(clickedDate)) {
+      setSelectedDate(date);
+    }
     // Дата свободна — открываем форму создания встречи
     else {
       const todayStart = new Date();
@@ -153,6 +159,15 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
                     return p.isActive && p.date.getTime() === checkDate.getTime();
                   });
                 },
+                meeting: (date) => {
+                  const checkDate = new Date(date);
+                  checkDate.setHours(0, 0, 0, 0);
+                  // Если в этот день есть съёмка — она важнее, встречу не подсвечиваем
+                  const busy = projectDatesWithTime.some(
+                    p => p.isActive && p.date.getTime() === checkDate.getTime()
+                  );
+                  return !busy && hasMeetingOn(date);
+                },
               }}
               modifiersStyles={{
                 booked: {
@@ -171,6 +186,14 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
                   transform: 'scale(1.05)',
                   transition: 'all 0.3s ease',
                 },
+                meeting: {
+                  background: 'linear-gradient(135deg, rgb(147 197 253) 0%, rgb(191 219 254) 100%)',
+                  color: 'rgb(30 64 175)',
+                  fontWeight: 'bold',
+                  boxShadow: '0 8px 15px -3px rgba(147, 197, 253, 0.4)',
+                  transform: 'scale(1.05)',
+                  transition: 'all 0.3s ease',
+                },
               }}
               className="rounded-xl border-0 w-full text-sm sm:text-base [&_.rdp-button]:text-xs [&_.rdp-button]:sm:text-sm [&_.rdp-button]:h-8 [&_.rdp-button]:w-8 [&_.rdp-button]:sm:h-10 [&_.rdp-button]:sm:w-10"
             />
@@ -180,6 +203,10 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-green-300 to-green-200 shadow-md flex-shrink-0"></div>
               <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Даты со съёмками</p>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-blue-300 to-blue-200 shadow-md flex-shrink-0"></div>
+              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Даты со встречами</p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>

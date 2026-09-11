@@ -4,6 +4,7 @@ import { Calendar } from '@/components/ui/calendar';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import QuickMeetingDialog from '@/components/calendar/QuickMeetingDialog';
+import { useMeetingDates } from '@/hooks/useMeetingDates';
 
 interface BookingWithTime {
   date: Date;
@@ -33,6 +34,7 @@ const InteractiveCalendar = ({
   
   const [meetingDate, setMeetingDate] = useState<Date | null>(null);
   const [isMeetingOpen, setIsMeetingOpen] = useState(false);
+  const { hasMeetingOn } = useMeetingDates();
 
   const handleDateClick = (date: Date | undefined) => {
     // Просто передаём выбранную дату наверх для отображения
@@ -48,7 +50,7 @@ const InteractiveCalendar = ({
     if (clickedDate < todayStart) return;
 
     // Дата свободна — открываем форму создания встречи
-    if (!hasActiveBookingsOnDate(date)) {
+    if (!hasActiveBookingsOnDate(date) && !hasMeetingOn(date)) {
       setMeetingDate(clickedDate);
       setIsMeetingOpen(true);
     }
@@ -102,6 +104,7 @@ const InteractiveCalendar = ({
             onSelect={handleDateClick}
             modifiers={{
               booked: (date) => hasActiveBookingsOnDate(date),
+              meeting: (date) => hasMeetingOn(date) && !hasActiveBookingsOnDate(date),
             }}
             modifiersStyles={{
               booked: {
@@ -109,6 +112,14 @@ const InteractiveCalendar = ({
                 color: 'rgb(22 101 52)',
                 fontWeight: 'bold',
                 boxShadow: '0 4px 12px rgba(74, 222, 128, 0.4)',
+                transform: 'scale(1.05)',
+                transition: 'all 0.3s ease',
+              },
+              meeting: {
+                background: 'linear-gradient(135deg, rgb(147 197 253) 0%, rgb(96 165 250) 100%)',
+                color: 'rgb(30 64 175)',
+                fontWeight: 'bold',
+                boxShadow: '0 4px 12px rgba(96, 165, 250, 0.4)',
                 transform: 'scale(1.05)',
                 transition: 'all 0.3s ease',
               },
@@ -121,6 +132,10 @@ const InteractiveCalendar = ({
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-green-300 to-emerald-400 shadow-md flex-shrink-0"></div>
             <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Даты со съёмками</p>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-blue-300 to-blue-400 shadow-md flex-shrink-0"></div>
+            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Даты со встречами</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
