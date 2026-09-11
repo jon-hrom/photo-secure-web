@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
+import AddressInput from '@/components/ui/address-input';
 import { toast } from 'sonner';
 import { Client } from '@/components/clients/ClientsTypes';
 import { createMeeting } from '@/components/clients/dialog/MeetingService';
@@ -417,10 +418,10 @@ const QuickMeetingDialog = ({ open, onOpenChange, date, clients, onCreated }: Qu
 
           <div className="space-y-1">
             <Label className="text-xs">Адрес встречи</Label>
-            <Input
+            <AddressInput
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Кафе на Тверской, Москва"
+              onChange={setAddress}
+              placeholder="ТЦ Аэрохолл или улица и дом"
               className="text-xs h-9"
             />
           </div>

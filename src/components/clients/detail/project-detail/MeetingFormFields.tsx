@@ -2,6 +2,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
+import AddressInput from '@/components/ui/address-input';
 import { getUserTimezoneShort } from '@/utils/regionTimezone';
 import DurationSelect from './DurationSelect';
 import { NewMeetingDraft } from './newProjectFormTypes';
@@ -54,11 +55,10 @@ const MeetingFormFields = ({ newMeeting, updateMeeting }: MeetingFormFieldsProps
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Адрес встречи</Label>
-        <Input
-          type="text"
+        <AddressInput
           value={newMeeting.address}
-          onChange={(e) => updateMeeting({ address: e.target.value })}
-          placeholder="Кафе на Тверской, Москва"
+          onChange={(address) => updateMeeting({ address })}
+          placeholder="ТЦ Аэрохолл или улица и дом"
           className="text-xs h-9"
         />
       </div>

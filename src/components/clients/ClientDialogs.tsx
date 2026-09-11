@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Icon from '@/components/ui/icon';
+import AddressInput from '@/components/ui/address-input';
 import { Client } from '@/components/clients/ClientsTypes';
 import { toast } from 'sonner';
 import { formatPhoneNumber, validatePhone } from '@/utils/phoneFormat';
@@ -224,10 +225,11 @@ const ClientDialogs = ({
                 </div>
                 <div className="space-y-1.5 sm:space-y-2">
                   <Label htmlFor="edit-address" className="text-sm">Адрес</Label>
-                  <Input
+                  <AddressInput
                     id="edit-address"
                     value={editingClient.address}
-                    onChange={(e) => setEditingClient({ ...editingClient, address: e.target.value })}
+                    onChange={(address) => setEditingClient({ ...editingClient, address })}
+                    placeholder="Город, улица, дом"
                     className="h-10 text-sm sm:text-base"
                   />
                 </div>

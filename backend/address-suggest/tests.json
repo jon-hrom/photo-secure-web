@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Короткий запрос возвращает пустой список",
+      "method": "GET",
+      "path": "/?query=ае",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "suggestions": []
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Поиск адреса возвращает структуру ответа",
+      "method": "GET",
+      "path": "/?query=Московское шоссе&city=Самара",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "suggestions": []
+      },
+      "bodyMatcher": "partialKeys"
+    }
+  ]
+}

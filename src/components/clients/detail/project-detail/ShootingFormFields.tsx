@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
+import AddressInput from '@/components/ui/address-input';
 import { ShootingStyleSelector } from '@/components/clients/dialog/ShootingStyleSelector';
 import { getUserTimezoneShort } from '@/utils/regionTimezone';
 import DurationSelect from './DurationSelect';
@@ -117,11 +118,10 @@ const ShootingFormFields = ({ newProject, setNewProject, update }: ShootingFormF
       </div>
       <div className="space-y-1 md:col-span-2">
         <Label className="text-xs">Адрес съёмки</Label>
-        <Input
-          type="text"
+        <AddressInput
           value={newProject.shooting_address || ''}
-          onChange={(e) => setNewProject({ ...newProject, shooting_address: e.target.value })}
-          placeholder="Парк Горького, Москва"
+          onChange={(shooting_address) => setNewProject({ ...newProject, shooting_address })}
+          placeholder="Парк Горького или улица и дом"
           className="text-xs h-9"
         />
       </div>

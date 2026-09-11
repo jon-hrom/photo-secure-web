@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
+import AddressInput from '@/components/ui/address-input';
 import { Project, PhotoItem } from '@/components/clients/ClientsTypes';
 import { ShootingStyleSelector } from '@/components/clients/dialog/ShootingStyleSelector';
 import { getUserTimezoneShort } from '@/utils/regionTimezone';
@@ -123,10 +124,10 @@ const ProjectCardBody = ({
       </div>
       <div className="space-y-2">
         <Label className="text-xs">📍 Адрес съёмки</Label>
-        <Input
+        <AddressInput
           value={draft.shooting_address || ''}
-          onChange={(e) => updateDraft({ shooting_address: e.target.value })}
-          placeholder="Москва, Красная площадь, 1"
+          onChange={(shooting_address) => updateDraft({ shooting_address })}
+          placeholder="ТЦ Аэрохолл или улица и дом"
           className="text-xs sm:text-sm h-10 sm:h-9"
         />
       </div>
