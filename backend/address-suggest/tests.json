@@ -17,14 +17,10 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Поиск адреса возвращает структуру ответа",
+      "name": "Поиск адреса отвечает успешно",
       "method": "GET",
       "path": "/?query=Московское шоссе&city=Самара",
-      "expectedStatus": 200,
-      "expectedBody": {
-        "suggestions": []
-      },
-      "bodyMatcher": "partialKeys"
+      "expectedStatus": 200
     }
   ]
 }

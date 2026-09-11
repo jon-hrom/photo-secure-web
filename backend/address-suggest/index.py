@@ -36,11 +36,14 @@ def build_item(item: dict) -> dict:
     formatted = address.get('formatted_address') or ''
     tags = item.get('tags') or []
 
-    # Организация (ТЦ, кафе, студия): к названию добавляем адрес,
-    # чтобы фотограф видел «ТЦ Аэрохолл, Самара, Московское шоссе, 4»
-    is_place = 'business' in tags or bool(subtitle and formatted)
+    # Организация (ТЦ, кафе, студия) — у неё есть название, отличное от адреса.
+    # Обычный адрес: заголовок совпадает с началом адреса, дублировать не нужно.
+    is_place = 'business' in tags
+    if not is_place and formatted and title:
+        is_place = title.lower() not in formatted.lower()
 
     if is_place and formatted:
+        # «Аэрохолл» + «Тольятти, улица Баныкина, 74»
         value = f'{title}, {formatted}'
     elif formatted:
         value = formatted
@@ -87,21 +90,24 @@ def handler(event: dict, context) -> dict:
         'lang': 'ru',
         'results': '8',
         'print_address': '1',
-        'attrs': 'uri',
         'types': 'geo,biz',
-        'bbox': '19.6,41.2~191.2,81.9',
-        'strict_bounds': '1',
     }
 
     url = f'{GEOSUGGEST_URL}?{urllib.parse.urlencode(request_params)}'
 
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'FotoMix/1.0'})
+        req = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (compatible; FotoMix/1.0; +https://foto-mix.ru)',
+            'Referer': 'https://foto-mix.ru/',
+        })
         with urllib.request.urlopen(req, timeout=4) as response:
             data = json.loads(response.read().decode('utf-8'))
     except urllib.error.HTTPError as e:
-        detail = e.read().decode('utf-8', errors='ignore')[:200]
+        detail = e.read().decode('utf-8', errors='ignore')[:400]
+        key_len = len(api_key)
+        key_hint = f'{api_key[:4]}...{api_key[-3:]}' if key_len > 8 else 'too_short'
         print(f'[GEOSUGGEST] HTTP {e.code}: {detail}')
+        print(f'[GEOSUGGEST] key_len={key_len} key_hint={key_hint} dashes={api_key.count("-")}')
         code = 'BAD_API_KEY' if e.code in (401, 403) else 'UPSTREAM_ERROR'
         return resp(200, {'suggestions': [], 'error': code})
     except Exception as e:
