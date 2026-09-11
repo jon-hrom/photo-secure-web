@@ -4,7 +4,9 @@ import { Calendar } from '@/components/ui/calendar';
 import Icon from '@/components/ui/icon';
 import { Client, Booking, Project } from '@/components/clients/ClientsTypes';
 import QuickMeetingDialog from '@/components/calendar/QuickMeetingDialog';
+import MeetingDetailsDialog from '@/components/calendar/MeetingDetailsDialog';
 import { useMeetingDates } from '@/hooks/useMeetingDates';
+import { Meeting } from '@/components/clients/dialog/MeetingService';
 
 interface DashboardCalendarProps {
   clients: Client[];
@@ -16,7 +18,10 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [meetingDate, setMeetingDate] = useState<Date | null>(null);
   const [isMeetingOpen, setIsMeetingOpen] = useState(false);
-  const { hasMeetingOn } = useMeetingDates();
+  const [viewMeetings, setViewMeetings] = useState<Meeting[]>([]);
+  const [viewMeetingDate, setViewMeetingDate] = useState<Date | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const { hasMeetingOn, getMeetingsOn } = useMeetingDates();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -92,6 +97,8 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
         .map(p => ({ client: c, project: p }))
     );
 
+    const meetingsOnDate = getMeetingsOn(clickedDate);
+
     // Если одно бронирование - открываем его
     if (bookingsOnDate.length === 1 && projectsOnDate.length === 0 && onBookingClick) {
       onBookingClick(bookingsOnDate[0].client, bookingsOnDate[0].booking);
@@ -104,9 +111,12 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
     else if (bookingsOnDate.length > 0 || projectsOnDate.length > 0) {
       setSelectedDate(date);
     }
-    // На дату уже назначена встреча — не предлагаем создать новую поверх
-    else if (hasMeetingOn(clickedDate)) {
+    // На дату назначена встреча — показываем её карточку
+    else if (meetingsOnDate.length > 0) {
       setSelectedDate(date);
+      setViewMeetings(meetingsOnDate);
+      setViewMeetingDate(clickedDate);
+      setIsViewOpen(true);
     }
     // Дата свободна — открываем форму создания встречи
     else {
@@ -154,20 +164,31 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
                 project: (date) => {
                   const checkDate = new Date(date);
                   checkDate.setHours(0, 0, 0, 0);
-                  
-                  return projectDatesWithTime.some(p => {
-                    return p.isActive && p.date.getTime() === checkDate.getTime();
-                  });
+                  const hasShooting = projectDatesWithTime.some(
+                    p => p.isActive && p.date.getTime() === checkDate.getTime()
+                  );
+                  // В совмещённый день красим половинками, обычный зелёный не нужен
+                  return hasShooting && !hasMeetingOn(date);
                 },
                 meeting: (date) => {
                   const checkDate = new Date(date);
                   checkDate.setHours(0, 0, 0, 0);
-                  // Если в этот день есть съёмка — она важнее, встречу не подсвечиваем
-                  const busy = projectDatesWithTime.some(
+                  const hasShooting = projectDatesWithTime.some(
                     p => p.isActive && p.date.getTime() === checkDate.getTime()
                   );
-                  return !busy && hasMeetingOn(date);
+                  return !hasShooting && hasMeetingOn(date);
                 },
+                bothEvents: (date) => {
+                  const checkDate = new Date(date);
+                  checkDate.setHours(0, 0, 0, 0);
+                  const hasShooting = projectDatesWithTime.some(
+                    p => p.isActive && p.date.getTime() === checkDate.getTime()
+                  );
+                  return hasShooting && hasMeetingOn(date);
+                },
+              }}
+              modifiersClassNames={{
+                bothEvents: 'day-shooting-and-meeting',
               }}
               modifiersStyles={{
                 booked: {
@@ -209,6 +230,16 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
               <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Даты со встречами</p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
+              <div
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full shadow-md flex-shrink-0"
+                style={{
+                  background:
+                    'linear-gradient(to right, rgb(134 239 172) 0%, rgb(134 239 172) 50%, rgb(147 197 253) 50%, rgb(147 197 253) 100%)',
+                }}
+              />
+              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Съёмка и встреча</p>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
               <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Дата сегодня</p>
             </div>
@@ -221,6 +252,14 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
         onOpenChange={setIsMeetingOpen}
         date={meetingDate}
         clients={clients}
+      />
+
+      <MeetingDetailsDialog
+        open={isViewOpen}
+        onOpenChange={setIsViewOpen}
+        meetings={viewMeetings}
+        clients={clients}
+        date={viewMeetingDate}
       />
     </div>
   );

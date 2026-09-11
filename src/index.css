@@ -925,3 +925,19 @@ input[type="week"]::-webkit-calendar-picker-indicator:hover {
     margin-bottom: 0.5rem !important;
   }
 }
+/* Календарь: день, в который назначены и съёмка, и встреча.
+   Левая половина кружка — зелёная (съёмка), правая — синяя (встреча). */
+.day-shooting-and-meeting:not([disabled]) {
+  background: linear-gradient(
+    to right,
+    rgb(134 239 172) 0%,
+    rgb(134 239 172) 50%,
+    rgb(147 197 253) 50%,
+    rgb(147 197 253) 100%
+  ) !important;
+  color: rgb(23 37 84) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 8px 15px -3px rgba(110, 210, 210, 0.35) !important;
+  transform: scale(1.05);
+  transition: all 0.3s ease;
+}

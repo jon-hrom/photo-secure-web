@@ -62,7 +62,20 @@ export const useMeetingDates = () => {
     [meetingDates]
   );
 
-  return { meetingDates, hasMeetingOn, reloadMeetings: reload };
+  /** Все встречи на выбранную дату, отсортированные по времени */
+  const getMeetingsOn = useCallback(
+    (date: Date) => {
+      const check = new Date(date);
+      check.setHours(0, 0, 0, 0);
+      return meetingDates
+        .filter((m) => m.date.getTime() === check.getTime())
+        .sort((a, b) => a.fullDateTime.getTime() - b.fullDateTime.getTime())
+        .map((m) => m.meeting);
+    },
+    [meetingDates]
+  );
+
+  return { meetingDates, hasMeetingOn, getMeetingsOn, reloadMeetings: reload };
 };
 
 export default useMeetingDates;

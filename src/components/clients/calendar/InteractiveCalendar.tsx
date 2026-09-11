@@ -4,7 +4,9 @@ import { Calendar } from '@/components/ui/calendar';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
 import QuickMeetingDialog from '@/components/calendar/QuickMeetingDialog';
+import MeetingDetailsDialog from '@/components/calendar/MeetingDetailsDialog';
 import { useMeetingDates } from '@/hooks/useMeetingDates';
+import { Meeting } from '@/components/clients/dialog/MeetingService';
 
 interface BookingWithTime {
   date: Date;
@@ -34,7 +36,10 @@ const InteractiveCalendar = ({
   
   const [meetingDate, setMeetingDate] = useState<Date | null>(null);
   const [isMeetingOpen, setIsMeetingOpen] = useState(false);
-  const { hasMeetingOn } = useMeetingDates();
+  const [viewMeetings, setViewMeetings] = useState<Meeting[]>([]);
+  const [viewMeetingDate, setViewMeetingDate] = useState<Date | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const { hasMeetingOn, getMeetingsOn } = useMeetingDates();
 
   const handleDateClick = (date: Date | undefined) => {
     // Просто передаём выбранную дату наверх для отображения
@@ -44,6 +49,15 @@ const InteractiveCalendar = ({
 
     const clickedDate = new Date(date);
     clickedDate.setHours(0, 0, 0, 0);
+
+    // На дату назначена встреча — показываем её карточку
+    const meetingsOnDate = getMeetingsOn(clickedDate);
+    if (meetingsOnDate.length > 0 && !hasActiveBookingsOnDate(date)) {
+      setViewMeetings(meetingsOnDate);
+      setViewMeetingDate(clickedDate);
+      setIsViewOpen(true);
+      return;
+    }
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -103,8 +117,12 @@ const InteractiveCalendar = ({
             selected={selectedDate}
             onSelect={handleDateClick}
             modifiers={{
-              booked: (date) => hasActiveBookingsOnDate(date),
+              booked: (date) => hasActiveBookingsOnDate(date) && !hasMeetingOn(date),
               meeting: (date) => hasMeetingOn(date) && !hasActiveBookingsOnDate(date),
+              bothEvents: (date) => hasActiveBookingsOnDate(date) && hasMeetingOn(date),
+            }}
+            modifiersClassNames={{
+              bothEvents: 'day-shooting-and-meeting',
             }}
             modifiersStyles={{
               booked: {
@@ -138,6 +156,16 @@ const InteractiveCalendar = ({
             <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Даты со встречами</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <div
+              className="w-5 h-5 sm:w-6 sm:h-6 rounded-full shadow-md flex-shrink-0"
+              style={{
+                background:
+                  'linear-gradient(to right, rgb(134 239 172) 0%, rgb(134 239 172) 50%, rgb(147 197 253) 50%, rgb(147 197 253) 100%)',
+              }}
+            />
+            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Съёмка и встреча</p>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 shadow-md flex-shrink-0"></div>
             <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 font-medium">Дата сегодня</p>
           </div>
@@ -154,6 +182,14 @@ const InteractiveCalendar = ({
         onOpenChange={setIsMeetingOpen}
         date={meetingDate}
         clients={clients}
+      />
+
+      <MeetingDetailsDialog
+        open={isViewOpen}
+        onOpenChange={setIsViewOpen}
+        meetings={viewMeetings}
+        clients={clients}
+        date={viewMeetingDate}
       />
     </Card>
   );
