@@ -233,6 +233,36 @@ def load_client(cur, client_id, photographer_id):
     return dict(row) if row else None
 
 
+def suppress_daily_meeting_reminder(conn, meeting_id, meeting_date, meeting_time):
+    """
+    Если встреча создана меньше чем за сутки до начала, уведомление о её создании
+    уже содержит дату, время, место и контакты. Помечаем суточное напоминание
+    отправленным, чтобы клиент и фотограф не получили два одинаковых сообщения подряд.
+    """
+    if not meeting_date or not meeting_time:
+        return
+    try:
+        meeting_dt = datetime.combine(meeting_date, meeting_time)
+        hours_until = (meeting_dt - datetime.now()).total_seconds() / 3600
+        if not (0 < hours_until < 24):
+            return
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.meeting_reminders_log
+                (meeting_id, reminder_type, sent_to, channel, success, error_message)
+                VALUES ({escape_sql(meeting_id)}, '24h', 'both', 'both', TRUE,
+                        'Covered by meeting creation notification')
+            """)
+            conn.commit()
+        print(f'[MEETING] Daily reminder suppressed for meeting {meeting_id}, creation notification covers it ({hours_until:.1f}h until meeting)')
+    except Exception as e:
+        print(f'[MEETING_SUPPRESS_ERROR] {e}')
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+
 def load_photographer(cur, photographer_id):
     cur.execute(f"""
         SELECT id, email, phone, display_name, green_api_instance_id, green_api_token,
@@ -347,6 +377,10 @@ def handler(event: dict, context) -> dict:
                 meeting = load_meeting(cur, new_id, photographer_id)
                 photographer = load_photographer(cur, photographer_id)
 
+            suppress_daily_meeting_reminder(
+                conn, new_id, meeting.get('meeting_date'), meeting.get('meeting_time')
+            )
+
             results = {}
             if notify_client and (client.get('phone') or client.get('telegram_chat_id')):
                 msg = build_client_message(meeting, photographer)
@@ -387,6 +421,20 @@ def handler(event: dict, context) -> dict:
                     WHERE id = {escape_sql(meeting_id)} AND photographer_id = {escape_sql(photographer_id)}
                 """)
                 conn.commit()
+
+                # Встречу перенесли — старые отметки о напоминаниях больше не актуальны,
+                # иначе на новую дату напоминания не придут
+                date_changed = 'meeting_date' in body and str(body['meeting_date'])[:10] != str(existing.get('meeting_date'))[:10]
+                time_changed = 'meeting_time' in body and str(body['meeting_time'])[:5] != str(existing.get('meeting_time'))[:5]
+                if date_changed or time_changed:
+                    cur.execute(f"""
+                        DELETE FROM {SCHEMA}.meeting_reminders_log
+                        WHERE meeting_id = {escape_sql(meeting_id)}
+                          AND reminder_type IN ('24h', 'today', '5h', '1h')
+                    """)
+                    conn.commit()
+                    print(f'[MEETING] Reminders log reset for meeting {meeting_id} after reschedule')
+
                 meeting = load_meeting(cur, meeting_id, photographer_id)
                 client = load_client(cur, meeting['client_id'], photographer_id)
                 photographer = load_photographer(cur, photographer_id)

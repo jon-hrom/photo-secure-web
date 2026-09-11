@@ -1565,8 +1565,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Обновляем проекты (upsert - вставляем новые или обновляем существующие)
             if 'projects' in body:
                 # Получаем текущие ID проектов
-                cur.execute('SELECT id FROM t_p28211681_photo_secure_web.client_projects WHERE client_id = %s', (client_id,))
-                existing_ids = {row['id'] for row in cur.fetchall()}
+                cur.execute('SELECT id, start_date, shooting_time FROM t_p28211681_photo_secure_web.client_projects WHERE client_id = %s', (client_id,))
+                existing_rows = cur.fetchall()
+                existing_ids = {row['id'] for row in existing_rows}
+                existing_schedule = {
+                    row['id']: (
+                        str(row['start_date'])[:10] if row['start_date'] else None,
+                        str(row['shooting_time'])[:5] if row['shooting_time'] else None,
+                    )
+                    for row in existing_rows
+                }
                 incoming_ids = {p.get('id') for p in body.get('projects', []) if p.get('id')}
                 
                 # Удаляем проекты, которых нет в новом списке
@@ -1760,7 +1768,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             )
                         except Exception as e:
                             print(f'[CANCEL_RESERVE] Reset flag error: {e}')
-                    
+
+                    # Съёмку перенесли — старые отметки о напоминаниях больше не актуальны,
+                    # иначе на новую дату клиент и фотограф ничего не получат
+                    if not is_new_project and project_id in existing_schedule:
+                        try:
+                            old_date, old_time = existing_schedule[project_id]
+                            new_date = str(start_date)[:10] if start_date else None
+                            new_time_raw = project.get('shooting_time')
+                            new_time = str(new_time_raw)[:5] if new_time_raw else None
+                            if (new_date and new_date != old_date) or (new_time and new_time != old_time):
+                                cur.execute(
+                                    "DELETE FROM t_p28211681_photo_secure_web.shooting_reminders_log WHERE project_id = %s AND reminder_type IN ('24h', 'today', '5h', '1h')",
+                                    (project_id,)
+                                )
+                                print(f'[RESCHEDULE] Reminders log reset for project {project_id}: {old_date} {old_time} -> {new_date} {new_time}')
+                        except Exception as e:
+                            print(f'[RESCHEDULE] Reset reminders error: {e}')
+
                     if is_new_project and start_date and project.get('shooting_time'):
                         # Уведомления о новом заказе отправляются из фронтенда через NotificationService.ts
                         # (WhatsApp + Telegram + Email в расширенном формате).
