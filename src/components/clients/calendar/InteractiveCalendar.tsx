@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import Icon from '@/components/ui/icon';
 import { Client } from '@/components/clients/ClientsTypes';
+import QuickMeetingDialog from '@/components/calendar/QuickMeetingDialog';
 
 interface BookingWithTime {
   date: Date;
@@ -29,9 +31,27 @@ const InteractiveCalendar = ({
   onBookingClick,
 }: InteractiveCalendarProps) => {
   
+  const [meetingDate, setMeetingDate] = useState<Date | null>(null);
+  const [isMeetingOpen, setIsMeetingOpen] = useState(false);
+
   const handleDateClick = (date: Date | undefined) => {
     // Просто передаём выбранную дату наверх для отображения
     onDateClick(date);
+
+    if (!date) return;
+
+    const clickedDate = new Date(date);
+    clickedDate.setHours(0, 0, 0, 0);
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    if (clickedDate < todayStart) return;
+
+    // Дата свободна — открываем форму создания встречи
+    if (!hasActiveBookingsOnDate(date)) {
+      setMeetingDate(clickedDate);
+      setIsMeetingOpen(true);
+    }
   };
 
   // Функция проверки, есть ли на эту дату активные (не прошедшие) события
@@ -108,11 +128,18 @@ const InteractiveCalendar = ({
           </div>
           <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg sm:rounded-xl">
             <p className="text-[10px] sm:text-xs text-green-700 dark:text-green-300 font-medium text-center">
-              👆 Нажмите на дату для просмотра съёмок
+              👆 Нажмите на дату — на свободной откроется форма встречи
             </p>
           </div>
         </div>
       </CardContent>
+
+      <QuickMeetingDialog
+        open={isMeetingOpen}
+        onOpenChange={setIsMeetingOpen}
+        date={meetingDate}
+        clients={clients}
+      />
     </Card>
   );
 };

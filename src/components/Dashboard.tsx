@@ -66,9 +66,19 @@ const Dashboard = ({ userRole, userId: propUserId, clients: propClients = [], on
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
+  const reloadMeetings = () => {
     fetchMeetings().then(setMeetings).catch(() => setMeetings([]));
+  };
+
+  useEffect(() => {
+    reloadMeetings();
   }, [propUserId, propClients.length]);
+
+  useEffect(() => {
+    const handler = () => reloadMeetings();
+    window.addEventListener('meetings:refresh', handler);
+    return () => window.removeEventListener('meetings:refresh', handler);
+  }, []);
 
   useEffect(() => {
     const now = new Date();

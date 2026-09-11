@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import Icon from '@/components/ui/icon';
 import { Client, Booking, Project } from '@/components/clients/ClientsTypes';
+import QuickMeetingDialog from '@/components/calendar/QuickMeetingDialog';
 
 interface DashboardCalendarProps {
   clients: Client[];
@@ -12,6 +13,8 @@ interface DashboardCalendarProps {
 
 const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: DashboardCalendarProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [meetingDate, setMeetingDate] = useState<Date | null>(null);
+  const [isMeetingOpen, setIsMeetingOpen] = useState(false);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -99,6 +102,18 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
     else if (bookingsOnDate.length > 0 || projectsOnDate.length > 0) {
       setSelectedDate(date);
     }
+    // Дата свободна — открываем форму создания встречи
+    else {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      if (clickedDate < todayStart) {
+        setSelectedDate(date);
+        return;
+      }
+      setSelectedDate(date);
+      setMeetingDate(clickedDate);
+      setIsMeetingOpen(true);
+    }
   };
 
   return (
@@ -112,7 +127,7 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
               <h3 className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white">Календарь съёмок</h3>
             </div>
             <p className="text-[10px] sm:text-xs text-muted-foreground dark:text-gray-300">
-              👆 Нажмите на дату
+              👆 Нажмите на дату — на свободной откроется форма встречи
             </p>
           </div>
           
@@ -173,6 +188,13 @@ const DashboardCalendar = ({ clients, onBookingClick, onProjectClick }: Dashboar
           </div>
         </CardContent>
       </Card>
+
+      <QuickMeetingDialog
+        open={isMeetingOpen}
+        onOpenChange={setIsMeetingOpen}
+        date={meetingDate}
+        clients={clients}
+      />
     </div>
   );
 };
