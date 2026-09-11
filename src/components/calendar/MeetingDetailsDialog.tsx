@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 import { Client } from '@/components/clients/ClientsTypes';
 import { Meeting, updateMeeting, deleteMeeting } from '@/components/clients/dialog/MeetingService';
 import { formatMinutes } from '@/utils/dateFormat';
+import { getUserTimezoneShort } from '@/utils/regionTimezone';
 
 interface MeetingDetailsDialogProps {
   open: boolean;
@@ -20,6 +23,16 @@ const formatTime = (time?: string | null) => {
   return String(time).slice(0, 5);
 };
 
+const toDateInput = (value?: string | null) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 const MeetingDetailsDialog = ({
   open,
   onOpenChange,
@@ -28,6 +41,9 @@ const MeetingDetailsDialog = ({
   date,
 }: MeetingDetailsDialogProps) => {
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [rescheduleId, setRescheduleId] = useState<number | null>(null);
+  const [newDate, setNewDate] = useState('');
+  const [newTime, setNewTime] = useState('');
 
   const prettyDate = date
     ? date.toLocaleDateString('ru-RU', {
@@ -43,6 +59,48 @@ const MeetingDetailsDialog = ({
     clients.forEach((c) => map.set(c.id, c));
     return map;
   }, [clients]);
+
+  const openReschedule = (meeting: Meeting) => {
+    setRescheduleId(meeting.id);
+    setNewDate(toDateInput(meeting.meeting_date));
+    setNewTime(meeting.meeting_time ? String(meeting.meeting_time).slice(0, 5) : '');
+  };
+
+  const handleReschedule = async (meeting: Meeting) => {
+    if (!newDate) {
+      toast.error('Укажите новую дату');
+      return;
+    }
+
+    const client = clientById.get(meeting.client_id);
+    setBusyId(meeting.id);
+    const loader = toast.loading('Переносим встречу...');
+
+    const ok = await updateMeeting(meeting.id, {
+      meeting_date: newDate,
+      meeting_time: newTime || null,
+      notification_type: 'reschedule',
+      notify_client: !!(client?.phone || client?.telegram_chat_id),
+    });
+
+    toast.dismiss(loader);
+    setBusyId(null);
+
+    if (ok) {
+      const hasContact = !!(client?.phone || client?.telegram_chat_id);
+      toast.success('Встреча перенесена', {
+        description: hasContact
+          ? 'Клиенту отправлено уведомление с новой датой'
+          : 'У клиента нет контактов — сообщите ему о переносе сами',
+        duration: 6000,
+      });
+      setRescheduleId(null);
+      window.dispatchEvent(new CustomEvent('meetings:refresh'));
+      onOpenChange(false);
+    } else {
+      toast.error('Не удалось перенести встречу');
+    }
+  };
 
   const handleCancel = async (meeting: Meeting) => {
     const client = clientById.get(meeting.client_id);
@@ -83,8 +141,13 @@ const MeetingDetailsDialog = ({
     }
   };
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setRescheduleId(null);
+    onOpenChange(next);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -160,27 +223,93 @@ const MeetingDetailsDialog = ({
                   )}
                 </div>
 
-                <div className="flex gap-2 pt-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 h-8 text-xs"
-                    disabled={isBusy}
-                    onClick={() => handleCancel(meeting)}
-                  >
-                    <Icon name="CalendarX" size={13} className="mr-1.5" />
-                    Отменить
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-xs text-destructive hover:text-destructive"
-                    disabled={isBusy}
-                    onClick={() => handleDelete(meeting)}
-                  >
-                    <Icon name="Trash2" size={13} />
-                  </Button>
-                </div>
+                {rescheduleId === meeting.id ? (
+                  <div className="rounded-md border border-border/60 bg-background/70 p-2.5 space-y-2">
+                    <p className="text-[11px] font-medium flex items-center gap-1.5">
+                      <Icon name="CalendarSync" size={13} className="text-blue-500" />
+                      Перенести встречу
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">Новая дата</Label>
+                        <Input
+                          type="date"
+                          min="2020-01-01"
+                          max="2099-12-31"
+                          value={newDate}
+                          onChange={(e) => setNewDate(e.target.value)}
+                          className="text-xs h-8"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px]">
+                          Время{' '}
+                          <span className="text-muted-foreground font-normal">
+                            ({getUserTimezoneShort()})
+                          </span>
+                        </Label>
+                        <Input
+                          type="time"
+                          value={newTime}
+                          onChange={(e) => setNewTime(e.target.value)}
+                          className="text-xs h-8"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs"
+                        disabled={isBusy}
+                        onClick={() => setRescheduleId(null)}
+                      >
+                        Отмена
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 h-8 text-xs"
+                        disabled={isBusy}
+                        onClick={() => handleReschedule(meeting)}
+                      >
+                        <Icon name="Check" size={13} className="mr-1.5" />
+                        Перенести
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 h-8 text-xs"
+                      disabled={isBusy}
+                      onClick={() => openReschedule(meeting)}
+                    >
+                      <Icon name="CalendarSync" size={13} className="mr-1.5" />
+                      Перенести
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 h-8 text-xs"
+                      disabled={isBusy}
+                      onClick={() => handleCancel(meeting)}
+                    >
+                      <Icon name="CalendarX" size={13} className="mr-1.5" />
+                      Отменить
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs text-destructive hover:text-destructive"
+                      disabled={isBusy}
+                      onClick={() => handleDelete(meeting)}
+                    >
+                      <Icon name="Trash2" size={13} />
+                    </Button>
+                  </div>
+                )}
               </div>
             );
           })}
