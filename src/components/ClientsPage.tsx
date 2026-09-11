@@ -38,7 +38,9 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
   const userId = propUserId || localStorage.getItem('userId');
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeFilter, setActiveFilter] = useState<FilterType>('active-projects');
+  // По умолчанию показываем всех клиентов: при фильтре «Активные проекты»
+  // клиент без проектов пропадал из списка и выглядел удалённым
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
 
   // Обработка URL параметра filter=no-date
