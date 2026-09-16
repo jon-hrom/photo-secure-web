@@ -262,11 +262,11 @@ const ForgotPasswordDialog = ({ open, onClose, initialContact }: ForgotPasswordD
           {step === 'contact' && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="reset-contact">Email или телефон</Label>
+                <Label htmlFor="reset-contact">Email</Label>
                 <Input
                   id="reset-contact"
-                  type="text"
-                  placeholder="example@mail.com или +7 (900) 123-45-67"
+                  type="email"
+                  placeholder="example@mail.com"
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleContactSubmit()}

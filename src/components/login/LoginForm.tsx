@@ -45,18 +45,17 @@ const LoginForm = ({
   return (
     <>
       <div className="space-y-2">
-        <Label htmlFor="login-email">Email или телефон</Label>
+        <Label htmlFor="login-email">Email</Label>
         <Input
           id="login-email"
-          type="text"
+          type="email"
           inputMode="email"
           autoComplete="username"
-          placeholder="your@email.com или +7..."
+          placeholder="your@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={isBlocked}
         />
-        <p className="text-xs text-muted-foreground">Можно войти по email или телефону</p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="login-password">Пароль</Label>
