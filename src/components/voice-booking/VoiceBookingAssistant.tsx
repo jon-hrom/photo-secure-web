@@ -15,12 +15,16 @@ import func2url from '../../../backend/func2url.json';
 
 const EMPTY: ParsedBooking = { name: '', phone: '', date: '', shootType: '', comment: '' };
 const REALTIME_API = (func2url as Record<string, string>)['voice-realtime'];
+const USER_SETTINGS_API = 'https://functions.poehali.dev/8ce3cb93-2701-441d-aa3b-e9c0e99a9994';
 
-const AGENT_INSTRUCTIONS =
-  'Ты — вежливый голосовой ассистент фотографа, принимаешь заявки на съёмку по-русски. ' +
-  'Поздоровайся, узнай у клиента имя, номер телефона, желаемую дату и тип съёмки ' +
-  '(свадебная, love story, семейная, портретная и т.д.). Задавай по одному короткому вопросу. ' +
-  'Когда все данные собраны — кратко повтори их и попрощайся. Говори тепло и лаконично.';
+/** Первая фраза агента: здоровается по имени и сразу объясняет, что готов писать. */
+function buildGreeting(photographerName: string): string {
+  const who = photographerName ? `, ${photographerName}` : '';
+  return (
+    `Начни разговор сам. Скажи ровно две короткие фразы: сначала «Здравствуйте${who}!», `
+    + 'затем «Готов записать данные вашего клиента». Ничего не спрашивай и не добавляй.'
+  );
+}
 
 export default function VoiceBookingAssistant() {
   const { toast } = useToast();
@@ -30,6 +34,22 @@ export default function VoiceBookingAssistant() {
   const [fields, setFields] = useState<ParsedBooking>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [yandexReady, setYandexReady] = useState<boolean | null>(null);
+  const [photographerName, setPhotographerName] = useState('');
+
+  // Имя фотографа из кабинета — агент поздоровается лично, а не безлико.
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+    fetch(`${USER_SETTINGS_API}?user_id=${userId}`, { headers: { 'X-User-Id': userId } })
+      .then((r) => r.json())
+      .then((d) => {
+        const s = d?.settings || {};
+        const name = (s.display_name || s.name || '').trim();
+        // В настройках может лежать email — как имя он не годится
+        if (name && !name.includes('@')) setPhotographerName(name.split(' ')[0]);
+      })
+      .catch(() => { /* не критично: поздороваемся без имени */ });
+  }, []);
 
   // Агент сам распознаёт данные в разговоре и присылает их — переносим в анкету.
   // Уже заполненное не затираем: клиент мог назвать телефон в одной фразе, а дату в другой.
@@ -203,7 +223,14 @@ export default function VoiceBookingAssistant() {
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4">
             <button
-              onClick={rt.connected ? rt.disconnect : () => rt.connect(AGENT_INSTRUCTIONS)}
+              onClick={
+                rt.connected
+                  ? rt.disconnect
+                  : () => rt.connect({
+                      userName: photographerName,
+                      greeting: buildGreeting(photographerName),
+                    })
+              }
               className={`w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-lg ${
                 rt.status === 'speaking'
                   ? 'bg-emerald-500 animate-pulse'
@@ -232,9 +259,9 @@ export default function VoiceBookingAssistant() {
             <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
               {rt.status === 'connecting' && 'Подключаюсь…'}
               {rt.status === 'listening' && 'Слушаю вас — говорите'}
-              {rt.status === 'thinking' && 'Агент думает…'}
-              {rt.status === 'speaking' && 'Агент отвечает…'}
-              {rt.status === 'idle' && 'Нажмите, чтобы начать голосовой разговор'}
+              {rt.status === 'thinking' && 'Готовлю ответ…'}
+              {rt.status === 'speaking' && 'Агент говорит…'}
+              {rt.status === 'idle' && 'Нажмите — агент поздоровается и начнёт приём заявки'}
               {rt.status === 'error' && 'Ошибка соединения'}
             </p>
 
@@ -252,7 +279,18 @@ export default function VoiceBookingAssistant() {
                 )}
               </div>
             )}
-            {rt.error && <p className="text-sm text-red-500">{rt.error}</p>}
+            {rt.error && (
+              <p
+                className={`text-sm ${
+                  // «Не расслышал» — это подсказка, а не поломка: красным не пугаем
+                  rt.error.startsWith('Не расслышал')
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-red-500'
+                }`}
+              >
+                {rt.error}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

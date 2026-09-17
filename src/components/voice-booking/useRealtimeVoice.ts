@@ -50,8 +50,15 @@ export interface UseRealtimeVoiceResult {
   connected: boolean;
   /** Данные заявки, которые агент услышал в разговоре */
   fields: VoiceFields;
-  connect: (instructions: string) => Promise<void>;
+  connect: (options?: ConnectOptions) => Promise<void>;
   disconnect: () => void;
+}
+
+export interface ConnectOptions {
+  /** Имя фотографа — агент поздоровается лично */
+  userName?: string;
+  /** Реплика, которую агент произнесёт сразу после подключения */
+  greeting?: string;
 }
 
 // Realtime отдаёт голос в 44100 Гц независимо от запроса. Если проигрывать
@@ -70,6 +77,10 @@ const SILENCE_MS = 1200;
 const MIN_SPEECH_MS = 500;
 /** Аварийная отправка: длинную фразу не копим бесконечно. */
 const MAX_SPEECH_MS = 20000;
+/** Клиент молчит — агент мягко напомнит о себе. */
+const IDLE_REMINDER_MS = 12000;
+/** Сколько раз подряд напоминаем, дальше просто ждём молча. */
+const MAX_IDLE_REMINDERS = 2;
 
 /**
  * Голосовой диалог с агентом Yandex Realtime.
@@ -105,6 +116,11 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
   const inRateRef = useRef(DEFAULT_IN_RATE);
   const outRateRef = useRef(DEFAULT_OUT_RATE);
   const preRollRef = useRef<Int16Array[]>([]);
+  const userNameRef = useRef('');
+  /** Когда в последний раз что-то происходило — для напоминания при молчании */
+  const lastActivityRef = useRef(0);
+  const idleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const idleCountRef = useRef(0);
 
   const cleanup = useCallback(() => {
     activeRef.current = false;
@@ -113,6 +129,11 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
     preRollRef.current = [];
     speechMsRef.current = 0;
     silenceMsRef.current = 0;
+    idleCountRef.current = 0;
+    if (idleTimerRef.current) {
+      clearInterval(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
     try { procRef.current?.disconnect(); } catch { /* */ }
     try { sourceRef.current?.disconnect(); } catch { /* */ }
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -145,20 +166,25 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
     return buffer.duration;
   }, []);
 
-  /** Отправляет накопленную реплику на сервер и озвучивает ответ агента. */
-  const sendTurn = useCallback(async (pcm: Int16Array) => {
+  /** Отправляет реплику (запись голоса или текст) и озвучивает ответ агента.
+   *  isSystemPrompt — служебная подсказка агенту, её не показываем как речь клиента. */
+  const sendTurn = useCallback(async (
+    pcm: Int16Array | null,
+    textPrompt?: string,
+    isSystemPrompt = false,
+  ) => {
     busyRef.current = true;
     setStatus('thinking');
     try {
       const userId = localStorage.getItem('userId') || '';
-      const userName = localStorage.getItem('userName') || '';
       const resp = await fetch(REALTIME_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({
           action: 'turn',
-          audio: arrayBufferToBase64(pcm.buffer as ArrayBuffer),
-          user_name: userName,
+          ...(pcm ? { audio: arrayBufferToBase64(pcm.buffer as ArrayBuffer) } : {}),
+          ...(textPrompt ? { text: textPrompt } : {}),
+          user_name: userNameRef.current,
           history: historyRef.current.slice(-10),
         }),
       });
@@ -183,7 +209,10 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
 
       setError(null);
 
-      if (data.user_text) {
+      // Служебные подсказки агенту (приветствие, «клиент молчит») в историю
+      // и в ленту диалога не попадают — иначе выглядят как реплика клиента
+      // и агент начинает отвечать сам себе по кругу.
+      if (data.user_text && !isSystemPrompt) {
         setUserTranscript(data.user_text);
         historyRef.current.push({ role: 'user', text: data.user_text });
       }
@@ -222,10 +251,16 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
     } finally {
       busyRef.current = false;
       chunksRef.current = [];
+      preRollRef.current = [];
       speechMsRef.current = 0;
       silenceMsRef.current = 0;
+      // Отсчёт молчания начинаем заново после каждой реплики агента
+      lastActivityRef.current = Date.now();
     }
   }, [playPcm]);
+
+  const sendTurnRef = useRef(sendTurn);
+  sendTurnRef.current = sendTurn;
 
   const startMic = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -263,6 +298,11 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
       };
 
       if (peak > SILENCE_LEVEL) {
+        // Человек заговорил — напоминания «говорите, я вас слушаю» больше не нужны
+        lastActivityRef.current = Date.now();
+        idleCountRef.current = 0;
+        // и подсказка «не расслышал» тоже: она относилась к прошлой попытке
+        if (speechMsRef.current === 0) setError(null);
         // Держим небольшой «хвост» тишины перед речью: без него у фразы
         // срезается первый слог и распознавание теряет начало.
         if (speechMsRef.current === 0 && preRollRef.current.length) {
@@ -306,13 +346,15 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
     proc.connect(ctx.destination);
   }, [sendTurn]);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (options?: ConnectOptions) => {
     setError(null);
     setUserTranscript('');
     setAssistantTranscript('');
     setFields({});
     setStatus('connecting');
     historyRef.current = [];
+    idleCountRef.current = 0;
+    userNameRef.current = options?.userName || '';
     try {
       const userId = localStorage.getItem('userId') || '';
       const cfgResp = await fetch(REALTIME_API, { headers: { 'X-User-Id': userId } });
@@ -326,7 +368,31 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
       activeRef.current = true;
       await startMic();
       setConnected(true);
-      setStatus('listening');
+      lastActivityRef.current = Date.now();
+
+      // Агент здоровается первым — фотографу не нужно начинать разговор самому.
+      if (options?.greeting) {
+        void sendTurnRef.current(null, options.greeting, true);
+      } else {
+        setStatus('listening');
+      }
+
+      // Клиент молчит — агент мягко напомнит, что ждёт ответа.
+      idleTimerRef.current = setInterval(() => {
+        if (!activeRef.current || busyRef.current) return;
+        if (speechMsRef.current > 0) return; // человек как раз говорит
+        if (idleCountRef.current >= MAX_IDLE_REMINDERS) return;
+        if (Date.now() - lastActivityRef.current < IDLE_REMINDER_MS) return;
+
+        idleCountRef.current += 1;
+        lastActivityRef.current = Date.now();
+        void sendTurnRef.current(
+          null,
+          'Собеседник молчит. Мягко и коротко скажи ровно одну фразу: '
+          + '«Говорите, я вас слушаю!» Ничего больше не добавляй.',
+          true,
+        );
+      }, 2000);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка подключения');
       setStatus('error');
