@@ -35,11 +35,15 @@ IAM_URL = 'https://iam.api.cloud.yandex.net/iam/v1/tokens'
 # В нём заданы инструкции, голос и сценарий диалога.
 DEFAULT_PROMPT_ID = 'aipk6k5aj2d5pjc2f92h'
 
-SAMPLE_RATE = 24000
+# Realtime игнорирует запрошенную частоту в session.update (возвращает rate: null)
+# и ВСЕГДА отдаёт аудио 44100 Гц. Если играть его как 24000, голос растягивается
+# почти вдвое и звучит неестественно медленно. Проверено по длине реплики.
+SAMPLE_RATE = 44100
+# Микрофон отправляем в той же частоте, что и рабочий пример SDK.
+INPUT_SAMPLE_RATE = 44100
 
 # Ответ функции уходит одним JSON, а аудио в base64 раздувается в ~1.4 раза.
-# Слишком длинная реплика не проходит через шлюз (502), поэтому режем звук:
-# 20 секунд речи с запасом хватает на реплику диалога.
+# Слишком длинная реплика не проходит через шлюз (502), поэтому режем звук.
 MAX_AUDIO_SECONDS = 20
 MAX_AUDIO_BYTES = SAMPLE_RATE * 2 * MAX_AUDIO_SECONDS
 
@@ -93,19 +97,20 @@ def _model_uri(model: str, folder_id: str) -> str:
     return model if model.startswith('gpt://') else f'gpt://{folder_id}/{model}'
 
 
-def _session_payload(prompt_id: str, user_name: str, voice: str) -> Dict[str, Any]:
-    """Сессия агента. Realtime требует переменную промпта в ОБОИХ видах —
-    и с фигурными скобками, и без: иначе сервер отвечает Internal error.
+def _session_payload(prompt_id: str, user_name: str) -> Dict[str, Any]:
+    """Сессия агента.
+
+    ВАЖНО: голос, амплуа, скорость речи и распознавание настраиваются в самом
+    промпте AI Studio. Поэтому здесь их НЕ задаём — иначе наши значения
+    перетирают ваши настройки из консоли Яндекса, и «Скорость речи 1.2x»
+    перестаёт применяться. Передаём только id промпта и переменные.
+
+    Realtime требует переменную промпта в ОБОИХ видах — с фигурными скобками
+    и без: иначе сервер отвечает Internal error и рвёт соединение.
     """
     session: Dict[str, Any] = {
         'modalities': ['audio', 'text'],
-        'voice': voice,
-        'input_audio_format': {'type': 'audio/pcm', 'rate': SAMPLE_RATE},
-        'output_audio_format': {'type': 'audio/pcm', 'rate': SAMPLE_RATE},
         'input_audio_transcription': {'enabled': True},
-        # Живой диалог: короткие реплики по одному вопросу за раз.
-        # Заодно ответ быстрее доходит до браузера.
-        'max_response_output_tokens': 220,
     }
     if prompt_id:
         session['prompt'] = {
@@ -288,9 +293,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not isinstance(history, list):
             history = []
         user_name = (req.get('user_name') or '').strip()
-        voice = (req.get('voice') or 'marina').strip()
 
-        session = _session_payload(prompt_id, user_name, voice)
+        session = _session_payload(prompt_id, user_name)
 
         try:
             result = _run_turn(
@@ -315,9 +319,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'ws_url': ws_url if configured else None,
         'model': _model_uri(model, folder_id) if configured else model,
         'prompt_id': prompt_id,
-        'voice': 'marina',
+        # Голос и скорость речи берутся из настроек промпта в AI Studio
         'language': 'ru-RU',
         'sample_rate': SAMPLE_RATE,
+        'input_sample_rate': INPUT_SAMPLE_RATE,
         # Браузер не может подключиться к Realtime напрямую (нужен HTTP-заголовок
         # Authorization), поэтому диалог идёт через эту же функцию: action='turn'.
         'transport': 'proxy',

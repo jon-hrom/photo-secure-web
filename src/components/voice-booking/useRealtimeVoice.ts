@@ -14,8 +14,8 @@ export type VoiceStatus = 'idle' | 'connecting' | 'listening' | 'thinking' | 'sp
 
 interface RealtimeConfig {
   configured: boolean;
-  voice?: string;
   sample_rate?: number;
+  input_sample_rate?: number;
   message?: string;
 }
 
@@ -23,6 +23,7 @@ interface TurnResponse {
   user_text?: string;
   agent_text?: string;
   audio?: string;
+  sample_rate?: number;
   error?: string;
 }
 
@@ -41,8 +42,11 @@ export interface UseRealtimeVoiceResult {
   disconnect: () => void;
 }
 
-const IN_RATE = 24000;
-const OUT_RATE = 24000;
+// Realtime отдаёт голос в 44100 Гц независимо от запроса. Если проигрывать
+// его как 24000, речь растягивается почти вдвое («очень медленный голос»).
+// Точные значения приходят с сервера, эти — запасные.
+const DEFAULT_IN_RATE = 44100;
+const DEFAULT_OUT_RATE = 44100;
 
 /** Тишина ниже этого уровня не считается речью (0..1 по амплитуде). */
 const SILENCE_LEVEL = 0.012;
@@ -80,8 +84,9 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
   const chunksRef = useRef<Int16Array[]>([]);
   const speechMsRef = useRef(0);
   const silenceMsRef = useRef(0);
-  const voiceRef = useRef('marina');
   const historyRef = useRef<HistoryItem[]>([]);
+  const inRateRef = useRef(DEFAULT_IN_RATE);
+  const outRateRef = useRef(DEFAULT_OUT_RATE);
 
   const cleanup = useCallback(() => {
     activeRef.current = false;
@@ -102,15 +107,15 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
     playTimeRef.current = 0;
   }, []);
 
-  const playPcm = useCallback((int16: Int16Array) => {
+  const playPcm = useCallback((int16: Int16Array, rate: number) => {
     let ctx = playCtxRef.current;
     if (!ctx || ctx.state === 'closed') {
-      ctx = new AudioContext({ sampleRate: OUT_RATE });
+      ctx = new AudioContext({ sampleRate: rate });
       playCtxRef.current = ctx;
       playTimeRef.current = ctx.currentTime;
     }
     const float = int16ToFloat32(int16);
-    const buffer = ctx.createBuffer(1, float.length, OUT_RATE);
+    const buffer = ctx.createBuffer(1, float.length, rate);
     buffer.getChannelData(0).set(float);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
@@ -135,7 +140,6 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
           action: 'turn',
           audio: arrayBufferToBase64(pcm.buffer as ArrayBuffer),
           user_name: userName,
-          voice: voiceRef.current,
           history: historyRef.current.slice(-10),
         }),
       });
@@ -158,7 +162,9 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
 
       if (data.audio) {
         setStatus('speaking');
-        const duration = playPcm(base64ToInt16(data.audio));
+        // Частоту берём из ответа: Realtime может отдать не то, что мы просили
+        const rate = data.sample_rate || outRateRef.current;
+        const duration = playPcm(base64ToInt16(data.audio), rate);
         // Пока агент говорит, микрофон не слушаем — иначе он услышит сам себя.
         await new Promise((r) => setTimeout(r, duration * 1000));
       }
@@ -199,7 +205,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
         if (v > peak) peak = v;
       }
 
-      const resampled = resample(input, ctx.sampleRate, IN_RATE);
+      const resampled = resample(input, ctx.sampleRate, inRateRef.current);
       const pcm = new Int16Array(floatTo16BitPCM(resampled));
 
       if (peak > SILENCE_LEVEL) {
@@ -247,7 +253,8 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
       if (!cfg.configured) {
         throw new Error(cfg.message || 'Голосовой сервис не настроен');
       }
-      voiceRef.current = cfg.voice || 'marina';
+      outRateRef.current = cfg.sample_rate || DEFAULT_OUT_RATE;
+      inRateRef.current = cfg.input_sample_rate || cfg.sample_rate || DEFAULT_IN_RATE;
 
       activeRef.current = true;
       await startMic();

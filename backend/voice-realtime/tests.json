@@ -40,7 +40,7 @@
       "headers": {"X-User-Id": "1"},
       "body": {"action": "turn", "text": "Привет", "user_name": "Тест"},
       "expectedStatus": 200,
-      "expectedBody": {"agent_text": "string", "sample_rate": 24000},
+      "expectedBody": {"agent_text": "string", "sample_rate": 44100},
       "bodyMatcher": "partial"
     }
   ]
