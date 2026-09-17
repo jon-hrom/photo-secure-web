@@ -10,19 +10,25 @@ import {
 
 const REALTIME_API = (func2url as Record<string, string>)['voice-realtime'];
 
-export type VoiceStatus = 'idle' | 'connecting' | 'listening' | 'speaking' | 'error';
+export type VoiceStatus = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'error';
 
 interface RealtimeConfig {
   configured: boolean;
-  ws_url?: string;
-  authorization?: string;
-  client_secret?: string;
-  auth_scheme?: string;
-  model?: string;
-  prompt_id?: string;
   voice?: string;
   sample_rate?: number;
   message?: string;
+}
+
+interface TurnResponse {
+  user_text?: string;
+  agent_text?: string;
+  audio?: string;
+  error?: string;
+}
+
+interface HistoryItem {
+  role: 'user' | 'assistant';
+  text: string;
 }
 
 export interface UseRealtimeVoiceResult {
@@ -38,10 +44,22 @@ export interface UseRealtimeVoiceResult {
 const IN_RATE = 24000;
 const OUT_RATE = 24000;
 
+/** Тишина ниже этого уровня не считается речью (0..1 по амплитуде). */
+const SILENCE_LEVEL = 0.012;
+/** Пауза, после которой реплика считается законченной. */
+const SILENCE_MS = 900;
+/** Не отправляем совсем короткие обрывки — это шум. */
+const MIN_SPEECH_MS = 400;
+
 /**
- * Голосовой диалог через Yandex Realtime API (OpenAI-совместимый протокол).
- * Записывает микрофон в PCM16, шлёт аудио, принимает аудио-ответ и озвучивает его.
- * Точку подключения и авторизацию выдаёт бэкенд voice-realtime (ключ не в браузере).
+ * Голосовой диалог с агентом Yandex Realtime.
+ *
+ * Браузер не может подключиться к Realtime напрямую: сервис требует HTTP-заголовок
+ * Authorization, а WebSocket API в браузере заголовки задавать не умеет (отсюда
+ * ошибка «Authorization header is missing»). Поэтому запись речи уходит на нашу
+ * функцию voice-realtime, она держит WebSocket к Yandex и возвращает ответ агента.
+ *
+ * Реплики режем по паузе в речи: пока говорите — копим звук, замолчали — отправляем.
  */
 export function useRealtimeVoice(): UseRealtimeVoiceResult {
   const [status, setStatus] = useState<VoiceStatus>('idle');
@@ -50,7 +68,6 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
   const [assistantTranscript, setAssistantTranscript] = useState('');
   const [connected, setConnected] = useState(false);
 
-  const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const procRef = useRef<ScriptProcessorNode | null>(null);
@@ -58,25 +75,36 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
   const playCtxRef = useRef<AudioContext | null>(null);
   const playTimeRef = useRef(0);
 
+  const activeRef = useRef(false);
+  const busyRef = useRef(false);
+  const chunksRef = useRef<Int16Array[]>([]);
+  const speechMsRef = useRef(0);
+  const silenceMsRef = useRef(0);
+  const voiceRef = useRef('marina');
+  const historyRef = useRef<HistoryItem[]>([]);
+
   const cleanup = useCallback(() => {
+    activeRef.current = false;
+    busyRef.current = false;
+    chunksRef.current = [];
+    speechMsRef.current = 0;
+    silenceMsRef.current = 0;
     try { procRef.current?.disconnect(); } catch { /* */ }
     try { sourceRef.current?.disconnect(); } catch { /* */ }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     try { audioCtxRef.current?.close(); } catch { /* */ }
     try { playCtxRef.current?.close(); } catch { /* */ }
-    try { wsRef.current?.close(); } catch { /* */ }
     procRef.current = null;
     sourceRef.current = null;
     streamRef.current = null;
     audioCtxRef.current = null;
     playCtxRef.current = null;
-    wsRef.current = null;
     playTimeRef.current = 0;
   }, []);
 
-  const playChunk = useCallback((int16: Int16Array) => {
+  const playPcm = useCallback((int16: Int16Array) => {
     let ctx = playCtxRef.current;
-    if (!ctx) {
+    if (!ctx || ctx.state === 'closed') {
       ctx = new AudioContext({ sampleRate: OUT_RATE });
       playCtxRef.current = ctx;
       playTimeRef.current = ctx.currentTime;
@@ -90,49 +118,67 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
     const startAt = Math.max(ctx.currentTime, playTimeRef.current);
     src.start(startAt);
     playTimeRef.current = startAt + buffer.duration;
+    return buffer.duration;
   }, []);
 
-  const handleServerEvent = useCallback((evt: Record<string, unknown>) => {
-    const type = evt.type as string;
-    switch (type) {
-      case 'response.audio.delta':
-      case 'response.output_audio.delta': {
-        const delta = evt.delta as string;
-        if (delta) { setStatus('speaking'); playChunk(base64ToInt16(delta)); }
-        break;
-      }
-      case 'response.audio_transcript.delta':
-      case 'response.output_audio_transcript.delta': {
-        const d = evt.delta as string;
-        if (d) setAssistantTranscript((prev) => prev + d);
-        break;
-      }
-      case 'conversation.item.input_audio_transcription.delta': {
-        const d = evt.delta as string;
-        if (d) setUserTranscript((prev) => prev + d);
-        break;
-      }
-      case 'conversation.item.input_audio_transcription.completed': {
-        const t = evt.transcript as string;
-        if (t) setUserTranscript(t);
-        break;
-      }
-      case 'response.done':
-        setStatus('listening');
-        break;
-      case 'error': {
-        const e = evt.error as { message?: string } | undefined;
-        setError(e?.message || 'Ошибка Realtime API');
-        setStatus('error');
-        break;
-      }
-      default:
-        break;
-    }
-  }, [playChunk]);
+  /** Отправляет накопленную реплику на сервер и озвучивает ответ агента. */
+  const sendTurn = useCallback(async (pcm: Int16Array) => {
+    busyRef.current = true;
+    setStatus('thinking');
+    try {
+      const userId = localStorage.getItem('userId') || '';
+      const userName = localStorage.getItem('userName') || '';
+      const resp = await fetch(REALTIME_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        body: JSON.stringify({
+          action: 'turn',
+          audio: arrayBufferToBase64(pcm.buffer as ArrayBuffer),
+          user_name: userName,
+          voice: voiceRef.current,
+          history: historyRef.current.slice(-10),
+        }),
+      });
+      const data: TurnResponse = await resp.json();
 
-  const startMic = useCallback(async (ws: WebSocket) => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (data.error) {
+        setError(data.error);
+        setStatus('error');
+        return;
+      }
+
+      if (data.user_text) {
+        setUserTranscript(data.user_text);
+        historyRef.current.push({ role: 'user', text: data.user_text });
+      }
+      if (data.agent_text) {
+        setAssistantTranscript(data.agent_text);
+        historyRef.current.push({ role: 'assistant', text: data.agent_text });
+      }
+
+      if (data.audio) {
+        setStatus('speaking');
+        const duration = playPcm(base64ToInt16(data.audio));
+        // Пока агент говорит, микрофон не слушаем — иначе он услышит сам себя.
+        await new Promise((r) => setTimeout(r, duration * 1000));
+      }
+
+      if (activeRef.current) setStatus('listening');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось связаться с агентом');
+      setStatus('error');
+    } finally {
+      busyRef.current = false;
+      chunksRef.current = [];
+      speechMsRef.current = 0;
+      silenceMsRef.current = 0;
+    }
+  }, [playPcm]);
+
+  const startMic = useCallback(async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
     streamRef.current = stream;
     const ctx = new AudioContext();
     audioCtxRef.current = ctx;
@@ -142,104 +188,78 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
     procRef.current = proc;
 
     proc.onaudioprocess = (e) => {
-      if (ws.readyState !== WebSocket.OPEN) return;
+      if (!activeRef.current || busyRef.current) return;
+
       const input = e.inputBuffer.getChannelData(0);
+      const blockMs = (input.length / ctx.sampleRate) * 1000;
+
+      let peak = 0;
+      for (let i = 0; i < input.length; i += 1) {
+        const v = Math.abs(input[i]);
+        if (v > peak) peak = v;
+      }
+
       const resampled = resample(input, ctx.sampleRate, IN_RATE);
-      const pcm = floatTo16BitPCM(resampled);
-      ws.send(JSON.stringify({
-        type: 'input_audio_buffer.append',
-        audio: arrayBufferToBase64(pcm),
-      }));
+      const pcm = new Int16Array(floatTo16BitPCM(resampled));
+
+      if (peak > SILENCE_LEVEL) {
+        chunksRef.current.push(pcm);
+        speechMsRef.current += blockMs;
+        silenceMsRef.current = 0;
+        return;
+      }
+
+      // Тишина: короткую паузу внутри фразы тоже пишем, чтобы речь не рвалась
+      if (speechMsRef.current > 0) {
+        chunksRef.current.push(pcm);
+        silenceMsRef.current += blockMs;
+
+        if (silenceMsRef.current >= SILENCE_MS) {
+          if (speechMsRef.current >= MIN_SPEECH_MS) {
+            const total = chunksRef.current.reduce((n, c) => n + c.length, 0);
+            const merged = new Int16Array(total);
+            let offset = 0;
+            chunksRef.current.forEach((c) => { merged.set(c, offset); offset += c.length; });
+            void sendTurn(merged);
+          } else {
+            chunksRef.current = [];
+            speechMsRef.current = 0;
+            silenceMsRef.current = 0;
+          }
+        }
+      }
     };
+
     source.connect(proc);
     proc.connect(ctx.destination);
-  }, []);
+  }, [sendTurn]);
 
-  const connect = useCallback(async (instructions: string) => {
+  const connect = useCallback(async () => {
     setError(null);
     setUserTranscript('');
     setAssistantTranscript('');
     setStatus('connecting');
+    historyRef.current = [];
     try {
-      const userId = localStorage.getItem('userId');
-      const cfgResp = await fetch(REALTIME_API, { headers: { 'X-User-Id': userId || '' } });
+      const userId = localStorage.getItem('userId') || '';
+      const cfgResp = await fetch(REALTIME_API, { headers: { 'X-User-Id': userId } });
       const cfg: RealtimeConfig = await cfgResp.json();
-      if (!cfg.configured || !cfg.ws_url) {
+      if (!cfg.configured) {
         throw new Error(cfg.message || 'Голосовой сервис не настроен');
       }
+      voiceRef.current = cfg.voice || 'marina';
 
-      // В браузере токен передаётся через WS-подпротокол (Sec-WebSocket-Protocol),
-      // т.к. заголовки для WebSocket задать нельзя (OpenAI-совместимая схема).
-      const url = new URL(cfg.ws_url);
-      if (cfg.model) url.searchParams.set('model', cfg.model);
-
-      const secret = cfg.client_secret || '';
-      const protocols = secret
-        ? ['realtime', `openai-insecure-api-key.${secret}`, 'openai-beta.realtime-v1']
-        : undefined;
-
-      console.log('[voice] connecting to', url.toString(), 'model=', cfg.model);
-      const ws = new WebSocket(url.toString(), protocols);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setConnected(true);
-        setStatus('listening');
-
-        // Сценарий агента задан промптом в AI Studio (prompt.id). Realtime
-        // требует переменную в ОБОИХ видах — с фигурными скобками и без.
-        // Если передать только один ключ, сервер отвечает "Internal error"
-        // и сразу рвёт соединение (код 1011).
-        const userName = localStorage.getItem('userName') || '';
-        const session: Record<string, unknown> = cfg.prompt_id
-          ? {
-              prompt: {
-                id: cfg.prompt_id,
-                variables: { '{{user_name}}': userName, user_name: userName },
-              },
-            }
-          : { instructions };
-
-        Object.assign(session, {
-          modalities: ['audio', 'text'],
-          voice: cfg.voice || 'marina',
-          input_audio_format: { type: 'audio/pcm', rate: IN_RATE },
-          output_audio_format: { type: 'audio/pcm', rate: OUT_RATE },
-          input_audio_transcription: { enabled: true },
-          turn_detection: { type: 'server_vad', threshold: 0.5, silence_duration_ms: 500 },
-        });
-
-        ws.send(JSON.stringify({ type: 'session.update', session }));
-        startMic(ws).catch((err) => {
-          setError('Нет доступа к микрофону: ' + err.message);
-          setStatus('error');
-        });
-      };
-
-      ws.onmessage = (ev) => {
-        try { handleServerEvent(JSON.parse(ev.data)); } catch { /* ignore non-json */ }
-      };
-      ws.onerror = (ev) => {
-        console.error('[voice] ws error', ev);
-        setError('Не удалось подключиться к голосовому сервису');
-        setStatus('error');
-      };
-      ws.onclose = (ev) => {
-        console.warn('[voice] ws closed', { code: ev.code, reason: ev.reason, wasClean: ev.wasClean });
-        setConnected(false);
-        if (!ev.wasClean && ev.code !== 1000) {
-          setError(`Соединение закрыто (код ${ev.code}${ev.reason ? ': ' + ev.reason : ''})`);
-          setStatus('error');
-        } else if (status !== 'error') {
-          setStatus('idle');
-        }
-      };
+      activeRef.current = true;
+      await startMic();
+      setConnected(true);
+      setStatus('listening');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка подключения');
       setStatus('error');
       cleanup();
+      setConnected(false);
     }
-  }, [cleanup, handleServerEvent, startMic, status]);
+  }, [cleanup, startMic]);
 
   const disconnect = useCallback(() => {
     cleanup();

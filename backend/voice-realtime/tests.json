@@ -22,6 +22,26 @@
       "expectedStatus": 200,
       "expectedBody": {"configured": true, "prompt_id": "aipk6k5aj2d5pjc2f92h"},
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "Turn without audio and text returns 400",
+      "method": "POST",
+      "path": "/",
+      "headers": {"X-User-Id": "1"},
+      "body": {"action": "turn"},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Turn with text returns agent reply",
+      "method": "POST",
+      "path": "/",
+      "headers": {"X-User-Id": "1"},
+      "body": {"action": "turn", "text": "Привет", "user_name": "Тест"},
+      "expectedStatus": 200,
+      "expectedBody": {"agent_text": "string", "sample_rate": 24000},
+      "bodyMatcher": "partial"
     }
   ]
 }

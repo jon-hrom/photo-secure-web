@@ -135,6 +135,8 @@ export default function VoiceBookingAssistant() {
               className={`w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-lg ${
                 rt.status === 'speaking'
                   ? 'bg-emerald-500 animate-pulse'
+                  : rt.status === 'thinking'
+                  ? 'bg-amber-500'
                   : rt.connected
                   ? 'bg-red-500 hover:bg-red-600 animate-pulse'
                   : 'bg-violet-500 hover:bg-violet-600'
@@ -142,14 +144,23 @@ export default function VoiceBookingAssistant() {
               aria-label={rt.connected ? 'Завершить диалог' : 'Начать диалог'}
             >
               <Icon
-                name={rt.status === 'connecting' ? 'Loader' : rt.connected ? 'PhoneOff' : 'Phone'}
+                name={
+                  rt.status === 'connecting' || rt.status === 'thinking'
+                    ? 'Loader'
+                    : rt.connected
+                    ? 'PhoneOff'
+                    : 'Phone'
+                }
                 size={38}
-                className={`text-white ${rt.status === 'connecting' ? 'animate-spin' : ''}`}
+                className={`text-white ${
+                  rt.status === 'connecting' || rt.status === 'thinking' ? 'animate-spin' : ''
+                }`}
               />
             </button>
             <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
               {rt.status === 'connecting' && 'Подключаюсь…'}
-              {rt.status === 'listening' && 'Слушаю вас…'}
+              {rt.status === 'listening' && 'Слушаю вас — говорите'}
+              {rt.status === 'thinking' && 'Агент думает…'}
               {rt.status === 'speaking' && 'Агент отвечает…'}
               {rt.status === 'idle' && 'Нажмите, чтобы начать голосовой разговор'}
               {rt.status === 'error' && 'Ошибка соединения'}
