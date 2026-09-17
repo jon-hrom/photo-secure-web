@@ -389,7 +389,10 @@ def _extract_fields(dialog: str) -> Dict[str, str]:
     if len(digits) == 10 and digits[0] == '9':
         out['phone'] = f'+7 ({digits[:3]}) {digits[3:6]}-{digits[6:8]}-{digits[8:]}'
     elif digits:
+        # Номер расслышан частично — в анкету такой не пишем, но помечаем,
+        # чтобы агент переспросил его, а не прощался с неполными данными.
         out.pop('phone', None)
+        out['phone_partial'] = digits
 
     return out
 

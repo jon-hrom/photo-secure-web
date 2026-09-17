@@ -148,12 +148,21 @@ export default function VoiceBookingAssistant() {
     return () => clearTimeout(t);
   }, [rt.userTranscript, rt.connected]);
 
-  // Агент попрощался («хорошего дня») — разговор окончен. Закрываем сессию,
-  // чтобы микрофон и токены Realtime не тратились на тишину.
+  // Агент попрощался — разговор окончен, закрываем сессию, чтобы микрофон
+  // и токены Realtime не тратились на тишину.
+  //
+  // ВАЖНО: агент любит закончить любую реплику словами «Хорошего дня!», даже
+  // когда ещё переспрашивает недостающие данные. Обрывать разговор на этом
+  // нельзя — завершаем только если заявка уже сохранена либо собраны имя
+  // и телефон (то есть прощание действительно финальное).
   useEffect(() => {
     if (!rt.connected || !isFarewell(rt.assistantTranscript)) return;
     // Ждём, пока агент договорит: во время речи статус — speaking
     if (rt.status === 'speaking' || rt.status === 'thinking') return;
+
+    const dataReady = savedRef.current || (!!fields.name && !!fields.phone);
+    if (!dataReady) return; // данных мало — продолжаем слушать, не отключаемся
+
     const t = setTimeout(() => {
       // Заявка уже в базе — чистим и анкету, иначе оставляем данные:
       // их подхватит авто-сохранение ниже.
@@ -166,7 +175,7 @@ export default function VoiceBookingAssistant() {
     }, 600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rt.assistantTranscript, rt.status, rt.connected, toast]);
+  }, [rt.assistantTranscript, rt.status, rt.connected, fields.name, fields.phone, toast]);
 
   // Разговор завершён — если данных достаточно, заводим карточку клиента сами.
   const wasConnected = useRef(false);

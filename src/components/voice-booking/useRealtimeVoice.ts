@@ -26,6 +26,8 @@ export interface VoiceFields {
   date?: string;
   shootType?: string;
   comment?: string;
+  /** Номер расслышан не полностью — агент должен переспросить */
+  phone_partial?: string;
 }
 
 interface TurnResponse {
@@ -71,16 +73,22 @@ const DEFAULT_OUT_RATE = 44100;
  *  Порог низкий: с шумоподавлением браузера тихая речь легко уходила под него,
  *  из-за чего запись обрывалась и агент не слышал фразу. */
 const SILENCE_LEVEL = 0.006;
-/** Пауза, после которой реплика считается законченной. */
-const SILENCE_MS = 1200;
+/** Пауза, после которой реплика считается законченной.
+ *  Диктуя телефон, люди делают паузы между группами цифр («девятьсот три …
+ *  сто одиннадцать … двадцать два»). При коротком пороге номер уезжал
+ *  на сервер кусками, и агент слышал только первый фрагмент. */
+const SILENCE_MS = 2000;
 /** Не отправляем совсем короткие обрывки — это шум. */
 const MIN_SPEECH_MS = 500;
 /** Аварийная отправка: длинную фразу не копим бесконечно. */
 const MAX_SPEECH_MS = 20000;
-/** Клиент молчит — агент мягко напомнит о себе. */
-const IDLE_REMINDER_MS = 12000;
+/** Клиент молчит — агент мягко напомнит о себе.
+ *  Держим с запасом: человек может задуматься, глядя в записную книжку. */
+const IDLE_REMINDER_MS = 15000;
 /** Сколько раз подряд напоминаем, дальше просто ждём молча. */
 const MAX_IDLE_REMINDERS = 2;
+/** Сколько раз переспрашиваем телефон, если расслышали его частично. */
+const MAX_PHONE_RETRIES = 2;
 
 /**
  * Голосовой диалог с агентом Yandex Realtime.
@@ -121,6 +129,8 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
   const lastActivityRef = useRef(0);
   const idleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const idleCountRef = useRef(0);
+  /** Сколько раз уже переспрашивали телефон — чтобы не зациклиться */
+  const askedPhoneRef = useRef(0);
 
   const cleanup = useCallback(() => {
     activeRef.current = false;
@@ -227,6 +237,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
         setFields((prev) => {
           const next = { ...prev };
           (Object.keys(data.fields || {}) as (keyof VoiceFields)[]).forEach((key) => {
+            if (key === 'phone_partial') return; // служебный флаг, не поле анкеты
             const value = data.fields?.[key];
             if (value) next[key] = value;
           });
@@ -241,6 +252,25 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
         const duration = playPcm(base64ToInt16(data.audio), rate);
         // Пока агент говорит, микрофон не слушаем — иначе он услышит сам себя.
         await new Promise((r) => setTimeout(r, duration * 1000));
+      }
+
+      // Номер услышан обрывком — просим агента переспросить его целиком,
+      // вместо того чтобы прощаться с неполными данными.
+      const partial = data.fields?.phone_partial;
+      if (partial && !data.fields?.phone && activeRef.current && !isSystemPrompt
+          && askedPhoneRef.current < MAX_PHONE_RETRIES) {
+        askedPhoneRef.current += 1;
+        busyRef.current = false;
+        lastActivityRef.current = Date.now();
+        void sendTurnRef.current(
+          null,
+          'Номер телефона расслышан не полностью — есть только цифры '
+          + `«${partial}». Скажи ровно одну короткую фразу: попроси собеседника `
+          + 'продиктовать номер телефона ещё раз, полностью и по цифрам. '
+          + 'Не прощайся и не запрашивай другие данные.',
+          true,
+        );
+        return;
       }
 
       if (activeRef.current) setStatus('listening');
@@ -354,6 +384,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
     setStatus('connecting');
     historyRef.current = [];
     idleCountRef.current = 0;
+    askedPhoneRef.current = 0;
     userNameRef.current = options?.userName || '';
     try {
       const userId = localStorage.getItem('userId') || '';
