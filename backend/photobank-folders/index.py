@@ -436,29 +436,33 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 
                 # Авто-триггер генерации превью для RAW-фото без thumbnail
                 # (например, после массового сброса для исправления ориентации).
-                # Обрабатываем по 3 файла за заход — при следующем открытии папки
-                # догенерятся следующие, пока не будут покрыты все RAW.
+                # Превью теперь берётся из встроенного JPEG по Range (~1-2 с на файл),
+                # поэтому за заход можно покрыть заметно больше кадров.
                 raw_exts = ('.cr2', '.cr3', '.nef', '.nrw', '.arw', '.srf', '.sr2',
                             '.dng', '.orf', '.rw2', '.raf', '.pef', '.raw', '.rwl', '.iiq', '.3fr')
                 missing_thumb_ids = [
                     p['id'] for p in result_photos
                     if not p.get('thumbnail_s3_key')
                     and (p.get('is_raw') or (p.get('file_name') or '').lower().endswith(raw_exts))
-                ][:3]
+                ][:40]
                 if missing_thumb_ids:
                     # fire-and-forget: даём запросу дойти до функции (короткий read-timeout,
                     # но достаточный на установку соединения), ошибку по таймауту глушим.
-                    try:
-                        requests.post(
-                            'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c',
-                            json={'photo_ids': missing_thumb_ids},
-                            timeout=(5, 5)
-                        )
-                    except requests.exceptions.ReadTimeout:
-                        # Ожидаемо: функция обрабатывает RAW дольше, чем мы ждём ответ.
-                        pass
-                    except Exception as e:
-                        print(f'[LIST_PHOTOS] thumbnail trigger failed: {e}')
+                    # Разбиваем на пачки по 8, чтобы каждый вызов укладывался в таймаут
+                    # функции и пачки обрабатывались параллельно разными инстансами.
+                    for i in range(0, len(missing_thumb_ids), 8):
+                        chunk = missing_thumb_ids[i:i + 8]
+                        try:
+                            requests.post(
+                                'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c',
+                                json={'photo_ids': chunk},
+                                timeout=(5, 0.5)
+                            )
+                        except (requests.exceptions.ReadTimeout, requests.exceptions.Timeout):
+                            # Ожидаемо: функция обрабатывает RAW дольше, чем мы ждём ответ.
+                            pass
+                        except Exception as e:
+                            print(f'[LIST_PHOTOS] thumbnail trigger failed: {e}')
                 
                 # Анализ пропусков в нумерации кадров: если имена файлов содержат
                 # порядковый номер (например "IMG_0123" или " (123).CR2"), а часть

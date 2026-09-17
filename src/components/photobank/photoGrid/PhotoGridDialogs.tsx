@@ -21,6 +21,7 @@ interface PhotoGridDialogsProps {
   posterFileInputRef: React.MutableRefObject<HTMLInputElement | null>;
   onPosterFileSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onResetPoster: () => void;
+  onThumbnailReady?: (photoId: number) => void;
 }
 
 const PhotoGridDialogs = ({
@@ -38,6 +39,7 @@ const PhotoGridDialogs = ({
   posterFileInputRef,
   onPosterFileSelected,
   onResetPoster,
+  onThumbnailReady,
 }: PhotoGridDialogsProps) => {
   return (
     <>
@@ -48,6 +50,7 @@ const PhotoGridDialogs = ({
         onNavigate={onNavigate}
         onDownload={handleDownload}
         formatBytes={formatBytes}
+        onThumbnailReady={onThumbnailReady}
       />
 
       {exifPhoto && (

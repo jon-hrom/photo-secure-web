@@ -38,7 +38,10 @@ interface PhotoGridViewerProps {
   selectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  onThumbnailReady?: (photoId: number) => void;
 }
+
+const GEN_THUMB_URL = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c';
 
 const PhotoGridViewer = ({
   viewPhoto,
@@ -50,7 +53,8 @@ const PhotoGridViewer = ({
   downloadDisabled = false,
   selectable = false,
   isSelected = false,
-  onToggleSelect
+  onToggleSelect,
+  onThumbnailReady
 }: PhotoGridViewerProps) => {
   const [showExif, setShowExif] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
@@ -133,6 +137,29 @@ const PhotoGridViewer = ({
       });
   }, [viewPhoto, photos]);
 
+  // Если открыли RAW, у которого ещё нет превью — просим сгенерировать его
+  // вне очереди и опрашиваем результат, чтобы не висеть на спиннере вечно.
+  useEffect(() => {
+    if (!viewPhoto || !viewPhoto.is_raw || viewPhoto.thumbnail_s3_url) return;
+    let cancelled = false;
+    const photoId = viewPhoto.id;
+
+    fetch(GEN_THUMB_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photo_id: photoId, priority: true }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const ok = data?.results?.[0]?.thumbnail_key || data?.successful;
+        if (ok) onThumbnailReady?.(photoId);
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [viewPhoto?.id, viewPhoto?.is_raw, viewPhoto?.thumbnail_s3_url, onThumbnailReady]);
+
   if (!viewPhoto) return null;
 
   if (viewPhoto.is_video) {
@@ -209,8 +236,8 @@ const PhotoGridViewer = ({
             {viewPhoto.is_raw && !viewPhoto.thumbnail_s3_url ? (
               <div className="flex flex-col items-center justify-center text-white/60 p-8">
                 <Icon name="Loader2" size={48} className="animate-spin mb-4" />
-                <p className="text-lg mb-2">Конвертация RAW файла...</p>
-                <p className="text-sm text-white/40">Это может занять до минуты</p>
+                <p className="text-lg mb-2">Готовим превью RAW...</p>
+                <p className="text-sm text-white/40">Обычно занимает пару секунд</p>
               </div>
             ) : (
               <div className="relative w-full h-full flex items-center justify-center">

@@ -111,6 +111,7 @@ const PhotoBankPhotoGrid = ({
         posterFileInputRef={grid.posterFileInputRef}
         onPosterFileSelected={grid.handlePosterFileSelected}
         onResetPoster={grid.handleResetPoster}
+        onThumbnailReady={onRefreshPhotos ? () => onRefreshPhotos() : undefined}
       />
     </Card>
   );
