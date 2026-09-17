@@ -146,10 +146,15 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
       const data: TurnResponse = await resp.json();
 
       if (data.error) {
+        // Сбой одной реплики не должен обрывать разговор: показываем
+        // предупреждение и продолжаем слушать — можно просто повторить фразу.
         setError(data.error);
-        setStatus('error');
+        if (activeRef.current) setStatus('listening');
+        else setStatus('error');
         return;
       }
+
+      setError(null);
 
       if (data.user_text) {
         setUserTranscript(data.user_text);
@@ -172,7 +177,8 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
       if (activeRef.current) setStatus('listening');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Не удалось связаться с агентом');
-      setStatus('error');
+      if (activeRef.current) setStatus('listening');
+      else setStatus('error');
     } finally {
       busyRef.current = false;
       chunksRef.current = [];

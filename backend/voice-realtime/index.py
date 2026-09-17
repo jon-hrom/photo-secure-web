@@ -150,22 +150,32 @@ def _run_turn(
 
         ws.send(json.dumps({'type': 'session.update', 'session': session}))
 
-        # Восстанавливаем предыдущие реплики: Realtime не хранит состояние
-        # между подключениями, поэтому контекст диалога передаём заново.
+        # Восстанавливаем контекст: Realtime не хранит диалог между подключениями.
+        #
+        # ВАЖНО: реплики агента (role=assistant) сервер пока НЕ принимает —
+        # отвечает "MessageContentItemOutputText ... not supported yet" и рвёт
+        # диалог. Поэтому прошлый разговор передаём одной служебной репликой
+        # пользователя: так агент помнит, о чём шла речь, и не переспрашивает.
+        recap_lines: List[str] = []
         for item in history[-20:]:
             role = item.get('role')
             content = (item.get('text') or '').strip()
             if not role or not content:
                 continue
+            speaker = 'Клиент' if role == 'user' else 'Ты'
+            recap_lines.append(f'{speaker}: {content}')
+
+        if recap_lines:
+            recap = (
+                'Контекст предыдущего разговора (не отвечай на него, '
+                'просто учти и продолжай диалог):\n' + '\n'.join(recap_lines)
+            )
             ws.send(json.dumps({
                 'type': 'conversation.item.create',
                 'item': {
                     'type': 'message',
-                    'role': role,
-                    'content': [{
-                        'type': 'input_text' if role == 'user' else 'output_text',
-                        'text': content,
-                    }],
+                    'role': 'user',
+                    'content': [{'type': 'input_text', 'text': recap}],
                 },
             }))
 
