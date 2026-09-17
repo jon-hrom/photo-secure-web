@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,18 +30,19 @@ export default function VoiceBookingAssistant() {
   const [saving, setSaving] = useState(false);
   const [yandexReady, setYandexReady] = useState<boolean | null>(null);
 
-  // Из реплик клиента в голосовом диалоге заполняем поля заявки.
+  // Агент сам распознаёт данные в разговоре и присылает их — переносим в анкету.
+  // Уже заполненное не затираем: клиент мог назвать телефон в одной фразе, а дату в другой.
   useEffect(() => {
-    if (!rt.userTranscript) return;
-    const parsed = parseBooking(rt.userTranscript);
+    const f = rt.fields;
+    if (!f || Object.keys(f).length === 0) return;
     setFields((prev) => ({
-      name: parsed.name || prev.name,
-      phone: parsed.phone || prev.phone,
-      date: parsed.date || prev.date,
-      shootType: parsed.shootType || prev.shootType,
-      comment: rt.userTranscript,
+      name: f.name || prev.name,
+      phone: f.phone || prev.phone,
+      date: f.date || prev.date,
+      shootType: f.shootType || prev.shootType,
+      comment: f.comment || prev.comment,
     }));
-  }, [rt.userTranscript]);
+  }, [rt.fields]);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -76,22 +77,44 @@ export default function VoiceBookingAssistant() {
     setFields(EMPTY);
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    const res = await createBooking(fields);
-    setSaving(false);
-    if (res.ok) {
-      toast({
-        title: 'Заявка создана',
-        description: res.bookingCreated
-          ? 'Клиент добавлен, встреча появится в дашборде.'
-          : 'Новый клиент добавлен в базу.',
-      });
-      handleReset();
-    } else {
+  const saveBooking = useCallback(
+    async (data: ParsedBooking, auto = false) => {
+      setSaving(true);
+      const res = await createBooking(data);
+      setSaving(false);
+      if (res.ok) {
+        toast({
+          title: auto ? 'Клиент создан автоматически' : 'Заявка создана',
+          description: res.bookingCreated
+            ? 'Карточка клиента добавлена, съёмка появится в календаре.'
+            : 'Новый клиент добавлен в базу.',
+        });
+        handleReset();
+        return true;
+      }
       toast({ title: 'Не удалось создать заявку', description: res.error, variant: 'destructive' });
+      return false;
+    },
+    [toast],
+  );
+
+  const handleSave = () => saveBooking(fields);
+
+  // Разговор завершён — если данных достаточно, заводим карточку клиента сами.
+  const wasConnected = useRef(false);
+  useEffect(() => {
+    if (rt.connected) {
+      wasConnected.current = true;
+      return;
     }
-  };
+    if (!wasConnected.current) return;
+    wasConnected.current = false;
+
+    // Нужны имя и телефон, иначе карточка будет бесполезной — оставляем
+    // заполнение фотографу, данные уже подставлены в анкету.
+    if (!fields.name || !fields.phone) return;
+    void saveBooking(fields, true);
+  }, [rt.connected, fields, saveBooking]);
 
   const setField = (k: keyof ParsedBooking, v: string) =>
     setFields((prev) => ({ ...prev, [k]: v }));
@@ -233,6 +256,15 @@ export default function VoiceBookingAssistant() {
           <CardTitle className="text-base flex items-center gap-2">
             <Icon name="ClipboardList" size={18} className="text-violet-500" />
             Данные заявки
+            {rt.connected && (
+              <Badge
+                variant="outline"
+                className="ml-auto border-violet-300 text-violet-600 dark:text-violet-400 font-normal"
+              >
+                <Icon name="Sparkles" size={11} className="mr-1" />
+                Заполняется голосом
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -273,7 +305,7 @@ export default function VoiceBookingAssistant() {
 
       <p className="text-xs text-center text-gray-400 dark:text-gray-500">
         {yandexReady
-          ? 'Голосовой диалог работает через Yandex Realtime API — агент слышит и отвечает голосом.'
+          ? 'Агент слышит данные клиента, сам заполняет анкету, а в конце разговора создаёт карточку клиента.'
           : 'Быстрая диктовка работает через ваш браузер. Подключите Yandex Realtime для полноценного голосового диалога.'}
       </p>
     </div>

@@ -19,11 +19,21 @@ interface RealtimeConfig {
   message?: string;
 }
 
+/** Поля заявки, которые агент распознал в разговоре. */
+export interface VoiceFields {
+  name?: string;
+  phone?: string;
+  date?: string;
+  shootType?: string;
+  comment?: string;
+}
+
 interface TurnResponse {
   user_text?: string;
   agent_text?: string;
   audio?: string;
   sample_rate?: number;
+  fields?: VoiceFields;
   error?: string;
 }
 
@@ -38,6 +48,8 @@ export interface UseRealtimeVoiceResult {
   userTranscript: string;
   assistantTranscript: string;
   connected: boolean;
+  /** Данные заявки, которые агент услышал в разговоре */
+  fields: VoiceFields;
   connect: (instructions: string) => Promise<void>;
   disconnect: () => void;
 }
@@ -71,6 +83,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
   const [userTranscript, setUserTranscript] = useState('');
   const [assistantTranscript, setAssistantTranscript] = useState('');
   const [connected, setConnected] = useState(false);
+  const [fields, setFields] = useState<VoiceFields>({});
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -165,6 +178,19 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
         historyRef.current.push({ role: 'assistant', text: data.agent_text });
       }
 
+      // Анкета пополняется по ходу разговора: уже заполненное не затираем,
+      // если в очередной реплике агент этих данных не услышал.
+      if (data.fields) {
+        setFields((prev) => {
+          const next = { ...prev };
+          (Object.keys(data.fields || {}) as (keyof VoiceFields)[]).forEach((key) => {
+            const value = data.fields?.[key];
+            if (value) next[key] = value;
+          });
+          return next;
+        });
+      }
+
       if (data.audio) {
         setStatus('speaking');
         // Частоту берём из ответа: Realtime может отдать не то, что мы просили
@@ -250,6 +276,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
     setError(null);
     setUserTranscript('');
     setAssistantTranscript('');
+    setFields({});
     setStatus('connecting');
     historyRef.current = [];
     try {
@@ -283,7 +310,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
   useEffect(() => cleanup, [cleanup]);
 
   return {
-    status, error, userTranscript, assistantTranscript, connected, connect, disconnect,
+    status, error, userTranscript, assistantTranscript, connected, fields, connect, disconnect,
   };
 }
 

@@ -254,6 +254,100 @@ def _run_turn(
     }
 
 
+GPT_URL = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
+
+_EXTRACT_PROMPT = (
+    'Ты извлекаешь данные заявки на фотосъёмку из диалога. '
+    'Верни ТОЛЬКО JSON без пояснений и markdown, строго такого вида:\n'
+    '{"name":"","phone":"","date":"","shootType":"","comment":""}\n'
+    'Правила:\n'
+    '- name: имя клиента (может быть с фамилией). Если клиент не назвал — пустая строка.\n'
+    '- phone: только цифры российского номера из 10 цифр без +7 и 8 (например 9161234567). '
+    'Если номер не назван или неполный — пустая строка.\n'
+    '- date: дата съёмки в формате ГГГГ-ММ-ДД. Понимай «завтра», «послезавтра», '
+    '«25 декабря». Сегодня __TODAY__. Если дата не названа — пустая строка.\n'
+    '- shootType: тип съёмки словами клиента (свадебная, портретная, семейная, '
+    'Love Story и т.п.). Если не назван — пустая строка.\n'
+    '- comment: короткая заметка о пожеланиях клиента или пустая строка.\n'
+    'Не выдумывай данные, которых нет в диалоге.'
+)
+
+
+def _extract_fields(dialog: str) -> Dict[str, str]:
+    """Достаёт поля заявки из текста диалога через YandexGPT.
+
+    Модель понимает свободную речь лучше, чем разбор по шаблонам:
+    «завтра», «девять один шесть...», «хочу семейную» — всё распознаётся.
+    При любой ошибке возвращает пустой результат, диалог при этом не ломается.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    api_key = os.environ.get('YANDEX_GPT_API_KEY', '').strip() \
+        or os.environ.get('YANDEX_AI_STUDIO_API_KEY', '').strip()
+    folder_id = os.environ.get('YANDEX_GPT_FOLDER_ID', '').strip()
+    if not api_key or not folder_id or not dialog.strip():
+        return {}
+
+    # Москва: дата нужна, чтобы «завтра» считалось от сегодняшнего дня
+    today = datetime.now(timezone(timedelta(hours=3))).strftime('%Y-%m-%d')
+
+    payload = {
+        'modelUri': f'gpt://{folder_id}/yandexgpt-lite/latest',
+        'completionOptions': {'stream': False, 'temperature': 0, 'maxTokens': 400},
+        'messages': [
+            {'role': 'system', 'text': _EXTRACT_PROMPT.replace('__TODAY__', today)},
+            {'role': 'user', 'text': dialog[-4000:]},
+        ],
+    }
+
+    try:
+        req = urllib.request.Request(
+            GPT_URL,
+            data=json.dumps(payload, ensure_ascii=False).encode('utf-8'),
+            headers={'Content-Type': 'application/json', 'Authorization': f'Api-Key {api_key}'},
+            method='POST',
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        raw = data['result']['alternatives'][0]['message']['text'].strip()
+    except Exception as e:
+        print(f'[VOICE] extract failed: {e}')
+        return {}
+
+    # Модель иногда оборачивает JSON в ```json ... ```
+    if raw.startswith('```'):
+        raw = raw.strip('`')
+        raw = raw.split('\n', 1)[-1] if '\n' in raw else raw
+        raw = raw.rsplit('```', 1)[0]
+    start, end = raw.find('{'), raw.rfind('}')
+    if start < 0 or end <= start:
+        return {}
+
+    try:
+        parsed = json.loads(raw[start:end + 1])
+    except ValueError:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+
+    out: Dict[str, str] = {}
+    for key in ('name', 'phone', 'date', 'shootType', 'comment'):
+        value = parsed.get(key)
+        if isinstance(value, str) and value.strip():
+            out[key] = value.strip()
+
+    # Телефон приводим к виду +7 (999) 123-45-67
+    digits = ''.join(ch for ch in out.get('phone', '') if ch.isdigit())
+    if len(digits) == 11 and digits[0] in ('7', '8'):
+        digits = digits[1:]
+    if len(digits) == 10 and digits[0] == '9':
+        out['phone'] = f'+7 ({digits[:3]}) {digits[3:6]}-{digits[6:8]}-{digits[8:]}'
+    elif digits:
+        out.pop('phone', None)
+
+    return out
+
+
 def _json_response(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
     return {
         'statusCode': status,
@@ -319,6 +413,22 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         except Exception as e:
             print(f'[VOICE] turn failed: {e}')
             return _json_response(200, {'error': f'Не удалось получить ответ агента: {e}'})
+
+        # Собираем весь диалог и вытаскиваем из него данные заявки,
+        # чтобы анкета заполнялась сама по ходу разговора.
+        dialog_lines: List[str] = []
+        for item in history[-20:]:
+            role = item.get('role')
+            content = (item.get('text') or '').strip()
+            if content:
+                dialog_lines.append(f"{'Клиент' if role == 'user' else 'Агент'}: {content}")
+        last_user = result.get('user_text') or text
+        if last_user:
+            dialog_lines.append(f'Клиент: {last_user}')
+        if result.get('agent_text'):
+            dialog_lines.append(f"Агент: {result['agent_text']}")
+
+        result['fields'] = _extract_fields('\n'.join(dialog_lines))
 
         return _json_response(200, result)
 
