@@ -778,8 +778,20 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     f"UPDATE {SCHEMA}.registration_requests SET status = %s, decided_at = NOW(), decided_by = %s WHERE user_id = %s",
                     (new_status, admin_id, target_user_id)
                 )
-                # Отметить обращение в чате как обработанное
-                resp_text = 'Регистрация одобрена ✅' if new_status == 'approved' else 'Заявка отклонена ❌'
+                # Отметить обращение в чате как обработанное.
+                # Если админ вернул доступ после отказа — фиксируем это отдельным текстом,
+                # чтобы в истории было видно, что решение пересмотрено.
+                if new_status == 'approved':
+                    cursor.execute(
+                        f"SELECT admin_response FROM {SCHEMA}.blocked_user_appeals WHERE user_identifier = %s AND appeal_type = 'registration_request' ORDER BY created_at DESC LIMIT 1",
+                        (str(target_user_id),)
+                    )
+                    prev = cursor.fetchone()
+                    was_rejected = bool(prev and prev.get('admin_response') and 'отклонена' in prev['admin_response'].lower())
+                    resp_text = 'Доступ восстановлен — регистрация одобрена ✅' if was_rejected else 'Регистрация одобрена ✅'
+                else:
+                    resp_text = 'Заявка отклонена ❌'
+
                 cursor.execute(
                     f"UPDATE {SCHEMA}.blocked_user_appeals SET admin_response = %s, responded_at = NOW(), is_archived = true WHERE user_identifier = %s AND appeal_type = 'registration_request'",
                     (resp_text, str(target_user_id))
@@ -1377,15 +1389,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     }
                 
                 print(f'[GET_APPEALS] Fetching appeals from DB...')
+                # approval_status подтягиваем из users, чтобы админ видел текущее
+                # состояние фотографа даже по архивным заявкам и мог вернуть доступ
                 cursor.execute("""
-                    SELECT id, user_identifier, user_email, user_phone, auth_method, 
-                           message, block_reason, is_blocked, is_read, is_archived,
-                           created_at, read_at, admin_response, responded_at,
-                           COALESCE(is_support, false) as is_support,
-                           user_name,
-                           COALESCE(appeal_type, 'support') as appeal_type
-                    FROM t_p28211681_photo_secure_web.blocked_user_appeals
-                    ORDER BY is_archived ASC, is_read ASC, created_at DESC
+                    SELECT a.id, a.user_identifier, a.user_email, a.user_phone, a.auth_method, 
+                           a.message, a.block_reason, a.is_blocked, a.is_read, a.is_archived,
+                           a.created_at, a.read_at, a.admin_response, a.responded_at,
+                           COALESCE(a.is_support, false) as is_support,
+                           a.user_name,
+                           COALESCE(a.appeal_type, 'support') as appeal_type,
+                           u.approval_status
+                    FROM t_p28211681_photo_secure_web.blocked_user_appeals a
+                    LEFT JOIN t_p28211681_photo_secure_web.users u
+                      ON a.user_identifier ~ '^[0-9]+$'
+                     AND u.id = a.user_identifier::integer
+                    ORDER BY a.is_archived ASC, a.is_read ASC, a.created_at DESC
                     LIMIT 200
                 """)
                 

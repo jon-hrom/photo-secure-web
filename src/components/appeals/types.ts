@@ -16,6 +16,8 @@ export interface Appeal {
   admin_response: string | null;
   responded_at: string | null;
   appeal_type?: string;
+  /** Текущий статус фотографа: pending | approved | rejected */
+  approval_status?: string | null;
 }
 
 export interface GroupedAppeals {

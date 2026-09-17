@@ -176,6 +176,7 @@ export function useAppeals({ userId, isAdmin, openSignal }: UseAppealsParams) {
   };
 
   const decideRegistration = async (appeal: Appeal, approve: boolean) => {
+    const wasRejected = appeal.approval_status === 'rejected';
     setLoading(true);
     try {
       const response = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
@@ -189,7 +190,17 @@ export function useAppeals({ userId, isAdmin, openSignal }: UseAppealsParams) {
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        toast.success(approve ? 'Регистрация одобрена — фотограф уведомлён' : 'Заявка отклонена');
+        if (approve) {
+          toast.success(
+            wasRejected ? 'Доступ восстановлен' : 'Регистрация одобрена',
+            { description: 'Фотограф уведомлён и может войти в систему', duration: 6000 }
+          );
+        } else {
+          toast.success('Доступ закрыт', {
+            description: 'Фотограф больше не сможет войти в систему',
+            duration: 6000,
+          });
+        }
         setSelectedAppeal(null);
         await fetchAppeals();
       } else {

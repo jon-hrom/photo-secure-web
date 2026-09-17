@@ -35,6 +35,12 @@ const AppealDetail = ({
   formatDate,
 }: AppealDetailProps) => {
   const isRegRequest = selectedAppeal?.appeal_type === 'registration_request';
+  // Текущее состояние доступа фотографа — берём из users, а не из архива заявки:
+  // решение можно пересмотреть в любой момент
+  const approvalStatus = selectedAppeal?.approval_status || null;
+  const isRejected = isRegRequest && approvalStatus === 'rejected';
+  const isApproved = isRegRequest && approvalStatus === 'approved';
+  const isDecided = isRejected || isApproved;
   const [replyMode, setReplyMode] = useState<'email' | 'chat'>('email');
 
   if (!selectedAppeal) {
@@ -174,7 +180,7 @@ const AppealDetail = ({
           </div>
 
           {/* Действия по заявке на регистрацию */}
-          {isRegRequest && !selectedAppeal.is_archived && (
+          {isRegRequest && !isDecided && (
             <div className="mt-3 flex gap-2">
               <Button
                 onClick={() => onApproveRegistration?.(selectedAppeal)}
@@ -192,6 +198,55 @@ const AppealDetail = ({
               >
                 <Icon name="X" size={15} className="mr-1.5" />
                 Отклонить
+              </Button>
+            </div>
+          )}
+
+          {/* Заявка была отклонена — даём вернуть доступ */}
+          {isRegRequest && isRejected && (
+            <div className="mt-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
+              <div className="flex items-start gap-2 mb-2.5">
+                <Icon name="UserX" size={15} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    Доступ закрыт — заявка отклонена
+                  </p>
+                  <p className="text-[11px] text-amber-600 dark:text-amber-300/80 mt-0.5">
+                    Фотограф не может войти в систему. Решение можно пересмотреть.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => onApproveRegistration?.(selectedAppeal)}
+                disabled={loading}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Icon name="UserCheck" size={15} className="mr-1.5" />
+                Вернуть доступ фотографу
+              </Button>
+            </div>
+          )}
+
+          {/* Заявка одобрена — можно закрыть доступ, если передумали */}
+          {isRegRequest && isApproved && (
+            <div className="mt-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-3">
+              <div className="flex items-start gap-2 mb-2.5">
+                <Icon name="UserCheck" size={15} className="text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-green-700 dark:text-green-400">
+                    Доступ открыт — фотограф работает в системе
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => onRejectRegistration?.(selectedAppeal)}
+                disabled={loading}
+                variant="outline"
+                size="sm"
+                className="w-full text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 dark:border-red-900"
+              >
+                <Icon name="UserX" size={14} className="mr-1.5" />
+                Закрыть доступ
               </Button>
             </div>
           )}
