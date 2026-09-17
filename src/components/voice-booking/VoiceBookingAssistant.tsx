@@ -10,6 +10,7 @@ import useSpeechRecognition from './useSpeechRecognition';
 import useRealtimeVoice from './useRealtimeVoice';
 import parseBooking, { type ParsedBooking } from './parseBooking';
 import { createBooking } from './bookingService';
+import { isSubmitIntent, isFarewell } from './intents';
 import func2url from '../../../backend/func2url.json';
 
 const EMPTY: ParsedBooking = { name: '', phone: '', date: '', shootType: '', comment: '' };
@@ -70,15 +71,21 @@ export default function VoiceBookingAssistant() {
     [finalText, interimText],
   );
 
+  // Заявка за разговор создаётся один раз: иначе «создавай заявку» + прощание
+  // агента завели бы в базе двух одинаковых клиентов.
+  const savedRef = useRef(false);
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
+
   const handleReset = () => {
     stop();
     reset();
     rt.disconnect();
     setFields(EMPTY);
+    savedRef.current = false;
   };
 
   const saveBooking = useCallback(
-    async (data: ParsedBooking, auto = false) => {
+    async (data: ParsedBooking, auto = false, keepSession = false) => {
       setSaving(true);
       const res = await createBooking(data);
       setSaving(false);
@@ -89,16 +96,57 @@ export default function VoiceBookingAssistant() {
             ? 'Карточка клиента добавлена, съёмка появится в календаре.'
             : 'Новый клиент добавлен в базу.',
         });
-        handleReset();
+        // Во время живого разговора сессию не рвём: клиент ещё слушает агента,
+        // а тот должен спокойно попрощаться. Очистка будет после прощания.
+        if (!keepSession) handleReset();
         return true;
       }
+      savedRef.current = false;
       toast({ title: 'Не удалось создать заявку', description: res.error, variant: 'destructive' });
       return false;
     },
     [toast],
   );
 
-  const handleSave = () => saveBooking(fields);
+  const handleSave = () => {
+    if (savedRef.current && saving) return;
+    savedRef.current = true;
+    return saveBooking(fields, false, rt.connected);
+  };
+
+  // «Создавайте заявку» — нажимаем кнопку сохранения сами, чтобы фотографу
+  // не приходилось трогать экран во время разговора с клиентом.
+  useEffect(() => {
+    if (!rt.connected || savedRef.current) return;
+    if (!isSubmitIntent(rt.userTranscript)) return;
+    // Небольшая пауза: поля из этой же реплики попадают в анкету на том же кадре
+    const t = setTimeout(() => {
+      const btn = saveBtnRef.current;
+      if (!btn || btn.disabled || savedRef.current) return;
+      btn.click();
+    }, 400);
+    return () => clearTimeout(t);
+  }, [rt.userTranscript, rt.connected]);
+
+  // Агент попрощался («хорошего дня») — разговор окончен. Закрываем сессию,
+  // чтобы микрофон и токены Realtime не тратились на тишину.
+  useEffect(() => {
+    if (!rt.connected || !isFarewell(rt.assistantTranscript)) return;
+    // Ждём, пока агент договорит: во время речи статус — speaking
+    if (rt.status === 'speaking' || rt.status === 'thinking') return;
+    const t = setTimeout(() => {
+      // Заявка уже в базе — чистим и анкету, иначе оставляем данные:
+      // их подхватит авто-сохранение ниже.
+      if (savedRef.current) handleReset();
+      else rt.disconnect();
+      toast({
+        title: 'Разговор завершён',
+        description: 'Ассистент попрощался — сессия закрыта, микрофон выключен.',
+      });
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rt.assistantTranscript, rt.status, rt.connected, toast]);
 
   // Разговор завершён — если данных достаточно, заводим карточку клиента сами.
   const wasConnected = useRef(false);
@@ -112,7 +160,8 @@ export default function VoiceBookingAssistant() {
 
     // Нужны имя и телефон, иначе карточка будет бесполезной — оставляем
     // заполнение фотографу, данные уже подставлены в анкету.
-    if (!fields.name || !fields.phone) return;
+    if (savedRef.current || !fields.name || !fields.phone) return;
+    savedRef.current = true;
     void saveBooking(fields, true);
   }, [rt.connected, fields, saveBooking]);
 
@@ -291,7 +340,7 @@ export default function VoiceBookingAssistant() {
           </div>
 
           <div className="flex flex-wrap gap-2 pt-2">
-            <Button onClick={handleSave} disabled={saving || (!fields.name && !fields.phone)} className="bg-violet-500 hover:bg-violet-600">
+            <Button ref={saveBtnRef} onClick={handleSave} disabled={saving || (!fields.name && !fields.phone)} className="bg-violet-500 hover:bg-violet-600">
               <Icon name="Check" size={16} className="mr-1" />
               {saving ? 'Создаю…' : 'Создать заявку'}
             </Button>
