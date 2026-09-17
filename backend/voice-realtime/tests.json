@@ -20,7 +20,7 @@
       "path": "/",
       "headers": {"X-User-Id": "1"},
       "expectedStatus": 200,
-      "expectedBody": {"model": "speech-realtime-250923"},
+      "expectedBody": {"configured": true, "prompt_id": "aipk6k5aj2d5pjc2f92h"},
       "bodyMatcher": "partial"
     }
   ]

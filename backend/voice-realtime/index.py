@@ -4,13 +4,14 @@ Yandex Realtime API (OpenAI-совместимый протокол событи
 Постоянный API-ключ остаётся на сервере. Браузер получает:
 - ws_url — точку подключения WebSocket к Realtime API;
 - token / token_header — короткоживущий доступ для подключения из браузера;
-- folder_id, модель, голос, частоту дискретизации.
+- folder_id, модель (полный URI gpt://), prompt_id агента, голос, частоту дискретизации.
 
 Секреты: YANDEX_AI_STUDIO_API_KEY (ключ AI Studio), YANDEX_GPT_FOLDER_ID (каталог).
 
 Переменные окружения (необязательные, для тонкой настройки без правки кода):
 - YANDEX_REALTIME_WS_URL — базовый wss-адрес Realtime API;
-- YANDEX_REALTIME_MODEL — идентификатор модели.
+- YANDEX_REALTIME_MODEL — идентификатор модели;
+- YANDEX_REALTIME_PROMPT_ID — id промпта агента из AI Studio.
 """
 
 import json
@@ -20,9 +21,13 @@ import urllib.request
 import urllib.error
 from typing import Dict, Any, Optional, Tuple
 
-DEFAULT_WS_URL = 'wss://rest-assistant.api.cloud.yandex.net/v1/realtime'
-DEFAULT_MODEL = 'speech-realtime-250923'
+DEFAULT_WS_URL = 'wss://ai.api.cloud.yandex.net/v1/realtime'
+DEFAULT_MODEL = 'speech-realtime-260528/latest'
 IAM_URL = 'https://iam.api.cloud.yandex.net/iam/v1/tokens'
+
+# ID промпта голосового агента из AI Studio (session.update -> session.prompt.id).
+# В нём заданы инструкции, голос и сценарий диалога.
+DEFAULT_PROMPT_ID = 'aipk6k5aj2d5pjc2f92h'
 
 _CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -81,11 +86,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     api_key, folder_id, ws_url, model, configured = _resolve_credentials()
 
+    prompt_id = os.environ.get('YANDEX_REALTIME_PROMPT_ID', '').strip() or DEFAULT_PROMPT_ID
+
+    # Realtime принимает модель только как полный URI gpt://<folder>/<model>.
+    # Короткое имя вызывает "Invalid model URI" и разрыв соединения (код 1008).
+    model_uri = model if model.startswith('gpt://') else f'gpt://{folder_id}/{model}'
+
     body: Dict[str, Any] = {
         'configured': configured,
         'folder_id': folder_id if configured else None,
         'ws_url': ws_url if configured else None,
-        'model': model,
+        'model': model_uri if configured else model,
+        'prompt_id': prompt_id,
         'voice': 'marina',
         'language': 'ru-RU',
         'sample_rate': 24000,

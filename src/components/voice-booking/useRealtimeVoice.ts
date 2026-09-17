@@ -19,6 +19,7 @@ interface RealtimeConfig {
   client_secret?: string;
   auth_scheme?: string;
   model?: string;
+  prompt_id?: string;
   voice?: string;
   sample_rate?: number;
   message?: string;
@@ -184,18 +185,31 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
       ws.onopen = () => {
         setConnected(true);
         setStatus('listening');
-        ws.send(JSON.stringify({
-          type: 'session.update',
-          session: {
-            instructions,
-            modalities: ['audio', 'text'],
-            voice: cfg.voice || 'marina',
-            input_audio_format: { type: 'audio/pcm', rate: IN_RATE },
-            output_audio_format: { type: 'audio/pcm', rate: OUT_RATE },
-            input_audio_transcription: { enabled: true },
-            turn_detection: { type: 'server_vad', threshold: 0.5, silence_duration_ms: 500 },
-          },
-        }));
+
+        // Сценарий агента задан промптом в AI Studio (prompt.id). Realtime
+        // требует переменную в ОБОИХ видах — с фигурными скобками и без.
+        // Если передать только один ключ, сервер отвечает "Internal error"
+        // и сразу рвёт соединение (код 1011).
+        const userName = localStorage.getItem('userName') || '';
+        const session: Record<string, unknown> = cfg.prompt_id
+          ? {
+              prompt: {
+                id: cfg.prompt_id,
+                variables: { '{{user_name}}': userName, user_name: userName },
+              },
+            }
+          : { instructions };
+
+        Object.assign(session, {
+          modalities: ['audio', 'text'],
+          voice: cfg.voice || 'marina',
+          input_audio_format: { type: 'audio/pcm', rate: IN_RATE },
+          output_audio_format: { type: 'audio/pcm', rate: OUT_RATE },
+          input_audio_transcription: { enabled: true },
+          turn_detection: { type: 'server_vad', threshold: 0.5, silence_duration_ms: 500 },
+        });
+
+        ws.send(JSON.stringify({ type: 'session.update', session }));
         startMic(ws).catch((err) => {
           setError('Нет доступа к микрофону: ' + err.message);
           setStatus('error');
