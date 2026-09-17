@@ -5,6 +5,7 @@ RAW-файлы пропускает — для них есть отдельна�
 '''
 import json
 import os
+import gc
 import time
 import boto3
 from io import BytesIO
@@ -106,14 +107,35 @@ def handler(event: dict, context) -> dict:
                 data = obj['Body'].read()
 
                 img = Image.open(BytesIO(data))
-                img = ImageOps.exif_transpose(img)
+
+                # Реальные размеры кадра берём из заголовка (без декодирования),
+                # с учётом EXIF-ориентации: для 90° поворотов стороны меняются.
                 full_w, full_h = img.size
+                try:
+                    orientation = (img.getexif() or {}).get(274)
+                except Exception:
+                    orientation = None
+                if orientation in (5, 6, 7, 8):
+                    full_w, full_h = full_h, full_w
+
+                # КЛЮЧЕВОЕ для памяти: draft заставляет JPEG-декодер распаковать
+                # кадр сразу в уменьшенном масштабе (1/2, 1/4, 1/8). Без него
+                # 24-мегапиксельный JPEG разворачивается в ~70 МБ RGB, и функция
+                # в 256 МБ падает с OOM (killed by signal 9) — именно из-за этого
+                # у тяжёлых фото не появлялись превью.
+                try:
+                    img.draft('RGB', (THUMB_MAX, THUMB_MAX))
+                except Exception:
+                    pass
+
+                img = ImageOps.exif_transpose(img)
                 if img.mode not in ('RGB', 'L'):
                     img = img.convert('RGB')
                 img.thumbnail((THUMB_MAX, THUMB_MAX), Image.Resampling.LANCZOS)
 
                 out = BytesIO()
                 img.save(out, format='JPEG', quality=JPEG_QUALITY, optimize=True, progressive=True)
+                del data
 
                 thumb_key = row['s3_key'].rsplit('.', 1)[0] + '_thumb.jpg'
                 s3.put_object(
@@ -138,6 +160,12 @@ def handler(event: dict, context) -> dict:
                 failed += 1
                 if len(errors) < 5:
                     errors.append(f'id={row["id"]}: {e}')
+            finally:
+                # Освобождаем буферы предыдущего кадра: при пачке крупных JPEG
+                # пик памяти иначе накапливается до лимита функции.
+                img = None
+                out = None
+                gc.collect()
 
         with conn.cursor() as cur:
             cur.execute(f'''
