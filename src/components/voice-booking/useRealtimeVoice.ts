@@ -60,12 +60,16 @@ export interface UseRealtimeVoiceResult {
 const DEFAULT_IN_RATE = 44100;
 const DEFAULT_OUT_RATE = 44100;
 
-/** Тишина ниже этого уровня не считается речью (0..1 по амплитуде). */
-const SILENCE_LEVEL = 0.012;
+/** Тишина ниже этого уровня не считается речью (0..1 по амплитуде).
+ *  Порог низкий: с шумоподавлением браузера тихая речь легко уходила под него,
+ *  из-за чего запись обрывалась и агент не слышал фразу. */
+const SILENCE_LEVEL = 0.006;
 /** Пауза, после которой реплика считается законченной. */
-const SILENCE_MS = 900;
+const SILENCE_MS = 1200;
 /** Не отправляем совсем короткие обрывки — это шум. */
-const MIN_SPEECH_MS = 400;
+const MIN_SPEECH_MS = 500;
+/** Аварийная отправка: длинную фразу не копим бесконечно. */
+const MAX_SPEECH_MS = 20000;
 
 /**
  * Голосовой диалог с агентом Yandex Realtime.
@@ -100,11 +104,13 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
   const historyRef = useRef<HistoryItem[]>([]);
   const inRateRef = useRef(DEFAULT_IN_RATE);
   const outRateRef = useRef(DEFAULT_OUT_RATE);
+  const preRollRef = useRef<Int16Array[]>([]);
 
   const cleanup = useCallback(() => {
     activeRef.current = false;
     busyRef.current = false;
     chunksRef.current = [];
+    preRollRef.current = [];
     speechMsRef.current = 0;
     silenceMsRef.current = 0;
     try { procRef.current?.disconnect(); } catch { /* */ }
@@ -157,6 +163,14 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
         }),
       });
       const data: TurnResponse = await resp.json();
+
+      if (data.error === 'NO_SPEECH') {
+        // Речь не разобрана (тихо/шум). Не гоняем агента впустую —
+        // просто продолжаем слушать, чтобы фразу можно было повторить.
+        setError('Не расслышал — скажите ещё раз, пожалуйста');
+        if (activeRef.current) setStatus('listening');
+        return;
+      }
 
       if (data.error) {
         // Сбой одной реплики не должен обрывать разговор: показываем
@@ -240,10 +254,34 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
       const resampled = resample(input, ctx.sampleRate, inRateRef.current);
       const pcm = new Int16Array(floatTo16BitPCM(resampled));
 
+      const flush = () => {
+        const total = chunksRef.current.reduce((n, c) => n + c.length, 0);
+        const merged = new Int16Array(total);
+        let offset = 0;
+        chunksRef.current.forEach((c) => { merged.set(c, offset); offset += c.length; });
+        void sendTurn(merged);
+      };
+
       if (peak > SILENCE_LEVEL) {
+        // Держим небольшой «хвост» тишины перед речью: без него у фразы
+        // срезается первый слог и распознавание теряет начало.
+        if (speechMsRef.current === 0 && preRollRef.current.length) {
+          chunksRef.current.push(...preRollRef.current);
+          preRollRef.current = [];
+        }
         chunksRef.current.push(pcm);
         speechMsRef.current += blockMs;
         silenceMsRef.current = 0;
+
+        // Очень длинную реплику отправляем, не дожидаясь паузы
+        if (speechMsRef.current >= MAX_SPEECH_MS) flush();
+        return;
+      }
+
+      // Тишина до начала речи — копим небольшой запас (~300 мс)
+      if (speechMsRef.current === 0) {
+        preRollRef.current.push(pcm);
+        if (preRollRef.current.length > 4) preRollRef.current.shift();
         return;
       }
 
@@ -254,11 +292,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceResult {
 
         if (silenceMsRef.current >= SILENCE_MS) {
           if (speechMsRef.current >= MIN_SPEECH_MS) {
-            const total = chunksRef.current.reduce((n, c) => n + c.length, 0);
-            const merged = new Int16Array(total);
-            let offset = 0;
-            chunksRef.current.forEach((c) => { merged.set(c, offset); offset += c.length; });
-            void sendTurn(merged);
+            flush();
           } else {
             chunksRef.current = [];
             speechMsRef.current = 0;

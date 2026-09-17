@@ -25,6 +25,7 @@ import os
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 from typing import Dict, Any, Optional, Tuple, List
 
 DEFAULT_WS_URL = 'wss://ai.api.cloud.yandex.net/v1/realtime'
@@ -183,6 +184,7 @@ def _run_turn(
             # Голос пользователя: шлём запись кусками и закрываем буфер вручную,
             # т.к. серверный VAD в режиме одного хода не нужен.
             raw = base64.b64decode(audio_b64)
+            print(f'[VOICE] audio in: {len(raw)} bytes ≈ {len(raw)/2/SAMPLE_RATE:.1f}s')
             step = 32000
             for i in range(0, len(raw), step):
                 ws.send(json.dumps({
@@ -190,6 +192,50 @@ def _run_turn(
                     'audio': base64.b64encode(raw[i:i + step]).decode('ascii'),
                 }))
             ws.send(json.dumps({'type': 'input_audio_buffer.commit'}))
+
+            # Ждём, пока сервер распознает речь. Если сразу дать response.create,
+            # агент отвечает на пустоту — отсюда «здравствуйте» по кругу.
+            ws.settimeout(12)
+            commit_deadline = time.time() + 12
+            while time.time() < commit_deadline:
+                try:
+                    raw_msg = ws.recv()
+                except Exception:
+                    break
+                if not raw_msg:
+                    continue
+                try:
+                    pre = json.loads(raw_msg)
+                except ValueError:
+                    continue
+                ptype = pre.get('type')
+                if ptype == 'conversation.item.input_audio_transcription.completed':
+                    user_text = pre.get('transcript') or ''
+                    print(f'[VOICE] recognized: {user_text!r}')
+                    break
+                if ptype == 'conversation.item.input_audio_transcription.failed':
+                    print('[VOICE] transcription failed')
+                    break
+                if ptype == 'error':
+                    error = (pre.get('error') or {}).get('message') or 'Ошибка Realtime API'
+                    print(f'[VOICE] error after commit: {error}')
+                    break
+                if ptype == 'input_audio_buffer.committed':
+                    continue
+
+            if error:
+                raise RuntimeError(error)
+
+            # Речь не распознана — молча отвечать нечего, просим повторить
+            if not (user_text or '').strip():
+                return {
+                    'user_text': '',
+                    'agent_text': '',
+                    'audio': '',
+                    'sample_rate': SAMPLE_RATE,
+                    'fields': {},
+                    'error': 'NO_SPEECH',
+                }
         elif text:
             ws.send(json.dumps({
                 'type': 'conversation.item.create',
