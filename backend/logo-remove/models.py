@@ -1,169 +1,104 @@
-"""Реестр моделей inpaint и авто-роутер: по статистике маски выбираем движок и цену."""
+"""Стирание логотипов через GPTunneL Creative Lab: задача + опрос + композит по маске."""
 import os
+import io
 import base64
 import requests
 
-REPLICATE_API_TOKEN = os.environ.get("REPLICATE_API_TOKEN", "")
-REPLICATE_MODEL = "black-forest-labs/flux-fill-pro"
-REPLICATE_URL = f"https://api.replicate.com/v1/models/{REPLICATE_MODEL}/predictions"
+GPTUNNEL_KEY = os.environ.get("GPTUNNEL_API_KEY", "")
+BASE_URL = "https://gptunnel.ru/api/v2/media"
 
-RETOUCH_BASIC_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
-RETOUCH_BASIC_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
-INPAINT_URL = "https://io.foto-mix.ru/api/v1/inpaint"
+# Модель редактирования. Цена провайдера — 8 ₽ за генерацию.
+MODEL = "seedream-4.5"
+MODEL_PARAMS = {"resolution": "2K", "aspect_ratio": "auto"}
 
-PRO_PROMPT = (
-    "clean photo without any logo, watermark or text; "
-    "seamlessly reconstruct the covered area so it naturally continues "
-    "the surrounding background, skin, clothing and texture; photorealistic, sharp, no artifacts"
+# Цена для пользователя в единицах энергии (1 ⚡ = 1 ₽)
+PRICE = 25
+LABEL = "Стирание логотипа"
+HINT = "AI дорисует то, что было под лого"
+
+PROMPT = (
+    "Remove the watermark, logo and any overlaid text from this photo completely. "
+    "Reconstruct what is underneath — skin, clothing texture, background — so it looks "
+    "like the watermark was never there. Keep everything else absolutely identical: "
+    "same people, same faces, same poses, same colors, same composition, same lighting, "
+    "same framing. Do not restyle, do not crop, do not regenerate the image."
 )
 
-# tier -> описание. price — целые единицы энергии (1 ⚡ = 1 ₽)
-TIERS = {
-    "fast": {
-        "engine": "lama",
-        "price": 5,
-        "label": "Быстрое стирание",
-        "hint": "лого на простом фоне",
-        "ldm_steps": 20,
-        "hd_strategy": "Crop",
-    },
-    "quality": {
-        "engine": "lama",
-        "price": 10,
-        "label": "Аккуратное стирание",
-        "hint": "крупное лого или текстурный фон",
-        "ldm_steps": 50,
-        "hd_strategy": "Resize",
-    },
-    "pro": {
-        "engine": "replicate",
-        "price": 15,
-        "label": "Реконструкция AI",
-        "hint": "лого поверх человека — дорисовываем детали",
-    },
-}
 
-DEFAULT_TIER = "fast"
+def _headers():
+    return {"Authorization": GPTUNNEL_KEY, "Content-Type": "application/json"}
 
 
-def route(stats: dict) -> str:
-    """Выбирает тир по статистике маски, посчитанной на клиенте.
-
-    stats: mask_ratio (доля площади), ring_std (контраст фона вокруг маски),
-           skin_ratio (доля «кожи» вокруг маски), face_hint (детектор нашёл лицо в зоне маски).
-    """
-    mask_ratio = float(stats.get("mask_ratio") or 0)
-    ring_std = float(stats.get("ring_std") or 0)
-    skin_ratio = float(stats.get("skin_ratio") or 0)
-    face_hint = bool(stats.get("face_hint"))
-
-    # Лого на человеке — единственный кейс, где LAMA мылит и нужна дорисовка.
-    if face_hint or skin_ratio >= 0.28:
-        return "pro"
-
-    score = 0
-    if mask_ratio > 0.05:
-        score += 2
-    elif mask_ratio > 0.015:
-        score += 1
-    if ring_std > 42:
-        score += 2
-    elif ring_std > 26:
-        score += 1
-
-    if score >= 4:
-        return "pro"
-    if score >= 2:
-        return "quality"
-    return "fast"
-
-
-def resolve(stats: dict):
-    """Возвращает (tier_name, tier_dict) с фолбэком, если провайдер не настроен."""
-    tier = route(stats or {})
-    if TIERS[tier]["engine"] == "replicate" and not REPLICATE_API_TOKEN:
-        tier = "quality"
-    return tier, TIERS[tier]
-
-
-def run_lama(image_b64: str, mask_b64: str, tier: dict):
-    body = {
-        "image": image_b64,
-        "mask": mask_b64,
-        "ldm_steps": int(tier.get("ldm_steps", 20)),
-        "hd_strategy": tier.get("hd_strategy", "Crop"),
-        "hd_strategy_crop_trigger_size": 1024,
-        "hd_strategy_crop_margin": 160,
-        "hd_strategy_resize_limit": 2048,
-    }
+def start_task(image_b64: str) -> str:
+    """Создаёт задачу стирания. Возвращает id задачи."""
+    if not GPTUNNEL_KEY:
+        raise RuntimeError("GPTUNNEL_API_KEY не задан")
     r = requests.post(
-        INPAINT_URL, json=body, auth=(RETOUCH_BASIC_USER, RETOUCH_BASIC_PASS), timeout=300
-    )
-    if r.status_code != 200:
-        raise RuntimeError(f"inpaint returned {r.status_code}: {r.text[:200]}")
-    return base64.b64encode(r.content).decode()
-
-
-def run_replicate(image_b64: str, mask_b64: str, tier: dict):
-    if not REPLICATE_API_TOKEN:
-        raise RuntimeError("REPLICATE_API_TOKEN не задан")
-    payload = {
-        "input": {
-            "image": f"data:image/jpeg;base64,{image_b64}",
-            "mask": f"data:image/png;base64,{mask_b64}",
-            "prompt": PRO_PROMPT,
-            "steps": 50,
-            "guidance": 30,
-            "safety_tolerance": 2,
-            "output_format": "jpg",
-        }
-    }
-    r = requests.post(
-        REPLICATE_URL,
-        json=payload,
-        headers={
-            "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
-            "Content-Type": "application/json",
-            "Prefer": "wait=60",
+        f"{BASE_URL}/tasks",
+        json={
+            "model": MODEL,
+            "prompt": PROMPT,
+            "params": MODEL_PARAMS,
+            "inputs": {"image_input": [f"data:image/jpeg;base64,{image_b64}"]},
         },
-        timeout=300,
+        headers=_headers(),
+        timeout=120,
     )
     if r.status_code not in (200, 201):
-        raise RuntimeError(f"replicate returned {r.status_code}: {r.text[:200]}")
+        raise RuntimeError(f"GPTunneL {r.status_code}: {r.text[:200]}")
     data = r.json()
+    task_id = data.get("id")
+    if not task_id:
+        raise RuntimeError("GPTunneL не вернул id задачи")
+    return task_id
 
+
+def poll_task(task_id: str) -> dict:
+    """Возвращает {status, url, error}."""
+    r = requests.get(f"{BASE_URL}/tasks/{task_id}", headers=_headers(), timeout=60)
+    if r.status_code != 200:
+        raise RuntimeError(f"GPTunneL {r.status_code}: {r.text[:200]}")
+    data = r.json()
     status = data.get("status")
-    poll_url = (data.get("urls") or {}).get("get")
-    tries = 0
-    while status in ("starting", "processing") and poll_url and tries < 60:
-        import time
-
-        time.sleep(3)
-        tries += 1
-        pr = requests.get(
-            poll_url, headers={"Authorization": f"Bearer {REPLICATE_API_TOKEN}"}, timeout=30
-        )
-        if pr.status_code != 200:
-            break
-        data = pr.json()
-        status = data.get("status")
-
-    if status != "succeeded":
-        raise RuntimeError(f"replicate {status}: {str(data.get('error'))[:200]}")
-
-    out = data.get("output")
-    if isinstance(out, list):
-        out = out[0] if out else None
-    if not out:
-        raise RuntimeError("replicate вернул пустой результат")
-
-    img = requests.get(out, timeout=120)
-    if img.status_code != 200:
-        raise RuntimeError(f"не скачался результат: {img.status_code}")
-    return base64.b64encode(img.content).decode()
+    out = {"status": status, "url": None, "error": None}
+    if status == "done":
+        results = data.get("result") or []
+        if not results:
+            out["status"] = "failed"
+            out["error"] = "пустой результат"
+        else:
+            out["url"] = results[0].get("url")
+    elif status == "failed":
+        err = data.get("error") or {}
+        out["error"] = err.get("message") or "модель не справилась"
+    return out
 
 
-def run(tier_name: str, tier: dict, image_b64: str, mask_b64: str):
-    if tier["engine"] == "replicate":
-        return run_replicate(image_b64, mask_b64, tier)
-    return run_lama(image_b64, mask_b64, tier)
+def compose(original_b64: str, mask_b64: str, result_url: str) -> str:
+    """Берёт из результата только область маски и вклеивает в оригинал.
+
+    Генеративная модель отдаёт весь кадр заново — вне маски он может незаметно
+    «поплыть». Композит гарантирует: меняется только то, что закрасил пользователь.
+    """
+    from PIL import Image, ImageFilter
+
+    r = requests.get(result_url, timeout=120)
+    if r.status_code != 200:
+        raise RuntimeError(f"не скачался результат: {r.status_code}")
+
+    original = Image.open(io.BytesIO(base64.b64decode(original_b64))).convert("RGB")
+    generated = Image.open(io.BytesIO(r.content)).convert("RGB")
+    mask = Image.open(io.BytesIO(base64.b64decode(mask_b64))).convert("L")
+
+    if generated.size != original.size:
+        generated = generated.resize(original.size, Image.LANCZOS)
+    if mask.size != original.size:
+        mask = mask.resize(original.size, Image.LANCZOS)
+
+    # мягкий край, чтобы стык не читался
+    mask = mask.filter(ImageFilter.GaussianBlur(radius=2))
+
+    merged = Image.composite(generated, original, mask)
+    buf = io.BytesIO()
+    merged.save(buf, format="JPEG", quality=95)
+    return base64.b64encode(buf.getvalue()).decode()

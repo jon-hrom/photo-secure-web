@@ -10,7 +10,7 @@ import {
   imageToDataUrl,
 } from '@/components/tools/logoRemover/utils';
 import { CanvasState } from '@/components/tools/logoRemover/useCanvasState';
-import { analyzeMask, buildInpaintMask } from '@/components/tools/logoRemover/maskAnalysis';
+import { buildInpaintMask } from '@/components/tools/logoRemover/maskAnalysis';
 
 export const useLogoApi = (s: CanvasState) => {
   const { toast } = useToast();
@@ -19,7 +19,7 @@ export const useLogoApi = (s: CanvasState) => {
     setHasMask, setHistoryLen,
     setShowPicker, setShowSaver, setSaving,
     setEstimate, setEstimating,
-    hasMask, maskVersion, bumpMask, faceHintRef,
+    hasMask, bumpMask, faceHintRef,
     originalDataUrlRef, currentDataUrlRef, historyRef,
     imageCanvasRef, maskCanvasRef,
     loadImageIntoCanvas,
@@ -112,44 +112,28 @@ export const useLogoApi = (s: CanvasState) => {
     }
   }, [toast, imageCanvasRef, setSaving, setLoading, setLoadingText, setShowSaver]);
 
-  const collectStats = useCallback(() => {
-    const image = imageCanvasRef.current;
-    const mask = maskCanvasRef.current;
-    if (!image || !mask) return null;
-    return analyzeMask(image, mask, faceHintRef.current);
-  }, [imageCanvasRef, maskCanvasRef, faceHintRef]);
-
-  /** Пересчитывает цену при каждом изменении маски: сколько спишется до запуска. */
+  /** Цена стирания — одна на все фото, забираем её один раз при первом выделении. */
   useEffect(() => {
-    if (!hasMask) {
-      setEstimate(null);
-      return;
-    }
-    const stats = collectStats();
-    if (!stats || !stats.mask_ratio) {
-      setEstimate(null);
-      return;
-    }
-    const seq = ++estimateSeq.current;
+    if (!hasMask) return;
+    if (estimateSeq.current) return;
+    estimateSeq.current = 1;
     setEstimating(true);
-    const timer = setTimeout(async () => {
+    (async () => {
       try {
         const res = await fetch(`${LOGO_REMOVE_URL}?action=estimate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stats }),
+          body: JSON.stringify({}),
         });
         const data = await res.json();
-        if (seq !== estimateSeq.current) return;
         if (res.ok) setEstimate(data);
       } catch (e) {
         console.error('estimate failed', e);
       } finally {
-        if (seq === estimateSeq.current) setEstimating(false);
+        setEstimating(false);
       }
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [hasMask, maskVersion, collectStats, setEstimate, setEstimating]);
+    })();
+  }, [hasMask, setEstimate, setEstimating]);
 
   const detectAI = useCallback(async () => {
     if (!currentDataUrlRef.current) return;
@@ -222,43 +206,56 @@ export const useLogoApi = (s: CanvasState) => {
       setLoading(true);
       setLoadingText('Стираем лого...');
 
-      const stats = collectStats();
       const maskB64 = buildInpaintMask(maskCanvasRef.current!);
+      const imageB64 = dataUrlToBase64(currentDataUrlRef.current);
       const userId = getAuthUserId();
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        ...(userId ? { 'X-User-Id': String(userId) } : {}),
+      };
 
       const res = await fetch(`${LOGO_REMOVE_URL}?action=inpaint`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(userId ? { 'X-User-Id': String(userId) } : {}),
-        },
-        body: JSON.stringify({
-          image: dataUrlToBase64(currentDataUrlRef.current),
-          mask: maskB64,
-          stats,
-        }),
+        headers: authHeaders,
+        body: JSON.stringify({ image: imageB64, mask: maskB64 }),
       });
-      const data = await res.json();
+      const started = await res.json();
 
       if (res.status === 402) {
         toast({
           title: 'Не хватает энергии',
-          description: `Нужно ${data?.needed ?? '?'} ⚡, на балансе ${data?.energy_balance ?? 0} ⚡. Пополните баланс в шапке.`,
+          description: `Нужно ${started?.needed ?? '?'} ⚡, на балансе ${started?.energy_balance ?? 0} ⚡. Пополните баланс в шапке.`,
           variant: 'destructive',
         });
         return;
       }
-      if (!res.ok || !data?.image) throw new Error(data?.error || `HTTP ${res.status}`);
+      if (!res.ok || !started?.task_id) throw new Error(started?.error || `HTTP ${res.status}`);
 
-      const resultDataUrl = `data:image/png;base64,${data.image}`;
+      setLoadingText('AI дорисовывает фото...');
+      let data: Record<string, unknown> | null = null;
+      for (let attempt = 0; attempt < 60; attempt++) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const sr = await fetch(`${LOGO_REMOVE_URL}?action=status`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({ task_id: started.task_id, image: imageB64, mask: maskB64 }),
+        });
+        const sd = await sr.json();
+        if (!sr.ok) throw new Error(sd?.error || `HTTP ${sr.status}`);
+        if (sd.status === 'processing') continue;
+        if (sd.status === 'failed') throw new Error(sd.error || 'не удалось убрать лого');
+        data = sd;
+        break;
+      }
+      if (!data?.image) throw new Error('Превышено время ожидания');
+
+      const resultDataUrl = `data:image/jpeg;base64,${data.image}`;
       historyRef.current.push(resultDataUrl);
       setHistoryLen(historyRef.current.length);
       await loadImageIntoCanvas(resultDataUrl);
       toast({
         title: 'Готово',
-        description: data.charged
-          ? `${data.label}. Списано ${data.charged} ⚡, осталось ${data.energy_balance ?? '—'} ⚡.`
-          : `${data.label || 'Лого удалено'} — бесплатно. Можно продолжить или скачать.`,
+        description: `Лого убрано. Списано ${data.charged} ⚡, осталось ${data.energy_balance ?? '—'} ⚡.`,
       });
     } catch (e) {
       console.error(e);
@@ -266,7 +263,7 @@ export const useLogoApi = (s: CanvasState) => {
     } finally {
       setLoading(false);
     }
-  }, [hasMask, collectStats, loadImageIntoCanvas, toast, setLoading, setLoadingText, setHistoryLen, currentDataUrlRef, historyRef, maskCanvasRef]);
+  }, [hasMask, loadImageIntoCanvas, toast, setLoading, setLoadingText, setHistoryLen, currentDataUrlRef, historyRef, maskCanvasRef]);
 
   const undo = useCallback(async () => {
     if (historyRef.current.length < 2) return;
