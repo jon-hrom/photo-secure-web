@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 import {
@@ -10,6 +10,7 @@ import {
   imageToDataUrl,
 } from '@/components/tools/logoRemover/utils';
 import { CanvasState } from '@/components/tools/logoRemover/useCanvasState';
+import { analyzeMask, buildInpaintMask } from '@/components/tools/logoRemover/maskAnalysis';
 
 export const useLogoApi = (s: CanvasState) => {
   const { toast } = useToast();
@@ -17,11 +18,14 @@ export const useLogoApi = (s: CanvasState) => {
     setStage, setLoading, setLoadingText,
     setHasMask, setHistoryLen,
     setShowPicker, setShowSaver, setSaving,
-    hasMask,
+    setEstimate, setEstimating,
+    hasMask, maskVersion, bumpMask, faceHintRef,
     originalDataUrlRef, currentDataUrlRef, historyRef,
     imageCanvasRef, maskCanvasRef,
     loadImageIntoCanvas,
   } = s;
+
+  const estimateSeq = useRef(0);
 
   const handleFile = useCallback(async (file: File) => {
     try {
@@ -108,6 +112,45 @@ export const useLogoApi = (s: CanvasState) => {
     }
   }, [toast, imageCanvasRef, setSaving, setLoading, setLoadingText, setShowSaver]);
 
+  const collectStats = useCallback(() => {
+    const image = imageCanvasRef.current;
+    const mask = maskCanvasRef.current;
+    if (!image || !mask) return null;
+    return analyzeMask(image, mask, faceHintRef.current);
+  }, [imageCanvasRef, maskCanvasRef, faceHintRef]);
+
+  /** Пересчитывает цену при каждом изменении маски: сколько спишется до запуска. */
+  useEffect(() => {
+    if (!hasMask) {
+      setEstimate(null);
+      return;
+    }
+    const stats = collectStats();
+    if (!stats || !stats.mask_ratio) {
+      setEstimate(null);
+      return;
+    }
+    const seq = ++estimateSeq.current;
+    setEstimating(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${LOGO_REMOVE_URL}?action=estimate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stats }),
+        });
+        const data = await res.json();
+        if (seq !== estimateSeq.current) return;
+        if (res.ok) setEstimate(data);
+      } catch (e) {
+        console.error('estimate failed', e);
+      } finally {
+        if (seq === estimateSeq.current) setEstimating(false);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [hasMask, maskVersion, collectStats, setEstimate, setEstimating]);
+
   const detectAI = useCallback(async () => {
     if (!currentDataUrlRef.current) return;
     try {
@@ -151,7 +194,9 @@ export const useLogoApi = (s: CanvasState) => {
       }
       tctx.putImageData(imgData, 0, 0);
       mctx.drawImage(tmp, 0, 0);
+      faceHintRef.current = (data.face_pixels || 0) > 0;
       setHasMask(true);
+      bumpMask();
 
       const total = (data.ocr_pixels || 0) + (data.yolo_pixels || 0);
       if (total === 0) {
@@ -177,47 +222,51 @@ export const useLogoApi = (s: CanvasState) => {
       setLoading(true);
       setLoadingText('Стираем лого...');
 
-      const mask = maskCanvasRef.current!;
-      const bw = document.createElement('canvas');
-      bw.width = mask.width;
-      bw.height = mask.height;
-      const bwCtx = bw.getContext('2d')!;
-      const src = mask.getContext('2d')!.getImageData(0, 0, mask.width, mask.height);
-      const dst = bwCtx.createImageData(mask.width, mask.height);
-      for (let i = 0; i < src.data.length; i += 4) {
-        const a = src.data[i + 3];
-        const v = a > 10 ? 255 : 0;
-        dst.data[i] = v;
-        dst.data[i + 1] = v;
-        dst.data[i + 2] = v;
-        dst.data[i + 3] = 255;
-      }
-      bwCtx.putImageData(dst, 0, 0);
-      const maskB64 = dataUrlToBase64(bw.toDataURL('image/png'));
+      const stats = collectStats();
+      const maskB64 = buildInpaintMask(maskCanvasRef.current!);
+      const userId = getAuthUserId();
 
       const res = await fetch(`${LOGO_REMOVE_URL}?action=inpaint`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userId ? { 'X-User-Id': String(userId) } : {}),
+        },
         body: JSON.stringify({
           image: dataUrlToBase64(currentDataUrlRef.current),
           mask: maskB64,
+          stats,
         }),
       });
       const data = await res.json();
+
+      if (res.status === 402) {
+        toast({
+          title: 'Не хватает энергии',
+          description: `Нужно ${data?.needed ?? '?'} ⚡, на балансе ${data?.energy_balance ?? 0} ⚡. Пополните баланс в шапке.`,
+          variant: 'destructive',
+        });
+        return;
+      }
       if (!res.ok || !data?.image) throw new Error(data?.error || `HTTP ${res.status}`);
 
       const resultDataUrl = `data:image/png;base64,${data.image}`;
       historyRef.current.push(resultDataUrl);
       setHistoryLen(historyRef.current.length);
       await loadImageIntoCanvas(resultDataUrl);
-      toast({ title: 'Готово', description: 'Лого удалено. Можно продолжить или скачать.' });
+      toast({
+        title: 'Готово',
+        description: data.charged
+          ? `${data.label}. Списано ${data.charged} ⚡, осталось ${data.energy_balance ?? '—'} ⚡.`
+          : `${data.label || 'Лого удалено'} — бесплатно. Можно продолжить или скачать.`,
+      });
     } catch (e) {
       console.error(e);
       toast({ title: 'Ошибка при стирании', description: String((e as Error)?.message || e), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
-  }, [hasMask, loadImageIntoCanvas, toast, setLoading, setLoadingText, setHistoryLen, currentDataUrlRef, historyRef, maskCanvasRef]);
+  }, [hasMask, collectStats, loadImageIntoCanvas, toast, setLoading, setLoadingText, setHistoryLen, currentDataUrlRef, historyRef, maskCanvasRef]);
 
   const undo = useCallback(async () => {
     if (historyRef.current.length < 2) return;

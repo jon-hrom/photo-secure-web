@@ -72,6 +72,8 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
               loading={s.loading}
               hasMask={s.hasMask}
               historyLen={s.historyLen}
+              estimate={s.estimate}
+              estimating={s.estimating}
               onDetectAI={detectAI}
               onInpaint={inpaint}
               onClearMask={s.clearMask}

@@ -6,7 +6,7 @@ export const useBrushInteractions = (s: CanvasState) => {
     zoom, pan, setZoom, setPan,
     maskCanvasRef,
     drawingRef, lastPointRef, pointersRef, pinchRef,
-    setHasMask,
+    setHasMask, bumpMask,
   } = s;
 
   const getCanvasPoint = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -103,6 +103,7 @@ export const useBrushInteractions = (s: CanvasState) => {
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (drawingRef.current) bumpMask();
     drawingRef.current = false;
     lastPointRef.current = null;
     try { (e.target as HTMLCanvasElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }

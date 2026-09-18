@@ -1,10 +1,13 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { Estimate } from '@/components/tools/logoRemover/useCanvasState';
 
 interface EditorToolbarProps {
   loading: boolean;
   hasMask: boolean;
   historyLen: number;
+  estimate: Estimate | null;
+  estimating: boolean;
   onDetectAI: () => void;
   onInpaint: () => void;
   onClearMask: () => void;
@@ -18,6 +21,8 @@ const EditorToolbar = ({
   loading,
   hasMask,
   historyLen,
+  estimate,
+  estimating,
   onDetectAI,
   onInpaint,
   onClearMask,
@@ -58,6 +63,31 @@ const EditorToolbar = ({
           Новое фото
         </Button>
       </div>
+
+      {hasMask && (
+        <div className="px-1 -mt-1">
+          {estimating && !estimate && (
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <Icon name="Loader2" size={12} className="animate-spin" />
+              Подбираем режим...
+            </span>
+          )}
+          {estimate && (
+            <span className="text-[11px] flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span className="font-medium">{estimate.label}</span>
+              <span className="text-muted-foreground">— {estimate.hint}.</span>
+              {estimate.price > 0 ? (
+                <span className="font-semibold text-yellow-600 dark:text-yellow-500 flex items-center gap-0.5">
+                  Спишется {estimate.price}
+                  <Icon name="Zap" size={11} className="fill-current" />
+                </span>
+              ) : (
+                <span className="font-semibold text-emerald-600 dark:text-emerald-500">Бесплатно</span>
+              )}
+            </span>
+          )}
+        </div>
+      )}
 
       <p className="text-[11px] text-muted-foreground px-1">
         Закрасьте лого кистью или нажмите «Найти AI». ПКМ или Ctrl — ластик маски. Два пальца или Ctrl+колесо — масштаб.

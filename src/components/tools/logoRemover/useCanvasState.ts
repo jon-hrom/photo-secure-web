@@ -1,6 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Stage } from '@/components/tools/logoRemover/utils';
 
+export interface Estimate {
+  tier: string;
+  price: number;
+  label: string;
+  hint: string;
+}
+
 export const useCanvasState = (open: boolean) => {
   const [stage, setStage] = useState<Stage>('upload');
   const [loading, setLoading] = useState(false);
@@ -13,7 +20,11 @@ export const useCanvasState = (open: boolean) => {
   const [showPicker, setShowPicker] = useState(false);
   const [showSaver, setShowSaver] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [estimate, setEstimate] = useState<Estimate | null>(null);
+  const [estimating, setEstimating] = useState(false);
+  const [maskVersion, setMaskVersion] = useState(0);
 
+  const faceHintRef = useRef(false);
   const originalDataUrlRef = useRef<string>('');
   const currentDataUrlRef = useRef<string>('');
   const historyRef = useRef<string[]>([]);
@@ -28,6 +39,8 @@ export const useCanvasState = (open: boolean) => {
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchRef = useRef<{ dist: number; zoom: number; centerX: number; centerY: number; panX: number; panY: number } | null>(null);
 
+  const bumpMask = useCallback(() => setMaskVersion((v) => v + 1), []);
+
   const resetAll = useCallback(() => {
     setStage('upload');
     setLoading(false);
@@ -36,6 +49,9 @@ export const useCanvasState = (open: boolean) => {
     setHistoryLen(0);
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    setEstimate(null);
+    setEstimating(false);
+    faceHintRef.current = false;
     originalDataUrlRef.current = '';
     currentDataUrlRef.current = '';
     historyRef.current = [];
@@ -58,6 +74,8 @@ export const useCanvasState = (open: boolean) => {
     const mctx = mask.getContext('2d')!;
     mctx.clearRect(0, 0, mask.width, mask.height);
     setHasMask(false);
+    setEstimate(null);
+    faceHintRef.current = false;
   }, []);
 
   const loadImageIntoCanvas = useCallback(async (dataUrl: string) => {
@@ -82,6 +100,8 @@ export const useCanvasState = (open: boolean) => {
     const mctx = maskCanvas.getContext('2d')!;
     mctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
     setHasMask(false);
+    setEstimate(null);
+    faceHintRef.current = false;
   }, []);
 
   return {
@@ -96,6 +116,10 @@ export const useCanvasState = (open: boolean) => {
     showPicker, setShowPicker,
     showSaver, setShowSaver,
     saving, setSaving,
+    estimate, setEstimate,
+    estimating, setEstimating,
+    maskVersion, bumpMask,
+    faceHintRef,
     originalDataUrlRef,
     currentDataUrlRef,
     historyRef,
