@@ -12,7 +12,16 @@ import { toast } from 'sonner';
 
 const ROBOKASSA_CREATE_URL = 'https://functions.poehali.dev/97e25c3b-c738-44e0-8922-87bbb4dc339d';
 const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
-const ENERGY_RATE_RUB = 25;
+const MIN_TOPUP_RUB = 100;
+
+const VOLUME_BONUS: [number, number][] = [[5000, 16], [2500, 12], [1000, 10]];
+
+const volumeBonus = (rub: number) => {
+  for (const [threshold, percent] of VOLUME_BONUS) {
+    if (rub >= threshold) return Math.floor((rub * percent) / 100);
+  }
+  return 0;
+};
 
 const PRESETS = [500, 1000, 2500, 5000];
 
@@ -20,6 +29,7 @@ interface PromoResult {
   final_price: number;
   discount_amount: number;
   bonus_energy: number;
+  volume_bonus?: number;
   energy_total: number;
 }
 
@@ -41,6 +51,8 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
 
   const numericAmount = parseInt(amount, 10) || 0;
   const payAmount = promo ? promo.final_price : numericAmount;
+  const energyToGet = promo ? promo.energy_total : numericAmount + volumeBonus(numericAmount);
+  const ownBonus = volumeBonus(numericAmount);
 
   const resetPromo = () => { setPromo(null); };
 
@@ -54,8 +66,8 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
       toast.error('Введите промокод');
       return;
     }
-    if (numericAmount < ENERGY_RATE_RUB) {
-      toast.error(`Минимальная сумма — ${ENERGY_RATE_RUB} ₽`);
+    if (numericAmount < MIN_TOPUP_RUB) {
+      toast.error(`Минимальная сумма — ${MIN_TOPUP_RUB} ₽`);
       return;
     }
     setPromoLoading(true);
@@ -86,8 +98,8 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
   };
 
   const handleTopup = async (paymentMethod: 'default' | 'sbp' = 'default') => {
-    if (numericAmount < ENERGY_RATE_RUB) {
-      toast.error(`Минимальная сумма пополнения — ${ENERGY_RATE_RUB} ₽`);
+    if (numericAmount < MIN_TOPUP_RUB) {
+      toast.error(`Минимальная сумма пополнения — ${MIN_TOPUP_RUB} ₽`);
       return;
     }
     setLoading(true);
@@ -164,12 +176,26 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
             <label className="text-sm text-muted-foreground">Выберите сумму пополнения (₽)</label>
             <Input
               type="number"
-              min={ENERGY_RATE_RUB}
+              min={MIN_TOPUP_RUB}
               value={amount}
               onChange={(e) => handleSetAmount(e.target.value)}
               className="text-lg sm:text-2xl font-bold h-12 sm:h-14"
               placeholder="2500"
             />
+            {numericAmount >= MIN_TOPUP_RUB && (
+              <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-1">
+                Получите
+                <span className="font-semibold text-foreground inline-flex items-center gap-0.5">
+                  {energyToGet} <Icon name="Zap" size={12} className="text-yellow-500 fill-current" />
+                </span>
+                {!promo && ownBonus > 0 && (
+                  <span className="text-emerald-600 dark:text-emerald-500 font-medium">
+                    (бонус +{ownBonus} за объём)
+                  </span>
+                )}
+                <span className="text-muted-foreground">· курс 1 ₽ = 1 ⚡</span>
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -189,7 +215,15 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-primary/20' : 'bg-muted'}`}>
                     <Icon name="Zap" size={20} className={active ? 'text-primary' : 'text-yellow-500'} />
                   </div>
-                  <div className={`font-bold ${active ? 'text-primary' : ''}`}>{rub} ₽</div>
+                  <div className="min-w-0">
+                    <div className={`font-bold leading-tight ${active ? 'text-primary' : ''}`}>{rub} ₽</div>
+                    <div className="text-[11px] text-muted-foreground leading-tight">
+                      {rub + volumeBonus(rub)} ⚡
+                      {volumeBonus(rub) > 0 && (
+                        <span className="text-emerald-600 dark:text-emerald-500 font-medium"> +{volumeBonus(rub)}</span>
+                      )}
+                    </div>
+                  </div>
                 </button>
               );
             })}
@@ -228,10 +262,20 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
                   )}
                   {promo.bonus_energy > 0 && (
                     <div className="flex justify-between text-green-700 dark:text-green-400">
-                      <span>Бонус энергии</span>
+                      <span>Бонус по промокоду</span>
                       <span>+{promo.bonus_energy} ⚡</span>
                     </div>
                   )}
+                  {(promo.volume_bonus ?? 0) > 0 && (
+                    <div className="flex justify-between text-green-700 dark:text-green-400">
+                      <span>Бонус за объём</span>
+                      <span>+{promo.volume_bonus} ⚡</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span>Зачислим энергии</span>
+                    <span className="font-semibold">{promo.energy_total} ⚡</span>
+                  </div>
                   <div className="flex justify-between font-semibold">
                     <span>Итого к оплате</span>
                     <span>{promo.final_price} ₽</span>
@@ -247,7 +291,7 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
                 className="w-full h-12 text-base"
                 size="lg"
                 onClick={() => handleTopup('default')}
-                disabled={loading || numericAmount < ENERGY_RATE_RUB}
+                disabled={loading || numericAmount < MIN_TOPUP_RUB}
               >
                 {loading ? (
                   <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />
@@ -261,7 +305,7 @@ export const EnergyTopupDialog = ({ open, onClose, userId, currentBalance, onSuc
                 variant="outline"
                 className="w-full h-12 text-base border-2 border-[#1DB954] text-[#1DB954] hover:bg-[#1DB954]/10 dark:text-[#1DB954] font-semibold"
                 onClick={() => handleTopup('sbp')}
-                disabled={loading || numericAmount < ENERGY_RATE_RUB}
+                disabled={loading || numericAmount < MIN_TOPUP_RUB}
               >
                 {loading ? (
                   <Icon name="Loader2" className="mr-2 h-5 w-5 animate-spin" />

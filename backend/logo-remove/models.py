@@ -17,11 +17,11 @@ PRO_PROMPT = (
     "the surrounding background, skin, clothing and texture; photorealistic, sharp, no artifacts"
 )
 
-# tier -> описание. price — целые единицы энергии (1 ⚡ = 25 ₽)
+# tier -> описание. price — целые единицы энергии (1 ⚡ = 1 ₽)
 TIERS = {
     "fast": {
         "engine": "lama",
-        "price": 0,
+        "price": 5,
         "label": "Быстрое стирание",
         "hint": "лого на простом фоне",
         "ldm_steps": 20,
@@ -29,7 +29,7 @@ TIERS = {
     },
     "quality": {
         "engine": "lama",
-        "price": 0,
+        "price": 10,
         "label": "Аккуратное стирание",
         "hint": "крупное лого или текстурный фон",
         "ldm_steps": 50,
@@ -37,7 +37,7 @@ TIERS = {
     },
     "pro": {
         "engine": "replicate",
-        "price": 1,
+        "price": 15,
         "label": "Реконструкция AI",
         "hint": "лого поверх человека — дорисовываем детали",
     },

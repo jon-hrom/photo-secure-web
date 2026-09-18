@@ -10,7 +10,19 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime
 
 SCHEMA = 't_p28211681_photo_secure_web'
-ENERGY_RATE_RUB = 25  # рублей за 1 единицу энергии
+ENERGY_RATE_RUB = 1  # рублей за 1 единицу энергии (курс 1:1)
+MIN_TOPUP_RUB = 100  # минимальная сумма пополнения
+
+# Бонус за объём: от какой суммы сколько процентов сверху
+VOLUME_BONUS = [(5000, 16), (2500, 12), (1000, 10)]
+
+
+def volume_bonus(rub: float) -> int:
+    """Бонусная энергия за объём пополнения."""
+    for threshold, percent in VOLUME_BONUS:
+        if rub >= threshold:
+            return int(rub * percent / 100)
+    return 0
 ACCOUNT_NOTIFY_URL = 'https://functions.poehali.dev/144eb550-4428-40c4-bc1a-acd169042a99'
 
 
@@ -76,6 +88,7 @@ def check_energy_promo(cur, code, user_id, amount):
             'discount_amount': round(amount, 2),
             'final_price': 0.0,
             'bonus_energy': bonus_energy,
+            'volume_bonus': 0,
             'energy_total': bonus_energy,
         }
         return dict(promo), None, calc
@@ -86,14 +99,17 @@ def check_energy_promo(cur, code, user_id, amount):
         discount_amount = discount_value
     discount_amount = min(discount_amount, amount)
     final_price = round(max(0, amount - discount_amount), 2)
-    base_energy = int(final_price // ENERGY_RATE_RUB) if final_price > 0 else int(amount // ENERGY_RATE_RUB)
-    total_energy = base_energy + bonus_energy
+    paid = final_price if final_price > 0 else amount
+    base_energy = int(paid // ENERGY_RATE_RUB)
+    vol_bonus = volume_bonus(paid)
+    total_energy = base_energy + vol_bonus + bonus_energy
 
     calc = {
         'original_price': round(amount, 2),
         'discount_amount': round(discount_amount, 2),
         'final_price': final_price,
         'bonus_energy': bonus_energy,
+        'volume_bonus': vol_bonus,
         'energy_total': total_energy,
     }
     return dict(promo), None, calc

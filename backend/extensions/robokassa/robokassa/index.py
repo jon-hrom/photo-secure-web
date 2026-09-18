@@ -58,7 +58,20 @@ HEADERS = {
 }
 
 ROBOKASSA_URL = 'https://auth.robokassa.ru/Merchant/Index.aspx'
-ENERGY_RATE_RUB = 25  # рублей за 1 единицу энергии (500₽=20, 1000₽=40, 2500₽=100, 5000₽=200)
+ENERGY_RATE_RUB = 1  # рублей за 1 единицу энергии (курс 1:1)
+MIN_TOPUP_RUB = 100  # минимальная сумма пополнения
+
+# Бонус за объём: от какой суммы сколько процентов сверху
+# 1000₽ → 1100⚡, 2500₽ → 2800⚡, 5000₽ → 5800⚡
+VOLUME_BONUS = [(5000, 16), (2500, 12), (1000, 10)]
+
+
+def volume_bonus(rub: float) -> int:
+    """Бонусная энергия за объём пополнения."""
+    for threshold, percent in VOLUME_BONUS:
+        if rub >= threshold:
+            return int(rub * percent / 100)
+    return 0
 
 
 def handler(event: dict, context) -> dict:
@@ -135,9 +148,9 @@ def handler(event: dict, context) -> dict:
 
         if order_type == 'energy':
             base_amount = round(amount, 2)
-            if base_amount < ENERGY_RATE_RUB:
+            if base_amount < MIN_TOPUP_RUB:
                 conn.close()
-                return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': f'Минимальная сумма пополнения — {ENERGY_RATE_RUB} ₽'}), 'isBase64Encoded': False}
+                return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': f'Минимальная сумма пополнения — {MIN_TOPUP_RUB} ₽'}), 'isBase64Encoded': False}
 
             final_amount = base_amount
             bonus_energy = 0
@@ -169,15 +182,15 @@ def handler(event: dict, context) -> dict:
                         bonus_energy = int(b_energy or 0)
                         energy_promo_id = pr_id
 
-            if final_amount < ENERGY_RATE_RUB and final_amount > 0:
+            if 0 < final_amount < MIN_TOPUP_RUB:
                 # после скидки сумма слишком мала для онлайн-оплаты Робокассы
                 conn.close()
-                return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': f'Сумма к оплате после скидки меньше минимальной ({ENERGY_RATE_RUB} ₽)'}), 'isBase64Encoded': False}
+                return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': f'Сумма к оплате после скидки меньше минимальной ({MIN_TOPUP_RUB} ₽)'}), 'isBase64Encoded': False}
             if final_amount <= 0:
                 conn.close()
                 return {'statusCode': 400, 'headers': HEADERS, 'body': json.dumps({'error': 'Промокод даёт 100% скидку — оплата не нужна, начисление без Робокассы'}), 'isBase64Encoded': False}
 
-            energy_amount = int(final_amount // ENERGY_RATE_RUB) + bonus_energy
+            energy_amount = int(final_amount // ENERGY_RATE_RUB) + volume_bonus(final_amount) + bonus_energy
             description = f'Пополнение энергии: {energy_amount} ед.'
         else:
             plan_id = int(payload.get('plan_id', 0))
