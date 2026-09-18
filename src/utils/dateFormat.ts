@@ -1,6 +1,51 @@
 /**
- * Утилиты для форматирования дат с учетом часового пояса пользователя
+ * Утилиты для форматирования дат с учетом часового пояса ФОТОГРАФА
+ * (регион из настроек, а не системное время устройства)
  */
+
+import { getTimezoneForRegion } from './regionTimezone';
+
+/**
+ * Часовой пояс фотографа (из его региона в настройках).
+ * Если регион не задан — используется системный пояс устройства.
+ */
+export const getPhotographerTimeZone = (): string | undefined => {
+  try {
+    const region = localStorage.getItem('user_region');
+    if (!region) return undefined;
+    return getTimezoneForRegion(region);
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * Разбирает дату из backend. Наивные строки без зоны считаем UTC.
+ */
+export const parseBackendDate = (dateStr: string | Date): Date => {
+  if (dateStr instanceof Date) return dateStr;
+  const raw = String(dateStr).trim();
+  const isNaive = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(raw);
+  return new Date(isNaive ? `${raw.replace(' ', 'T')}Z` : raw);
+};
+
+/** Части даты/времени в часовом поясе фотографа */
+const getTzParts = (date: Date) => {
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: getPhotographerTimeZone(),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const p: Record<string, string> = {};
+  fmt.formatToParts(date).forEach((part) => {
+    p[part.type] = part.value;
+  });
+  return p;
+};
 
 /**
  * Форматирует ISO строку даты в локальное время пользователя
@@ -15,8 +60,9 @@ export const formatLocalDate = (
   if (!dateStr) return '—';
 
   try {
-    const date = new Date(dateStr);
-    
+    const date = parseBackendDate(dateStr);
+    const timeZone = getPhotographerTimeZone();
+
     // Проверка на валидность даты
     if (isNaN(date.getTime())) {
       return dateStr;
@@ -39,7 +85,8 @@ export const formatLocalDate = (
         // Если больше недели - показываем дату
         return date.toLocaleDateString('ru-RU', {
           day: 'numeric',
-          month: 'short'
+          month: 'short',
+          timeZone
         });
 
       case 'short':
@@ -49,7 +96,8 @@ export const formatLocalDate = (
           month: '2-digit',
           year: 'numeric',
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          timeZone
         });
 
       case 'date':
@@ -57,14 +105,16 @@ export const formatLocalDate = (
         return date.toLocaleDateString('ru-RU', {
           day: 'numeric',
           month: 'long',
-          year: 'numeric'
+          year: 'numeric',
+          timeZone
         });
 
       case 'time':
         // Только время: 14:30
         return date.toLocaleTimeString('ru-RU', {
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          timeZone
         });
 
       case 'full':
@@ -75,7 +125,8 @@ export const formatLocalDate = (
           month: 'long',
           year: 'numeric',
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          timeZone
         });
     }
   } catch (error) {
@@ -93,7 +144,7 @@ export const formatTimeRemaining = (dateStr: string | null | undefined): string 
   if (!dateStr) return '—';
 
   try {
-    const date = new Date(dateStr);
+    const date = parseBackendDate(dateStr);
     
     if (isNaN(date.getTime())) {
       return dateStr;
@@ -177,10 +228,12 @@ export const formatMinutes = (minutes?: number | string | null): string => {
  */
 export const getUserTimezone = (): string => {
   try {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const offset = -new Date().getTimezoneOffset() / 60;
-    const sign = offset >= 0 ? '+' : '';
-    return `GMT${sign}${offset} (${timezone})`;
+    const timezone = getPhotographerTimeZone() || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const now = new Date();
+    const tzName = new Intl.DateTimeFormat('en-US', { timeZone: timezone, timeZoneName: 'shortOffset' })
+      .formatToParts(now)
+      .find((p) => p.type === 'timeZoneName')?.value;
+    return `${tzName || 'GMT'} (${timezone})`;
   } catch {
     return 'Местное время';
   }
@@ -191,20 +244,15 @@ export const getUserTimezone = (): string => {
  */
 export const utcToLocalInput = (utcDate: string | Date): string => {
   try {
-    const date = typeof utcDate === 'string' ? new Date(utcDate) : utcDate;
+    const date = parseBackendDate(utcDate);
     
     if (isNaN(date.getTime())) {
       return '';
     }
 
-    // Получаем локальное время и форматируем для input
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    // Время в часовом поясе фотографа для input
+    const p = getTzParts(date);
+    return `${p.year}-${p.month}-${p.day}T${p.hour === '24' ? '00' : p.hour}:${p.minute}`;
   } catch (error) {
     console.error('[DATE_FORMAT] Error converting UTC to local input:', error);
     return '';
@@ -215,25 +263,35 @@ export const utcToLocalInput = (utcDate: string | Date): string => {
  * Конвертирует локальный input в UTC ISO string для отправки на backend
  */
 export const todayLocalDate = (): string => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  const p = getTzParts(new Date());
+  return `${p.year}-${p.month}-${p.day}`;
+};
+
+/** Текущее время в часовом поясе фотографа, в формате HH:MM */
+export const nowLocalTime = (): string => {
+  const p = getTzParts(new Date());
+  return `${p.hour === '24' ? '00' : p.hour}:${p.minute}`;
 };
 
 export const localInputToUtc = (localInput: string): string => {
   try {
     if (!localInput) return '';
-    
-    // datetime-local возвращает строку без timezone, интерпретируется как local
-    const localDate = new Date(localInput);
-    
-    if (isNaN(localDate.getTime())) {
-      return '';
+
+    const timeZone = getPhotographerTimeZone();
+    if (!timeZone) {
+      const d = new Date(localInput);
+      return isNaN(d.getTime()) ? '' : d.toISOString();
     }
 
-    return localDate.toISOString();
+    // Трактуем ввод как время в поясе фотографа
+    const asUtc = new Date(`${localInput.length === 16 ? localInput : localInput.slice(0, 16)}:00Z`);
+    if (isNaN(asUtc.getTime())) return '';
+
+    const shown = new Date(asUtc.toLocaleString('en-US', { timeZone }));
+    const utcRef = new Date(asUtc.toLocaleString('en-US', { timeZone: 'UTC' }));
+    const offsetMs = shown.getTime() - utcRef.getTime();
+
+    return new Date(asUtc.getTime() - offsetMs).toISOString();
   } catch (error) {
     console.error('[DATE_FORMAT] Error converting local input to UTC:', error);
     return '';

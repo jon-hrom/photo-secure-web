@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import Icon from '@/components/ui/icon';
 import { useLongPress } from './chat/useLongPress';
+import { getPhotographerTimeZone } from '@/utils/dateFormat';
 import type { ChatMessageData, ReplyPreview } from './chat/types';
 
 type Message = ChatMessageData;
@@ -328,7 +329,7 @@ export default function ChatMessage({
                 month: '2-digit',
                 hour: '2-digit',
                 minute: '2-digit',
-                timeZone: timezone || undefined
+                timeZone: timezone || getPhotographerTimeZone()
               })}
             </p>
             {isMyMessage && !isRemoved && (

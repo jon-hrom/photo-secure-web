@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Message } from '@/components/clients/ClientsTypes';
+import { getPhotographerTimeZone, parseBackendDate } from '@/utils/dateFormat';
 import {
   DeliveryStatus,
   messageTypeIcons,
@@ -55,11 +56,12 @@ const MessageBubble = ({
             {isClient ? clientName : (message.author || photographerName)}
           </span>
           <span className="text-xs text-muted-foreground">
-            {new Date(message.date).toLocaleString('ru-RU', {
+            {parseBackendDate(message.date).toLocaleString('ru-RU', {
               day: '2-digit',
               month: '2-digit',
               hour: '2-digit',
-              minute: '2-digit'
+              minute: '2-digit',
+              timeZone: getPhotographerTimeZone()
             })}
           </span>
         </div>

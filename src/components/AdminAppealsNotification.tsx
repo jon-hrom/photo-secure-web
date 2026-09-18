@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { formatLocalDate } from '@/utils/dateFormat';
 
 interface Appeal {
   id: number;
@@ -152,19 +153,7 @@ const AdminAppealsNotification = ({ userId, isAdmin }: AdminAppealsNotificationP
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const raw = dateString.includes('Z') || dateString.includes('+') ? dateString : dateString.replace(' ', 'T') + 'Z';
-    const date = new Date(raw);
-    if (isNaN(date.getTime())) return dateString;
-    return date.toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Europe/Samara'
-    });
-  };
+  const formatDate = (dateString: string) => formatLocalDate(dateString, 'short');
 
   if (!isAdmin || appeals.length === 0) return null;
 

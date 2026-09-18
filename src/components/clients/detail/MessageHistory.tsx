@@ -237,7 +237,6 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
             {reminders.map((r) => {
               const typeLabels: Record<string, string> = { '24h': 'За 24 часа', '5h': 'За 5 часов', '1h': 'За 1 час' };
               const channelLabels: Record<string, string> = { both: 'Все каналы', whatsapp: 'WhatsApp', telegram: 'Telegram', email: 'Email' };
-              const sentDate = new Date(r.sent_at);
               return (
                 <div key={r.id} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
                   <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${r.success ? 'bg-green-100 dark:bg-green-900/50' : 'bg-red-100 dark:bg-red-900/50'}`}>
@@ -250,8 +249,8 @@ const MessageHistory = ({ messages, bookings, projects = [], payments = [], clie
                       <Badge variant="secondary" className="text-xs">{channelLabels[r.channel] || r.channel}</Badge>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      {sentDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}{' '}
-                      в {sentDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                      {formatLocalDate(r.sent_at, 'date')}{' '}
+                      в {formatLocalDate(r.sent_at, 'time')}
                     </div>
                     {r.error_message && (
                       <div className="text-xs text-red-500 mt-1">{r.error_message}</div>

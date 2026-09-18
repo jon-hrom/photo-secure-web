@@ -233,7 +233,34 @@ def load_client(cur, client_id, photographer_id):
     return dict(row) if row else None
 
 
-def suppress_daily_meeting_reminder(conn, meeting_id, meeting_date, meeting_time):
+REGION_TZ_OFFSET = {
+    "Калининградская область": 2,
+    "Астраханская область": 4, "Самарская область": 4, "Саратовская область": 4,
+    "Удмуртия": 4, "Удмуртская Республика": 4, "Ульяновская область": 4,
+    "Башкортостан": 5, "Республика Башкортостан": 5, "Курганская область": 5,
+    "Оренбургская область": 5, "Пермский край": 5, "Свердловская область": 5,
+    "Тюменская область": 5, "Челябинская область": 5,
+    "Ханты-Мансийский автономный округ": 5, "Ямало-Ненецкий автономный округ": 5,
+    "Омская область": 6,
+    "Алтайский край": 7, "Республика Алтай": 7, "Кемеровская область": 7,
+    "Новосибирская область": 7, "Томская область": 7, "Красноярский край": 7,
+    "Тыва": 7, "Республика Тыва": 7, "Хакасия": 7, "Республика Хакасия": 7,
+    "Иркутская область": 8, "Бурятия": 8, "Республика Бурятия": 8,
+    "Забайкальский край": 9, "Амурская область": 9,
+    "Саха (Якутия)": 9, "Республика Саха (Якутия)": 9,
+    "Еврейская автономная область": 10, "Приморский край": 10, "Хабаровский край": 10,
+    "Магаданская область": 11, "Сахалинская область": 11,
+    "Камчатский край": 12, "Чукотский автономный округ": 12,
+}
+
+
+def get_photographer_now(region: str = None) -> datetime:
+    """Текущее время в часовом поясе фотографа (сервер работает в UTC)."""
+    offset_hours = REGION_TZ_OFFSET.get(region or '', 3)
+    return datetime.utcnow() + timedelta(hours=offset_hours)
+
+
+def suppress_daily_meeting_reminder(conn, meeting_id, meeting_date, meeting_time, region=None):
     """
     Если встреча создана меньше чем за сутки до начала, уведомление о её создании
     уже содержит дату, время, место и контакты. Помечаем суточное напоминание
@@ -243,7 +270,7 @@ def suppress_daily_meeting_reminder(conn, meeting_id, meeting_date, meeting_time
         return
     try:
         meeting_dt = datetime.combine(meeting_date, meeting_time)
-        hours_until = (meeting_dt - datetime.now()).total_seconds() / 3600
+        hours_until = (meeting_dt - get_photographer_now(region)).total_seconds() / 3600
         if not (0 < hours_until < 24):
             return
         with conn.cursor() as cur:
@@ -378,7 +405,8 @@ def handler(event: dict, context) -> dict:
                 photographer = load_photographer(cur, photographer_id)
 
             suppress_daily_meeting_reminder(
-                conn, new_id, meeting.get('meeting_date'), meeting.get('meeting_time')
+                conn, new_id, meeting.get('meeting_date'), meeting.get('meeting_time'),
+                (photographer or {}).get('region')
             )
 
             results = {}
