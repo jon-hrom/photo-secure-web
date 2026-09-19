@@ -2,10 +2,10 @@ import { CanvasState } from '@/components/tools/logoRemover/useCanvasState';
 
 export const useBrushInteractions = (s: CanvasState) => {
   const {
-    brushSize,
+    brushSize, tool,
     zoom, pan, setZoom, setPan,
     maskCanvasRef,
-    drawingRef, lastPointRef, pointersRef, pinchRef,
+    drawingRef, lastPointRef, pointersRef, pinchRef, panRef,
     setHasMask, bumpMask,
   } = s;
 
@@ -54,6 +54,7 @@ export const useBrushInteractions = (s: CanvasState) => {
     if (pointersRef.current.size === 2) {
       drawingRef.current = false;
       lastPointRef.current = null;
+      panRef.current = null;
       const pts = Array.from(pointersRef.current.values());
       const dx = pts[0].x - pts[1].x;
       const dy = pts[0].y - pts[1].y;
@@ -65,6 +66,15 @@ export const useBrushInteractions = (s: CanvasState) => {
         panX: pan.x,
         panY: pan.y,
       };
+      return;
+    }
+
+    // Режим «Перемещение фото»: одним пальцем/мышью таскаем кадр,
+    // кисть при этом не рисует.
+    if (tool === 'pan') {
+      drawingRef.current = false;
+      lastPointRef.current = null;
+      panRef.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y };
       return;
     }
 
@@ -95,6 +105,14 @@ export const useBrushInteractions = (s: CanvasState) => {
       return;
     }
 
+    if (panRef.current && pointersRef.current.size === 1) {
+      setPan({
+        x: panRef.current.panX + (e.clientX - panRef.current.startX),
+        y: panRef.current.panY + (e.clientY - panRef.current.startY),
+      });
+      return;
+    }
+
     if (!drawingRef.current) return;
     const p = getCanvasPoint(e);
     drawAt(p.x, p.y, (e.buttons & 2) === 2 || e.ctrlKey);
@@ -103,6 +121,7 @@ export const useBrushInteractions = (s: CanvasState) => {
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     pointersRef.current.delete(e.pointerId);
     if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (pointersRef.current.size === 0) panRef.current = null;
     if (drawingRef.current) bumpMask();
     drawingRef.current = false;
     lastPointRef.current = null;

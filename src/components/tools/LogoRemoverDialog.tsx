@@ -50,6 +50,8 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
         {s.stage === 'edit' && (
           <div className="mt-3 space-y-3">
             <EditorCanvas
+              tool={s.tool}
+              setTool={s.setTool}
               viewportRef={s.viewportRef}
               imageCanvasRef={s.imageCanvasRef}
               maskCanvasRef={s.maskCanvasRef}

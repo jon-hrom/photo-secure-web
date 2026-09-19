@@ -1,0 +1,60 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "GET not allowed",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 405
+    },
+    {
+      "name": "Estimate returns price and presets",
+      "method": "POST",
+      "path": "/?action=estimate",
+      "body": {},
+      "expectedStatus": 200,
+      "expectedBody": {"label": "Ретушь кожи"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Start without image",
+      "method": "POST",
+      "path": "/?action=start",
+      "body": {"ping": 1},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Start without user id",
+      "method": "POST",
+      "path": "/?action=start",
+      "body": {"image": "aGVsbG8="},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Status without task_id",
+      "method": "POST",
+      "path": "/?action=status",
+      "body": {},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Catalog is admin only",
+      "method": "POST",
+      "path": "/?action=catalog",
+      "body": {},
+      "expectedStatus": 403
+    },
+    {
+      "name": "Unknown action",
+      "method": "POST",
+      "path": "/?action=bogus",
+      "body": {},
+      "expectedStatus": 400
+    }
+  ]
+}

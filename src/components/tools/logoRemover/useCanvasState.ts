@@ -8,10 +8,13 @@ export interface Estimate {
   hint: string;
 }
 
+export type EditorTool = 'brush' | 'pan';
+
 export const useCanvasState = (open: boolean) => {
   const [stage, setStage] = useState<Stage>('upload');
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
+  const [tool, setTool] = useState<EditorTool>('brush');
   const [brushSize, setBrushSize] = useState(30);
   const [hasMask, setHasMask] = useState(false);
   const [historyLen, setHistoryLen] = useState(0);
@@ -37,6 +40,7 @@ export const useCanvasState = (open: boolean) => {
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchRef = useRef<{ dist: number; zoom: number; centerX: number; centerY: number; panX: number; panY: number } | null>(null);
+  const panRef = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null);
 
   const bumpMask = useCallback(() => setMaskVersion((v) => v + 1), []);
 
@@ -55,6 +59,8 @@ export const useCanvasState = (open: boolean) => {
     historyRef.current = [];
     pointersRef.current.clear();
     pinchRef.current = null;
+    panRef.current = null;
+    setTool('brush');
   }, []);
 
   const resetZoom = useCallback(() => {
@@ -98,12 +104,16 @@ export const useCanvasState = (open: boolean) => {
     mctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
     setHasMask(false);
     setEstimate(null);
+    // Новый кадр — возвращаем его в центр: после стирания лого размер
+    // может поменяться, и старый сдвиг увёл бы фото за край экрана.
+    setPan({ x: 0, y: 0 });
   }, []);
 
   return {
     stage, setStage,
     loading, setLoading,
     loadingText, setLoadingText,
+    tool, setTool,
     brushSize, setBrushSize,
     hasMask, setHasMask,
     historyLen, setHistoryLen,
@@ -126,6 +136,7 @@ export const useCanvasState = (open: boolean) => {
     lastPointRef,
     pointersRef,
     pinchRef,
+    panRef,
     resetAll,
     resetZoom,
     clearMask,

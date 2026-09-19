@@ -6,6 +6,7 @@ interface ToolsDialogProps {
   onOpenChange: (open: boolean) => void;
   onOpenLogoRemover: () => void;
   onOpenHumanizer: () => void;
+  onOpenSkinRetouch: () => void;
 }
 
 interface ToolCardProps {
@@ -35,7 +36,7 @@ const ToolCard = ({ icon, title, description, onClick, gradient }: ToolCardProps
   </button>
 );
 
-const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer }: ToolsDialogProps) => {
+const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, onOpenSkinRetouch }: ToolsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -58,6 +59,17 @@ const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer }:
             onClick={() => {
               onOpenChange(false);
               onOpenLogoRemover();
+            }}
+          />
+
+          <ToolCard
+            icon="Sparkles"
+            title="Ретушь фото"
+            description="AI выровняет кожу: уберёт акне, покраснения и жирный блеск. Черты лица и фигура не меняются."
+            gradient="from-rose-500 to-orange-500"
+            onClick={() => {
+              onOpenChange(false);
+              onOpenSkinRetouch();
             }}
           />
 

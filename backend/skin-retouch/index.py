@@ -1,0 +1,270 @@
+"""
+Ретушь кожи: AI выравнивает кожу, композит по маске гарантирует, что человек не меняется.
+Args: event с httpMethod, queryStringParameters (action=estimate|start|status|catalog|bench), body, headers X-User-Id
+Returns: HTTP ответ с ценой, id задачи, готовым изображением или отладкой по моделям
+"""
+import json
+import os
+import base64
+from typing import Dict, Any
+
+import models
+import energy
+
+
+MAX_IMAGE_BYTES = 20 * 1024 * 1024
+
+# Пресеты силы: только сила смешивания и сохранение текстуры.
+# Промпт один — «трогай только кожу».
+PRESETS = {
+    "light": {"strength": 0.55, "keep_texture": 0.55, "label": "Лёгкая"},
+    "medium": {"strength": 0.80, "keep_texture": 0.35, "label": "Стандарт"},
+    "strong": {"strength": 1.00, "keep_texture": 0.18, "label": "Сильная"},
+}
+
+
+def _preset(name: str) -> dict:
+    return PRESETS.get(str(name or "medium").lower(), PRESETS["medium"])
+
+
+def _cors_headers():
+    return {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, X-User-Id, X-Auth-Token, X-Session-Id",
+        "Access-Control-Max-Age": "86400",
+    }
+
+
+def _response(status_code: int, body: Any):
+    return {
+        "statusCode": status_code,
+        "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        "body": json.dumps(body, default=str),
+        "isBase64Encoded": False,
+    }
+
+
+def _get_user_id(event: dict):
+    headers = event.get("headers", {}) or {}
+    raw = headers.get("X-User-Id") or headers.get("x-user-id")
+    try:
+        return int(raw) if raw else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _handle_estimate():
+    """Цена и доступные уровни силы — до запуска."""
+    return _response(200, {
+        "price": models.PRICE,
+        "model": models.MODEL,
+        "label": models.LABEL,
+        "hint": models.HINT,
+        "presets": [{"key": k, "label": v["label"]} for k, v in PRESETS.items()],
+    })
+
+
+def _handle_catalog(user_id):
+    """Каталог моделей провайдера с ценами. Только для админа."""
+    if not energy.is_admin(user_id):
+        return _response(403, {"error": "только для администратора"})
+    try:
+        return _response(200, {"catalog": models.fetch_catalog()})
+    except Exception as e:
+        return _response(502, {"error": str(e)[:300]})
+
+
+def _handle_start(payload: dict, user_id):
+    """Списывает энергию и ставит задачу ретуши в очередь."""
+    image_b64 = payload.get("image")
+    if not image_b64:
+        return _response(400, {"error": "image (base64) is required"})
+    try:
+        raw = base64.b64decode(image_b64)
+    except Exception:
+        return _response(400, {"error": "invalid base64 image"})
+    if len(raw) > MAX_IMAGE_BYTES:
+        return _response(413, {"error": f"image too large (max {MAX_IMAGE_BYTES // 1024 // 1024} MB)"})
+
+    if not user_id:
+        return _response(401, {"error": "X-User-Id required"})
+
+    price = models.PRICE
+    ok, balance, err = energy.spend(user_id, price, f"{models.LABEL} — AI")
+    if not ok:
+        if err == "insufficient_energy":
+            return _response(402, {
+                "error": "Недостаточно энергии",
+                "needed": price,
+                "energy_balance": balance,
+            })
+        return _response(500, {"error": err or "energy error"})
+
+    try:
+        task_id = models.start_task(image_b64)
+    except Exception as e:
+        energy.refund(user_id, price, "Возврат: не удалось запустить ретушь")
+        return _response(502, {"error": str(e)[:300], "refunded": price})
+
+    return _response(200, {
+        "task_id": task_id,
+        "charged": price,
+        "energy_balance": balance,
+    })
+
+
+def _handle_regions(payload: dict):
+    """Боксы с людьми для ограничения зоны ретуши.
+
+    Вынесено в отдельный вызов: вместе со стартом задачи это не укладывалось
+    в лимит времени функции. Фронт дёргает его параллельно с ожиданием
+    результата, а ошибка тут не критична — без боксов маска работает по кадру.
+    """
+    image_b64 = payload.get("image")
+    if not image_b64:
+        return _response(400, {"error": "image (base64) is required"})
+    return _response(200, {"regions": models.detect_skin_regions(image_b64) or []})
+
+
+def _handle_status(payload: dict, user_id):
+    """Проверяет готовность задачи и собирает безопасный результат."""
+    task_id = payload.get("task_id")
+    if not task_id:
+        return _response(400, {"error": "task_id is required"})
+
+    try:
+        state = models.poll_task(task_id)
+    except Exception as e:
+        return _response(502, {"error": str(e)[:300]})
+
+    if state["status"] in ("queued", "running"):
+        return _response(200, {"status": "processing"})
+
+    if state["status"] == "failed":
+        if user_id:
+            energy.refund(user_id, models.PRICE, "Возврат: ретушь не удалась")
+        return _response(200, {
+            "status": "failed",
+            "error": state["error"] or "не удалось отретушировать",
+            "refunded": models.PRICE,
+        })
+
+    image_b64 = payload.get("image")
+    if not image_b64:
+        return _response(400, {"error": "image is required to compose result"})
+
+    preset = _preset(payload.get("preset"))
+    regions = payload.get("regions") or None
+
+    try:
+        result_bytes = models.download(state["url"])
+        result_b64 = models.compose(
+            image_b64,
+            result_bytes,
+            strength=preset["strength"],
+            keep_texture=preset["keep_texture"],
+            regions=regions,
+        )
+    except Exception as e:
+        if user_id:
+            energy.refund(user_id, models.PRICE, "Возврат: ошибка сборки ретуши")
+        return _response(200, {"status": "failed", "error": str(e)[:300], "refunded": models.PRICE})
+
+    body = {
+        "status": "done",
+        "image": result_b64,
+        "label": models.LABEL,
+        "charged": models.PRICE,
+        "preset": preset["label"],
+    }
+    if state.get("cost") is not None:
+        body["provider_cost"] = state["cost"]
+    if user_id:
+        body["energy_balance"] = energy.get_balance(user_id)
+    return _response(200, body)
+
+
+def _handle_bench(payload: dict, user_id):
+    """Пробный прогон конкретной модели без списания энергии. Админ-only.
+
+    Нужен, чтобы сравнить качество и реальную себестоимость кандидатов
+    перед тем, как назначить цену в молниях.
+    """
+    if not energy.is_admin(user_id):
+        return _response(403, {"error": "только для администратора"})
+
+    task_id = payload.get("task_id")
+    # Второй вызов с task_id — забрать готовый результат и реальную цену.
+    if task_id:
+        try:
+            state = models.poll_task(task_id)
+        except Exception as e:
+            return _response(502, {"error": str(e)[:300]})
+        if state["status"] in ("queued", "running"):
+            return _response(200, {"status": "processing"})
+        if state["status"] == "failed":
+            return _response(200, {"status": "failed", "error": state["error"]})
+        body = {"status": "done", "url": state["url"], "cost": state.get("cost")}
+        image_b64 = payload.get("image")
+        if image_b64:
+            preset = _preset(payload.get("preset"))
+            try:
+                body["image"] = models.compose(
+                    image_b64, models.download(state["url"]),
+                    strength=preset["strength"],
+                    keep_texture=preset["keep_texture"],
+                    regions=payload.get("regions") or None,
+                )
+            except Exception as e:
+                body["compose_error"] = str(e)[:300]
+        return _response(200, body)
+
+    model = payload.get("model") or models.MODEL
+    image_b64 = payload.get("image")
+    if not image_b64:
+        return _response(400, {"error": "image (base64) is required"})
+    try:
+        new_id = models.start_task(image_b64, model=model)
+    except Exception as e:
+        return _response(502, {"error": str(e)[:300]})
+    return _response(200, {"task_id": new_id, "model": model,
+                           "candidates": {k: v["cost_rub"] for k, v in models.CANDIDATES.items()}})
+
+
+def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
+    """Ретушь кожи через AI с защитой внешности композитом по маске."""
+    method = event.get("httpMethod", "POST")
+    if method == "OPTIONS":
+        return {"statusCode": 200, "headers": _cors_headers(), "body": "", "isBase64Encoded": False}
+
+    if method != "POST":
+        return _response(405, {"error": "method not allowed"})
+
+    params = event.get("queryStringParameters", {}) or {}
+    action = params.get("action", "estimate")
+
+    try:
+        body_raw = event.get("body") or "{}"
+        if event.get("isBase64Encoded"):
+            body_raw = base64.b64decode(body_raw).decode("utf-8")
+        payload = json.loads(body_raw.strip() or "{}")
+    except Exception as e:
+        return _response(400, {"error": f"invalid JSON body: {e}"})
+
+    user_id = _get_user_id(event)
+
+    if action == "estimate":
+        return _handle_estimate()
+    if action == "start":
+        return _handle_start(payload, user_id)
+    if action == "status":
+        return _handle_status(payload, user_id)
+    if action == "regions":
+        return _handle_regions(payload)
+    if action == "catalog":
+        return _handle_catalog(user_id)
+    if action == "bench":
+        return _handle_bench(payload, user_id)
+
+    return _response(400, {"error": "unknown action (use ?action=estimate|start|status|regions|catalog|bench)"})

@@ -1,8 +1,11 @@
 import { RefObject } from 'react';
 import { Slider } from '@/components/ui/slider';
 import Icon from '@/components/ui/icon';
+import { EditorTool } from '@/components/tools/logoRemover/useCanvasState';
 
 interface EditorCanvasProps {
+  tool: EditorTool;
+  setTool: (t: EditorTool) => void;
   viewportRef: RefObject<HTMLDivElement>;
   imageCanvasRef: RefObject<HTMLCanvasElement>;
   maskCanvasRef: RefObject<HTMLCanvasElement>;
@@ -22,6 +25,8 @@ interface EditorCanvasProps {
 }
 
 const EditorCanvas = ({
+  tool,
+  setTool,
   viewportRef,
   imageCanvasRef,
   maskCanvasRef,
@@ -57,7 +62,7 @@ const EditorCanvas = ({
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: 'center center',
-            transition: (pointersRef.current?.size ?? 0) >= 2 ? 'none' : 'transform 0.08s ease-out',
+            transition: tool === 'pan' || (pointersRef.current?.size ?? 0) >= 2 ? 'none' : 'transform 0.08s ease-out',
           }}
         >
           <div className="relative">
@@ -68,7 +73,7 @@ const EditorCanvas = ({
             />
             <canvas
               ref={maskCanvasRef}
-              className="absolute inset-0 w-full h-full touch-none cursor-crosshair"
+              className={`absolute inset-0 w-full h-full touch-none ${tool === 'pan' ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'}`}
               style={{ maxHeight: '60vh' }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -77,6 +82,29 @@ const EditorCanvas = ({
               onContextMenu={(e) => e.preventDefault()}
             />
           </div>
+        </div>
+
+        <div className="absolute top-2 left-2 flex gap-1 z-10">
+          <button
+            onClick={() => setTool('brush')}
+            className={`h-9 px-3 rounded-lg backdrop-blur-sm flex items-center gap-1.5 text-xs font-medium transition-colors ${
+              tool === 'brush' ? 'bg-pink-500 text-white' : 'bg-black/60 text-white hover:bg-black/80'
+            }`}
+            title="Кисть — выделять лого"
+          >
+            <Icon name="Brush" size={15} />
+            Кисть
+          </button>
+          <button
+            onClick={() => setTool('pan')}
+            className={`h-9 px-3 rounded-lg backdrop-blur-sm flex items-center gap-1.5 text-xs font-medium transition-colors ${
+              tool === 'pan' ? 'bg-primary text-primary-foreground' : 'bg-black/60 text-white hover:bg-black/80'
+            }`}
+            title="Перемещение фото — двигать кадр пальцем"
+          >
+            <Icon name="Move" size={15} />
+            Двигать
+          </button>
         </div>
 
         <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
@@ -117,18 +145,25 @@ const EditorCanvas = ({
         )}
       </div>
 
-      <div className="flex items-center gap-3 px-1">
-        <Icon name="Brush" size={16} className="text-muted-foreground flex-shrink-0" />
-        <span className="text-xs text-muted-foreground flex-shrink-0 w-10">{brushSize}px</span>
-        <Slider
-          value={[brushSize]}
-          min={5}
-          max={80}
-          step={1}
-          onValueChange={(v) => setBrushSize(v[0])}
-          className="flex-1"
-        />
-      </div>
+      {tool === 'brush' ? (
+        <div className="flex items-center gap-3 px-1">
+          <Icon name="Brush" size={16} className="text-muted-foreground flex-shrink-0" />
+          <span className="text-xs text-muted-foreground flex-shrink-0 w-10">{brushSize}px</span>
+          <Slider
+            value={[brushSize]}
+            min={5}
+            max={80}
+            step={1}
+            onValueChange={(v) => setBrushSize(v[0])}
+            className="flex-1"
+          />
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
+          <Icon name="Move" size={16} className="flex-shrink-0" />
+          Тяните фото пальцем или мышью. Кнопка «Кисть» — вернуться к выделению
+        </div>
+      )}
     </>
   );
 };
