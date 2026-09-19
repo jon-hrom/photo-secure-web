@@ -7,15 +7,10 @@ import json
 import os
 import base64
 from typing import Dict, Any
-import requests
 
 import models
 import energy
 
-
-RETOUCH_BASIC_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
-RETOUCH_BASIC_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
-DETECT_URL = "https://io.foto-mix.ru/api/v2/detect_logo"
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
@@ -48,7 +43,7 @@ def _get_user_id(event: dict):
 
 
 def _handle_detect(payload: dict):
-    """Ищет логотип на фото и возвращает маску — область для стирания."""
+    """Ищет водяные знаки на фото и возвращает маску — область для стирания."""
     image_b64 = payload.get("image")
     if not image_b64:
         return _response(400, {"error": "image (base64) is required"})
@@ -60,36 +55,11 @@ def _handle_detect(payload: dict):
         return _response(413, {"error": f"image too large (max {MAX_IMAGE_BYTES // 1024 // 1024} MB)"})
 
     try:
-        r = requests.post(
-            DETECT_URL,
-            json={"image": image_b64},
-            auth=(RETOUCH_BASIC_USER, RETOUCH_BASIC_PASS),
-            timeout=90,
-        )
-    except requests.Timeout:
-        return _response(504, {"error": "detector timeout"})
-    except requests.RequestException as e:
-        return _response(502, {"error": f"detector unreachable: {e}"})
+        result = models.detect_logo(image_b64)
+    except Exception as e:
+        return _response(502, {"error": str(e)[:300]})
 
-    if r.status_code != 200:
-        return _response(r.status_code, {"error": f"detector returned {r.status_code}", "detail": r.text[:300]})
-
-    try:
-        data = r.json()
-    except Exception:
-        return _response(502, {"error": "detector returned non-JSON"})
-
-    if data.get("error"):
-        return _response(500, {"error": data["error"]})
-
-    return _response(200, {
-        "mask": data.get("mask"),
-        "width": data.get("width"),
-        "height": data.get("height"),
-        "ocr_pixels": data.get("ocr_pixels", 0),
-        "yolo_pixels": data.get("yolo_pixels", 0),
-        "face_pixels": data.get("face_pixels", 0),
-    })
+    return _response(200, result)
 
 
 def _handle_estimate(payload: dict):

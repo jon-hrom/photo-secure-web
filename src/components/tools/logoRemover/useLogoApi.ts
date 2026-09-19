@@ -19,7 +19,7 @@ export const useLogoApi = (s: CanvasState) => {
     setHasMask, setHistoryLen,
     setShowPicker, setShowSaver, setSaving,
     setEstimate, setEstimating,
-    hasMask, bumpMask, faceHintRef,
+    hasMask, bumpMask,
     originalDataUrlRef, currentDataUrlRef, historyRef,
     imageCanvasRef, maskCanvasRef,
     loadImageIntoCanvas,
@@ -178,16 +178,19 @@ export const useLogoApi = (s: CanvasState) => {
       }
       tctx.putImageData(imgData, 0, 0);
       mctx.drawImage(tmp, 0, 0);
-      faceHintRef.current = (data.face_pixels || 0) > 0;
+
+      if (!data.boxes) {
+        toast({ title: 'Лого не найдено', description: 'Выделите область кистью вручную' });
+        return;
+      }
       setHasMask(true);
       bumpMask();
-
-      const total = (data.ocr_pixels || 0) + (data.yolo_pixels || 0);
-      if (total === 0) {
-        toast({ title: 'AI не нашёл лого', description: 'Выделите область кистью вручную' });
-      } else {
-        toast({ title: 'Лого найдено', description: 'Проверьте выделение и нажмите «Стереть»' });
-      }
+      toast({
+        title: `Найдено: ${data.boxes}`,
+        description: data.whole
+          ? 'Знаки по всему кадру — проверьте выделение и дорисуйте кистью'
+          : 'Проверьте выделение и нажмите «Стереть»',
+      });
     } catch (e) {
       console.error(e);
       toast({ title: 'Ошибка AI-детекции', description: String((e as Error)?.message || e), variant: 'destructive' });

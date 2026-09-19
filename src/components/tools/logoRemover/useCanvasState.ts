@@ -24,7 +24,6 @@ export const useCanvasState = (open: boolean) => {
   const [estimating, setEstimating] = useState(false);
   const [maskVersion, setMaskVersion] = useState(0);
 
-  const faceHintRef = useRef(false);
   const originalDataUrlRef = useRef<string>('');
   const currentDataUrlRef = useRef<string>('');
   const historyRef = useRef<string[]>([]);
@@ -51,7 +50,6 @@ export const useCanvasState = (open: boolean) => {
     setPan({ x: 0, y: 0 });
     setEstimate(null);
     setEstimating(false);
-    faceHintRef.current = false;
     originalDataUrlRef.current = '';
     currentDataUrlRef.current = '';
     historyRef.current = [];
@@ -75,7 +73,6 @@ export const useCanvasState = (open: boolean) => {
     mctx.clearRect(0, 0, mask.width, mask.height);
     setHasMask(false);
     setEstimate(null);
-    faceHintRef.current = false;
   }, []);
 
   const loadImageIntoCanvas = useCallback(async (dataUrl: string) => {
@@ -101,7 +98,6 @@ export const useCanvasState = (open: boolean) => {
     mctx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
     setHasMask(false);
     setEstimate(null);
-    faceHintRef.current = false;
   }, []);
 
   return {
@@ -119,7 +115,6 @@ export const useCanvasState = (open: boolean) => {
     estimate, setEstimate,
     estimating, setEstimating,
     maskVersion, bumpMask,
-    faceHintRef,
     originalDataUrlRef,
     currentDataUrlRef,
     historyRef,
