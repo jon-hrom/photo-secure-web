@@ -20,7 +20,7 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
     handleFile,
     handlePickFromBank,
     handleSaveToFolder,
-    detectAI,
+    autoRemove,
     inpaint,
     undo,
     download,
@@ -35,7 +35,7 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
             Убрать лого с фото
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            AI найдёт лого автоматически — или выделите кистью вручную
+            Нажмите «Удалить лого» — AI сам найдёт и уберёт. Или выделите кистью вручную
           </DialogDescription>
         </DialogHeader>
 
@@ -74,7 +74,7 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
               historyLen={s.historyLen}
               estimate={s.estimate}
               estimating={s.estimating}
-              onDetectAI={detectAI}
+              onAutoRemove={autoRemove}
               onInpaint={inpaint}
               onClearMask={s.clearMask}
               onUndo={undo}

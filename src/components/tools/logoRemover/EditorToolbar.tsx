@@ -8,7 +8,7 @@ interface EditorToolbarProps {
   historyLen: number;
   estimate: Estimate | null;
   estimating: boolean;
-  onDetectAI: () => void;
+  onAutoRemove: () => void;
   onInpaint: () => void;
   onClearMask: () => void;
   onUndo: () => void;
@@ -23,7 +23,7 @@ const EditorToolbar = ({
   historyLen,
   estimate,
   estimating,
-  onDetectAI,
+  onAutoRemove,
   onInpaint,
   onClearMask,
   onUndo,
@@ -34,25 +34,28 @@ const EditorToolbar = ({
   return (
     <>
       <div className="flex flex-wrap items-start gap-2">
-        <Button onClick={onDetectAI} disabled={loading} variant="default" size="sm" className="gap-1.5">
-          <Icon name="Sparkles" size={16} />
-          Найти лого
-        </Button>
         <div className="flex flex-col items-center gap-0.5">
-          <Button onClick={onInpaint} disabled={loading || !hasMask} variant="default" size="sm" className="gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90">
-            <Icon name="Eraser" size={16} />
-            Стереть
+          <Button onClick={onAutoRemove} disabled={loading} variant="default" size="sm" className="gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90">
+            <Icon name="Sparkles" size={16} />
+            Удалить лого
           </Button>
-          {hasMask && estimate && (
-            <span className="text-[10px] font-medium text-yellow-600 dark:text-yellow-500 inline-flex items-center gap-0.5 leading-none">
-              {estimate.price}
-              <Icon name="Zap" size={10} className="fill-current" />
-            </span>
-          )}
-          {hasMask && estimating && !estimate && (
-            <Icon name="Loader2" size={10} className="animate-spin text-muted-foreground" />
-          )}
+          <span className="text-[10px] font-medium text-yellow-600 dark:text-yellow-500 inline-flex items-center gap-0.5 leading-none">
+            {estimating && !estimate ? (
+              <Icon name="Loader2" size={10} className="animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                {estimate?.price ?? 25}
+                <Icon name="Zap" size={10} className="fill-current" />
+              </>
+            )}
+          </span>
         </div>
+        {hasMask && (
+          <Button onClick={onInpaint} disabled={loading} variant="outline" size="sm" className="gap-1.5">
+            <Icon name="Eraser" size={16} />
+            Стереть выделенное
+          </Button>
+        )}
         <Button onClick={onClearMask} disabled={loading || !hasMask} variant="outline" size="sm" className="gap-1.5">
           <Icon name="X" size={16} />
           Очистить кисть
@@ -76,7 +79,7 @@ const EditorToolbar = ({
       </div>
 
       <p className="text-[11px] text-muted-foreground px-1">
-        Закрасьте лого кистью или нажмите «Найти лого». ПКМ или Ctrl — ластик маски. Два пальца или Ctrl+колесо — масштаб.
+        AI не заметил лого? Закрасьте его кистью и нажмите «Стереть выделенное». ПКМ или Ctrl — ластик маски. Два пальца или Ctrl+колесо — масштаб.
       </p>
     </>
   );
