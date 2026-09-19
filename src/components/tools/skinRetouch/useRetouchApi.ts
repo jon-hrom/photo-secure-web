@@ -97,21 +97,37 @@ export const useRetouchApi = (open: boolean) => {
       setLoadingText('AI выравнивает кожу...');
 
       let data: Record<string, unknown> | null = null;
+      // Обрыв соединения на мобильном интернете — норма. Задача на сервере
+      // при этом жива, поэтому сетевые ошибки не валят прогон: пробуем снова.
+      let networkFails = 0;
       for (let attempt = 0; attempt < 60; attempt++) {
         await new Promise((r) => setTimeout(r, 4000));
-        const sr = await fetch(`${SKIN_RETOUCH_URL}?action=status`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            task_id: started.task_id,
-            image: imageB64,
-            preset: presetKey,
-          }),
-        });
-        const sd = await sr.json();
-        if (!sr.ok) throw new Error(sd?.error || `HTTP ${sr.status}`);
-        if (sd.status === 'processing') continue;
-        if (sd.status === 'failed') throw new Error(sd.error || 'не удалось отретушировать');
+        let sd: Record<string, unknown>;
+        try {
+          const sr = await fetch(`${SKIN_RETOUCH_URL}?action=status`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              task_id: started.task_id,
+              image: imageB64,
+              preset: presetKey,
+            }),
+          });
+          sd = await sr.json();
+          if (!sr.ok) throw new Error((sd?.error as string) || `HTTP ${sr.status}`);
+          networkFails = 0;
+        } catch (netErr) {
+          networkFails += 1;
+          console.warn('retouch poll failed', netErr);
+          if (networkFails >= 5) throw netErr;
+          setLoadingText('Связь оборвалась, повторяем запрос...');
+          continue;
+        }
+        if (sd.status === 'processing') {
+          setLoadingText('AI выравнивает кожу...');
+          continue;
+        }
+        if (sd.status === 'failed') throw new Error((sd.error as string) || 'не удалось отретушировать');
         data = sd;
         break;
       }

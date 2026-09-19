@@ -24,6 +24,32 @@ def _to_arr(img: Image.Image) -> np.ndarray:
     return np.asarray(img, dtype=np.float32)
 
 
+# Маски — мягкие карты, мелкие детали в них всё равно размываются.
+# Поэтому считаем их на уменьшенной копии: морфология MaxFilter/MinFilter
+# с большим ядром на полном кадре стоит секунды и выбивала функцию
+# из лимита времени (5 с) — пользователь видел «Connection reset by peer».
+MASK_SIDE = 512
+
+
+def _small(img: Image.Image) -> Image.Image:
+    """Уменьшенная копия для расчёта масок (или оригинал, если он мелкий)."""
+    if max(img.size) <= MASK_SIDE:
+        return img
+    scaled = img.copy()
+    scaled.thumbnail((MASK_SIDE, MASK_SIDE), Image.BILINEAR)
+    return scaled
+
+
+def _upscale_mask(mask: np.ndarray, size) -> np.ndarray:
+    """Возвращает маску к размеру оригинала."""
+    h, w = mask.shape
+    if (w, h) == size:
+        return mask
+    img = Image.fromarray((np.clip(mask, 0, 1) * 255).astype(np.uint8), mode="L")
+    img = img.resize(size, Image.BILINEAR)
+    return np.asarray(img, dtype=np.float32) / 255.0
+
+
 def _ycbcr(arr: np.ndarray):
     r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
     y = 0.299 * r + 0.587 * g + 0.114 * b
@@ -63,6 +89,8 @@ def regions_mask(size, regions) -> np.ndarray:
 
 def build_skin_mask(img: Image.Image) -> np.ndarray:
     """Возвращает float-маску кожи 0..1 того же размера, что и картинка."""
+    full_size = img.size
+    img = _small(img)
     arr = _to_arr(img)
     r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
     y, cb, cr = _ycbcr(arr)
@@ -101,7 +129,7 @@ def build_skin_mask(img: Image.Image) -> np.ndarray:
 
     # Края кожи (граница с волосами/одеждой) ослабляем — там любые правки
     # видны как ореол.
-    return np.clip(mask, 0.0, 1.0)
+    return _upscale_mask(np.clip(mask, 0.0, 1.0), full_size)
 
 
 def build_protect_mask(img: Image.Image) -> np.ndarray:
@@ -110,6 +138,8 @@ def build_protect_mask(img: Image.Image) -> np.ndarray:
     Строится по контрасту и насыщенности: эти зоны либо тёмные, либо
     сильно краснее кожи. Возвращает 0..1, где 1 = полностью защищено.
     """
+    full_size = img.size
+    img = _small(img)
     arr = _to_arr(img)
     r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
     y, cb, cr = _ycbcr(arr)
@@ -124,7 +154,8 @@ def build_protect_mask(img: Image.Image) -> np.ndarray:
     p = Image.fromarray((protect * 255).astype(np.uint8), mode="L")
     p = p.filter(ImageFilter.MaxFilter(_odd(max(3, min(img.size) // 250))))
     p = p.filter(ImageFilter.GaussianBlur(radius=max(2, min(img.size) // 400)))
-    return np.clip(np.asarray(p, dtype=np.float32) / 255.0, 0.0, 1.0)
+    small_mask = np.clip(np.asarray(p, dtype=np.float32) / 255.0, 0.0, 1.0)
+    return _upscale_mask(small_mask, full_size)
 
 
 def _highpass(arr: np.ndarray, radius: float) -> np.ndarray:
@@ -155,18 +186,21 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     # версиям кадра: так видно сдвиг черт и формы, но не видно локальных
     # дефектов. Иначе защита срабатывала бы ровно на прыщах — то есть
     # мешала бы убрать именно то, ради чего инструмент и нужен.
-    blur_r = max(6.0, min(original.size) / 60.0)
-    orig_low = np.asarray(
-        Image.fromarray(np.clip(orig, 0, 255).astype(np.uint8))
-        .filter(ImageFilter.GaussianBlur(radius=blur_r)), dtype=np.float32)
-    gen_low = np.asarray(
-        Image.fromarray(np.clip(gen, 0, 255).astype(np.uint8))
-        .filter(ImageFilter.GaussianBlur(radius=blur_r)), dtype=np.float32)
+    # Считаем на уменьшенных копиях: карта и так сильно размыта, а на полном
+    # кадре два гауссовых блюра большого радиуса занимали секунды.
+    orig_s = _small(original)
+    gen_small = generated.resize(orig_s.size, Image.BILINEAR)
+    blur_r = max(6.0, min(orig_s.size) / 60.0)
+    orig_low = np.asarray(orig_s.filter(ImageFilter.GaussianBlur(radius=blur_r)),
+                          dtype=np.float32)
+    gen_low = np.asarray(gen_small.filter(ImageFilter.GaussianBlur(radius=blur_r)),
+                         dtype=np.float32)
     struct_diff = np.abs(gen_low - orig_low).mean(axis=-1)
     trust = np.clip(1.0 - (struct_diff - 40.0) / 30.0, 0.0, 1.0)
     trust_img = Image.fromarray((trust * 255).astype(np.uint8), mode="L")
     trust_img = trust_img.filter(ImageFilter.GaussianBlur(radius=blur_r / 2))
-    trust = np.asarray(trust_img, dtype=np.float32) / 255.0
+    trust = _upscale_mask(np.asarray(trust_img, dtype=np.float32) / 255.0,
+                          original.size)
 
     alpha = (mask * trust * strength)[..., None]
 
