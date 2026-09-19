@@ -251,7 +251,7 @@ export const useLogoApi = (s: CanvasState) => {
         });
         return;
       }
-      setLoadingText(`Найдено знаков: ${found}. Убираем...`);
+      setLoadingText(found > 1 ? `Найдено знаков: ${found}. Убираем...` : 'Лого найдено. Убираем...');
       await runErase();
     } catch (e) {
       console.error(e);

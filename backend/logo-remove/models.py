@@ -108,6 +108,20 @@ def detect_logo(image_b64: str) -> dict:
     mask = Image.new("L", (width, height), 0)
     draw = ImageDraw.Draw(mask)
     drawn = 0
+
+    # Знаки рассыпаны плиткой по всему кадру (фотостоки) — перечислять их
+    # по одному бессмысленно, чистим изображение целиком.
+    if whole and len(boxes) < 4:
+        draw.rectangle([0, 0, width, height], fill=255)
+        out = io.BytesIO()
+        mask.save(out, format="PNG")
+        return {
+            "mask": base64.b64encode(out.getvalue()).decode(),
+            "boxes": max(1, len(boxes)),
+            "whole": True,
+            "width": width,
+            "height": height,
+        }
     for b in boxes:
         try:
             x0 = float(b.get("x0", 0)) / 1000 * width
