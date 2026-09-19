@@ -5,8 +5,8 @@
 чтобы retouch не падала по таймауту деплоя из-за тяжёлых зависимостей
 (numpy + Pillow + boto3).
 
-MVP-этап 1: pass-through. Принимает retouched_b64, возвращает его же.
-Логика _compose_with_original_by_mask будет добавлена в следующем шаге.
+Полный бьюти-пайплайн (beauty.py): маска кожи, healing прыщей,
+frequency separation, выравнивание тона, снятие красноты, возврат текстуры.
 
 Endpoint:
   POST /  Body: {"in_key": str, "retouched_b64": str, "preset": "medium"}
@@ -23,8 +23,11 @@ from typing import Dict, Any
 import boto3
 from botocore.client import Config
 
+import beauty
+import presets as presets_mod
 
-COMPOSE_VERSION = "v1-2026-05-25-pass-through-mvp"
+
+COMPOSE_VERSION = "v2-beauty-pipeline"
 print(f"[RETOUCH-COMPOSE] Version: {COMPOSE_VERSION}")
 
 S3_BUCKET = "foto-mix"
@@ -108,14 +111,47 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             return _cors_response(400, {'error': f'invalid base64: {e}'})
 
         t_start = time.time()
+        preset_name = presets_mod.normalize_preset_name(preset_name)
+        preset = presets_mod.get_preset(preset_name)
         print(f"[RETOUCH-COMPOSE] in_key={in_key} size={len(retouched_bytes)} preset={preset_name}")
 
-        # === MVP ЭТАП 1: pass-through ===
-        # Полная логика _compose_with_original_by_mask (бленд по маске кожи,
-        # erosion, feather, skin smooth, red-cast removal) будет добавлена
-        # в следующем шаге. Сейчас просто возвращаем retouched_bytes.
         composed_bytes = retouched_bytes
         composed = False
+        compose_error = None
+
+        # Оригинал нужен для маски кожи, healing и возврата текстуры.
+        original_bytes = None
+        original_b64 = body.get('original_b64') or ''
+        if original_b64:
+            try:
+                original_bytes = base64.b64decode(original_b64)
+                print(f"[RETOUCH-COMPOSE] original from body: {len(original_bytes)} bytes")
+            except Exception as e:
+                compose_error = f"invalid original_b64: {e}"
+                print(f"[RETOUCH-COMPOSE] {compose_error}")
+
+        if original_bytes is None and in_key:
+            try:
+                s3 = _get_s3_client()
+                obj = s3.get_object(Bucket=S3_BUCKET, Key=in_key)
+                original_bytes = obj['Body'].read()
+                print(f"[RETOUCH-COMPOSE] original loaded: {len(original_bytes)} bytes")
+            except Exception as e:
+                compose_error = f"s3 get_object failed: {e}"
+                print(f"[RETOUCH-COMPOSE] {compose_error}")
+
+        if original_bytes:
+            try:
+                composed_bytes = beauty.compose(original_bytes, retouched_bytes, preset)
+                composed = True
+            except Exception as e:
+                import traceback
+                compose_error = f"beauty.compose failed: {e}"
+                print(f"[RETOUCH-COMPOSE] {compose_error}")
+                traceback.print_exc()
+                # Fallback: отдаём сырой результат AI, чтобы не терять задачу.
+                composed_bytes = retouched_bytes
+                composed = False
 
         elapsed_ms = int((time.time() - t_start) * 1000)
         print(f"[RETOUCH-COMPOSE] done composed={composed} elapsed={elapsed_ms}ms")
@@ -125,6 +161,7 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
             'size_bytes': len(composed_bytes),
             'composed': composed,
             'preset': preset_name,
+            'compose_error': compose_error,
             'elapsed_ms': elapsed_ms,
             'version': COMPOSE_VERSION,
         })

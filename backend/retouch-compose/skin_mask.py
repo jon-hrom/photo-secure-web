@@ -16,8 +16,13 @@ DETECT_FACES_URL = os.environ.get(
 )
 FACE_PARSE_USER = os.environ.get("RETOUCH_BASIC_USER", "admin")
 FACE_PARSE_PASS = os.environ.get("RETOUCH_BASIC_PASS", "")
-FACE_PARSE_TIMEOUT = float(os.environ.get("FACE_PARSE_TIMEOUT", "15"))
-DETECT_FACES_TIMEOUT = float(os.environ.get("DETECT_FACES_TIMEOUT", "20"))
+# Таймаут держим коротким: если VM ретуши спит или недоступна, функция
+# композиции не должна уходить в 504 — лучше быстро перейти на эвристику.
+FACE_PARSE_TIMEOUT = float(os.environ.get("FACE_PARSE_TIMEOUT", "6"))
+DETECT_FACES_TIMEOUT = float(os.environ.get("DETECT_FACES_TIMEOUT", "8"))
+
+# Флаг: AI-сервер не отвечает — в рамках одного запуска больше не пробуем.
+_AI_UNAVAILABLE = False
 
 
 def _call_ai_face_parse(image_bytes, mode="skin", bbox=None):
@@ -29,6 +34,10 @@ def _call_ai_face_parse(image_bytes, mode="skin", bbox=None):
     (намного точнее на сложном свете, тёмных сценах, цветных фонах).
     """
     if not FACE_PARSE_PASS:
+        return None
+    # Если сервер уже не ответил в этом запуске — не ждём его повторно.
+    global _AI_UNAVAILABLE
+    if _AI_UNAVAILABLE:
         return None
     try:
         b64 = base64.b64encode(image_bytes).decode('ascii')
@@ -58,6 +67,7 @@ def _call_ai_face_parse(image_bytes, mode="skin", bbox=None):
         return mask_arr
     except Exception as e:
         print(f"[AI MASK] call failed: {e}")
+        _AI_UNAVAILABLE = True
         return None
 
 
@@ -138,8 +148,10 @@ def _find_face_regions(skin_mask):
     pre_r_max = max(4, int(min(h, w) * 0.008))
     pre_r_min = max(3, int(min(h, w) * 0.006))
     pre_pil = Image.fromarray(skin_mask, mode='L')
-    pre_pil = pre_pil.filter(ImageFilter.MaxFilter(min(pre_r_max * 2 + 1, 13)))
-    pre_pil = pre_pil.filter(ImageFilter.MinFilter(min(pre_r_min * 2 + 1, 11)))
+    pre_pil = Image.fromarray(
+        _fast_morph(np.asarray(pre_pil), min(pre_r_max, 6), 'dilate'), mode='L')
+    pre_pil = Image.fromarray(
+        _fast_morph(np.asarray(pre_pil), min(pre_r_min, 5), 'erode'), mode='L')
     skin_mask = np.array(pre_pil)
 
     step = max(1, min(h, w) // 300)
@@ -203,12 +215,16 @@ def _find_face_regions(skin_mask):
         close_k += 1
     face_closed_pil = Image.fromarray(face_small_up, mode='L')
     # Расширяем (закрываем дыры от щетины и теней)
-    face_closed_pil = face_closed_pil.filter(ImageFilter.MaxFilter(close_k))
+    face_closed_pil = Image.fromarray(
+        _fast_morph(np.asarray(face_closed_pil), max(1, close_k // 2), 'dilate'),
+        mode='L')
     # Сжимаем обратно, но чуть меньше — чтобы маска осталась с запасом.
     shrink_k = max(5, close_k - 6)
     if shrink_k % 2 == 0:
         shrink_k += 1
-    face_closed_pil = face_closed_pil.filter(ImageFilter.MinFilter(shrink_k))
+    face_closed_pil = Image.fromarray(
+        _fast_morph(np.asarray(face_closed_pil), max(1, shrink_k // 2), 'erode'),
+        mode='L')
     blur_r = max(3, min(h, w) // 200)
     face_closed_pil = face_closed_pil.filter(ImageFilter.GaussianBlur(radius=blur_r))
     face_closed = np.array(face_closed_pil)
@@ -386,29 +402,51 @@ def _local_stats(values, skin_mask, tile=64):
     return mean_img, std_img
 
 
+def _box_blur_axis(a, radius, axis):
+    """Box-blur по оси через кумулятивную сумму — O(n) вместо O(n*k)."""
+    if radius < 1:
+        return a
+    x = np.swapaxes(a, 0, axis)
+    pad = radius + 1
+    xp = np.pad(x, [(pad, pad)] + [(0, 0)] * (x.ndim - 1), mode='edge')
+    cs = np.cumsum(xp, axis=0, dtype=np.float32)
+    cs = np.pad(cs, [(1, 0)] + [(0, 0)] * (x.ndim - 1), mode='constant')
+    n = x.shape[0]
+    lo = np.arange(n) + pad - radius
+    hi = np.arange(n) + pad + radius + 1
+    out = (cs[hi] - cs[lo]) / float(2 * radius + 1)
+    return np.swapaxes(out, 0, axis)
+
+
 def _gaussian_blur_np(arr, radius):
-    """Быстрый сепарабельный гауссов блюр на numpy (без SciPy)."""
-    if radius <= 0:
-        return arr.astype(np.float32)
-    sigma = float(radius) / 2.0
-    k = int(max(3, radius * 2 + 1))
-    x = np.arange(k, dtype=np.float32) - (k - 1) / 2.0
-    kernel = np.exp(-(x * x) / (2.0 * sigma * sigma))
-    kernel /= kernel.sum()
-    # Конволюция по строкам, потом по столбцам.
-    pad = (k - 1) // 2
+    """Аппроксимация гаусса тремя проходами box-blur (без SciPy).
+
+    Прямая свёртка ядром 2*radius+1 на больших радиусах (сотни px в DoG)
+    занимала секунды на вызов — здесь время не зависит от радиуса.
+    """
     a = arr.astype(np.float32)
-    # По оси X
-    ap = np.pad(a, ((0, 0), (pad, pad)), mode='edge')
-    tmp = np.zeros_like(a)
-    for i, w in enumerate(kernel):
-        tmp += ap[:, i:i + a.shape[1]] * w
-    # По оси Y
-    ap2 = np.pad(tmp, ((pad, pad), (0, 0)), mode='edge')
-    out = np.zeros_like(a)
-    for i, w in enumerate(kernel):
-        out += ap2[i:i + a.shape[0], :] * w
-    return out
+    if radius <= 0:
+        return a
+    sigma = float(radius) / 2.0
+    box_r = max(1, int(round(sigma * 1.5)))
+    for _ in range(3):
+        a = _box_blur_axis(a, box_r, 0)
+        a = _box_blur_axis(a, box_r, 1)
+    return a
+
+
+def _fast_morph(mask_u8, radius, mode):
+    """Дилатация/эрозия через box-blur + порог — O(n) вместо rank-фильтра.
+
+    PIL MaxFilter/MinFilter на радиусах в десятки px занимают секунды;
+    здесь время не зависит от радиуса.
+    """
+    m = (np.asarray(mask_u8) > 128).astype(np.float32)
+    if radius < 1:
+        return (m > 0.5).astype(np.uint8) * 255
+    b = _gaussian_blur_np(m, float(radius) * 1.4)
+    thr = 0.12 if mode == 'dilate' else 0.88
+    return (b > thr).astype(np.uint8) * 255
 
 
 def _dog_response(channel, sigma_small, sigma_large):
@@ -421,8 +459,11 @@ def _dog_response(channel, sigma_small, sigma_large):
     return s - L
 
 
-def _detect_defects(img_arr, skin_mask):
+def _detect_defects(img_arr, skin_mask, sensitivity=98.0, stubble_guard=True):
     """Детектор прыщей через blob-отклик (DoG).
+
+    sensitivity — перцентиль порога (92 = агрессивно, ловит слабые пятна
+    и пост-акне; 98.5 = только явные прыщи).
     Принципы:
     - Прыщ = ЛОКАЛЬНЫЙ ПИК красноты или яркостного провала размером 3-15px.
     - Ровная краснота кожи, ухо, шея, щетина, шум — НЕ дают пика на этом
@@ -468,10 +509,18 @@ def _detect_defects(img_arr, skin_mask):
     dd_skin = dark_dog[skin_bin]
     bd_skin = bright_dog[skin_bin]
 
-    # 99-й перцентиль ловит реальные пики, но не широкополосные изменения.
-    red_thr = max(3.0, float(np.percentile(rd_skin, 98))) if rd_skin.size > 100 else 5.0
-    dark_thr = max(3.0, float(np.percentile(dd_skin, 98))) if dd_skin.size > 100 else 5.0
-    bright_thr = max(4.0, float(np.percentile(bd_skin, 99))) if bd_skin.size > 100 else 8.0
+    # Перцентиль задаётся пресетом: чем ниже, тем больше дефектов ловим.
+    p = float(np.clip(sensitivity, 80.0, 99.5))
+    p_bright = float(np.clip(p + 1.0, 80.0, 99.7))
+    # Минимальные абсолютные пороги тоже смягчаем на высокой чувствительности,
+    # иначе на чистом свете слабые пост-акне отсекаются константой.
+    soft = float(np.clip((98.0 - p) / 6.0, 0.0, 1.0))  # 0 при p=98, 1 при p=92
+    min_rd = 3.0 - 1.4 * soft
+    min_bd = 4.0 - 1.6 * soft
+
+    red_thr = max(min_rd, float(np.percentile(rd_skin, p))) if rd_skin.size > 100 else 5.0
+    dark_thr = max(min_rd, float(np.percentile(dd_skin, p))) if dd_skin.size > 100 else 5.0
+    bright_thr = max(min_bd, float(np.percentile(bd_skin, p_bright))) if bd_skin.size > 100 else 8.0
 
     red_peaks = (red_dog > red_thr) & skin_bin
     dark_peaks = (dark_dog > dark_thr) & skin_bin
@@ -490,10 +539,13 @@ def _detect_defects(img_arr, skin_mask):
 
     # Расширяем зону щетины с запасом, чтобы прыщи между волосками тоже
     # не попадали в маску (LaMa там сгладит щетину).
-    stubble_pil = Image.fromarray(
-        (stubble_zone.astype(np.uint8) * 255), mode='L'
-    ).filter(ImageFilter.MaxFilter(7))
-    stubble_zone = np.array(stubble_pil) > 0
+    stubble_zone = _fast_morph(
+        stubble_zone.astype(np.uint8) * 255, 3, 'dilate') > 0
+
+    # На максимальной ретуши защиту щетины отключаем: у подростковой кожи
+    # россыпь точек акне ошибочно опознаётся как щетина и остаётся на фото.
+    if not stubble_guard:
+        stubble_zone = np.zeros_like(stubble_zone)
 
     # Дефекты = пики, но НЕ в зоне щетины (там оставляем кожу как есть).
     # Красные пики оставляем даже в щетине — это явные воспаления.
@@ -507,23 +559,19 @@ def _detect_defects(img_arr, skin_mask):
     if max_k % 2 == 0:
         max_k += 1
     max_k = min(max_k, 21)  # лимит 21px чтобы не раздувать тени
-    peaks_pil = Image.fromarray(peaks, mode='L').filter(
-        ImageFilter.MaxFilter(max_k)
-    )
-    defects = np.array(peaks_pil)
+    defects = _fast_morph(peaks, max(1, max_k // 2), 'dilate')
     defects = np.minimum(defects, skin_mask)
     stubble_cnt = int(np.count_nonzero(stubble_zone))
 
     # Удаляем крупные заливки (на случай, если несколько пиков слились в зону >
     # ~30px — это уже не прыщ, а тень/брови/складка).
     before_blob = int(np.count_nonzero(defects))
-    blob_r = max(8, int(min(h, w) * 0.018))
-    erode_pil = Image.fromarray(defects, mode='L')
-    for _ in range(blob_r):
-        erode_pil = erode_pil.filter(ImageFilter.MinFilter(3))
-    for _ in range(blob_r + 2):
-        erode_pil = erode_pil.filter(ImageFilter.MaxFilter(3))
-    big_blobs = np.array(erode_pil)
+    # Без stubble_guard (макс. ретушь) допускаем более крупные зоны:
+    # слившиеся очаги акне — это всё ещё дефект, а не тень.
+    blob_scale = 0.018 if stubble_guard else 0.030
+    blob_r = max(8, int(min(h, w) * blob_scale))
+    big_blobs = _fast_morph(_fast_morph(defects, blob_r, 'erode'),
+                            blob_r + 2, 'dilate')
     defects = np.where(big_blobs > 0, 0, defects).astype(np.uint8)
     after_blob = int(np.count_nonzero(defects))
 

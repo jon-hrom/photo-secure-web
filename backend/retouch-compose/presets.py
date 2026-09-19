@@ -1,23 +1,37 @@
 """Профессиональные пресеты ретуши.
 
-Каждый пресет — это набор параметров для всего pipeline:
+Каждый пресет — набор параметров для всего pipeline композиции:
+
+  AI-слой:
   - strength: сила работы внешнего LaMa-API (0..1)
-  - max_compose_side: разрешение для композиции (выше = меньше "туманки", больше памяти)
+  - alpha_multiplier: насколько сильно вклеивается AI-результат в кожу
+  - max_compose_side: разрешение для композиции
   - preview_side: разрешение для построения маски
-  - denoise_strength: сила скин-денойза (0 = выключить)
-  - skin_smooth_multiplier: множитель силы сглаживания кожи
-  - sharpen_amount: сила финального шарпинга (0 = выключить)
-  - sharpen_radius: радиус шарпинга (px)
-  - protect_expand_ratio: доля от размера лица для расширения protect-маски глаз/губ/зубов
-  - background_protect: возвращать ли оригинальные пиксели фона (защита от серого фона)
-  - dodge_burn_strength: сила микроконтраста (Dodge&Burn) на скулах/носу/подбородке (0 = выкл)
+
+  Healing прыщей:
+  - heal_passes: число масштабов интерполяции дефектов (0 = выкл)
+  - defect_grow_px: расширение маски дефекта (чтобы захватить ореол прыща)
+  - defect_sensitivity: чувствительность детектора (percentile), ниже = больше находит
+
+  Frequency separation:
+  - tone_radius_ratio: доля от размера кадра для разделения частот
+  - tone_strength: 0..1 сила выравнивания тона
+  - texture_keep: 0..1 сколько высокочастотной текстуры сохранить
+  - blotch_clip: порог амплитуды HF, выше которого деталь считается дефектом
+
+  Цвет:
+  - color_even_strength: выравнивание цветовых пятен (0..1)
+  - red_cast_strength: снятие локальных покраснений (0..1)
+  - micro_texture: возврат пор из оригинала (0..1)
+
+  Финал:
+  - sharpen_amount / sharpen_radius: финальный шарп
   - jpeg_quality: качество финального JPEG
-  - apply_c1_preset: применять ли Capture One цветокоррекцию
 
 Три уровня:
   - light: минимальная ретушь, максимум деталей
   - medium: баланс (по умолчанию)
-  - strong: глубокая ретушь для проблемной кожи
+  - strong: глубокая бьюти-ретушь — кожа без единого дефекта
 """
 
 from typing import Dict, Any
@@ -26,44 +40,91 @@ from typing import Dict, Any
 PRESETS: Dict[str, Dict[str, Any]] = {
     "light": {
         "strength": 0.35,
-        "alpha_multiplier": 0.65,
-        "max_compose_side": 1800,
+        "alpha_multiplier": 0.55,
+        "max_compose_side": 1000,
         "preview_side": 1024,
-        "denoise_strength": 0.0,
-        "skin_smooth_multiplier": 0.4,
-        "sharpen_amount": 0.35,
+
+        "heal_passes": 2,
+        "defect_grow_px": 2,
+        "defect_sensitivity": 98.5,
+        "red_patch_strength": 0.0,
+        "spot_strength": 0.25,
+
+        "tone_radius_ratio": 0.006,
+        "tone_strength": 0.30,
+        "texture_keep": 0.85,
+        "blotch_clip": 16.0,
+
+        "color_even_strength": 0.25,
+        "red_cast_strength": 0.30,
+        "micro_texture": 0.45,
+
+        "sharpen_amount": 0.30,
         "sharpen_radius": 0.8,
-        "background_protect": False,
-        "dodge_burn_strength": 0.0,
         "jpeg_quality": 95,
         "apply_c1_preset": False,
     },
     "medium": {
         "strength": 0.55,
-        "alpha_multiplier": 1.00,
-        "max_compose_side": 1800,
+        "alpha_multiplier": 0.85,
+        "max_compose_side": 1000,
         "preview_side": 1024,
-        "denoise_strength": 0.15,
-        "skin_smooth_multiplier": 1.10,
-        "sharpen_amount": 0.45,
+
+        "heal_passes": 3,
+        "defect_grow_px": 3,
+        "defect_sensitivity": 97.0,
+        "red_patch_strength": 0.5,
+        "spot_strength": 0.55,
+
+        "tone_radius_ratio": 0.008,
+        "tone_strength": 0.55,
+        "texture_keep": 0.62,
+        "blotch_clip": 11.0,
+
+        "color_even_strength": 0.45,
+        "red_cast_strength": 0.50,
+        "micro_texture": 0.38,
+
+        "sharpen_amount": 0.35,
         "sharpen_radius": 0.8,
-        "background_protect": False,
-        "dodge_burn_strength": 0.0,
         "jpeg_quality": 95,
         "apply_c1_preset": False,
     },
+    # МАКСИМУМ: кожа как после профессиональной бьюти-ретуши.
+    # Ни одного прыща, идеально ровный тон, но текстура пор сохранена.
     "strong": {
         "strength": 0.85,
-        "alpha_multiplier": 1.35,
-        "max_compose_side": 1800,
+        "alpha_multiplier": 1.20,
+        "max_compose_side": 1000,
         "preview_side": 1024,
-        "denoise_strength": 0.30,
-        "skin_smooth_multiplier": 1.80,
-        "sharpen_amount": 0.55,
+
+        # Агрессивный healing: 4 масштаба, широкий захват ореола прыща,
+        # низкий порог детекции — ловим даже слабые пятна и пост-акне.
+        "heal_passes": 4,
+        # Второй проход добивает пятна, пережившие первый healing.
+        "heal_iterations": 2,
+        # Россыпь акне не должна приниматься за щетину и оставаться на фото.
+        "stubble_guard": False,
+        "defect_grow_px": 6,
+        "defect_sensitivity": 92.0,
+        # Плоские красные пятна и пост-акне тоже лечим.
+        "red_patch_strength": 1.0,
+        # Россыпь мелких точек и комедонов тоже убираем.
+        "spot_strength": 1.0,
+
+        # Сильное выравнивание тона, текстура возвращается отдельно.
+        "tone_radius_ratio": 0.012,
+        "tone_strength": 0.88,
+        "texture_keep": 0.38,
+        "blotch_clip": 6.0,
+
+        "color_even_strength": 0.80,
+        "red_cast_strength": 0.85,
+        "micro_texture": 0.42,
+
+        "sharpen_amount": 0.40,
         "sharpen_radius": 0.9,
-        "background_protect": False,
-        "dodge_burn_strength": 0.0,
-        "jpeg_quality": 95,
+        "jpeg_quality": 96,
         "apply_c1_preset": False,
     },
 }
