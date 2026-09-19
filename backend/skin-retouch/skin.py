@@ -173,12 +173,10 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     strength = float(np.clip(strength, 0.0, 1.0))
     keep_texture = float(np.clip(keep_texture, 0.0, 1.0))
 
-    orig = _to_arr(original)
-    gen = _to_arr(generated)
-
     skin_mask = build_skin_mask(original)
     protect = build_protect_mask(original)
     mask = np.clip(skin_mask * (1.0 - protect), 0.0, 1.0)
+    del skin_mask, protect
     if regions:
         mask *= regions_mask(original.size, regions)
 
@@ -202,24 +200,54 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     trust = _upscale_mask(np.asarray(trust_img, dtype=np.float32) / 255.0,
                           original.size)
 
-    alpha = (mask * trust * strength)[..., None]
+    # Карту силы храним как uint8: float32 на весь кадр — это лишние
+    # десятки мегабайт, а точности 1/255 для маски более чем достаточно.
+    alpha_map = (np.clip(mask * trust * strength, 0.0, 1.0) * 255).astype(np.uint8)
+    del mask, trust
 
-    # Низкие частоты берём у модели (ровный тон), высокие частично
-    # возвращаем из оригинала — так сохраняются поры и кожа живая.
+    # Финал считаем горизонтальными полосами. Раньше в памяти одновременно
+    # жили ~8 float32-копий кадра — на 1600px это 450 МБ, и функцию убивал
+    # OOM (лимит 256 МБ). Полосами пик держится в пределах десятков мегабайт.
     radius = max(1.2, min(original.size) / 500.0)
-    gen_detail = _highpass(gen, radius)
-    orig_detail = _highpass(orig, radius)
-    # Из оригинала берём ТОЛЬКО слабые детали — поры и микрорельеф.
-    # Сильные высокие частоты это и есть прыщи и пятна: вернуть их
-    # означало бы отменить ретушь.
-    amp = np.abs(orig_detail).mean(axis=-1, keepdims=True)
-    fine = np.clip(1.0 - (amp - 6.0) / 8.0, 0.0, 1.0)
-    orig_fine = orig_detail * fine
-    detail = gen_detail + (orig_fine - gen_detail) * keep_texture
-    gen_final = (gen - gen_detail) + detail
+    width, height = original.size
+    band = max(64, int(600_000 / max(width, 1)))
+    overlap = int(radius * 3) + 2  # запас, чтобы блюр не рвал стык полос
 
-    out = orig * (1.0 - alpha) + gen_final * alpha
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+    out_img = Image.new("RGB", original.size)
+
+    for top in range(0, height, band):
+        bottom = min(height, top + band)
+        # Читаем с перехлёстом, а вклеиваем только «чистую» середину.
+        src_top = max(0, top - overlap)
+        src_bottom = min(height, bottom + overlap)
+        box = (0, src_top, width, src_bottom)
+
+        orig = np.asarray(original.crop(box), dtype=np.float32)
+        gen = np.asarray(generated.crop(box), dtype=np.float32)
+
+        # Низкие частоты берём у модели (ровный тон), высокие частично
+        # возвращаем из оригинала — так сохраняются поры и кожа живая.
+        gen_detail = _highpass(gen, radius)
+        orig_detail = _highpass(orig, radius)
+        # Из оригинала берём ТОЛЬКО слабые детали — поры и микрорельеф.
+        # Сильные высокие частоты это и есть прыщи и пятна: вернуть их
+        # означало бы отменить ретушь.
+        amp = np.abs(orig_detail).mean(axis=-1, keepdims=True)
+        fine = np.clip(1.0 - (amp - 6.0) / 8.0, 0.0, 1.0)
+        detail = gen_detail + (orig_detail * fine - gen_detail) * keep_texture
+        gen_final = gen - gen_detail + detail
+        del gen_detail, orig_detail, amp, fine, detail
+
+        alpha = alpha_map[src_top:src_bottom][..., None].astype(np.float32) / 255.0
+        chunk = orig * (1.0 - alpha) + gen_final * alpha
+        del orig, gen, gen_final, alpha
+
+        chunk = np.clip(chunk, 0, 255).astype(np.uint8)
+        inner = chunk[top - src_top: top - src_top + (bottom - top)]
+        out_img.paste(Image.fromarray(inner), (0, top))
+        del chunk, inner
+
+    return out_img
 
 
 def mask_preview(img: Image.Image, regions=None) -> Image.Image:

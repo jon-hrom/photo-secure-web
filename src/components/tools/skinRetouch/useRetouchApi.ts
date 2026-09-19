@@ -127,6 +127,9 @@ export const useRetouchApi = (open: boolean) => {
           setLoadingText('AI выравнивает кожу...');
           continue;
         }
+        if (sd.status === 'refunded') {
+          throw new Error((sd.error as string) || 'ретушь не удалась, энергия возвращена');
+        }
         if (sd.status === 'failed') throw new Error((sd.error as string) || 'не удалось отретушировать');
         data = sd;
         break;

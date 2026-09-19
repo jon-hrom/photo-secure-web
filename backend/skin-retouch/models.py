@@ -65,6 +65,7 @@ MODEL = os.environ.get("SKIN_RETOUCH_MODEL", "grok-imagine")
 # Цена для пользователя в энергии (1 ⚡ = 1 ₽). Выставим после замера
 # себестоимости — пока держим ориентир.
 PRICE = int(os.environ.get("SKIN_RETOUCH_PRICE", "15"))
+MAX_COMPOSE_SIDE = int(os.environ.get("SKIN_RETOUCH_MAX_SIDE", "2400"))
 LABEL = "Ретушь кожи"
 HINT = "AI выровняет кожу, не меняя черты лица и фигуру"
 
@@ -239,16 +240,32 @@ def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
     keep_texture — сколько микротекстуры оригинала вернуть поверх (0..1)
     regions      — боксы с людьми, вне их ретушь не применяется
     """
+    import gc
     import skin
     from PIL import Image
 
     original = Image.open(io.BytesIO(base64.b64decode(original_b64))).convert("RGB")
+
+    # Страховка по памяти: функция живёт в 256 МБ, и кадр больше ~2400 px
+    # по длинной стороне в неё уже не помещается вместе с результатом.
+    if max(original.size) > MAX_COMPOSE_SIDE:
+        original.thumbnail((MAX_COMPOSE_SIDE, MAX_COMPOSE_SIDE), Image.LANCZOS)
+
     generated = Image.open(io.BytesIO(result_bytes)).convert("RGB")
     if generated.size != original.size:
         generated = generated.resize(original.size, Image.LANCZOS)
 
     merged = skin.blend_skin(original, generated, strength=strength,
                              keep_texture=keep_texture, regions=regions)
+
+    # Исходники больше не нужны: держать их в памяти вместе с результатом
+    # и base64-строкой — лишние сотни мегабайт при лимите функции 256 МБ.
+    original.close()
+    generated.close()
+    del original, generated
+    gc.collect()
+
     buf = io.BytesIO()
-    merged.save(buf, format="JPEG", quality=95, subsampling=0)
+    merged.save(buf, format="JPEG", quality=92, subsampling=0, optimize=True)
+    merged.close()
     return base64.b64encode(buf.getvalue()).decode()
