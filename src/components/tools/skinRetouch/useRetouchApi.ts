@@ -96,7 +96,6 @@ export const useRetouchApi = (open: boolean) => {
 
       setLoadingText('AI выравнивает кожу...');
 
-      let data: Record<string, unknown> | null = null;
       // Обрыв соединения на мобильном интернете — норма. Задача на сервере
       // при этом жива, поэтому сетевые ошибки не валят прогон: пробуем снова.
       let networkFails = 0;
@@ -104,6 +103,7 @@ export const useRetouchApi = (open: boolean) => {
       // отклонила фото по модерации) — тогда он вернёт новый task_id.
       let taskId = started.task_id as string;
       let retried = false;
+      let readyUrl = '';
       for (let attempt = 0; attempt < 60; attempt++) {
         await new Promise((r) => setTimeout(r, 4000));
         let sd: Record<string, unknown>;
@@ -142,10 +142,36 @@ export const useRetouchApi = (open: boolean) => {
           throw new Error((sd.error as string) || 'ретушь не удалась, энергия возвращена');
         }
         if (sd.status === 'failed') throw new Error((sd.error as string) || 'не удалось отретушировать');
-        data = sd;
+        readyUrl = String(sd.url || '');
         break;
       }
-      if (!data?.image) throw new Error('Превышено время ожидания');
+      if (!readyUrl) throw new Error('Превышено время ожидания');
+
+      // Второй шаг: сборка финального кадра. Вынесена в отдельный запрос,
+      // потому что вместе с ожиданием модели она не укладывалась в лимит
+      // времени функции и готовая ретушь срывалась по таймауту.
+      setLoadingText('Собираем результат...');
+      let data: Record<string, unknown> | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const cr = await fetch(`${SKIN_RETOUCH_URL}?action=compose`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ url: readyUrl, image: imageB64, preset: presetKey }),
+          });
+          const cd = await cr.json();
+          if (!cr.ok) throw new Error((cd?.error as string) || `HTTP ${cr.status}`);
+          if (cd.status === 'failed') throw new Error((cd.error as string) || 'не удалось собрать результат');
+          data = cd;
+          break;
+        } catch (composeErr) {
+          if (attempt === 2) throw composeErr;
+          console.warn('retouch compose failed, retrying', composeErr);
+          setLoadingText('Повторяем сборку...');
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
+      if (!data?.image) throw new Error('Не удалось собрать результат');
 
       setResultUrl(`data:image/jpeg;base64,${data.image}`);
       setStage('result');

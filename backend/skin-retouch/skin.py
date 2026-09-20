@@ -100,24 +100,74 @@ def _hsv(arr: np.ndarray):
 def _box_blur_1d(arr: np.ndarray, radius: int, axis: int) -> np.ndarray:
     if radius < 1:
         return arr
-    a = np.swapaxes(arr, 0, axis)
+    if radius <= 2:
+        # На маленьком окне прямое суммирование сдвигов дешевле cumsum:
+        # нет обхода всего массива с накоплением и потери точности на хвосте.
+        pad = [(0, 0)] * arr.ndim
+        pad[axis] = (radius, radius)
+        ap = np.pad(arr, pad, mode="edge")
+        n = arr.shape[axis]
+        acc = None
+        for off in range(2 * radius + 1):
+            sl = [slice(None)] * arr.ndim
+            sl[axis] = slice(off, off + n)
+            part = ap[tuple(sl)]
+            acc = part.astype(np.float32, copy=True) if acc is None else acc + part
+        return acc * np.float32(1.0 / (2 * radius + 1))
     pad = radius + 1
-    ap = np.pad(a, [(pad, pad)] + [(0, 0)] * (a.ndim - 1), mode="edge")
-    cs = np.cumsum(ap, axis=0, dtype=np.float32)
-    cs = np.pad(cs, [(1, 0)] + [(0, 0)] * (a.ndim - 1), mode="constant")
-    n = a.shape[0]
+    padw = [(0, 0)] * arr.ndim
+    padw[axis] = (pad, pad)
+    ap = np.pad(arr, padw, mode="edge")
+    cs = np.cumsum(ap, axis=axis, dtype=np.float32)
+    n = arr.shape[axis]
     win = 2 * radius + 1
-    lo = np.arange(n) + pad - radius
-    hi = np.arange(n) + pad + radius + 1
-    out = (cs[hi] - cs[lo]) / float(win)
-    return np.swapaxes(out, 0, axis)
+    lo = pad - radius
+    # Срезы вместо fancy-индексации и без swapaxes: тот же результат,
+    # но без лишних транспонирований и таблиц смещений.
+    hi_sl = [slice(None)] * arr.ndim
+    hi_sl[axis] = slice(lo + win - 1, lo + win - 1 + n)
+    lo_sl = [slice(None)] * arr.ndim
+    lo_sl[axis] = slice(lo - 1, lo - 1 + n)
+    return (cs[tuple(hi_sl)] - cs[tuple(lo_sl)]) * np.float32(1.0 / win)
+
+
+def _downsample(a: np.ndarray, k: int) -> np.ndarray:
+    """Усреднение блоками kxk (аналог area-resize, но без PIL и без uint8)."""
+    h, w = a.shape[:2]
+    ph, pw = (-h) % k, (-w) % k
+    if ph or pw:
+        a = np.pad(a, [(0, ph), (0, pw)] + [(0, 0)] * (a.ndim - 2), mode="edge")
+    hh, ww = a.shape[0] // k, a.shape[1] // k
+    if a.ndim == 2:
+        return a.reshape(hh, k, ww, k).mean(axis=(1, 3), dtype=np.float32)
+    return a.reshape(hh, k, ww, k, a.shape[2]).mean(axis=(1, 3), dtype=np.float32)
 
 
 def _blur_f(arr: np.ndarray, radius: float) -> np.ndarray:
-    """Гаусс-подобное размытие float32 массива (2D или 3D)."""
+    """Гаусс-подобное размытие float32 массива (2D или 3D).
+
+    Для больших радиусов считаем на уменьшенной копии: размытие радиусом
+    в десятки пикселей по определению не содержит мелких деталей, поэтому
+    результат тот же, а работы в k² раз меньше. Именно эти широкие блюры
+    (healing, опорный тон, карта доверия) съедали основное время функции
+    и приводили к 504 по таймауту.
+    """
     a = arr.astype(np.float32)
     if radius <= 0:
         return a
+    k = int(radius // 3)
+    if k >= 2 and min(a.shape[0], a.shape[1]) // k >= 16:
+        small = _downsample(a, k)
+        box_s = max(1, int(round(float(radius) / k / 2.0 * 1.5)))
+        for _ in range(3):
+            small = _box_blur_1d(small, box_s, axis=0)
+            small = _box_blur_1d(small, box_s, axis=1)
+        up = np.repeat(np.repeat(small, k, axis=0), k, axis=1)[:a.shape[0], :a.shape[1]]
+        # Сглаживаем ступеньки апскейла — он идёт блоками kxk.
+        smooth = max(1, k // 2)
+        up = _box_blur_1d(up, smooth, axis=0)
+        up = _box_blur_1d(up, smooth, axis=1)
+        return up
     box_r = max(1, int(round(float(radius) / 2.0 * 1.5)))
     for _ in range(3):
         a = _box_blur_1d(a, box_r, axis=0)
@@ -153,6 +203,32 @@ def _blur_arr(arr: np.ndarray, radius: float) -> np.ndarray:
 def _ramp(x: np.ndarray, t0: float, t1: float) -> np.ndarray:
     """Мягкий порог 0..1 (без жёстких краёв, иначе видны заплатки)."""
     return np.clip((x - t0) / max(t1 - t0, 1e-6), 0.0, 1.0)
+
+
+def _window_sum(mask: np.ndarray, k: int) -> np.ndarray:
+    """Сумма бинарной маски в окне kxk через интегральное изображение."""
+    r = k // 2
+    a = np.pad(mask.astype(np.float32), ((r, r), (r, r)), mode="edge")
+    cs = np.cumsum(np.cumsum(a, axis=0, dtype=np.float32), axis=1, dtype=np.float32)
+    cs = np.pad(cs, ((1, 0), (1, 0)), mode="constant")
+    h, w = mask.shape
+    return cs[k:k + h, k:k + w] - cs[0:h, k:k + w] - cs[k:k + h, 0:w] + cs[0:h, 0:w]
+
+
+def _erode(mask: np.ndarray, k: int) -> np.ndarray:
+    """Эрозия бинарной маски квадратом kxk.
+
+    Полный аналог ImageFilter.MinFilter для маски из нулей и единиц, но
+    время не зависит от размера ядра: PIL перебирает k² пикселей на каждую
+    точку, и на ядре 13 это десятки миллисекунд — заметная часть лимита
+    времени функции.
+    """
+    return (_window_sum(mask, k) > k * k - 0.5).astype(np.float32)
+
+
+def _dilate(mask: np.ndarray, k: int) -> np.ndarray:
+    """Дилатация бинарной маски квадратом kxk (аналог MaxFilter)."""
+    return (_window_sum(mask, k) > 0.5).astype(np.float32)
 
 
 # ============================ МАСКИ ============================
@@ -257,16 +333,12 @@ def skin_mask_small(img: Image.Image) -> np.ndarray:
     mask = np.clip(mask - (not_skin > 0.45).astype(np.float32), 0.0, 1.0)
 
     # --- 4. Морфология ---
-    m = Image.fromarray((mask * 255).astype(np.uint8), mode="L")
     # Opening ПЕРВЫМ: снимаем мелкие «острова» на фоне, волосах и одежде,
     # пока closing их не раздул до сплошных пятен.
     open_k = _odd(max(3, min(img.size) // 110))
-    m = m.filter(ImageFilter.MinFilter(open_k))
-    m = m.filter(ImageFilter.MaxFilter(open_k))
+    mask = _dilate(_erode(mask, open_k), open_k)
     close = _odd(max(5, min(img.size) // 45))
-    m = m.filter(ImageFilter.MaxFilter(close))
-    m = m.filter(ImageFilter.MinFilter(close))
-    mask = (np.asarray(m, dtype=np.float32) / 255.0 > 0.5).astype(np.float32)
+    mask = _erode(_dilate(mask, close), close)
 
     # --- 5. Заполнение дыр ---
     # Самое важное для акне. Очаг воспаления на щеке по цвету из маски
@@ -279,10 +351,10 @@ def skin_mask_small(img: Image.Image) -> np.ndarray:
     mask = _fill_holes(mask)
 
     # --- 6. Финальная доводка края ---
-    m = Image.fromarray((mask * 255).astype(np.uint8), mode="L")
     # Эрозия на полшага внутрь: край маски не должен залезать на волосы
     # и воротник, иначе там появится ореол.
-    m = m.filter(ImageFilter.MinFilter(_odd(max(3, min(img.size) // 100))))
+    mask = _erode(mask, _odd(max(3, min(img.size) // 100)))
+    m = Image.fromarray((mask * 255).astype(np.uint8), mode="L")
     m = m.filter(ImageFilter.GaussianBlur(radius=max(2, min(img.size) // 200)))
     mask = np.clip(np.asarray(m, dtype=np.float32) / 255.0, 0.0, 1.0)
 
@@ -357,14 +429,13 @@ def protect_mask_small(img: Image.Image) -> np.ndarray:
 
     protect = np.clip(dark + red + bright, 0.0, 1.0)
 
-    p = Image.fromarray((protect * 255).astype(np.uint8), mode="L")
     # Открытие: мелкие красные точки (прыщи) из защиты выпадают, крупные
     # зоны — губы, глаза, брови — остаются. Ядро крупное: россыпь акне
     # занимает площадь, сравнимую с губами, и мелкое ядро её сохраняло.
     open_k = _odd(max(5, min(img.size) // 26))
-    p = p.filter(ImageFilter.MinFilter(open_k))
-    p = p.filter(ImageFilter.MaxFilter(open_k))
-    p = p.filter(ImageFilter.MaxFilter(_odd(max(3, min(img.size) // 200))))
+    protect = _dilate(_erode(protect, open_k), open_k)
+    protect = _dilate(protect, _odd(max(3, min(img.size) // 200)))
+    p = Image.fromarray((protect * 255).astype(np.uint8), mode="L")
     p = p.filter(ImageFilter.GaussianBlur(radius=max(2, min(img.size) // 400)))
     return np.clip(np.asarray(p, dtype=np.float32) / 255.0, 0.0, 1.0)
 
@@ -446,11 +517,16 @@ def detect_defects(arr: np.ndarray, skin: np.ndarray,
 
     sm = max(1.2, min(h, w) * 0.0025)   # мелкие точки, комедоны
     md = max(2.5, min(h, w) * 0.0060)   # крупные прыщи
-    dark = np.maximum(dog(-lum_s, sm, sm * 3.5), dog(-lum_s, md, md * 3.5))
+    # dog(-x) == -dog(x), поэтому тёмный и светлый отклики считаются из
+    # одних и тех же блюров — это вдвое меньше работы на самом дорогом шаге.
+    lum_sm = dog(lum_s, sm, sm * 3.5)
+    lum_md = dog(lum_s, md, md * 3.5)
+    dark = np.maximum(-lum_sm, -lum_md)
+    del lum_md
     redx = np.maximum(dog(red_s, sm, sm * 3.5), dog(red_s, md, md * 3.5))
     # Светлые дефекты (белые головки) — только на мелком масштабе: на
     # крупном туда попадает блик на носу и скуле, то есть нормальный объём.
-    light = dog(lum_s, sm, sm * 3.5)
+    light = lum_sm
 
     # --- Плоские красные пятна ---
     # DoG ловит выпуклые «пики» нужного размера, но зажившее пост-акне и
@@ -631,7 +707,12 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     work = _small(original, WORK_SIDE)
     work_size = work.size
     orig_s = _to_arr(work)
-    gen_s = _to_arr(generated.resize(work_size, Image.BILINEAR))
+    # Картинка модели приходит своего размера. Приводим её сразу к рабочему
+    # разрешению: work_size имеет пропорции оригинала, поэтому геометрия
+    # нормализуется тем же самым образом, что и раньше, но за один ресайз.
+    # REDUCING_GAP включает предварительное усреднение — без него при сильном
+    # уменьшении появляется алиасинг на коже.
+    gen_s = _to_arr(generated.resize(work_size, Image.BILINEAR, reducing_gap=2.0))
     skin_s = _upscale_mask(mask_s, work_size)
     del mask_s, mask_img
 

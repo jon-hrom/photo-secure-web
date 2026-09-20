@@ -1,10 +1,11 @@
 """
 Ретушь кожи: AI выравнивает кожу, композит по маске гарантирует, что человек не меняется.
-Args: event с httpMethod, queryStringParameters (action=estimate|start|status|catalog|bench), body, headers X-User-Id
+Args: event с httpMethod, queryStringParameters (action=estimate|start|status|compose|catalog|bench), body, headers X-User-Id
 Returns: HTTP ответ с ценой, id задачи, готовым изображением или отладкой по моделям
 """
 import json
 import os
+import time
 import base64
 from typing import Dict, Any
 
@@ -166,7 +167,14 @@ def _handle_regions(payload: dict):
 
 
 def _handle_status(payload: dict, user_id):
-    """Проверяет готовность задачи и собирает безопасный результат."""
+    """Проверяет готовность задачи у провайдера. Сборку НЕ делает.
+
+    Раньше этот же вызов скачивал результат и собирал композит. Три
+    операции в одном запросе (опрос + скачивание + сборка) не помещались
+    в лимит времени функции, и готовая ретушь обрывалась по таймауту —
+    пользователь видел ошибку, хотя фото было готово. Теперь сборка живёт
+    в отдельном вызове compose.
+    """
     task_id = payload.get("task_id")
     if not task_id:
         return _response(400, {"error": "task_id is required"})
@@ -203,15 +211,28 @@ def _handle_status(payload: dict, user_id):
             "refunded": models.PRICE,
         })
 
+    body = {"status": "ready", "url": state["url"]}
+    if state.get("cost") is not None:
+        body["provider_cost"] = state["cost"]
+    return _response(200, body)
+
+
+def _handle_compose(payload: dict, user_id):
+    """Скачивает готовый результат и собирает финальный кадр по маске кожи."""
+    url = payload.get("url")
     image_b64 = payload.get("image")
+    if not url:
+        return _response(400, {"error": "url is required"})
     if not image_b64:
         return _response(400, {"error": "image is required to compose result"})
 
     preset = _preset(payload.get("preset"))
     regions = payload.get("regions") or None
 
+    started = time.time()
     try:
-        result_bytes = models.download(state["url"])
+        result_bytes = models.download(url)
+        downloaded = time.time()
         result_b64 = models.compose(
             image_b64,
             result_bytes,
@@ -222,6 +243,8 @@ def _handle_status(payload: dict, user_id):
             highlight_recovery=preset["highlights"],
             even_out=preset["even_out"],
         )
+        print(f"[SKIN] compose ok: download={downloaded - started:.2f}s "
+              f"blend={time.time() - downloaded:.2f}s")
     except Exception as e:
         if user_id:
             energy.refund(user_id, models.PRICE, "Возврат: ошибка сборки ретуши")
@@ -234,8 +257,6 @@ def _handle_status(payload: dict, user_id):
         "charged": models.PRICE,
         "preset": preset["label"],
     }
-    if state.get("cost") is not None:
-        body["provider_cost"] = state["cost"]
     if user_id:
         body["energy_balance"] = energy.get_balance(user_id)
     return _response(200, body)
@@ -319,6 +340,8 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         return _handle_start(payload, user_id)
     if action == "status":
         return _handle_status(payload, user_id)
+    if action == "compose":
+        return _handle_compose(payload, user_id)
     if action == "regions":
         return _handle_regions(payload)
     if action == "balance":

@@ -301,8 +301,10 @@ def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
         original.thumbnail((MAX_COMPOSE_SIDE, MAX_COMPOSE_SIDE), Image.LANCZOS)
 
     generated = Image.open(io.BytesIO(result_bytes)).convert("RGB")
-    if generated.size != original.size:
-        generated = generated.resize(original.size, Image.LANCZOS)
+    # Раньше картинка модели растягивалась до полного размера кадра, хотя
+    # композит берёт от неё только низкие частоты на рабочем разрешении и
+    # тут же уменьшает обратно. Лишний LANCZOS по большому кадру стоил
+    # заметной доли секунды и памяти — просто не делаем его.
 
     merged = skin.blend_skin(original, generated, strength=strength,
                              keep_texture=keep_texture, regions=regions,

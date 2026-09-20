@@ -43,6 +43,20 @@
       "expectedStatus": 400
     },
     {
+      "name": "Compose without url",
+      "method": "POST",
+      "path": "/?action=compose",
+      "body": {"image": "aGVsbG8="},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Compose without image",
+      "method": "POST",
+      "path": "/?action=compose",
+      "body": {"url": "https://example.com/a.jpg"},
+      "expectedStatus": 400
+    },
+    {
       "name": "Balance is admin only",
       "method": "POST",
       "path": "/?action=balance",
