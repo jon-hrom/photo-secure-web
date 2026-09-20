@@ -91,14 +91,18 @@ def regions_mask(size, regions) -> np.ndarray:
 
 
 def build_skin_mask(img: Image.Image) -> np.ndarray:
-    """Сплошная маска кожи 0..1, включая дефекты и блики.
+    """Сплошная маска кожи 0..1 в размере кадра (для отладки/превью)."""
+    return _upscale_mask(skin_mask_small(_small(img)), img.size)
 
+
+def skin_mask_small(img: Image.Image) -> np.ndarray:
+    """Маска кожи в уменьшенном разрешении.
+
+    Держать её в размере кадра нельзя: float32 на 2400x1600 — это 15 МБ,
+    а таких карт по ходу композита получалось три-четыре одновременно.
+    При лимите функции в 256 МБ это и был OOM (kill -9 → HTTP 502).
     Важно: прыщи, покраснения и пересвеченные зоны обязаны попасть в маску.
-    Раньше они отсекались цветовым правилом — и именно поэтому оставались
-    на фото нетронутыми.
     """
-    full_size = img.size
-    img = _small(img)
     arr = _to_arr(img)
     r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
     y, cb, cr = _ycbcr(arr)
@@ -136,17 +140,20 @@ def build_skin_mask(img: Image.Image) -> np.ndarray:
     m = m.filter(ImageFilter.GaussianBlur(radius=max(2, min(img.size) // 300)))
     mask = np.asarray(m, dtype=np.float32) / 255.0
 
-    return _upscale_mask(np.clip(mask, 0.0, 1.0), full_size)
+    return np.clip(mask, 0.0, 1.0)
 
 
 def build_protect_mask(img: Image.Image) -> np.ndarray:
-    """Маска «не трогать»: глаза, брови, ресницы, губы, зубы, ноздри.
+    """Маска «не трогать» в размере кадра (для отладки/превью)."""
+    return _upscale_mask(protect_mask_small(_small(img)), img.size)
+
+
+def protect_mask_small(img: Image.Image) -> np.ndarray:
+    """Защита в уменьшенном разрешении: глаза, брови, губы, зубы, ноздри.
 
     Защита намеренно узкая. Широкая защита «съедала» прыщи и покраснения
     (они тоже тёмные и красные) и мешала их убрать.
     """
-    full_size = img.size
-    img = _small(img)
     arr = _to_arr(img)
     y, cb, cr = _ycbcr(arr)
     v, s, _ = _hsv(arr)
@@ -183,8 +190,7 @@ def build_protect_mask(img: Image.Image) -> np.ndarray:
     # Небольшой запас по краю защищённых зон.
     p = p.filter(ImageFilter.MaxFilter(_odd(max(3, min(img.size) // 160))))
     p = p.filter(ImageFilter.GaussianBlur(radius=max(2, min(img.size) // 400)))
-    small_mask = np.clip(np.asarray(p, dtype=np.float32) / 255.0, 0.0, 1.0)
-    return _upscale_mask(small_mask, full_size)
+    return np.clip(np.asarray(p, dtype=np.float32) / 255.0, 0.0, 1.0)
 
 
 def _highpass(arr: np.ndarray, radius: float) -> np.ndarray:
@@ -195,13 +201,17 @@ def _highpass(arr: np.ndarray, radius: float) -> np.ndarray:
     return arr - blurred
 
 
-def recover_highlights(img: Image.Image, mask: np.ndarray,
+def recover_highlights(img: Image.Image, mask_small: np.ndarray,
                        strength: float = 0.6) -> Image.Image:
     """Восстановление пересвета на коже: сжимает света и возвращает объём.
 
     Пересвеченные зоны (жирный блеск на лбу, носу, скулах) вытянуты в белое
     и теряют цвет. Приводим их яркость к уровню окружающей кожи и
     возвращаем телесный оттенок, взятый из соседних нормальных участков.
+
+    mask_small — маска кожи в уменьшенном разрешении (см. skin_mask_small).
+    Финал считается горизонтальными полосами: полнокадровые float32-копии
+    (arr, delta, detail, out) в сумме давали ~200 МБ и убивали функцию.
     """
     strength = float(np.clip(strength, 0.0, 1.0))
     if strength <= 0.01:
@@ -214,7 +224,7 @@ def recover_highlights(img: Image.Image, mask: np.ndarray,
     arr_s = _to_arr(small)
     y, _, _ = _ycbcr(arr_s)
     v, s, _ = _hsv(arr_s)
-    mask_s = _upscale_mask(mask, small.size)
+    mask_s = _upscale_mask(mask_small, small.size)
 
     # Пересвет определяем ОТНОСИТЕЛЬНО самой кожи, а не по абсолютной
     # яркости. Жирный блеск на лбу и щеках часто не доходит до белого
@@ -255,25 +265,45 @@ def recover_highlights(img: Image.Image, mask: np.ndarray,
         local_s[..., c] = _blur(arr_s[..., c] * good) / w
 
     # Поправка (насколько тянуть пиксель к тону кожи) считается на мелкой
-    # копии и растягивается — она плавная, апскейл её не портит.
-    delta_s = np.clip(local_s - arr_s + 128.0, 0, 255).astype(np.uint8)
-    delta = np.asarray(
-        Image.fromarray(delta_s).resize(img.size, Image.BILINEAR),
-        dtype=np.float32) - 128.0
-    over = _upscale_mask(over_s, img.size)
-    del arr_s, local_s, delta_s, over_s, mask_s, good, w, y, v, s
+    # копии и растягивается — она плавная, апскейл её не портит. Держим её
+    # как картинки, а не как float32-массивы кадра: разворачиваем по полосам.
+    delta_img = Image.fromarray(
+        np.clip(local_s - arr_s + 128.0, 0, 255).astype(np.uint8)
+    ).resize(img.size, Image.BILINEAR)
+    over_img = Image.fromarray(
+        (np.clip(over_s, 0, 1) * 255).astype(np.uint8), mode="L"
+    ).resize(img.size, Image.BILINEAR)
+    del arr_s, local_s, over_s, mask_s, good, w, y, v, s
 
-    arr = _to_arr(img)
-    # Тянем пересвет к локальному тону кожи, но не полностью: блик
-    # должен остаться бликом, иначе лицо станет плоским.
-    a = (over * strength * 0.85)[..., None]
-    out = arr + delta * a
+    width, height = img.size
+    radius = max(1.5, min(img.size) / 400.0)
+    band = max(64, int(600_000 / max(width, 1)))
+    overlap = int(radius * 3) + 2
+    out_img = Image.new("RGB", img.size)
 
-    # Возвращаем микрорельеф, чтобы восстановленная зона не была пятном.
-    detail = _highpass(arr, max(1.5, min(img.size) / 400.0))
-    out += detail * (over * 0.35)[..., None]
+    for top in range(0, height, band):
+        bottom = min(height, top + band)
+        src_top = max(0, top - overlap)
+        src_bottom = min(height, bottom + overlap)
+        box = (0, src_top, width, src_bottom)
 
-    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
+        arr = np.asarray(img.crop(box), dtype=np.float32)
+        delta = np.asarray(delta_img.crop(box), dtype=np.float32) - 128.0
+        over = np.asarray(over_img.crop(box), dtype=np.float32)[..., None] / 255.0
+
+        # Тянем пересвет к локальному тону кожи, но не полностью: блик
+        # должен остаться бликом, иначе лицо станет плоским.
+        out = arr + delta * (over * strength * 0.85)
+        # Возвращаем микрорельеф, чтобы восстановленная зона не была пятном.
+        out += _highpass(arr, radius) * (over * 0.35)
+        del arr, delta, over
+
+        chunk = np.clip(out, 0, 255).astype(np.uint8)
+        inner = chunk[top - src_top: top - src_top + (bottom - top)]
+        out_img.paste(Image.fromarray(inner), (0, top))
+        del out, chunk, inner
+
+    return out_img
 
 
 def blend_skin(original: Image.Image, generated: Image.Image,
@@ -289,18 +319,19 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     strength = float(np.clip(strength, 0.0, 1.0))
     keep_texture = float(np.clip(keep_texture, 0.0, 1.0))
 
-    skin_mask = build_skin_mask(original)
-    protect = build_protect_mask(original)
-    mask = np.clip(skin_mask * (1.0 - protect), 0.0, 1.0)
-    del skin_mask, protect
+    # Все карты считаем и храним в уменьшенном разрешении. Полнокадровые
+    # float32-маски (15 МБ каждая, и их тут четыре) не помещались в лимит
+    # функции 256 МБ — процесс убивало по OOM, наружу уходил HTTP 502.
+    orig_s = _small(original)
+    mask = np.clip(
+        skin_mask_small(orig_s) * (1.0 - protect_mask_small(orig_s)), 0.0, 1.0)
     if regions:
-        mask *= regions_mask(original.size, regions)
+        mask *= regions_mask(orig_s.size, regions)
 
     # Геометрическая страховка. Считаем расхождение по СИЛЬНО размытым
     # версиям кадра: так видно сдвиг черт и формы, но не видно локальных
     # дефектов. Иначе защита срабатывала бы ровно на прыщах — то есть
     # мешала бы убрать именно то, ради чего инструмент и нужен.
-    orig_s = _small(original)
     gen_small = generated.resize(orig_s.size, Image.BILINEAR)
     blur_r = max(6.0, min(orig_s.size) / 60.0)
     orig_low = np.asarray(orig_s.filter(ImageFilter.GaussianBlur(radius=blur_r)),
@@ -308,17 +339,19 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     gen_low = np.asarray(gen_small.filter(ImageFilter.GaussianBlur(radius=blur_r)),
                          dtype=np.float32)
     struct_diff = np.abs(gen_low - orig_low).mean(axis=-1)
+    del orig_low, gen_low, gen_small
     trust = np.clip(1.0 - (struct_diff - trust_threshold) / 30.0, 0.0, 1.0)
     trust_img = Image.fromarray((trust * 255).astype(np.uint8), mode="L")
     trust_img = trust_img.filter(ImageFilter.GaussianBlur(radius=blur_r / 2))
-    trust = _upscale_mask(np.asarray(trust_img, dtype=np.float32) / 255.0,
-                          original.size)
+    trust = np.asarray(trust_img, dtype=np.float32) / 255.0
 
-    # Карту силы храним как uint8: float32 на весь кадр — это лишние
-    # десятки мегабайт, а точности 1/255 для маски достаточно.
-    alpha_map = (np.clip(mask * trust * strength, 0.0, 1.0) * 255).astype(np.uint8)
+    # Карта силы: маленькая, uint8, растягивается на кадр только при чтении
+    # очередной полосы — в памяти полного кадра она никогда не лежит.
+    alpha_img = Image.fromarray(
+        (np.clip(mask * trust * strength, 0.0, 1.0) * 255).astype(np.uint8),
+        mode="L").resize(original.size, Image.BILINEAR)
     skin_for_highlights = mask
-    del trust
+    del trust, struct_diff, trust_img
 
     # Финал считаем горизонтальными полосами. Раньше в памяти одновременно
     # жили ~8 float32-копий кадра — на 1600px это 450 МБ, и функцию убивал
@@ -353,7 +386,8 @@ def blend_skin(original: Image.Image, generated: Image.Image,
         gen_final = gen - gen_detail + detail
         del gen_detail, orig_detail, amp, fine, detail
 
-        alpha = alpha_map[src_top:src_bottom][..., None].astype(np.float32) / 255.0
+        alpha = np.asarray(alpha_img.crop(box),
+                           dtype=np.float32)[..., None] / 255.0
         chunk = orig * (1.0 - alpha) + gen_final * alpha
         del orig, gen, gen_final, alpha
 
@@ -362,7 +396,8 @@ def blend_skin(original: Image.Image, generated: Image.Image,
         out_img.paste(Image.fromarray(inner), (0, top))
         del chunk, inner
 
-    del alpha_map
+    alpha_img.close()
+    del alpha_img
 
     if highlight_recovery > 0.01:
         out_img = recover_highlights(out_img, skin_for_highlights,
