@@ -14,12 +14,27 @@ import energy
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
-# Пресеты силы: только сила смешивания и сохранение текстуры.
-# Промпт один — «трогай только кожу».
+# Пресеты силы. Промпт один — «трогай только кожу», различается то,
+# насколько сильно результат модели вклеивается обратно в кадр.
+#
+# trust — порог геометрической страховки. Раньше он был жёстким (40) на всех
+# уровнях, и защита срабатывала на нормальной ретуши, возвращая прыщи назад.
+# Теперь на сильных пресетах модели доверяем больше.
 PRESETS = {
-    "light": {"strength": 0.55, "keep_texture": 0.55, "label": "Лёгкая"},
-    "medium": {"strength": 0.80, "keep_texture": 0.35, "label": "Стандарт"},
-    "strong": {"strength": 1.00, "keep_texture": 0.18, "label": "Сильная"},
+    "light": {
+        "strength": 0.70, "keep_texture": 0.50, "trust": 40.0,
+        "highlights": 0.35, "label": "Лёгкая",
+    },
+    "medium": {
+        "strength": 0.92, "keep_texture": 0.30, "trust": 60.0,
+        "highlights": 0.60, "label": "Стандарт",
+    },
+    # Максимум: кожа как после профессиональной бьюти-ретуши.
+    # Ни одного прыща, текстура пор сохраняется отдельным шагом.
+    "strong": {
+        "strength": 1.00, "keep_texture": 0.16, "trust": 90.0,
+        "highlights": 0.85, "label": "Сильная",
+    },
 }
 
 
@@ -193,6 +208,8 @@ def _handle_status(payload: dict, user_id):
             strength=preset["strength"],
             keep_texture=preset["keep_texture"],
             regions=regions,
+            trust_threshold=preset["trust"],
+            highlight_recovery=preset["highlights"],
         )
     except Exception as e:
         if user_id:

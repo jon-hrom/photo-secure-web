@@ -77,15 +77,20 @@ HINT = "AI выровняет кожу, не меняя черты лица и �
 
 # Провайдер ограничивает промпт 800 символами — держим его коротким,
 # но с явным списком запретов: иначе модель «улучшает» внешность.
+#
+# Формулировка намеренно категоричная («EVERY», «ZERO», «completely clear»):
+# мягкие просьбы вроде «reduce acne» модель понимает как «слегка подчистить»
+# и оставляет россыпь мелких пятен — именно это и было видно на фото.
 PROMPT = (
-    "Professional beauty skin retouching. Remove acne, pimples, red spots, post-acne marks, "
-    "irritation, blotchy redness, oily shine and under-eye darkness. Even out skin tone. "
-    "Keep natural skin pores and texture, no plastic airbrush. "
-    "Change ONLY the skin surface. Keep the identical person: same face and facial features, "
-    "same face shape, eyes, nose, lips, eyebrows, hair, same body shape and proportions, "
-    "same pose, clothes, background, lighting, colors, camera angle, framing and image size. "
-    "Do not slim or reshape the face or body, do not beautify features, do not change age, "
-    "do not add makeup, do not restyle, do not crop, do not regenerate the photo."
+    "High-end beauty retouching of the skin. Remove EVERY blemish: all acne, pimples, "
+    "whiteheads, blackheads, post-acne marks, scars, red inflamed spots, blotchy redness, "
+    "irritation and under-eye circles. The skin must end up completely clear and even, "
+    "zero pimples left anywhere, like professional magazine retouching. "
+    "Also tame blown-out oily shine on forehead, nose and cheeks, restoring natural tone. "
+    "Keep realistic skin pores and fine texture, never plastic or blurred. "
+    "Change ONLY skin. Same person, same face shape and features, same eyes, nose, lips, "
+    "eyebrows, hair, same body, pose, clothes, background, lighting, colors, framing, size. "
+    "Do not reshape or slim anything, do not change age, do not add makeup, do not crop."
 )
 
 
@@ -265,11 +270,14 @@ def download(url: str) -> bytes:
 
 
 def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
-            keep_texture: float = 0.35, regions=None) -> str:
+            keep_texture: float = 0.35, regions=None,
+            trust_threshold: float = 40.0, highlight_recovery: float = 0.6) -> str:
     """Собирает финал: результат модели только на коже, остальное — оригинал.
 
-    strength     — сила ретуши 0..1 (доля результата на коже)
-    keep_texture — сколько микротекстуры оригинала вернуть поверх (0..1)
+    strength          — сила ретуши 0..1 (доля результата на коже)
+    keep_texture      — сколько микротекстуры оригинала вернуть поверх (0..1)
+    trust_threshold   — порог геометрической страховки (выше = больше свободы)
+    highlight_recovery — сила восстановления пересвета на коже (0..1)
     regions      — боксы с людьми, вне их ретушь не применяется
     """
     import gc
@@ -288,7 +296,9 @@ def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
         generated = generated.resize(original.size, Image.LANCZOS)
 
     merged = skin.blend_skin(original, generated, strength=strength,
-                             keep_texture=keep_texture, regions=regions)
+                             keep_texture=keep_texture, regions=regions,
+                             trust_threshold=trust_threshold,
+                             highlight_recovery=highlight_recovery)
 
     # Исходники больше не нужны: держать их в памяти вместе с результатом
     # и base64-строкой — лишние сотни мегабайт при лимите функции 256 МБ.
