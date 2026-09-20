@@ -258,25 +258,104 @@ def even_out_skin(img: Image.Image, mask_small: np.ndarray,
     if strength <= 0.01:
         return img
 
-    width, height = img.size
-    alpha_img = Image.fromarray(
-        (np.clip(mask_small, 0, 1) * 255).astype(np.uint8), mode="L"
+    # ВСЕ карты (тон кожи, карты дефектов) считаем на уменьшенной копии.
+    # Размытия с большим радиусом на полном кадре — это и секунды времени,
+    # и несколько float32-копий кадра в памяти: функция падала по лимиту
+    # 256 МБ и 5 секунд. Карты плавные, апскейл их не портит.
+    small = _small(img)
+    sw, sh = small.size
+    arr_s = _to_arr(small)
+    alpha_s = _upscale_mask(mask_small, small.size)
+
+    # Радиусы задаются в долях кадра, поэтому на превью считаются так же.
+    color_r = max(4.0, min(sw, sh) / 11.0)   # опорный тон кожи
+    mid_r = max(2.0, min(sw, sh) / 30.0)     # фон для пятен пост-акне
+    spot_r = max(1.0, min(sw, sh) / 130.0)   # фон для точечных дефектов
+
+    # Опорный тон кожи считаем ВЗВЕШЕННО по маске: радиус большой, и
+    # обычное размытие затянуло бы в «тон кожи» волосы, одежду и фон,
+    # а у границы лица правка поехала бы по цвету. Веса — сама маска.
+    wa = np.maximum(alpha_s, 1e-3)
+    wblur = np.maximum(_blur_gray(wa, color_r, span=1.0), 1e-3)
+    base = np.empty_like(arr_s)
+    for ch in range(3):
+        base[..., ch] = _blur_gray(arr_s[..., ch] * wa, color_r) / wblur
+    del wa, wblur
+
+    mid = _blur_arr(arr_s, mid_r)
+    spot = _blur_arr(arr_s, spot_r)
+
+    y = 0.299 * arr_s[..., 0] + 0.587 * arr_s[..., 1] + 0.114 * arr_s[..., 2]
+    y_base = 0.299 * base[..., 0] + 0.587 * base[..., 1] + 0.114 * base[..., 2]
+    y_mid = 0.299 * mid[..., 0] + 0.587 * mid[..., 1] + 0.114 * mid[..., 2]
+    y_spot = 0.299 * spot[..., 0] + 0.587 * spot[..., 1] + 0.114 * spot[..., 2]
+
+    # Адаптация порогов к освещённости: в тени дефект слабее по контрасту.
+    scale = np.clip(y_base / 150.0, 0.40, 1.35)
+
+    # Насколько пиксель краснее локальной кожи. Это главный признак,
+    # отличающий дефект от волоса: акне, пост-акне и раздражение —
+    # красные, а брови, ресницы и волосы нейтрально-коричневые или
+    # серые, то есть по красноте от кожи не отклоняются.
+    redness = (arr_s[..., 0] - arr_s[..., 2]) - (base[..., 0] - base[..., 2])
+
+    # --- канал цвета: убираем красноту пятен ---
+    w_color = np.clip((redness - 0.8 * scale) / (4.5 * scale), 0.0, 1.0)
+
+    # --- канал яркости ---
+    # Пятно пост-акне крупнее точки, поэтому фон для него — СРЕДНИЙ радиус
+    # (на малом фон темнел вместе с пятном, и правка почти ничего не делала),
+    # но не большой: большой снял бы светотень лица. Пропуском служит
+    # краснота: без неё (волос, бровь, ресница, контур губ, тень от носа)
+    # яркость не трогается. Пропуск не жёсткий — заживший пост-акне уже
+    # коричневатый, и полный запрет по красноте оставлял именно эти точки.
+    red_gate = 0.45 + 0.55 * np.clip((redness + 1.0) / 3.0, 0.0, 1.0)
+    w_dark = np.clip((y_mid - y - 1.0 * scale) / (5.0 * scale), 0.0, 1.0)
+    w_dark *= red_gate
+    # Белые точки и точечный жирный блеск — по малому радиусу, они мелкие.
+    w_light = np.clip((y - y_spot - 4.0 * scale) / (12.0 * scale), 0.0, 1.0)
+    w_spot = np.maximum(w_dark, w_light * 0.7)
+
+    # Страховка от совсем контрастных структур (ресница на щеке, резкий
+    # контур): такого перепада у дефекта кожи не бывает. Порог поднимается
+    # на красных участках — воспалённый прыщ бывает не менее контрастным,
+    # чем волос, и жёсткая страховка снимала правку с самых заметных пятен.
+    edge = np.abs(y_mid - y)
+    limit = (30.0 + 34.0 * red_gate) * scale
+    keep = np.clip(1.0 - (edge - limit) / (16.0 * scale), 0.0, 1.0)
+    w_color = _blur_gray(w_color * keep, max(1.0, spot_r * 1.5), span=1.0)
+    w_spot = _blur_gray(w_spot * keep, max(1.0, spot_r), span=1.0)
+    del (redness, red_gate, w_dark, w_light, edge, limit, keep,
+         y, y_base, y_spot, scale, spot)
+
+    # Поправки считаем на превью и растягиваем как картинки: массив на
+    # полный кадр в памяти не появляется.
+    wc_s = np.clip(w_color * alpha_s * strength, 0.0, 1.0)
+    ws_s = np.clip(w_spot * alpha_s * strength, 0.0, 1.0)
+
+    # 1. ЦВЕТ: отклонение по цветовым разностям гасится, светлота не меняется.
+    chroma_delta = (base - base.mean(axis=-1, keepdims=True)) - \
+                   (arr_s - arr_s.mean(axis=-1, keepdims=True))
+    # 2. ЯРКОСТЬ: светлота подтягивается к среднему радиусу, цвет свой.
+    lum_delta = mid.mean(axis=-1, keepdims=True) - arr_s.mean(axis=-1, keepdims=True)
+
+    delta_s = chroma_delta * wc_s[..., None] + lum_delta * ws_s[..., None]
+    del chroma_delta, lum_delta, base, mid, arr_s, w_color, w_spot, alpha_s
+
+    # Диапазон правки ±96 упакован в uint8 — этого с запасом хватает
+    # (реальные поправки редко выходят за ±30).
+    delta_img = Image.fromarray(
+        np.clip(delta_s * (127.0 / 96.0) + 128.0, 0, 255).astype(np.uint8)
     ).resize(img.size, Image.BILINEAR)
+    ws_img = Image.fromarray(
+        (np.clip(ws_s, 0, 1) * 255).astype(np.uint8), mode="L"
+    ).resize(img.size, Image.BILINEAR)
+    del delta_s, wc_s, ws_s
 
-    # Опорный радиус тона кожи. Должен быть заметно КРУПНЕЕ самого дефекта:
-    # раздражение вокруг носа и россыпь пост-акне на подбородке занимают
-    # изрядный кусок щеки, и на малом радиусе «локальный тон» вбирал эту
-    # красноту в себя — отклонения не оставалось, и правка не срабатывала
-    # именно на крупных зонах.
-    color_r = max(10.0, min(img.size) / 11.0)
-    # Радиус точки: отдельный прыщ, точка пост-акне.
-    spot_r = max(2.0, min(img.size) / 130.0)
-    # Средний радиус для правки яркости — между точкой и пятном.
-    mid_r = max(4.0, min(img.size) / 30.0)
+    width, height = img.size
     fine_r = max(1.0, min(img.size) / 500.0)
-
     band = max(64, int(500_000 / max(width, 1)))
-    overlap = int(color_r * 3) + 4
+    overlap = int(fine_r * 3) + 2
     out_img = Image.new("RGB", img.size)
 
     for top in range(0, height, band):
@@ -286,102 +365,22 @@ def even_out_skin(img: Image.Image, mask_small: np.ndarray,
         box = (0, src_top, width, src_bottom)
 
         arr = np.asarray(img.crop(box), dtype=np.float32)
-        alpha = np.asarray(alpha_img.crop(box), dtype=np.float32) / 255.0
+        delta = (np.asarray(delta_img.crop(box), dtype=np.float32) - 128.0) * (96.0 / 127.0)
+        ws = np.asarray(ws_img.crop(box), dtype=np.float32)[..., None] / 255.0
 
-        # Опорный тон кожи считаем ВЗВЕШЕННО по маске: радиус большой, и
-        # обычное размытие затянуло бы в «тон кожи» волосы, одежду и фон,
-        # а у границы лица правка поехала бы по цвету. Веса — сама маска.
-        wa = np.maximum(alpha, 1e-3)
-        wblur = np.maximum(_blur_gray(wa, color_r, span=1.0), 1e-3)
-        base = np.empty_like(arr)
-        for ch in range(3):
-            base[..., ch] = _blur_gray(arr[..., ch] * wa, color_r) / wblur
-        del wa, wblur
-
-        mid = _blur_arr(arr, mid_r)         # фон для пятен пост-акне
-        spot = _blur_arr(arr, spot_r)       # фон для точечных дефектов
-
-        y = 0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2]
-        y_base = 0.299 * base[..., 0] + 0.587 * base[..., 1] + 0.114 * base[..., 2]
-        y_mid = 0.299 * mid[..., 0] + 0.587 * mid[..., 1] + 0.114 * mid[..., 2]
-        y_spot = 0.299 * spot[..., 0] + 0.587 * spot[..., 1] + 0.114 * spot[..., 2]
-
-        # Адаптация порогов к освещённости: в тени дефект слабее по контрасту.
-        scale = np.clip(y_base / 150.0, 0.40, 1.35)
-
-        # Насколько пиксель краснее локальной кожи. Это главный признак,
-        # отличающий дефект от волоса: акне, пост-акне и раздражение —
-        # красные, а брови, ресницы и волосы нейтрально-коричневые или
-        # серые, то есть по красноте от кожи не отклоняются.
-        redness = (arr[..., 0] - arr[..., 2]) - (base[..., 0] - base[..., 2])
-
-        # --- канал цвета: убираем красноту пятен ---
-        w_color = np.clip((redness - 0.8 * scale) / (4.5 * scale), 0.0, 1.0)
-
-        # --- канал яркости ---
-        # Пятно пост-акне крупнее точки, поэтому фон для него — СРЕДНИЙ
-        # радиус (на малом фон темнел вместе с пятном, и правка почти
-        # ничего не делала), но не большой: большой снял бы светотень лица.
-        # Пропуском служит краснота: без неё (волос, бровь, ресница,
-        # контур губ, тень от носа) яркость не трогается вообще.
-        # Пропуск не жёсткий: заживший пост-акне на подбородке уже не
-        # красный, а коричневатый, и полный запрет по красноте оставлял
-        # именно эти точки. Даём базовую долю всем тёмным пятнам, а
-        # красным — полную силу.
-        red_gate = 0.45 + 0.55 * np.clip((redness + 1.0) / 3.0, 0.0, 1.0)
-        w_dark = np.clip((y_mid - y - 1.0 * scale) / (5.0 * scale), 0.0, 1.0)
-        w_dark *= red_gate
-        # Белые точки и точечный жирный блеск — по малому радиусу, они мелкие.
-        w_light = np.clip((y - y_spot - 4.0 * scale) / (12.0 * scale), 0.0, 1.0)
-        w_spot = np.maximum(w_dark, w_light * 0.7)
-
-        # Страховка от совсем контрастных структур (ресница на щеке,
-        # резкий контур): такого перепада у дефекта кожи не бывает.
-        # Порог поднимается на красных участках: воспалённый прыщ может
-        # быть не менее контрастным, чем волос, и жёсткая страховка
-        # снимала правку ровно с самых заметных дефектов.
-        edge = np.abs(y_mid - y)
-        limit = (30.0 + 34.0 * red_gate) * scale
-        keep = np.clip(1.0 - (edge - limit) / (16.0 * scale), 0.0, 1.0)
-        w_color *= keep
-        w_spot *= keep
-        del (redness, red_gate, w_dark, w_light, edge, limit, keep,
-             y, y_base, y_spot, scale)
-
-        # Сглаживаем карты, чтобы правка не оставляла резких краёв.
-        w_color = _blur_gray(w_color, max(1.0, spot_r * 1.5), span=1.0)
-        w_spot = _blur_gray(w_spot, max(1.0, spot_r), span=1.0)
-
-        wc = (w_color * alpha * strength)[..., None]
-        ws = (w_spot * alpha * strength)[..., None]
-
-        # 1. Выравниваем ЦВЕТ, не трогая яркость: из пикселя вычитается его
-        #    отклонение по цветовым разностям, светлота остаётся прежней.
-        out = arr.copy()
-        chroma = arr - arr.mean(axis=-1, keepdims=True)
-        chroma_base = base - base.mean(axis=-1, keepdims=True)
-        out += (chroma_base - chroma) * wc
-        del chroma, chroma_base
-
-        # 2. Гасим дефекты по яркости — подтягиваем светлоту к среднему
-        #    радиусу, цвет при этом остаётся своим.
-        y_arr = arr.mean(axis=-1, keepdims=True)
-        y_m = mid.mean(axis=-1, keepdims=True)
-        out += (y_m - y_arr) * ws
-        del mid, y_arr, y_m, y_mid
-
+        out = arr + delta
         # Возвращаем поры: слабые высокие частоты, амплитуда ограничена,
         # чтобы вместе с текстурой не вернулось само пятно.
-        detail = np.clip(_highpass(arr, fine_r), -3.5, 3.5)
-        out += detail * ws * 0.6
-        del arr, base, spot, w_color, w_spot, alpha, wc, ws, detail
+        out += np.clip(_highpass(arr, fine_r), -3.5, 3.5) * ws * 0.6
+        del arr, delta, ws
 
         chunk = np.clip(out, 0, 255).astype(np.uint8)
         inner = chunk[top - src_top: top - src_top + (bottom - top)]
         out_img.paste(Image.fromarray(inner), (0, top))
         del out, chunk, inner
 
-    alpha_img.close()
+    delta_img.close()
+    ws_img.close()
     return out_img
 
 
