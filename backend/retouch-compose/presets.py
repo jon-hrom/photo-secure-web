@@ -98,29 +98,29 @@ PRESETS: Dict[str, Dict[str, Any]] = {
         "max_compose_side": 1000,
         "preview_side": 1024,
 
-        # Агрессивный healing: 4 масштаба, широкий захват ореола прыща,
+        # Агрессивный healing: 5 масштабов, широкий захват ореола прыща,
         # низкий порог детекции — ловим даже слабые пятна и пост-акне.
-        "heal_passes": 4,
-        # Второй проход добивает пятна, пережившие первый healing.
-        "heal_iterations": 2,
+        "heal_passes": 5,
+        # Три прохода: каждый следующий добивает пятна, пережившие предыдущий.
+        "heal_iterations": 3,
         # Россыпь акне не должна приниматься за щетину и оставаться на фото.
         "stubble_guard": False,
-        "defect_grow_px": 6,
-        "defect_sensitivity": 92.0,
+        "defect_grow_px": 8,
+        "defect_sensitivity": 88.0,
         # Плоские красные пятна и пост-акне тоже лечим.
-        "red_patch_strength": 1.0,
+        "red_patch_strength": 1.4,
         # Россыпь мелких точек и комедонов тоже убираем.
-        "spot_strength": 1.0,
+        "spot_strength": 1.5,
 
         # Сильное выравнивание тона, текстура возвращается отдельно.
-        "tone_radius_ratio": 0.012,
-        "tone_strength": 0.88,
-        "texture_keep": 0.38,
-        "blotch_clip": 6.0,
+        "tone_radius_ratio": 0.014,
+        "tone_strength": 0.94,
+        "texture_keep": 0.30,
+        "blotch_clip": 4.0,
 
-        "color_even_strength": 0.80,
-        "red_cast_strength": 0.85,
-        "micro_texture": 0.42,
+        "color_even_strength": 0.90,
+        "red_cast_strength": 1.0,
+        "micro_texture": 0.34,
 
         "sharpen_amount": 0.40,
         "sharpen_radius": 0.9,

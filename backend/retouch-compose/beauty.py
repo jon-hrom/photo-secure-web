@@ -197,8 +197,11 @@ def refine_skin_mask(rgb: np.ndarray, skin: np.ndarray) -> np.ndarray:
         # Волосы/брови/фон темнее кожи; блики светлее, но их оставляем.
         # Порог мягкий: затенённая половина лица не должна отсекаться.
         ok_lum = lum > (med_l - 2.2 * spread)
-        ok_rg = np.abs(rg - med_rg) < 22.0
-        ok_gb = np.abs(gb - med_gb) < 22.0
+        # Допуск по цветности с запасом: воспалённые/красные участки кожи
+        # (акне, раздражение) отличаются по rg и раньше выпадали из маски —
+        # именно они и должны лечиться.
+        ok_rg = np.abs(rg - med_rg) < 30.0
+        ok_gb = np.abs(gb - med_gb) < 30.0
         cur = sel & ok_lum & ok_rg & ok_gb
 
     refined = cur.astype(np.uint8) * 255
@@ -424,8 +427,13 @@ def detect_red_patches(rgb: np.ndarray, skin: np.ndarray,
     excess = redness - bg
 
     vals = excess[sel]
-    thr = float(np.percentile(vals, 100.0 - 12.0 * strength))
-    thr = max(thr, 2.0)
+    thr = float(np.percentile(vals, float(np.clip(100.0 - 12.0 * strength,
+                                                  55.0, 99.5))))
+    # Минимальный абсолютный порог смягчается на высокой силе: слегка
+    # красноватые следы пост-акне иначе отсекаются константой и остаются
+    # видны точками на щеке.
+    min_thr = 2.0 / max(1.0, strength)
+    thr = max(thr, min_thr)
     patches = ((excess > thr) & sel).astype(np.uint8) * 255
 
     # Убираем одиночный шум, затем слегка расширяем пятна.
@@ -470,10 +478,13 @@ def detect_spots(rgb: np.ndarray, skin: np.ndarray,
     red_rise = (r - (g + b) / 2.0) - red_bg       # насколько краснее фона
 
     # Пороги по статистике самой кожи, смягчаются параметром strength.
-    d_thr = float(np.percentile(dark_drop[sel], 100.0 - 10.0 * strength))
-    r_thr = float(np.percentile(red_rise[sel], 100.0 - 10.0 * strength))
-    d_thr = max(d_thr, 2.5)
-    r_thr = max(r_thr, 2.0)
+    pct = float(np.clip(100.0 - 10.0 * strength, 55.0, 99.5))
+    d_thr = float(np.percentile(dark_drop[sel], pct))
+    r_thr = float(np.percentile(red_rise[sel], pct))
+    # На максимальной силе абсолютный минимум опускаем: мелкие бугорки и
+    # подсохшие точки дают перепад всего 1.5-2 ед. и раньше игнорировались.
+    d_thr = max(d_thr, 2.5 / max(1.0, strength))
+    r_thr = max(r_thr, 2.0 / max(1.0, strength))
 
     spots = ((dark_drop > d_thr) | (red_rise > r_thr)) & sel
     spots = spots.astype(np.uint8) * 255
@@ -724,10 +735,16 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
         # полную маску по образцу тона; глаза/губы/брови затем вырезаются
         # protect-маской ниже.
         print("[BEAUTY] skin mask source: heuristic fallback")
-        # Наращивание по цвету пробовали — оно расползается на брови, нос и
-        # губы и выжигает черты лица. Поэтому только чистим исходную маску:
-        # недоретушированный край лучше, чем испорченные черты.
         skin = refine_skin_mask(orig, skin)
+        # Эвристика часто покрывает лишь фрагмент лица (одна щека, лоб), и
+        # прыщи вне этого фрагмента остаются нетронутыми — «Сильная» тогда
+        # визуально не отличается от «Стандарта». Если покрытие явно мало
+        # для портрета, достраиваем маску по образцу цвета кожи; черты лица
+        # защищает protect-маска ниже.
+        cover = float(np.count_nonzero(skin)) * 100.0 / (h * w)
+        if cover < 12.0:
+            print(f"[BEAUTY] fallback mask too small ({cover:.1f}%) -> grow from seed")
+            skin = build_skin_from_seed(orig, skin)
     skin_pct = float(np.count_nonzero(skin)) * 100.0 / (h * w)
     print(f"[BEAUTY] skin mask: {skin_pct:.1f}%")
 
@@ -793,30 +810,27 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
         # Второй проход: после первого healing часть пятен ослабевает, но
         # не исчезает (сливавшиеся прыщи, широкие воспаления). Детектируем
         # заново уже по обработанному кадру и долечиваем остатки.
-        if int(preset.get('heal_iterations', 1)) > 1:
+        for it in range(1, int(preset.get('heal_iterations', 1))):
+            cur = np.clip(img, 0, 255)
             residual = skin_mask._detect_defects(
-                np.clip(img, 0, 255).astype(np.uint8), heal_zone,
+                cur.astype(np.uint8), heal_zone,
                 sensitivity=float(preset.get('defect_sensitivity', 98.0)),
                 stubble_guard=bool(preset.get('stubble_guard', True)),
             )
             if patch_strength > 0:
                 residual = np.maximum(
-                    residual,
-                    detect_red_patches(np.clip(img, 0, 255), heal_zone,
-                                       patch_strength),
-                )
+                    residual, detect_red_patches(cur, heal_zone, patch_strength))
             if spot_strength > 0:
                 residual = np.maximum(
-                    residual,
-                    detect_spots(np.clip(img, 0, 255), heal_zone,
-                                 spot_strength),
-                )
+                    residual, detect_spots(cur, heal_zone, spot_strength))
             if grow_px > 0:
                 residual = _grow(residual, grow_px)
             residual = np.where(inner > 0.85, residual, 0).astype(np.uint8)
             residual = np.where(protect > 0.25, 0, residual).astype(np.uint8)
-            print(f"[BEAUTY] residual defects: "
-                  f"{np.count_nonzero(residual) * 100.0 / (h * w):.2f}%")
+            res_pct = float(np.count_nonzero(residual)) * 100.0 / (h * w)
+            print(f"[BEAUTY] residual defects (pass {it}): {res_pct:.2f}%")
+            if res_pct < 0.02:
+                break
             img = heal_blemishes(img, residual, heal_zone, passes=heal_passes)
             defects = np.maximum(defects, residual)
 
