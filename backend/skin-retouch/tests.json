@@ -43,6 +43,13 @@
       "expectedStatus": 400
     },
     {
+      "name": "Balance is admin only",
+      "method": "POST",
+      "path": "/?action=balance",
+      "body": {},
+      "expectedStatus": 403
+    },
+    {
       "name": "Catalog is admin only",
       "method": "POST",
       "path": "/?action=catalog",

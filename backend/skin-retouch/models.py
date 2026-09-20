@@ -172,6 +172,24 @@ def detect_skin_regions(image_b64: str):
         return None
 
 
+def fetch_balance() -> dict:
+    """Баланс лицевого счёта у провайдера ретуши (в рублях).
+
+    Ключ живёт только на сервере, поэтому фронт спрашивает баланс через нас.
+    """
+    if not GPTUNNEL_KEY:
+        raise RuntimeError("GPTUNNEL_API_KEY не задан")
+    r = requests.get("https://gptunnel.ru/v1/balance", headers=_headers(), timeout=30)
+    if r.status_code != 200:
+        raise RuntimeError(f"GPTunneL {r.status_code}: {r.text[:200]}")
+    data = r.json()
+    return {
+        "balance": data.get("balance"),
+        "credit_limit": data.get("creditLimit"),
+        "topup_url": "https://gptunnel.ru/billing",
+    }
+
+
 def fetch_catalog() -> dict:
     """Реальный каталог моделей провайдера с ценами — для подбора модели."""
     if not GPTUNNEL_KEY:

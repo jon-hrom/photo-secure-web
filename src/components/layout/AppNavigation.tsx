@@ -16,6 +16,7 @@ import MaxSubscriptionBadge from '@/components/layout/MaxSubscriptionBadge';
 import { toast } from 'sonner';
 
 const ENERGY_URL = 'https://functions.poehali.dev/b78fe245-efbd-4bd0-8db1-2515e8dfafb6';
+const SKIN_RETOUCH_URL = 'https://functions.poehali.dev/a7cdfbe7-4eb5-4dbb-bde4-27b0692e7183';
 
 const PORTFOLIO_ALLOWED_EMAILS = ['jonhrom2012@gmail.com'];
 const PHOTOBOOK_ALLOWED_EMAILS = ['jon-hrom2012@gmail.com'];
@@ -53,6 +54,9 @@ const AppNavigation = ({
   const [celebration, setCelebration] = useState<null | 'energy' | 'tariff'>(null);
   const [smsBalance, setSmsBalance] = useState<number | null>(null);
   const [smsLoading, setSmsLoading] = useState(false);
+  const [aiBalance, setAiBalance] = useState<number | null>(null);
+  const [aiTopupUrl, setAiTopupUrl] = useState('https://gptunnel.ru/billing');
+  const [aiLoading, setAiLoading] = useState(false);
 
   const isAdmin = (userEmail || '').toLowerCase() === 'jonhrom2012@gmail.com';
 
@@ -69,6 +73,24 @@ const AppNavigation = ({
       })
       .catch(() => {})
       .finally(() => setSmsLoading(false));
+  };
+
+  /** Баланс счёта у AI-сервиса ретуши. Только для владельца сервиса. */
+  const loadAiBalance = () => {
+    if (!userId) return;
+    setAiLoading(true);
+    fetch(`${SKIN_RETOUCH_URL}?action=balance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
+      body: JSON.stringify({}),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.balance === 'number') setAiBalance(data.balance);
+        if (data?.topup_url) setAiTopupUrl(data.topup_url);
+      })
+      .catch(() => {})
+      .finally(() => setAiLoading(false));
   };
 
   const loadEnergy = (cb?: (balance: number) => void) => {
@@ -107,7 +129,10 @@ const AppNavigation = ({
       })
       .catch(() => {});
     loadEnergy();
-    if (isAdmin) loadSmsBalance();
+    if (isAdmin) {
+      loadSmsBalance();
+      loadAiBalance();
+    }
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
@@ -245,6 +270,27 @@ const AppNavigation = ({
                 />
                 <span className={`text-sm font-semibold ${smsBalance !== null && smsBalance < 10 ? 'text-red-500' : 'text-green-500'}`}>
                   {smsBalance !== null ? `${smsBalance.toFixed(2)} ₽` : '—'}
+                </span>
+              </Button>
+            )}
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                onClick={() => window.open(aiTopupUrl, '_blank', 'noopener')}
+                className={`flex items-center gap-1.5 rounded-full px-2 sm:px-3 transition-all duration-300 ${aiBalance !== null && aiBalance < 100 ? 'hover:bg-red-500/10' : 'hover:bg-violet-500/10'}`}
+                title={
+                  aiBalance !== null && aiBalance < 100
+                    ? 'Баланс AI-ретуши заканчивается — нажмите, чтобы пополнить'
+                    : 'Баланс AI-ретуши — нажмите, чтобы пополнить'
+                }
+              >
+                <Icon
+                  name="Sparkles"
+                  size={16}
+                  className={`shrink-0 ${aiBalance !== null && aiBalance < 100 ? 'text-red-500' : 'text-violet-500'} ${aiLoading ? 'animate-pulse' : ''}`}
+                />
+                <span className={`text-sm font-semibold ${aiBalance !== null && aiBalance < 100 ? 'text-red-500' : 'text-violet-500'}`}>
+                  {aiBalance !== null ? `${aiBalance.toFixed(2)} ₽` : '—'}
                 </span>
               </Button>
             )}

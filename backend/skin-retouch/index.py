@@ -65,6 +65,19 @@ def _handle_estimate():
     })
 
 
+def _handle_balance(user_id):
+    """Баланс счёта у провайдера ретуши. Только владельцу сервиса.
+
+    Это деньги компании, а не пользователя, поэтому клиентам не показываем.
+    """
+    if not energy.is_admin(user_id):
+        return _response(403, {"error": "только для администратора"})
+    try:
+        return _response(200, models.fetch_balance())
+    except Exception as e:
+        return _response(502, {"error": str(e)[:300]})
+
+
 def _handle_catalog(user_id):
     """Каталог моделей провайдера с ценами. Только для админа."""
     if not energy.is_admin(user_id):
@@ -277,9 +290,11 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         return _handle_status(payload, user_id)
     if action == "regions":
         return _handle_regions(payload)
+    if action == "balance":
+        return _handle_balance(user_id)
     if action == "catalog":
         return _handle_catalog(user_id)
     if action == "bench":
         return _handle_bench(payload, user_id)
 
-    return _response(400, {"error": "unknown action (use ?action=estimate|start|status|regions|catalog|bench)"})
+    return _response(400, {"error": "unknown action (use ?action=estimate|start|status|regions|balance|catalog|bench)"})
