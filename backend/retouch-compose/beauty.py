@@ -142,6 +142,15 @@ def _open_close(mask: np.ndarray, open_r: float, close_r: float) -> np.ndarray:
     return out
 
 
+def _ramp(x: np.ndarray, lo: float, hi: float) -> np.ndarray:
+    """Плавный переход 0→1 между порогами lo и hi.
+
+    Мягкая замена жёсткому порогу: у резкого «больше/меньше» на картинке
+    видна граница, у плавного её нет.
+    """
+    return np.clip((x - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+
+
 def _feather(mask: np.ndarray, radius: float) -> np.ndarray:
     """Растушёвка бинарной маски -> float32 0..1."""
     m = mask.astype(np.float32)
@@ -733,6 +742,69 @@ def _load_texture_tile():
     return _SKIN_TEXTURE_TILE
 
 
+def rebuild_skin(rgb: np.ndarray, skin_alpha: np.ndarray,
+                 radius_ratio: float = 0.045, iterations: int = 4,
+                 keep: float = 0.5) -> np.ndarray:
+    """Полностью перестраивает тон кожи: ровная база вместо «латания дыр».
+
+    ПОЧЕМУ ЭТО НУЖНО. Прежний подход искал дефекты детектором и лечил
+    каждый по отдельности. Любой детектор часть пропускает — и именно
+    пропущенное остаётся на лице: прыщ на лбу, ямки, красные точки у
+    края щеки. Хуже того, залеченное пятно получало ореол: вокруг него
+    тон уже подтянут, а сам дефект ещё нет.
+
+    Здесь принцип обратный, как в ручной бьюти-ретуши: тон кожи строится
+    ЗАНОВО по всей области, а не чинится точечно. Никакого списка
+    дефектов нет — то, что отклоняется от окружающего тона, просто не
+    участвует в его расчёте и потому исчезает само.
+
+    Как считается. Итеративная устойчивая оценка (robust fitting):
+      1. Грубая оценка тона — широкое размытие.
+      2. Пиксели, сильно отклонившиеся от неё (прыщи, пятна, ямки),
+         получают малый вес.
+      3. Тон пересчитывается нормализованной свёрткой уже по «чистым»
+         пикселям — дефекты в него не попадают.
+      4. Повтор: с каждой итерацией оценка всё меньше заражена дефектами.
+
+    Радиус намеренно большой (около 4.5% от кадра): он должен заметно
+    превышать размер прыща, иначе крупные очаги протекают в базу.
+
+    Args:
+        rgb: float32 HxWx3, 0..255.
+        skin_alpha: float32 HxW 0..1 — маска кожи.
+        radius_ratio: радиус оценки тона как доля меньшей стороны кадра.
+        iterations: число уточнений (3-5 достаточно).
+        keep: 0..1 — какая доля кожи считается «чистой» (0.5 = медиана).
+
+    Returns:
+        float32 HxWx3 — кадр с перестроенным тоном кожи.
+    """
+    h, w = rgb.shape[:2]
+    a = np.clip(skin_alpha, 0.0, 1.0)
+    if float(a.max()) < 0.01:
+        return rgb
+
+    radius = max(6.0, min(h, w) * radius_ratio)
+    # Стартовая оценка — обычное размытие по коже.
+    tone = _normalized_blur(rgb, np.maximum(a, 0.02), radius)[0]
+
+    for _ in range(max(1, int(iterations))):
+        dev = np.abs(rgb - tone).mean(axis=2)
+        # Порог по самой коже: что считать «нормальным» отклонением.
+        sel = a > 0.5
+        thr = float(np.percentile(dev[sel], keep * 100.0)) if sel.any() else 3.0
+        thr = max(thr, 1.0)
+        # Вес: чистая кожа ≈ 1, дефект → к нулю. Он и есть «маска
+        # дефектов», но непрерывная и без порога — поэтому ничего
+        # не пропускается и не даёт ореола на границе.
+        wgt = np.clip(1.0 - dev / (thr * 2.5), 0.03, 1.0) * np.maximum(a, 0.02)
+        num = _normalized_blur(rgb * wgt[:, :, None], np.ones_like(wgt), radius)[0]
+        den = _blur_f(wgt, radius)[:, :, None]
+        tone = num / np.maximum(den, 1e-3)
+
+    return tone
+
+
 def apply_skin_texture(rgb: np.ndarray, skin_alpha: np.ndarray,
                        amount: float, scale: float = 1.0,
                        protect: np.ndarray = None) -> np.ndarray:
@@ -1060,26 +1132,112 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
         del arr, sk_full
         _tick('final red')
 
-    # --- 10. Эталонная текстура кожи на ПОЛНОМ разрешении ---
-    # Накладываем зерно пор туда, где ретушь вылизала кожу до пластика.
-    # Обязательно на полном кадре: на рабочей копии зерно после апскейла
-    # превратилось бы в мыло.
+    # --- 10. ПЕРЕСТРОЙКА КОЖИ на полном разрешении ---
+    # Главный шаг для сильной ретуши. Всё выше чинит дефекты поштучно и
+    # неизбежно часть пропускает. Здесь тон кожи строится заново целиком,
+    # а поверх кладётся эталонное зерно пор — получается ровная кожа без
+    # списка дефектов вообще.
+    rebuild = float(preset.get('skin_rebuild', 0.0))
     tex_amount = float(preset.get('skin_texture_amount', 0.0))
-    if tex_amount > 0:
+    if rebuild > 0 or tex_amount > 0:
         fw, fh = out_img.size
         sk_full = np.asarray(
             Image.fromarray((np.clip(skin_a_small, 0.0, 1.0) * 255.0
                              ).astype(np.uint8), mode='L')
             .resize((fw, fh), Image.BILINEAR), dtype=np.float32) / 255.0
-        # Зерно пор должно быть одного физического размера независимо от
-        # разрешения снимка: тайл снят с кадра ~800px по стороне.
-        tex_scale = float(preset.get('skin_texture_scale', 1.0)) * \
-            max(0.5, min(fw, fh) / 800.0)
         arr = np.asarray(out_img, dtype=np.float32)
-        arr = apply_skin_texture(arr, sk_full, tex_amount, scale=tex_scale)
+
+        if rebuild > 0:
+            # Черты лица (губы, брови, ресницы, ноздри) защищаем отдельно:
+            # маска кожи их накрывает, а перестройка тона их бы стёрла.
+            # Признак — сильное отличие от локального тона кожи на КРУПНОМ
+            # масштабе: прыщ на таком масштабе почти не виден, а губа и
+            # бровь выделяются целиком.
+            prot_full = np.asarray(
+                Image.fromarray((np.clip(protect, 0.0, 1.0) * 255.0
+                                 ).astype(np.uint8), mode='L')
+                .resize((fw, fh), Image.BILINEAR), dtype=np.float32) / 255.0
+            lum_f = arr.mean(axis=2)
+            red_f = arr[:, :, 0] - (arr[:, :, 1] + arr[:, :, 2]) * 0.5
+            big_r = max(12.0, min(fw, fh) * 0.05)
+            dark_dev = np.clip(
+                _normalized_blur(lum_f, np.maximum(sk_full, 0.02), big_r)[0]
+                - lum_f, 0.0, None)
+            red_dev = np.clip(
+                red_f - _normalized_blur(red_f, np.maximum(sk_full, 0.02),
+                                         big_r)[0], 0.0, None)
+            # Пороги берём от статистики САМОЙ кожи, а не абсолютные:
+            # на тёмном снимке любая тень иначе попадает в «черты лица».
+            sel = sk_full > 0.5
+            if sel.any():
+                d_lo = max(float(np.percentile(dark_dev[sel], 88.0)), 10.0)
+                r_lo = max(float(np.percentile(red_dev[sel], 88.0)), 6.0)
+            else:
+                d_lo, r_lo = 24.0, 14.0
+            feat = np.maximum(_ramp(dark_dev, d_lo, d_lo * 1.6),
+                              _ramp(red_dev, r_lo, r_lo * 1.6))
+            # ВАЖНО: ограничиваем зоной кожи. Волосы, одежда и фон темнее
+            # лица и иначе целиком попадают в защиту — тогда «кожей» для
+            # перестройки остаётся почти ничего.
+            feat = feat * sk_full
+            # Отбор по РАЗМЕРУ. И губа, и прыщ отличаются от тона кожи, но
+            # губа — крупное сплошное пятно, а прыщ мелкий. Эрозия сохраняет
+            # только протяжённые области: мелкие отметины исчезают, крупные
+            # черты лица остаются и восстанавливаются обратной дилатацией.
+            feat_bin = (feat > 0.5).astype(np.uint8) * 255
+            big_k = max(3, int(min(fw, fh) * 0.010))
+            feat_bin = _morph(_morph(feat_bin, big_k, 'erode'),
+                              int(big_k * 1.7), 'dilate')
+            feat = _feather(feat_bin, max(3.0, min(fw, fh) * 0.004))
+            del feat_bin
+            prot_full = np.clip(np.maximum(prot_full, feat), 0.0, 1.0)
+            sk_rebuild = sk_full * (1.0 - prot_full)
+            del lum_f, red_f, dark_dev, red_dev, feat
+
+            tone = rebuild_skin(
+                arr, sk_rebuild,
+                radius_ratio=float(preset.get('skin_rebuild_radius', 0.045)),
+                iterations=int(preset.get('skin_rebuild_iters', 4)),
+                keep=float(preset.get('skin_rebuild_keep', 0.5)))
+            # Сохраняем собственный микрорельеф (поры, волоски) — он живёт
+            # в частотах выше радиуса перестройки и дефектов не содержит.
+            detail = arr - _blur_rgb(arr, max(1.2, min(fw, fh) * 0.0012))
+            # Амплитуду микрорельефа ограничиваем: в эту полосу попадают не
+            # только поры, но и края прыщей с ямками. Без ограничения они
+            # возвращаются поверх только что выровненного тона — именно
+            # из-за этого кожа оставалась рыхлой.
+            det_clip = float(preset.get('skin_rebuild_detail_clip', 0.0))
+            if det_clip > 0:
+                damp = _ramp(np.abs(detail).mean(axis=2),
+                             det_clip, det_clip * 2.2)
+                detail = detail * (1.0 - damp)[:, :, None]
+                del damp
+            keep_detail = float(preset.get('skin_rebuild_detail', 0.35))
+            blend = (sk_rebuild * rebuild)[:, :, None]
+            arr = arr * (1.0 - blend) + (tone + detail * keep_detail) * blend
+            print(f"[BEAUTY] skin rebuild: сила={rebuild:.2f} "
+                  f"зона={float((sk_rebuild > 0.5).mean()) * 100:.1f}% "
+                  f"защита черт={float((prot_full > 0.5).mean()) * 100:.1f}%")
+            del tone, detail, prot_full
+            # Текстуру кладём в ту же зону, что и перестройку.
+            sk_full = sk_rebuild
+            _tick('skin rebuild')
+
+        if tex_amount > 0:
+            # Зерно должно быть соразмерно ЛИЦУ, а не кадру. Эталон снят
+            # крупным планом: лицо занимало почти весь кадр 800px. Если
+            # просто масштабировать тайл под размер снимка, на портрете
+            # общего плана зерно раздувается до песка. Опорой берём ширину
+            # области кожи — она пропорциональна лицу на любом кадрировании.
+            skin_cols = float((sk_full > 0.5).any(axis=0).sum())
+            face_w = skin_cols if skin_cols > 50 else min(fw, fh) * 0.6
+            tex_scale = float(preset.get('skin_texture_scale', 1.0)) * \
+                float(np.clip(face_w / 1400.0, 0.35, 2.0))
+            arr = apply_skin_texture(arr, sk_full, tex_amount, scale=tex_scale)
+            _tick('skin texture')
+
         out_img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), mode='RGB')
         del arr, sk_full
-        _tick('skin texture')
 
     _tick('transfer')
     return _to_jpeg_bytes(out_img, int(preset.get('jpeg_quality', 95)))
