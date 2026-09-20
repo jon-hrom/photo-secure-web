@@ -83,6 +83,9 @@ PRESETS: Dict[str, Dict[str, Any]] = {
 
         "color_even_strength": 0.45,
         "red_cast_strength": 0.50,
+        "red_cast_passes": 2,
+        "final_red_strength": 0.5,
+        "final_red_passes": 1,
         "micro_texture": 0.38,
 
         "sharpen_amount": 0.35,
@@ -127,6 +130,13 @@ PRESETS: Dict[str, Dict[str, Any]] = {
 
         "color_even_strength": 0.95,
         "red_cast_strength": 1.0,
+        # Один проход снимает лишь верхушку красноты; три добивают точки
+        # до тона кожи. Яркость при этом не меняется — компенсация по G/B.
+        "red_cast_passes": 3,
+        # И финальный проход уже на полном разрешении: точки 2-4px на
+        # рабочей копии 1400px усреднялись в фон и оставались красными.
+        "final_red_strength": 1.0,
+        "final_red_passes": 3,
         # Возврат пор из оригинала уменьшен: вместе с порами возвращались
         # ямки от акне.
         "micro_texture": 0.24,

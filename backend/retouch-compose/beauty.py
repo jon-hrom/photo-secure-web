@@ -633,23 +633,58 @@ def even_out_tone(rgb: np.ndarray, skin_alpha: np.ndarray,
 
 
 def remove_red_cast(rgb: np.ndarray, skin_alpha: np.ndarray,
-                    strength: float) -> np.ndarray:
-    """Снимает локальные покраснения (следы акне, розацеа, раздражение)."""
+                    strength: float, passes: int = 1) -> np.ndarray:
+    """Снимает локальные покраснения (следы акне, розацеа, раздражение).
+
+    Краснота гасится с СОХРАНЕНИЕМ ЯРКОСТИ: избыток вычитается из красного
+    канала и компенсируется в зелёном и синем. Раньше уменьшался только
+    красный — точка теряла яркость и вместо слияния с кожей превращалась
+    в тёмное пятнышко, которое всё так же видно.
+
+    Работает на двух масштабах: крупный радиус ловит широкие пятна,
+    мелкий — точечные следы пост-акне, которые на крупном радиусе сами
+    подтягивают локальный фон к себе и потому не детектируются.
+    """
     if strength <= 0:
         return rgb
     h, w = rgb.shape[:2]
     radius = max(10.0, min(h, w) * 0.04)
-
-    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
-    redness = r - (g + b) / 2.0
-    redness_local = _blur_f(redness, radius)
-    # Избыток красноты относительно окружающей кожи.
-    excess = np.clip(redness - redness_local, 0.0, None)
-
-    out = rgb.copy()
-    out[:, :, 0] = r - excess * strength
+    radius_fine = max(3.0, min(h, w) * 0.008)
+    valid = np.clip(skin_alpha, 0.0, 1.0)
+    use_valid = float(valid.max()) > 0.01
     a = skin_alpha[:, :, None]
-    return rgb * (1.0 - a) + out * a
+
+    cur = rgb
+    # Один проход снимает пик красноты примерно втрое, но остаток ещё
+    # заметен глазом. Каждый следующий проход считает фон уже по
+    # исправленной картинке и добивает то, что осталось.
+    for _ in range(max(1, int(passes))):
+        r, g, b = cur[:, :, 0], cur[:, :, 1], cur[:, :, 2]
+        redness = r - (g + b) / 2.0
+        # Фон считаем ТОЛЬКО по коже: волосы и тёмный фон рядом с контуром
+        # лица занижали среднюю красноту и коррекция там уезжала.
+        if use_valid:
+            local = _normalized_blur(redness, valid, radius)[0]
+            local_fine = _normalized_blur(redness, valid, radius_fine)[0]
+        else:
+            local = _blur_f(redness, radius)
+            local_fine = _blur_f(redness, radius_fine)
+
+        excess = np.maximum(
+            np.clip(redness - local, 0.0, None),
+            np.clip(redness - local_fine, 0.0, None) * 1.4,
+        )
+
+        # Компенсация: -2/3 в R, +1/3 в G и B. Тогда краснота падает ровно
+        # на excess*strength, а яркость (r+g+b)/3 остаётся прежней.
+        corr = excess * strength
+        out = cur.copy()
+        out[:, :, 0] = r - corr * (2.0 / 3.0)
+        out[:, :, 1] = g + corr * (1.0 / 3.0)
+        out[:, :, 2] = b + corr * (1.0 / 3.0)
+        cur = np.clip(cur * (1.0 - a) + out * a, 0.0, 255.0)
+
+    return cur
 
 
 def micro_texture(rgb: np.ndarray, source: np.ndarray, skin_alpha: np.ndarray,
@@ -869,7 +904,9 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
 
     # --- 5. Цвет: выравнивание тона и снятие красноты ---
     img = even_out_tone(img, skin_a, float(preset.get('color_even_strength', 0.5)))
-    img = remove_red_cast(img, skin_a, float(preset.get('red_cast_strength', 0.5)))
+    img = remove_red_cast(img, skin_a,
+                          float(preset.get('red_cast_strength', 0.5)),
+                          passes=int(preset.get('red_cast_passes', 1)))
 
     _tick('colour')
 
@@ -910,6 +947,24 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
             full_img, orig_img, out_img, defects, skin_a_small,
             hf_damp=float(preset.get('full_hf_damp', 0.0)),
         )
+
+    # --- 9. Финальное выравнивание красноты на ПОЛНОМ разрешении ---
+    # Всё предыдущее считалось на уменьшенной копии, и точечные следы
+    # пост-акне размером 2-4px там просто усреднялись в фон. На полном
+    # кадре они снова видны как красные точки — гасим их здесь.
+    final_red = float(preset.get('final_red_strength', 0.0))
+    if final_red > 0:
+        fw, fh = out_img.size
+        sk_full = np.asarray(
+            Image.fromarray((np.clip(skin_a_small, 0.0, 1.0) * 255.0
+                             ).astype(np.uint8), mode='L')
+            .resize((fw, fh), Image.BILINEAR), dtype=np.float32) / 255.0
+        arr = np.asarray(out_img, dtype=np.float32)
+        arr = remove_red_cast(arr, sk_full, final_red,
+                              passes=int(preset.get('final_red_passes', 2)))
+        out_img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), mode='RGB')
+        del arr, sk_full
+        _tick('final red')
 
     _tick('transfer')
     return _to_jpeg_bytes(out_img, int(preset.get('jpeg_quality', 95)))
