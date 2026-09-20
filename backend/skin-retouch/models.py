@@ -271,13 +271,16 @@ def download(url: str) -> bytes:
 
 def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
             keep_texture: float = 0.35, regions=None,
-            trust_threshold: float = 40.0, highlight_recovery: float = 0.6) -> str:
+            trust_threshold: float = 40.0, highlight_recovery: float = 0.6,
+            even_out: float = 0.6) -> str:
     """Собирает финал: результат модели только на коже, остальное — оригинал.
 
     strength          — сила ретуши 0..1 (доля результата на коже)
     keep_texture      — сколько микротекстуры оригинала вернуть поверх (0..1)
     trust_threshold   — порог геометрической страховки (выше = больше свободы)
     highlight_recovery — сила восстановления пересвета на коже (0..1)
+    even_out          — сила финального выравнивания тона, добивает дефекты
+                        в тенях, которые модель не увидела (0..1)
     regions      — боксы с людьми, вне их ретушь не применяется
     """
     import gc
@@ -298,7 +301,8 @@ def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
     merged = skin.blend_skin(original, generated, strength=strength,
                              keep_texture=keep_texture, regions=regions,
                              trust_threshold=trust_threshold,
-                             highlight_recovery=highlight_recovery)
+                             highlight_recovery=highlight_recovery,
+                             even_out=even_out)
 
     # Исходники больше не нужны: держать их в памяти вместе с результатом
     # и base64-строкой — лишние сотни мегабайт при лимите функции 256 МБ.

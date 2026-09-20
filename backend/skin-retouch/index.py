@@ -20,20 +20,25 @@ MAX_IMAGE_BYTES = 20 * 1024 * 1024
 # trust — порог геометрической страховки. Раньше он был жёстким (40) на всех
 # уровнях, и защита срабатывала на нормальной ретуши, возвращая прыщи назад.
 # Теперь на сильных пресетах модели доверяем больше.
+#
+# even_out — финальное выравнивание тона поверх результата модели. Модель
+# чистит только то, что хорошо видит, и стабильно не дочищает дефекты
+# в полутени (скула, зона под челюстью, шея): там контраст пятна вдвое
+# ниже. Этот шаг доводит кожу до ровной арифметически и геометрию не трогает.
 PRESETS = {
     "light": {
         "strength": 0.70, "keep_texture": 0.50, "trust": 40.0,
-        "highlights": 0.35, "label": "Лёгкая",
+        "highlights": 0.35, "even_out": 0.45, "label": "Лёгкая",
     },
     "medium": {
         "strength": 0.92, "keep_texture": 0.30, "trust": 60.0,
-        "highlights": 0.60, "label": "Стандарт",
+        "highlights": 0.60, "even_out": 0.70, "label": "Стандарт",
     },
     # Максимум: кожа как после профессиональной бьюти-ретуши.
     # Ни одного прыща, текстура пор сохраняется отдельным шагом.
     "strong": {
         "strength": 1.00, "keep_texture": 0.16, "trust": 90.0,
-        "highlights": 0.85, "label": "Сильная",
+        "highlights": 0.85, "even_out": 0.92, "label": "Сильная",
     },
 }
 
@@ -210,6 +215,7 @@ def _handle_status(payload: dict, user_id):
             regions=regions,
             trust_threshold=preset["trust"],
             highlight_recovery=preset["highlights"],
+            even_out=preset["even_out"],
         )
     except Exception as e:
         if user_id:
@@ -260,6 +266,9 @@ def _handle_bench(payload: dict, user_id):
                     strength=preset["strength"],
                     keep_texture=preset["keep_texture"],
                     regions=payload.get("regions") or None,
+                    trust_threshold=preset["trust"],
+                    highlight_recovery=preset["highlights"],
+                    even_out=preset["even_out"],
                 )
             except Exception as e:
                 body["compose_error"] = str(e)[:300]
