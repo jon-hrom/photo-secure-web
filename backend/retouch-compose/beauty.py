@@ -15,6 +15,7 @@
 """
 
 import io
+import os
 import numpy as np
 from PIL import Image, ImageFilter
 
@@ -704,6 +705,99 @@ def micro_texture(rgb: np.ndarray, source: np.ndarray, skin_alpha: np.ndarray,
     return rgb + detail * a
 
 
+_SKIN_TEXTURE_TILE = None
+
+
+def _load_texture_tile():
+    """Загружает эталонный тайл текстуры кожи (поры), нормированный к std=1.
+
+    Как получен. Из референсного бьюти-снимка взят чистый участок щеки,
+    полосовым фильтром (0.5..5px) выделен рельеф кожи, экстремальные
+    выбросы (волоски) срезаны. Дальше по спектру этого образца синтезирован
+    тайл: та же радиальная огибающая, но случайная фаза. FFT по построению
+    периодичен, поэтому тайл стыкуется сам с собой без шва — разница на
+    стыке (0.55) не отличается от разницы соседних пикселей внутри (0.57).
+
+    Почему не проще. Прямая склейка внахлёст оставляла на стыке прямую
+    линию, видимую на коже. Зеркальное отражение шов убирало, но давало
+    симметричный узор — бабочку на щеке. Спектральный синтез свободен от
+    обеих проблем: симметрия 0.01, шва нет.
+    """
+    global _SKIN_TEXTURE_TILE
+    if _SKIN_TEXTURE_TILE is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'skin_texture.png')
+        _SKIN_TEXTURE_TILE = (
+            np.asarray(Image.open(path).convert('L'), dtype=np.float32)
+            - 128.0) / 24.0
+    return _SKIN_TEXTURE_TILE
+
+
+def apply_skin_texture(rgb: np.ndarray, skin_alpha: np.ndarray,
+                       amount: float, scale: float = 1.0,
+                       protect: np.ndarray = None) -> np.ndarray:
+    """Накладывает эталонную текстуру пор на ВСЮ кожу.
+
+    Зачем. Собственные поры возвращает micro_texture, но только там, где
+    они уцелели в оригинале. После сильной ретуши (healing + frequency
+    separation) на щеках и лбу остаются вылизанные «пластиковые» зоны —
+    там возвращать просто нечего. Эталонный тайл даёт ровное зерно пор по
+    всей коже, как в профессиональной бьюти-ретуши.
+
+    Накладывается только яркостная составляющая (цвет кожи не трогаем) и
+    гасится там, где своя текстура уже есть — иначе зерно удвоится.
+
+    Args:
+        rgb: float32 HxWx3, 0..255.
+        skin_alpha: float32 HxW 0..1 — маска кожи.
+        amount: сила наложения в единицах яркости (std итогового зерна).
+        scale: масштаб тайла (1.0 = 1px тайла на 1px кадра).
+        protect: 0..1 зоны, которые нельзя трогать (глаза, губы).
+
+    Returns:
+        float32 HxWx3.
+    """
+    if amount <= 0:
+        return rgb
+    h, w = rgb.shape[:2]
+    tile = _load_texture_tile()
+
+    if abs(scale - 1.0) > 0.02:
+        th = max(8, int(round(tile.shape[0] * scale)))
+        tw = max(8, int(round(tile.shape[1] * scale)))
+        tile = np.asarray(
+            Image.fromarray(
+                np.clip(tile * 24.0 + 128.0, 0, 255).astype(np.uint8), "L")
+            .resize((tw, th), Image.BICUBIC), dtype=np.float32)
+        tile = (tile - 128.0) / 24.0
+        # Ресайз меняет амплитуду (интерполяция сглаживает зерно) —
+        # возвращаем std к 1.0, иначе сила перестанет соответствовать
+        # значению из пресета.
+        tile /= max(tile.std(), 1e-3)
+
+    # Замощаем кадр тайлом.
+    th, tw = tile.shape
+    grain = np.tile(tile, (int(np.ceil(h / th)), int(np.ceil(w / tw))))[:h, :w]
+
+    # Гасим там, где СВОЯ текстура ещё жива: складываем только недостающее.
+    lum = rgb.mean(axis=2)
+    own = lum - _blur_f(lum, 2.2)
+    own_level = np.sqrt(np.maximum(_blur_f(own * own, 12.0), 0.0))
+    # own_level ~ локальный std своей текстуры. Если он уже >= amount,
+    # добавлять нечего; если кожа вылизана в ноль — добавляем полностью.
+    deficit = np.clip(1.0 - own_level / max(amount, 1e-3), 0.0, 1.0)
+
+    a = np.clip(skin_alpha, 0.0, 1.0) * deficit
+    if protect is not None:
+        a = a * (1.0 - np.clip(protect, 0.0, 1.0))
+
+    add = grain * amount * a
+    print(f"[BEAUTY] skin texture: amount={amount:.2f} scale={scale:.2f} "
+          f"покрытие={float((a > 0.15).mean()) * 100:.1f}% "
+          f"средний дефицит={float(deficit[skin_alpha > 0.5].mean()) if float(skin_alpha.max()) > 0.5 else 0:.2f}")
+    return rgb + add[:, :, None]
+
+
 def unsharp(rgb: np.ndarray, amount: float, radius: float) -> np.ndarray:
     """Финальный аккуратный шарп по всему кадру (глаза, волосы, губы)."""
     if amount <= 0:
@@ -965,6 +1059,27 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
         out_img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), mode='RGB')
         del arr, sk_full
         _tick('final red')
+
+    # --- 10. Эталонная текстура кожи на ПОЛНОМ разрешении ---
+    # Накладываем зерно пор туда, где ретушь вылизала кожу до пластика.
+    # Обязательно на полном кадре: на рабочей копии зерно после апскейла
+    # превратилось бы в мыло.
+    tex_amount = float(preset.get('skin_texture_amount', 0.0))
+    if tex_amount > 0:
+        fw, fh = out_img.size
+        sk_full = np.asarray(
+            Image.fromarray((np.clip(skin_a_small, 0.0, 1.0) * 255.0
+                             ).astype(np.uint8), mode='L')
+            .resize((fw, fh), Image.BILINEAR), dtype=np.float32) / 255.0
+        # Зерно пор должно быть одного физического размера независимо от
+        # разрешения снимка: тайл снят с кадра ~800px по стороне.
+        tex_scale = float(preset.get('skin_texture_scale', 1.0)) * \
+            max(0.5, min(fw, fh) / 800.0)
+        arr = np.asarray(out_img, dtype=np.float32)
+        arr = apply_skin_texture(arr, sk_full, tex_amount, scale=tex_scale)
+        out_img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), mode='RGB')
+        del arr, sk_full
+        _tick('skin texture')
 
     _tick('transfer')
     return _to_jpeg_bytes(out_img, int(preset.get('jpeg_quality', 95)))
