@@ -62,6 +62,12 @@ CANDIDATES = {
 # самая низкая цена провайдера (6 ₽ за генерацию).
 MODEL = os.environ.get("SKIN_RETOUCH_MODEL", "grok-imagine")
 
+# Запасная модель на случай, когда основная отклоняет фото по модерации.
+# У grok-imagine модерация strict: на портретах (особенно крупный план
+# лица, подростки, открытые плечи) она регулярно отвечает SENSITIVE_CONTENT.
+# У qwen-image-3 модерация auto и та же цена 6 ₽ — переключаемся на неё.
+FALLBACK_MODEL = os.environ.get("SKIN_RETOUCH_FALLBACK_MODEL", "qwen-image-3")
+
 # Цена для пользователя в энергии (1 ⚡ = 1 ₽). Выставим после замера
 # себестоимости — пока держим ориентир.
 PRICE = int(os.environ.get("SKIN_RETOUCH_PRICE", "15"))
@@ -211,7 +217,8 @@ def poll_task(task_id: str) -> dict:
         raise RuntimeError(f"GPTunneL {r.status_code}: {r.text[:300]}")
     data = r.json()
     status = data.get("status")
-    out = {"status": status, "url": None, "error": None, "cost": data.get("cost")}
+    out = {"status": status, "url": None, "error": None, "blocked": False,
+           "cost": data.get("cost")}
     if status == "done":
         results = data.get("result") or []
         if not results:
@@ -222,6 +229,13 @@ def poll_task(task_id: str) -> dict:
     elif status == "failed":
         err = data.get("error") or {}
         out["error"] = err.get("message") or "модель не справилась"
+        # Отказ модерации — не поломка, а особенность конкретной модели.
+        # Помечаем отдельно, чтобы перезапустить задачу на запасной модели.
+        title = str(err.get("title") or "")
+        out["blocked"] = (
+            "SENSITIVE" in title.upper()
+            or "sensitive content" in str(out["error"]).lower()
+        )
     return out
 
 

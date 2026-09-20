@@ -142,6 +142,21 @@ def _handle_status(payload: dict, user_id):
         return _response(200, {"status": "processing"})
 
     if state["status"] == "failed":
+        # Основная модель отклонила фото по модерации — это не поломка.
+        # Молча перезапускаем на запасной модели с мягкой модерацией,
+        # повторно энергию не списываем: пользователь уже заплатил.
+        image_b64 = payload.get("image")
+        if state.get("blocked") and image_b64 and not payload.get("retried"):
+            try:
+                new_task = models.start_task(image_b64, model=models.FALLBACK_MODEL)
+                return _response(200, {
+                    "status": "processing",
+                    "task_id": new_task,
+                    "retried": True,
+                })
+            except Exception as e:
+                print(f"[SKIN] fallback start failed: {e}")
+
         if user_id:
             energy.refund(user_id, models.PRICE, "Возврат: ретушь не удалась")
         return _response(200, {

@@ -100,6 +100,10 @@ export const useRetouchApi = (open: boolean) => {
       // Обрыв соединения на мобильном интернете — норма. Задача на сервере
       // при этом жива, поэтому сетевые ошибки не валят прогон: пробуем снова.
       let networkFails = 0;
+      // Сервер может перезапустить задачу на запасной модели (если основная
+      // отклонила фото по модерации) — тогда он вернёт новый task_id.
+      let taskId = started.task_id as string;
+      let retried = false;
       for (let attempt = 0; attempt < 60; attempt++) {
         await new Promise((r) => setTimeout(r, 4000));
         let sd: Record<string, unknown>;
@@ -108,9 +112,10 @@ export const useRetouchApi = (open: boolean) => {
             method: 'POST',
             headers,
             body: JSON.stringify({
-              task_id: started.task_id,
+              task_id: taskId,
               image: imageB64,
               preset: presetKey,
+              retried,
             }),
           });
           sd = await sr.json();
@@ -124,7 +129,13 @@ export const useRetouchApi = (open: boolean) => {
           continue;
         }
         if (sd.status === 'processing') {
-          setLoadingText('AI выравнивает кожу...');
+          if (sd.task_id && sd.task_id !== taskId) {
+            taskId = sd.task_id as string;
+            retried = true;
+            setLoadingText('Подбираем другую модель...');
+          } else {
+            setLoadingText('AI выравнивает кожу...');
+          }
           continue;
         }
         if (sd.status === 'refunded') {
@@ -145,9 +156,14 @@ export const useRetouchApi = (open: boolean) => {
       });
     } catch (e) {
       console.error(e);
+      const raw = String((e as Error)?.message || e);
+      // Текст модерации приходит от провайдера по-английски и пугает.
+      const friendly = /sensitive content/i.test(raw)
+        ? 'Сервис ретуши отклонил это фото фильтром безопасности. Попробуйте другой кадр или обрежьте фото поближе к лицу. Энергия возвращена.'
+        : raw;
       toast({
         title: 'Не удалось отретушировать',
-        description: String((e as Error)?.message || e),
+        description: friendly,
         variant: 'destructive',
       });
     } finally {
