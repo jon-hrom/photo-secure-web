@@ -421,23 +421,31 @@ def detect_red_patches(rgb: np.ndarray, skin: np.ndarray,
 
     r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
     redness = r - (g + b) / 2.0
+    valid = sel.astype(np.float32)
     # Фон = краснота, усреднённая по крупному радиусу (общий тон лица).
-    bg = _normalized_blur(redness, (sel).astype(np.float32),
-                          max(14.0, min(h, w) * 0.05))[0]
-    excess = redness - bg
+    bg = _normalized_blur(redness, valid, max(14.0, min(h, w) * 0.05))[0]
+    # Второй, средний радиус: у края щеки и по контуру лица краснота растёт
+    # плавно, и на крупном радиусе фон «подтягивается» к самому пятну —
+    # мелкие красные точки там переставали детектироваться.
+    bg_mid = _normalized_blur(redness, valid, max(6.0, min(h, w) * 0.018))[0]
+    excess = np.maximum(redness - bg, (redness - bg_mid) * 1.5)
 
     vals = excess[sel]
-    thr = float(np.percentile(vals, float(np.clip(100.0 - 12.0 * strength,
-                                                  55.0, 99.5))))
+    thr = float(np.percentile(vals, float(np.clip(100.0 - 16.0 * strength,
+                                                  50.0, 99.5))))
     # Минимальный абсолютный порог смягчается на высокой силе: слегка
     # красноватые следы пост-акне иначе отсекаются константой и остаются
     # видны точками на щеке.
-    min_thr = 2.0 / max(1.0, strength)
+    min_thr = 1.2 / max(1.0, strength)
     thr = max(thr, min_thr)
     patches = ((excess > thr) & sel).astype(np.uint8) * 255
 
     # Убираем одиночный шум, затем слегка расширяем пятна.
-    patches = _morph(_morph(patches, 1, 'erode'), 2, 'dilate')
+    # На высокой силе эрозию пропускаем: она съедала как раз те точечные
+    # следы пост-акне у края щеки, ради которых пресет и включают.
+    if strength <= 1.0:
+        patches = _morph(patches, 1, 'erode')
+    patches = _morph(patches, 3 if strength > 1.0 else 2, 'dilate')
     patches = np.where((patches > 128) & sel, 255, 0).astype(np.uint8)
     print(f"[BEAUTY] red patches: {np.count_nonzero(patches) * 100.0 / (h * w):.2f}% thr={thr:.1f}")
     return patches
@@ -468,29 +476,37 @@ def detect_spots(rgb: np.ndarray, skin: np.ndarray,
     lum = rgb.mean(axis=2)
     r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
     valid = sel.astype(np.float32)
+    redness = r - (g + b) / 2.0
 
-    # Локальный фон кожи — радиус заметно больше типичной точки.
+    # Два масштаба фона: крупный ловит пятна и ореолы, мелкий — точечные
+    # следы, ямки-рубчики от акне и одиночные красные точки, которые на
+    # крупном радиусе тонут в общем тоне щеки.
     bg_r = max(6.0, min(h, w) * 0.012)
+    fine_r = max(2.5, min(h, w) * 0.004)
     lum_bg = _normalized_blur(lum, valid, bg_r)[0]
-    red_bg = _normalized_blur(r - (g + b) / 2.0, valid, bg_r)[0]
+    red_bg = _normalized_blur(redness, valid, bg_r)[0]
+    lum_bg_f = _normalized_blur(lum, valid, fine_r)[0]
+    red_bg_f = _normalized_blur(redness, valid, fine_r)[0]
 
-    dark_drop = lum_bg - lum                      # насколько темнее фона
-    red_rise = (r - (g + b) / 2.0) - red_bg       # насколько краснее фона
+    # насколько темнее / краснее фона (максимум по двум масштабам)
+    dark_drop = np.maximum(lum_bg - lum, (lum_bg_f - lum) * 1.6)
+    red_rise = np.maximum(redness - red_bg, (redness - red_bg_f) * 1.6)
 
     # Пороги по статистике самой кожи, смягчаются параметром strength.
-    pct = float(np.clip(100.0 - 10.0 * strength, 55.0, 99.5))
+    pct = float(np.clip(100.0 - 14.0 * strength, 50.0, 99.5))
     d_thr = float(np.percentile(dark_drop[sel], pct))
     r_thr = float(np.percentile(red_rise[sel], pct))
-    # На максимальной силе абсолютный минимум опускаем: мелкие бугорки и
-    # подсохшие точки дают перепад всего 1.5-2 ед. и раньше игнорировались.
-    d_thr = max(d_thr, 2.5 / max(1.0, strength))
-    r_thr = max(r_thr, 2.0 / max(1.0, strength))
+    # На максимальной силе абсолютный минимум опускаем: мелкие бугорки,
+    # ямки-рубчики от акне и подсохшие точки дают перепад всего 1-1.5 ед.
+    # и раньше игнорировались.
+    d_thr = max(d_thr, 1.4 / max(1.0, strength))
+    r_thr = max(r_thr, 1.2 / max(1.0, strength))
 
     spots = ((dark_drop > d_thr) | (red_rise > r_thr)) & sel
     spots = spots.astype(np.uint8) * 255
 
     # Небольшое расширение — захватить ореол точки целиком.
-    spots = _morph(spots, 2, 'dilate')
+    spots = _morph(spots, 2 if strength <= 1.0 else 3, 'dilate')
     spots = np.where((spots > 128) & sel, 255, 0).astype(np.uint8)
     print(f"[BEAUTY] spots: {np.count_nonzero(spots) * 100.0 / (h * w):.2f}% "
           f"thr d={d_thr:.1f} r={r_thr:.1f}")
@@ -795,8 +811,11 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
     if grow_px > 0:
         defects = _grow(defects, grow_px)
     # Дефекты лечим только в глубине кожи: у самого края маски донора мало.
+    # Порог настраиваемый: при 0.85 отсекалась полоса шириной в несколько
+    # пикселей вдоль контура лица, и красные точки у края щеки оставались.
+    edge_guard = float(preset.get('edge_guard', 0.85))
     inner = _feather(skin, max(3.0, min(h, w) * 0.004))
-    defects = np.where(inner > 0.85, defects, 0).astype(np.uint8)
+    defects = np.where(inner > edge_guard, defects, 0).astype(np.uint8)
     # Не лечим внутри защищённых зон — иначе поплывут глаза и губы.
     defects = np.where(protect > 0.25, 0, defects).astype(np.uint8)
     defect_pct = float(np.count_nonzero(defects)) * 100.0 / (h * w)
@@ -825,7 +844,7 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
                     residual, detect_spots(cur, heal_zone, spot_strength))
             if grow_px > 0:
                 residual = _grow(residual, grow_px)
-            residual = np.where(inner > 0.85, residual, 0).astype(np.uint8)
+            residual = np.where(inner > edge_guard, residual, 0).astype(np.uint8)
             residual = np.where(protect > 0.25, 0, residual).astype(np.uint8)
             res_pct = float(np.count_nonzero(residual)) * 100.0 / (h * w)
             print(f"[BEAUTY] residual defects (pass {it}): {res_pct:.2f}%")
@@ -887,7 +906,10 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
     # только РАЗНИЦУ (изменение тона и убранные дефекты), а вся резкость
     # глаз, волос и ресниц остаётся из исходного файла.
     if out_img.size != full_size:
-        out_img = _transfer_to_full(full_img, orig_img, out_img, defects, skin_a_small)
+        out_img = _transfer_to_full(
+            full_img, orig_img, out_img, defects, skin_a_small,
+            hf_damp=float(preset.get('full_hf_damp', 0.0)),
+        )
 
     _tick('transfer')
     return _to_jpeg_bytes(out_img, int(preset.get('jpeg_quality', 95)))
@@ -895,7 +917,8 @@ def compose(original_bytes: bytes, retouched_bytes: bytes,
 
 def _transfer_to_full(full_img: Image.Image, work_orig: Image.Image,
                       work_result: Image.Image,
-                      defects: np.ndarray, skin_alpha: np.ndarray) -> Image.Image:
+                      defects: np.ndarray, skin_alpha: np.ndarray,
+                      hf_damp: float = 0.0) -> Image.Image:
     """Переносит результат ретуши с рабочего разрешения на полноразмерный кадр.
 
     Переносится разница (result - original), увеличенная до полного размера:
@@ -923,6 +946,11 @@ def _transfer_to_full(full_img: Image.Image, work_orig: Image.Image,
     w_img = Image.fromarray(
         (w_small * 255.0).astype(np.uint8), mode='L').resize(size, Image.BILINEAR)
     del d_small, w_small
+    # Маска кожи на полном разрешении — для подавления мелких дефектов,
+    # которых на рабочем разрешении просто не было видно.
+    s_img = Image.fromarray(
+        (np.clip(skin_alpha, 0.0, 1.0) * 255.0).astype(np.uint8), mode='L'
+    ).resize(size, Image.BILINEAR) if hf_damp > 0 else None
 
     # Разница на рабочем разрешении, упакованная в uint8 (экономия памяти).
     diff_img = Image.fromarray(np.clip(
@@ -936,11 +964,38 @@ def _transfer_to_full(full_img: Image.Image, work_orig: Image.Image,
     out = np.empty((size[1], size[0], 3), dtype=np.uint8)
     band = 512
     w_arr = np.asarray(w_img)
+    s_arr = np.asarray(s_img) if s_img is not None else None
+    # Радиус мелкой высокой частоты на ПОЛНОМ разрешении: точки акне и
+    # рубчики-углубления живут именно здесь.
+    hf_r = max(1.5, min(size) * 0.0018)
+    # Перекрытие полос, чтобы блюр не дал швов на стыках.
+    ov = int(hf_r * 4) + 2
     for y0 in range(0, size[1], band):
         y1 = min(y0 + band, size[1])
         base = np.asarray(full_img.crop((0, y0, size[0], y1)), dtype=np.float32)
         base += np.asarray(diff_img.crop((0, y0, size[0], y1)),
                            dtype=np.float32) - 128.0
+        if s_arr is not None:
+            # Считаем блюр на расширенной полосе, затем обрезаем обратно.
+            ey0, ey1 = max(0, y0 - ov), min(size[1], y1 + ov)
+            ext = np.asarray(full_img.crop((0, ey0, size[0], ey1)),
+                             dtype=np.float32)
+            ext += np.asarray(diff_img.crop((0, ey0, size[0], ey1)),
+                              dtype=np.float32) - 128.0
+            low = np.empty_like(ext)
+            for c in range(3):
+                low[:, :, c] = _blur_f(ext[:, :, c], hf_r)
+            top = y0 - ey0
+            low = low[top:top + (y1 - y0)]
+            hf = base - low
+            # Гасим только мелкоамплитудный рельеф (до ~7 ед.) — это точки,
+            # рубчики и неровности; крупные перепады (нос, губы, контур)
+            # остаются нетронутыми. И только внутри кожи.
+            amp = np.abs(hf).mean(axis=2, keepdims=True)
+            soft = np.clip(1.0 - amp / 7.0, 0.0, 1.0)
+            sk = (s_arr[y0:y1].astype(np.float32) / 255.0)[:, :, None]
+            base = low + hf * (1.0 - hf_damp * soft * sk)
+            del ext, low, hf, amp, soft, sk
         healed = np.asarray(healed_img.crop((0, y0, size[0], y1)),
                             dtype=np.float32)
         wb = (w_arr[y0:y1].astype(np.float32) / 255.0)[:, :, None]
