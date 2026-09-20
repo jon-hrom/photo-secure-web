@@ -1,21 +1,49 @@
-"""Маска кожи и безопасный композит генеративной ретуши.
+"""Маска кожи и композит генеративной ретуши через частотное разложение.
 
-Идея: модель перерисовывает кожу целиком (как при удалении лого), но наружу
-уходит оригинал, в котором заменена ТОЛЬКО поверхность кожи. Черты лица,
-глаза, губы, волосы, одежда и фон остаются исходными — человек не меняется.
+ПОЧЕМУ ИМЕННО ТАК.
 
-Ключевые отличия от точечного healing:
-  * маска покрывает ВСЮ кожу сплошняком, включая прыщи, покраснения,
-    пост-акне и пересвеченные блики — иначе именно дефекты и остаются
-    неотретушированными (ровно та проблема, что была раньше);
-  * защита узкая и точная: только глаза, брови, ноздри, губы, зубы;
-  * микротекстура (поры) возвращается из оригинала, но только слабая —
-    сильные высокие частоты это и есть прыщи, их возвращать нельзя;
-  * пересвет восстанавливается отдельным шагом: света сжимаются, объём
-    возвращается из соседних областей кожи.
+Старая схема смешивала оригинал и картинку модели напрямую по альфе:
+    out = orig * (1 - a) + gen * a
+Генеративная модель (grok / qwen / seedream) не возвращает пиксель-в-пиксель
+тот же кадр: лицо смещается на единицы пикселей, меняется масштаб и лёгкая
+геометрия. Смешение двух несовмещённых картинок даёт ровно то, что было видно
+на результате — ДВОЕНИЕ контуров (волосы, брови, воротник, край плеча) и
+МЫЛО (две чуть разные текстуры, сложенные вместе, взаимно гасят детали).
+Никакой настройкой силы это не лечится: дефект заложен в самой формуле.
+
+Новая схема (frequency separation, как в профессиональной бьюти-ретуши):
+  LOW  (тон, цвет, пятна, светотень)  — берём от модели и дополнительно
+                                        выравниваем арифметически.
+  MID  (рельеф прыща, пост-акне)      — гасим ТОЧЕЧНО по маске дефектов.
+  HIGH (поры, волоски, ресницы, края) — всегда 100% из оригинала.
+
+Итоговая формула:
+    out = orig + delta_low - mid * defects
+
+Оригинал никогда не заменяется — к нему лишь прибавляется ПЛАВНАЯ поправка
+низких частот и вычитается рельеф дефектов. Отсюда:
+  * двоения нет физически: все контуры остались оригинальными пикселями;
+  * мыла нет: высокие частоты не трогаются вообще, резкость исходная;
+  * акне уходит: краснота живёт в LOW, бугорок — в MID, и оба подавлены.
+
+ТЁМНЫЕ УЧАСТКИ. Детекция дефектов идёт в ЛОГАРИФМИЧЕСКОМ пространстве:
+отклонение считается как log(пиксель) - log(локальный фон), то есть в долях
+от местной яркости, а не в абсолютных единицах. Прыщ на 20% темнее фона даёт
+один и тот же отклик и на освещённой скуле, и в тени под челюстью. Раньше
+пороги были аддитивными, и в тенях дефекты просто не дотягивали до порога —
+поэтому ретушь там ничего не делала.
 """
 import numpy as np
 from PIL import Image, ImageFilter
+
+# Маски кожи/защиты — плавные карты, считаются на мелкой копии.
+MASK_SIDE = 512
+# Детекция дефектов и низкие частоты — на средней копии.
+# Размер выбран как компромисс: прыщ на 768 px ещё уверенно различим
+# (это 4-10 px), а полнокадровые float32-буферы в лимит 256 МБ и 5 секунд
+# уже не помещаются. Обе карты (дефекты и поправка тона) плавные, их
+# апскейл на полный кадр ничего не мылит — резкость берётся из оригинала.
+WORK_SIDE = 768
 
 
 def _odd(n: int) -> int:
@@ -28,23 +56,17 @@ def _to_arr(img: Image.Image) -> np.ndarray:
     return np.asarray(img, dtype=np.float32)
 
 
-# Маски — мягкие карты, мелкие детали в них всё равно размываются.
-# Считаем их на уменьшенной копии: морфология с большим ядром на полном
-# кадре стоит секунды и выбивает функцию из лимита времени.
-MASK_SIDE = 512
-
-
-def _small(img: Image.Image) -> Image.Image:
-    """Уменьшенная копия для расчёта масок (или оригинал, если он мелкий)."""
-    if max(img.size) <= MASK_SIDE:
+def _small(img: Image.Image, side: int = MASK_SIDE) -> Image.Image:
+    """Уменьшенная копия (или оригинал, если он уже мелкий)."""
+    if max(img.size) <= side:
         return img
     scaled = img.copy()
-    scaled.thumbnail((MASK_SIDE, MASK_SIDE), Image.BILINEAR)
+    scaled.thumbnail((side, side), Image.BILINEAR)
     return scaled
 
 
 def _upscale_mask(mask: np.ndarray, size) -> np.ndarray:
-    """Возвращает маску к размеру оригинала."""
+    """Возвращает маску 0..1 к заданному размеру (w, h)."""
     h, w = mask.shape
     if (w, h) == size:
         return mask
@@ -70,12 +92,77 @@ def _hsv(arr: np.ndarray):
     return mx, s, diff
 
 
+# ======================= ТОЧНЫЕ БЛЮРЫ ПО FLOAT =======================
+# PIL не умеет размывать режим 'F', а упаковка в uint8 убивает точность
+# логарифмических карт. Box-blur в три прохода ≈ гаусс, и он O(n).
+
+
+def _box_blur_1d(arr: np.ndarray, radius: int, axis: int) -> np.ndarray:
+    if radius < 1:
+        return arr
+    a = np.swapaxes(arr, 0, axis)
+    pad = radius + 1
+    ap = np.pad(a, [(pad, pad)] + [(0, 0)] * (a.ndim - 1), mode="edge")
+    cs = np.cumsum(ap, axis=0, dtype=np.float32)
+    cs = np.pad(cs, [(1, 0)] + [(0, 0)] * (a.ndim - 1), mode="constant")
+    n = a.shape[0]
+    win = 2 * radius + 1
+    lo = np.arange(n) + pad - radius
+    hi = np.arange(n) + pad + radius + 1
+    out = (cs[hi] - cs[lo]) / float(win)
+    return np.swapaxes(out, 0, axis)
+
+
+def _blur_f(arr: np.ndarray, radius: float) -> np.ndarray:
+    """Гаусс-подобное размытие float32 массива (2D или 3D)."""
+    a = arr.astype(np.float32)
+    if radius <= 0:
+        return a
+    box_r = max(1, int(round(float(radius) / 2.0 * 1.5)))
+    for _ in range(3):
+        a = _box_blur_1d(a, box_r, axis=0)
+        a = _box_blur_1d(a, box_r, axis=1)
+    return a
+
+
+def _norm_blur(arr: np.ndarray, weight: np.ndarray, radius: float) -> np.ndarray:
+    """Нормализованная свёртка: усреднение ТОЛЬКО по валидным пикселям.
+
+    Нужна, чтобы локальный тон кожи не затягивал в себя волосы, одежду и фон.
+    Без неё у края лица поправка уезжает по цвету и появляется ореол — ещё
+    одна причина «двоения» в старой версии.
+    """
+    w = np.maximum(_blur_f(weight, radius), 1e-3)
+    if arr.ndim == 2:
+        return _blur_f(arr * weight, radius) / w
+    out = np.empty_like(arr, dtype=np.float32)
+    wf = weight[..., None] if weight.ndim == 2 else weight
+    num = _blur_f(arr * wf, radius)
+    for c in range(arr.shape[2]):
+        out[..., c] = num[..., c] / w
+    return out
+
+
+def _blur_arr(arr: np.ndarray, radius: float) -> np.ndarray:
+    """Размытие RGB через PIL — быстро, когда точность не критична."""
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    return np.asarray(img.filter(ImageFilter.GaussianBlur(radius=radius)),
+                      dtype=np.float32)
+
+
+def _ramp(x: np.ndarray, t0: float, t1: float) -> np.ndarray:
+    """Мягкий порог 0..1 (без жёстких краёв, иначе видны заплатки)."""
+    return np.clip((x - t0) / max(t1 - t0, 1e-6), 0.0, 1.0)
+
+
+# ============================ МАСКИ ============================
+
+
 def regions_mask(size, regions) -> np.ndarray:
     """Маска 0..1 по боксам с людьми (координаты — доли от кадра)."""
     w, h = size
     m = np.zeros((h, w), dtype=np.float32)
     for x0, y0, x1, y1 in regions:
-        # запас: vision-модели дают рамку приблизительно
         px, py = (x1 - x0) * 0.06, (y1 - y0) * 0.06
         a = max(0, int((x0 - px) * w))
         b = max(0, int((y0 - py) * h))
@@ -90,81 +177,167 @@ def regions_mask(size, regions) -> np.ndarray:
     return np.asarray(img, dtype=np.float32) / 255.0
 
 
-def build_skin_mask(img: Image.Image) -> np.ndarray:
-    """Сплошная маска кожи 0..1 в размере кадра (для отладки/превью)."""
-    return _upscale_mask(skin_mask_small(_small(img)), img.size)
-
-
 def skin_mask_small(img: Image.Image) -> np.ndarray:
-    """Маска кожи в уменьшенном разрешении.
+    """Сплошная маска кожи 0..1 в уменьшенном разрешении.
 
-    Держать её в размере кадра нельзя: float32 на 2400x1600 — это 15 МБ,
-    а таких карт по ходу композита получалось три-четыре одновременно.
-    При лимите функции в 256 МБ это и был OOM (kill -9 → HTTP 502).
-    Важно: прыщи, покраснения и пересвеченные зоны обязаны попасть в маску.
+    Маска строится в два шага, и это принципиально. Одно фиксированное
+    цветовое правило всегда ошибается в одну из сторон: широкое — забирает
+    русые волосы, кремовую толстовку и тёплый фон (и тогда ретушь мылит
+    ровно эти зоны), узкое — теряет кожу в полутени вместе с дефектами.
+
+      1. ЯДРО — заведомо кожа: типичная цветность, средняя яркость. По нему
+         считаются МЕДИАНЫ конкретного кадра.
+      2. РОСТ — принимаем всё, что близко к медианам ЭТОГО человека при
+         этом освещении. Волосы и ткань отсекаются тем, что их цветность
+         отличается от медианной кожи, даже если формально «телесная».
+
+    Прыщи, покраснения и блики обязаны попасть ВНУТРЬ маски — иначе ретушь
+    обойдёт именно то, ради чего запускалась. За это отвечает closing.
     """
     arr = _to_arr(img)
     r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
     y, cb, cr = _ycbcr(arr)
     v, s, _ = _hsv(arr)
 
-    # Широкое цветовое правило кожи: диапазон Cr/Cb расширен вверх, чтобы
-    # воспалённые красные участки (акне) тоже считались кожей.
-    # Нижняя граница яркости опущена (35 → 22): затенённая кожа — скула в
-    # полутени, зона под челюстью, шея — выпадала из маски, и ретушь её
-    # не трогала. Именно там и оставались недочищенные пятна.
-    skin = (
-        (cr >= 128) & (cr <= 198) &
-        (cb >= 70) & (cb <= 138) &
-        (y >= 22) & (y <= 255) &
-        (r > b) & (r >= g - 8)
+    # --- 1. Ядро: узкое правило, только уверенная кожа ---
+    core = (
+        (cr >= 137) & (cr <= 180) &
+        (cb >= 80) & (cb <= 130) &
+        (y >= 60) & (y <= 235) &
+        (r > b + 12) & (r > g + 4) &
+        (s > 0.12) & (s < 0.55)
     )
+    if int(np.count_nonzero(core)) < 200:
+        core = (cr >= 133) & (cr <= 190) & (cb >= 75) & (cb <= 135) & (r > b)
+    if int(np.count_nonzero(core)) < 50:
+        return np.zeros(arr.shape[:2], dtype=np.float32)
 
-    # Волосы, брови, глубокие тени — тёмные. Губы — насыщенно-красные.
-    skin &= (s < 0.72) & (v > 0.09)
+    # --- 2. Медианы кадра и рост от ядра ---
+    cr_m = float(np.median(cr[core]))
+    cb_m = float(np.median(cb[core]))
+    s_m = float(np.median(s[core]))
+    y_m = float(np.median(y[core]))
 
-    # Белые/бесцветные объекты (ткань, бумага, стены) похожи на кожу
-    # по цветности. Но пересвеченная кожа тоже бесцветная и яркая,
-    # поэтому отсекаем только то, что ЯВНО ахроматично.
-    skin &= ~((v > 0.90) & (s < 0.10))
+    skin = (
+        (np.abs(cr - cr_m) < 20.0) &
+        (np.abs(cb - cb_m) < 17.0) &
+        (r > b + 4) &
+        # Яркость гуляет широко: тень под челюстью и блик на лбу — та же
+        # кожа. Ограничиваем только совсем провалы (волосы, фон).
+        (y > max(14.0, y_m * 0.28))
+    )
+    # Ткань и бумага бледнее кожи по насыщенности. Верхнюю границу держим
+    # щедрой: воспалённое акне насыщеннее здоровой кожи, и узкий порог
+    # выбрасывал из маски ровно те пятна, которые надо убрать.
+    skin &= (s > s_m * 0.55) & (s < s_m * 2.6 + 0.12)
+    # Тёмное И насыщенное — это волосы, брови, тень от них.
+    skin &= ~((y < y_m * 0.60) & (s > s_m * 1.20))
 
     mask = skin.astype(np.float32)
 
-    # Главное: закрываем дырки внутри кожи. Прыщи, родинки и блики
-    # выпадают из цветового правила, но находятся ВНУТРИ пятна кожи —
-    # их надо затянуть, иначе ретушь их не тронет.
-    close = _odd(max(9, min(img.size) // 22))
-    m = Image.fromarray((mask * 255).astype(np.uint8), mode="L")
-    m = m.filter(ImageFilter.MaxFilter(close))   # затянуть дырки от дефектов
-    m = m.filter(ImageFilter.MinFilter(close))   # вернуть внешние границы
-    # Мелкий мусор (отдельные пиксели фона) убираем открытием.
-    m = m.filter(ImageFilter.MinFilter(3))
-    m = m.filter(ImageFilter.MaxFilter(3))
-    m = m.filter(ImageFilter.GaussianBlur(radius=max(2, min(img.size) // 300)))
-    mask = np.asarray(m, dtype=np.float32) / 255.0
+    # --- 3. Волосы и ткань: отсев по текстуре ---
+    # Цвет русых волос и кремовой толстовки почти совпадает с кожей, и
+    # цветовое правило их не разделит. Зато отличается структура: пряди и
+    # складки дают плотную россыпь мелких перепадов.
+    #
+    # Отсев применяется ОТДЕЛЬНОЙ маской «точно не кожа», а не умножением
+    # на общую. Это принципиально: россыпь акне тоже шероховата, и прямое
+    # умножение выбрасывало из маски именно проблемную щёку — ретушь её
+    # не трогала вовсе. Поэтому в «не кожу» пиксель попадает, только если
+    # он шероховатый И его цветность заметно отличается от медианы кожи.
+    detail = np.abs(y - _blur_f(y, 1.6))
+    rough = _blur_f(detail, max(2.0, min(img.size) / 70.0))
+    not_skin = np.zeros_like(mask)
+    if int(np.count_nonzero(core)) > 200:
+        rough_skin = float(np.percentile(rough[core], 85))
+        far_color = np.maximum(_ramp(np.abs(cr - cr_m), 9.0, 17.0),
+                               _ramp(np.abs(cb - cb_m), 8.0, 15.0))
+        not_skin = _ramp(rough, rough_skin * 2.2 + 1.0, rough_skin * 4.5 + 3.5) * far_color
+        del far_color
+    mask = np.clip(mask - (not_skin > 0.45).astype(np.float32), 0.0, 1.0)
 
+    # --- 4. Морфология ---
+    m = Image.fromarray((mask * 255).astype(np.uint8), mode="L")
+    # Opening ПЕРВЫМ: снимаем мелкие «острова» на фоне, волосах и одежде,
+    # пока closing их не раздул до сплошных пятен.
+    open_k = _odd(max(3, min(img.size) // 110))
+    m = m.filter(ImageFilter.MinFilter(open_k))
+    m = m.filter(ImageFilter.MaxFilter(open_k))
+    close = _odd(max(5, min(img.size) // 45))
+    m = m.filter(ImageFilter.MaxFilter(close))
+    m = m.filter(ImageFilter.MinFilter(close))
+    mask = (np.asarray(m, dtype=np.float32) / 255.0 > 0.5).astype(np.float32)
+
+    # --- 5. Заполнение дыр ---
+    # Самое важное для акне. Очаг воспаления на щеке по цвету из маски
+    # выпадает — он краснее и темнее здоровой кожи. Closing такую дыру
+    # не закрывает: она размером с полщеки, а ядро закрытия физически
+    # не может быть таким большим, не перепрыгнув на волосы.
+    # Заливка решает это точно: всё, что ОКРУЖЕНО кожей со всех сторон,
+    # объявляется кожей независимо от своего цвета. Именно так в маску
+    # попадают прыщи, родинки, блики и тени — то есть цели ретуши.
+    mask = _fill_holes(mask)
+
+    # --- 6. Финальная доводка края ---
+    m = Image.fromarray((mask * 255).astype(np.uint8), mode="L")
+    # Эрозия на полшага внутрь: край маски не должен залезать на волосы
+    # и воротник, иначе там появится ореол.
+    m = m.filter(ImageFilter.MinFilter(_odd(max(3, min(img.size) // 100))))
+    m = m.filter(ImageFilter.GaussianBlur(radius=max(2, min(img.size) // 200)))
+    mask = np.clip(np.asarray(m, dtype=np.float32) / 255.0, 0.0, 1.0)
+
+    # Заливка могла втянуть волосы, зажатые между лбом и виском —
+    # возвращаем уверенно «не кожу» обратно в ноль.
+    if not_skin.max() > 0:
+        mask *= 1.0 - _blur_f(np.clip(not_skin, 0.0, 1.0),
+                              max(1.0, min(img.size) / 220.0))
     return np.clip(mask, 0.0, 1.0)
 
 
-def build_protect_mask(img: Image.Image) -> np.ndarray:
-    """Маска «не трогать» в размере кадра (для отладки/превью)."""
-    return _upscale_mask(protect_mask_small(_small(img)), img.size)
+def _fill_holes(mask: np.ndarray) -> np.ndarray:
+    """Заполняет дыры внутри маски: всё, что не связано с краем кадра.
+
+    Реализация без scipy: заливка фона от рамки изображения. То, что
+    осталось не залитым и при этом не является маской, — это и есть
+    внутренняя дыра (прыщ, родинка, блик, тень от носа).
+
+    Args:
+        mask: float32 HxW, 0 или 1.
+
+    Returns:
+        float32 HxW, 0 или 1.
+    """
+    h, w = mask.shape
+    bg = (mask < 0.5)
+    if not bg.any():
+        return mask
+
+    # Итеративная дилатация метки от рамки внутрь фона. Маска мелкая
+    # (≤512 px), поэтому десятка проходов box-blur хватает с запасом.
+    reach = np.zeros((h, w), dtype=np.float32)
+    reach[0, :] = reach[-1, :] = 1.0
+    reach[:, 0] = reach[:, -1] = 1.0
+    reach *= bg
+    for _ in range(14):
+        grown = _blur_f(reach, 3.0)
+        new = np.where((grown > 0.02) & bg, 1.0, reach)
+        if float(np.abs(new - reach).sum()) < 1.0:
+            reach = new
+            break
+        reach = new
+
+    # Фон, до которого заливка не добралась = дыра внутри кожи.
+    holes = bg & (reach < 0.5)
+    return np.clip(mask + holes.astype(np.float32), 0.0, 1.0)
 
 
 def protect_mask_small(img: Image.Image) -> np.ndarray:
-    """Защита в уменьшенном разрешении: глаза, брови, губы, зубы, ноздри.
-
-    Защита намеренно узкая. Широкая защита «съедала» прыщи и покраснения
-    (они тоже тёмные и красные) и мешала их убрать.
-    """
+    """Защита: глаза, брови, губы, зубы, ноздри. Намеренно узкая —
+    широкая защита «съедала» прыщи и мешала их убрать."""
     arr = _to_arr(img)
     y, cb, cr = _ycbcr(arr)
     v, s, _ = _hsv(arr)
 
-    # Медианы кожи по кадру — все пороги ниже считаются ОТНОСИТЕЛЬНО них.
-    # Абсолютные значения не работают: на тёмном снимке щека в полутени
-    # попадала под «тёмное» и защищалась целиком, из-за чего в тенях кожа
-    # оставалась неотретушированной.
     skin_like = (cr > 128) & (cr < 200) & (y > 40)
     if skin_like.any():
         cr_med = float(np.median(cr[skin_like]))
@@ -172,433 +345,36 @@ def protect_mask_small(img: Image.Image) -> np.ndarray:
     else:
         cr_med, y_med = 140.0, 130.0
 
-    # Только реально тёмное: зрачки, ресницы, брови, ноздри. Полутень на
-    # коже заметно светлее — она в защиту не попадает.
     dark = (y < min(62.0, y_med * 0.42)).astype(np.float32)
-    # Губы отличаются от кожи не абсолютным цветом, а сочетанием: они
-    # краснее И ТЕМНЕЕ окружающей кожи.
+    # Губы: краснее И ЗАМЕТНО темнее кожи. Пороги намеренно жёсткие —
+    # на мягких порогах под «губы» попадал очаг акне на щеке (он тоже
+    # красный и слегка тёмный), защищался целиком, и ретушь его не
+    # трогала. Ради этого же убран второй вариант «просто очень красное».
     red = (
-        ((cr > cr_med + 4) & (y < y_med - 12) & (s > 0.22)) |
-        ((cr > cr_med + 22) & (s > 0.40))
+        (cr > cr_med + 16) & (y < y_med - 26) & (s > 0.34)
     ).astype(np.float32)
-    # Блики в глазах и зубы — предельно яркие и бесцветные.
     bright = ((v > 0.96) & (s < 0.08)).astype(np.float32)
 
     protect = np.clip(dark + red + bright, 0.0, 1.0)
 
     p = Image.fromarray((protect * 255).astype(np.uint8), mode="L")
-    # Открытие: мелкие красные точки (прыщи) выпадают из защиты, а крупные
-    # области — губы, глаза, брови — остаются. Без этого шага защита
-    # накрывала бы сами дефекты и мешала их убрать.
-    # Ядро открытия подобрано по размеру: прыщ и точка пост-акне на
-    # превью 512 px — это 4-8 px, губы и глаза — втрое крупнее. На прежнем
-    # ядре (size//90) воспалённые прыщи на подбородке переживали открытие
-    # и попадали под защиту — из-за этого ретушь их не трогала вовсе.
-    open_k = _odd(max(5, min(img.size) // 38))
+    # Открытие: мелкие красные точки (прыщи) из защиты выпадают, крупные
+    # зоны — губы, глаза, брови — остаются. Ядро крупное: россыпь акне
+    # занимает площадь, сравнимую с губами, и мелкое ядро её сохраняло.
+    open_k = _odd(max(5, min(img.size) // 26))
     p = p.filter(ImageFilter.MinFilter(open_k))
     p = p.filter(ImageFilter.MaxFilter(open_k))
-    # Небольшой запас по краю защищённых зон.
     p = p.filter(ImageFilter.MaxFilter(_odd(max(3, min(img.size) // 200))))
     p = p.filter(ImageFilter.GaussianBlur(radius=max(2, min(img.size) // 400)))
     return np.clip(np.asarray(p, dtype=np.float32) / 255.0, 0.0, 1.0)
 
 
-def _blur_arr(arr: np.ndarray, radius: float) -> np.ndarray:
-    """Размытая копия массива (через PIL — быстрее любой свёртки на numpy)."""
-    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
-    return np.asarray(img.filter(ImageFilter.GaussianBlur(radius=radius)),
-                      dtype=np.float32)
+def build_skin_mask(img: Image.Image) -> np.ndarray:
+    return _upscale_mask(skin_mask_small(_small(img)), img.size)
 
 
-def _blur_gray(a: np.ndarray, radius: float, span: float = 255.0) -> np.ndarray:
-    """Размытие одноканальной карты. span — во сколько её масштабировать
-    перед упаковкой в uint8 (карты 0..1 нужно растянуть до 0..255)."""
-    img = Image.fromarray(
-        np.clip(a * (255.0 / span), 0, 255).astype(np.uint8), mode="L")
-    img = img.filter(ImageFilter.GaussianBlur(radius=radius))
-    return np.asarray(img, dtype=np.float32) * (span / 255.0)
-
-
-def _highpass(arr: np.ndarray, radius: float) -> np.ndarray:
-    """Высокие частоты = детали (поры, волоски)."""
-    return arr - _blur_arr(arr, radius)
-
-
-def even_out_skin(img: Image.Image, mask_small: np.ndarray,
-                  strength: float = 0.6) -> Image.Image:
-    """Добивка: выравнивает кожу там, где модель не дочистила.
-
-    Зачем нужен отдельный шаг. Генеративная модель убирает то, что хорошо
-    видит — дефекты на освещённой стороне. В тенях (скула в полутени, зона
-    под челюстью, шея) контраст пятна падает в разы, и модель их просто
-    «не замечает»: пост-акне и покраснения остаются.
-
-    Здесь кожа выравнивается арифметически, по принципу частотного
-    разделения: локальный тон берётся из окрестности, а пиксели, которые
-    ОТКЛОНЯЮТСЯ от этого тона (краснее, темнее или светлее), подтягиваются
-    к нему. Работает только внутри маски кожи, поэтому черты лица, глаза,
-    губы, волосы, одежда и контуры остаются нетронутыми — геометрия кадра
-    вообще не меняется, двигается только цвет поверхности кожи.
-
-    Ключевое для теней: пороги масштабируются локальной яркостью. В тёмной
-    зоне тот же дефект даёт вдвое меньшую разницу, и фиксированный порог
-    его пропускал — ровно то, что было видно на результате.
-
-    Правка разделена на два независимых канала, и это принципиально:
-      * ЦВЕТ (краснота) правится по большому радиусу — покраснения и
-        пост-акне это пятна размером с полщеки. Яркость при этом не
-        трогается вообще, поэтому светотень и объём лица сохраняются;
-      * ЯРКОСТЬ правится только по малому радиусу и только на мелких
-        точках. Большой радиус по яркости — это и есть тот «пластилин»,
-        который стирает брови и ресницы, поэтому его тут нет.
-    Плюс явный стоп для волосяных структур: перепад ярче некоторого
-    предела — это волос, бровь или ресница, а не дефект кожи.
-    """
-    strength = float(np.clip(strength, 0.0, 1.0))
-    if strength <= 0.01:
-        return img
-
-    # ВСЕ карты (тон кожи, карты дефектов) считаем на уменьшенной копии.
-    # Размытия с большим радиусом на полном кадре — это и секунды времени,
-    # и несколько float32-копий кадра в памяти: функция падала по лимиту
-    # 256 МБ и 5 секунд. Карты плавные, апскейл их не портит.
-    small = _small(img)
-    sw, sh = small.size
-    arr_s = _to_arr(small)
-    alpha_s = _upscale_mask(mask_small, small.size)
-
-    # Радиусы задаются в долях кадра, поэтому на превью считаются так же.
-    color_r = max(4.0, min(sw, sh) / 11.0)   # опорный тон кожи
-    mid_r = max(2.0, min(sw, sh) / 30.0)     # фон для пятен пост-акне
-    spot_r = max(1.0, min(sw, sh) / 130.0)   # фон для точечных дефектов
-
-    # Опорный тон кожи считаем ВЗВЕШЕННО по маске: радиус большой, и
-    # обычное размытие затянуло бы в «тон кожи» волосы, одежду и фон,
-    # а у границы лица правка поехала бы по цвету. Веса — сама маска.
-    wa = np.maximum(alpha_s, 1e-3)
-    wblur = np.maximum(_blur_gray(wa, color_r, span=1.0), 1e-3)
-    base = np.empty_like(arr_s)
-    for ch in range(3):
-        base[..., ch] = _blur_gray(arr_s[..., ch] * wa, color_r) / wblur
-    del wa, wblur
-
-    mid = _blur_arr(arr_s, mid_r)
-    spot = _blur_arr(arr_s, spot_r)
-
-    y = 0.299 * arr_s[..., 0] + 0.587 * arr_s[..., 1] + 0.114 * arr_s[..., 2]
-    y_base = 0.299 * base[..., 0] + 0.587 * base[..., 1] + 0.114 * base[..., 2]
-    y_mid = 0.299 * mid[..., 0] + 0.587 * mid[..., 1] + 0.114 * mid[..., 2]
-    y_spot = 0.299 * spot[..., 0] + 0.587 * spot[..., 1] + 0.114 * spot[..., 2]
-
-    # Адаптация порогов к освещённости: в тени дефект слабее по контрасту.
-    scale = np.clip(y_base / 150.0, 0.40, 1.35)
-
-    # Насколько пиксель краснее локальной кожи. Это главный признак,
-    # отличающий дефект от волоса: акне, пост-акне и раздражение —
-    # красные, а брови, ресницы и волосы нейтрально-коричневые или
-    # серые, то есть по красноте от кожи не отклоняются.
-    redness = (arr_s[..., 0] - arr_s[..., 2]) - (base[..., 0] - base[..., 2])
-
-    # --- канал цвета: убираем красноту пятен ---
-    w_color = np.clip((redness - 0.8 * scale) / (4.5 * scale), 0.0, 1.0)
-
-    # --- канал яркости ---
-    # Пятно пост-акне крупнее точки, поэтому фон для него — СРЕДНИЙ радиус
-    # (на малом фон темнел вместе с пятном, и правка почти ничего не делала),
-    # но не большой: большой снял бы светотень лица. Пропуском служит
-    # краснота: без неё (волос, бровь, ресница, контур губ, тень от носа)
-    # яркость не трогается. Пропуск не жёсткий — заживший пост-акне уже
-    # коричневатый, и полный запрет по красноте оставлял именно эти точки.
-    red_gate = 0.45 + 0.55 * np.clip((redness + 1.0) / 3.0, 0.0, 1.0)
-    w_dark = np.clip((y_mid - y - 1.0 * scale) / (5.0 * scale), 0.0, 1.0)
-    w_dark *= red_gate
-    # Белые точки и точечный жирный блеск — по малому радиусу, они мелкие.
-    w_light = np.clip((y - y_spot - 4.0 * scale) / (12.0 * scale), 0.0, 1.0)
-    w_spot = np.maximum(w_dark, w_light * 0.7)
-
-    # Страховка от совсем контрастных структур (ресница на щеке, резкий
-    # контур): такого перепада у дефекта кожи не бывает. Порог поднимается
-    # на красных участках — воспалённый прыщ бывает не менее контрастным,
-    # чем волос, и жёсткая страховка снимала правку с самых заметных пятен.
-    edge = np.abs(y_mid - y)
-    limit = (30.0 + 34.0 * red_gate) * scale
-    keep = np.clip(1.0 - (edge - limit) / (16.0 * scale), 0.0, 1.0)
-    w_color = _blur_gray(w_color * keep, max(1.0, spot_r * 1.5), span=1.0)
-    w_spot = _blur_gray(w_spot * keep, max(1.0, spot_r), span=1.0)
-    del (redness, red_gate, w_dark, w_light, edge, limit, keep,
-         y, y_base, y_spot, scale, spot)
-
-    # Поправки считаем на превью и растягиваем как картинки: массив на
-    # полный кадр в памяти не появляется.
-    wc_s = np.clip(w_color * alpha_s * strength, 0.0, 1.0)
-    ws_s = np.clip(w_spot * alpha_s * strength, 0.0, 1.0)
-
-    # 1. ЦВЕТ: отклонение по цветовым разностям гасится, светлота не меняется.
-    chroma_delta = (base - base.mean(axis=-1, keepdims=True)) - \
-                   (arr_s - arr_s.mean(axis=-1, keepdims=True))
-    # 2. ЯРКОСТЬ: светлота подтягивается к среднему радиусу, цвет свой.
-    lum_delta = mid.mean(axis=-1, keepdims=True) - arr_s.mean(axis=-1, keepdims=True)
-
-    delta_s = chroma_delta * wc_s[..., None] + lum_delta * ws_s[..., None]
-    del chroma_delta, lum_delta, base, mid, arr_s, w_color, w_spot, alpha_s
-
-    # Диапазон правки ±96 упакован в uint8 — этого с запасом хватает
-    # (реальные поправки редко выходят за ±30).
-    delta_img = Image.fromarray(
-        np.clip(delta_s * (127.0 / 96.0) + 128.0, 0, 255).astype(np.uint8)
-    ).resize(img.size, Image.BILINEAR)
-    ws_img = Image.fromarray(
-        (np.clip(ws_s, 0, 1) * 255).astype(np.uint8), mode="L"
-    ).resize(img.size, Image.BILINEAR)
-    del delta_s, wc_s, ws_s
-
-    width, height = img.size
-    fine_r = max(1.0, min(img.size) / 500.0)
-    band = max(64, int(500_000 / max(width, 1)))
-    overlap = int(fine_r * 3) + 2
-    out_img = Image.new("RGB", img.size)
-
-    for top in range(0, height, band):
-        bottom = min(height, top + band)
-        src_top = max(0, top - overlap)
-        src_bottom = min(height, bottom + overlap)
-        box = (0, src_top, width, src_bottom)
-
-        arr = np.asarray(img.crop(box), dtype=np.float32)
-        delta = (np.asarray(delta_img.crop(box), dtype=np.float32) - 128.0) * (96.0 / 127.0)
-        ws = np.asarray(ws_img.crop(box), dtype=np.float32)[..., None] / 255.0
-
-        out = arr + delta
-        # Возвращаем поры: слабые высокие частоты, амплитуда ограничена,
-        # чтобы вместе с текстурой не вернулось само пятно.
-        out += np.clip(_highpass(arr, fine_r), -3.5, 3.5) * ws * 0.6
-        del arr, delta, ws
-
-        chunk = np.clip(out, 0, 255).astype(np.uint8)
-        inner = chunk[top - src_top: top - src_top + (bottom - top)]
-        out_img.paste(Image.fromarray(inner), (0, top))
-        del out, chunk, inner
-
-    delta_img.close()
-    ws_img.close()
-    return out_img
-
-
-def recover_highlights(img: Image.Image, mask_small: np.ndarray,
-                       strength: float = 0.6) -> Image.Image:
-    """Восстановление пересвета на коже: сжимает света и возвращает объём.
-
-    Пересвеченные зоны (жирный блеск на лбу, носу, скулах) вытянуты в белое
-    и теряют цвет. Приводим их яркость к уровню окружающей кожи и
-    возвращаем телесный оттенок, взятый из соседних нормальных участков.
-
-    mask_small — маска кожи в уменьшенном разрешении (см. skin_mask_small).
-    Финал считается горизонтальными полосами: полнокадровые float32-копии
-    (arr, delta, detail, out) в сумме давали ~200 МБ и убивали функцию.
-    """
-    strength = float(np.clip(strength, 0.0, 1.0))
-    if strength <= 0.01:
-        return img
-
-    # Карты пересвета и «локального тона кожи» — сильно размытые, мелкие
-    # детали в них роли не играют. Считаем на уменьшенной копии: на полном
-    # кадре это несколько float32-копий и выход за лимит памяти функции.
-    small = _small(img)
-    arr_s = _to_arr(small)
-    y, _, _ = _ycbcr(arr_s)
-    v, s, _ = _hsv(arr_s)
-    mask_s = _upscale_mask(mask_small, small.size)
-
-    # Пересвет определяем ОТНОСИТЕЛЬНО самой кожи, а не по абсолютной
-    # яркости. Жирный блеск на лбу и щеках часто не доходит до белого
-    # (на тёмном фото максимум яркости кожи бывает ~160), и абсолютный
-    # порог его просто не видел — пересвет оставался на месте.
-    sk = mask_s > 0.3
-    if not sk.any():
-        return img
-    y_hi = float(np.percentile(y[sk], 82))
-    y_top = float(np.percentile(y[sk], 99))
-    span = max(8.0, y_top - y_hi)
-
-    over_s = np.clip((y - y_hi) / span, 0.0, 1.0)
-    # Блик обесцвечен: чем ниже насыщенность относительно кожи, тем сильнее.
-    s_med = float(np.median(s[sk]))
-    over_s *= np.clip((s_med + 0.06 - s) / max(0.08, s_med), 0.0, 1.0)
-    over_s *= mask_s  # только по коже
-    if over_s.max() < 0.02:
-        return img
-
-    # Цвет и яркость «нормальной» кожи рядом: сильное размытие по маске,
-    # взвешенное на не-пересвеченные пиксели.
-    good = mask_s * (1.0 - over_s)
-    radius = max(12.0, min(small.size) / 14.0)
-
-    def _blur(a):
-        return np.asarray(
-            Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
-            .filter(ImageFilter.GaussianBlur(radius=radius)), dtype=np.float32)
-
-    w = np.asarray(
-        Image.fromarray((good * 255).astype(np.uint8), mode="L")
-        .filter(ImageFilter.GaussianBlur(radius=radius)), dtype=np.float32) / 255.0
-    w = np.maximum(w, 1e-3)
-
-    local_s = np.empty_like(arr_s)
-    for c in range(3):
-        local_s[..., c] = _blur(arr_s[..., c] * good) / w
-
-    # Поправка (насколько тянуть пиксель к тону кожи) считается на мелкой
-    # копии и растягивается — она плавная, апскейл её не портит. Держим её
-    # как картинки, а не как float32-массивы кадра: разворачиваем по полосам.
-    delta_img = Image.fromarray(
-        np.clip(local_s - arr_s + 128.0, 0, 255).astype(np.uint8)
-    ).resize(img.size, Image.BILINEAR)
-    over_img = Image.fromarray(
-        (np.clip(over_s, 0, 1) * 255).astype(np.uint8), mode="L"
-    ).resize(img.size, Image.BILINEAR)
-    del arr_s, local_s, over_s, mask_s, good, w, y, v, s
-
-    width, height = img.size
-    radius = max(1.5, min(img.size) / 400.0)
-    band = max(64, int(600_000 / max(width, 1)))
-    overlap = int(radius * 3) + 2
-    out_img = Image.new("RGB", img.size)
-
-    for top in range(0, height, band):
-        bottom = min(height, top + band)
-        src_top = max(0, top - overlap)
-        src_bottom = min(height, bottom + overlap)
-        box = (0, src_top, width, src_bottom)
-
-        arr = np.asarray(img.crop(box), dtype=np.float32)
-        delta = np.asarray(delta_img.crop(box), dtype=np.float32) - 128.0
-        over = np.asarray(over_img.crop(box), dtype=np.float32)[..., None] / 255.0
-
-        # Тянем пересвет к локальному тону кожи, но не полностью: блик
-        # должен остаться бликом, иначе лицо станет плоским.
-        out = arr + delta * (over * strength * 0.85)
-        # Возвращаем микрорельеф, чтобы восстановленная зона не была пятном.
-        out += _highpass(arr, radius) * (over * 0.35)
-        del arr, delta, over
-
-        chunk = np.clip(out, 0, 255).astype(np.uint8)
-        inner = chunk[top - src_top: top - src_top + (bottom - top)]
-        out_img.paste(Image.fromarray(inner), (0, top))
-        del out, chunk, inner
-
-    return out_img
-
-
-def blend_skin(original: Image.Image, generated: Image.Image,
-               strength: float = 0.8, keep_texture: float = 0.35,
-               regions=None, trust_threshold: float = 40.0,
-               highlight_recovery: float = 0.6,
-               even_out: float = 0.6) -> Image.Image:
-    """Вклеивает генеративную ретушь в оригинал только по коже.
-
-    trust_threshold — порог «доверия» к результату модели. Чем выше, тем
-    сильнее разрешено менять кожу. На низком пороге защита срабатывала
-    даже на нормальной ретуши и возвращала прыщи обратно.
-
-    even_out — сила финального выравнивания кожи (even_out_skin). Модель
-    не дочищает дефекты в тенях: там контраст пятна низкий, и она их
-    не видит. Этот шаг доводит тон до ровного арифметически, не трогая
-    геометрию — форма лица и тела остаются оригинальными.
-    """
-    strength = float(np.clip(strength, 0.0, 1.0))
-    keep_texture = float(np.clip(keep_texture, 0.0, 1.0))
-
-    # Все карты считаем и храним в уменьшенном разрешении. Полнокадровые
-    # float32-маски (15 МБ каждая, и их тут четыре) не помещались в лимит
-    # функции 256 МБ — процесс убивало по OOM, наружу уходил HTTP 502.
-    orig_s = _small(original)
-    mask = np.clip(
-        skin_mask_small(orig_s) * (1.0 - protect_mask_small(orig_s)), 0.0, 1.0)
-    if regions:
-        mask *= regions_mask(orig_s.size, regions)
-
-    # Геометрическая страховка. Считаем расхождение по СИЛЬНО размытым
-    # версиям кадра: так видно сдвиг черт и формы, но не видно локальных
-    # дефектов. Иначе защита срабатывала бы ровно на прыщах — то есть
-    # мешала бы убрать именно то, ради чего инструмент и нужен.
-    gen_small = generated.resize(orig_s.size, Image.BILINEAR)
-    blur_r = max(6.0, min(orig_s.size) / 60.0)
-    orig_low = np.asarray(orig_s.filter(ImageFilter.GaussianBlur(radius=blur_r)),
-                          dtype=np.float32)
-    gen_low = np.asarray(gen_small.filter(ImageFilter.GaussianBlur(radius=blur_r)),
-                         dtype=np.float32)
-    struct_diff = np.abs(gen_low - orig_low).mean(axis=-1)
-    del orig_low, gen_low, gen_small
-    trust = np.clip(1.0 - (struct_diff - trust_threshold) / 30.0, 0.0, 1.0)
-    trust_img = Image.fromarray((trust * 255).astype(np.uint8), mode="L")
-    trust_img = trust_img.filter(ImageFilter.GaussianBlur(radius=blur_r / 2))
-    trust = np.asarray(trust_img, dtype=np.float32) / 255.0
-
-    # Карта силы: маленькая, uint8, растягивается на кадр только при чтении
-    # очередной полосы — в памяти полного кадра она никогда не лежит.
-    alpha_img = Image.fromarray(
-        (np.clip(mask * trust * strength, 0.0, 1.0) * 255).astype(np.uint8),
-        mode="L").resize(original.size, Image.BILINEAR)
-    skin_for_highlights = mask
-    del trust, struct_diff, trust_img
-
-    # Финал считаем горизонтальными полосами. Раньше в памяти одновременно
-    # жили ~8 float32-копий кадра — на 1600px это 450 МБ, и функцию убивал
-    # OOM (лимит 256 МБ). Полосами пик держится в десятках мегабайт.
-    radius = max(1.2, min(original.size) / 500.0)
-    width, height = original.size
-    band = max(64, int(600_000 / max(width, 1)))
-    overlap = int(radius * 3) + 2  # запас, чтобы блюр не рвал стык полос
-
-    out_img = Image.new("RGB", original.size)
-
-    for top in range(0, height, band):
-        bottom = min(height, top + band)
-        # Читаем с перехлёстом, а вклеиваем только «чистую» середину.
-        src_top = max(0, top - overlap)
-        src_bottom = min(height, bottom + overlap)
-        box = (0, src_top, width, src_bottom)
-
-        orig = np.asarray(original.crop(box), dtype=np.float32)
-        gen = np.asarray(generated.crop(box), dtype=np.float32)
-
-        # Низкие частоты берём у модели (ровный тон), высокие частично
-        # возвращаем из оригинала — так сохраняются поры и кожа живая.
-        gen_detail = _highpass(gen, radius)
-        orig_detail = _highpass(orig, radius)
-        # Из оригинала берём ТОЛЬКО слабые детали — поры и микрорельеф.
-        # Сильные высокие частоты это и есть прыщи и пятна: вернуть их
-        # означало бы отменить ретушь.
-        amp = np.abs(orig_detail).mean(axis=-1, keepdims=True)
-        fine = np.clip(1.0 - (amp - 4.0) / 5.0, 0.0, 1.0)
-        detail = gen_detail + (orig_detail * fine - gen_detail) * keep_texture
-        gen_final = gen - gen_detail + detail
-        del gen_detail, orig_detail, amp, fine, detail
-
-        alpha = np.asarray(alpha_img.crop(box),
-                           dtype=np.float32)[..., None] / 255.0
-        chunk = orig * (1.0 - alpha) + gen_final * alpha
-        del orig, gen, gen_final, alpha
-
-        chunk = np.clip(chunk, 0, 255).astype(np.uint8)
-        inner = chunk[top - src_top: top - src_top + (bottom - top)]
-        out_img.paste(Image.fromarray(inner), (0, top))
-        del chunk, inner
-
-    alpha_img.close()
-    del alpha_img
-
-    if highlight_recovery > 0.01:
-        out_img = recover_highlights(out_img, skin_for_highlights,
-                                     strength=highlight_recovery)
-
-    # Финальная добивка по всей коже — она же вычищает тени, куда модель
-    # не дотянулась. Идёт последней, чтобы выровнять и то, что осталось
-    # после композита, и стыки восстановленного пересвета.
-    if even_out > 0.01:
-        out_img = even_out_skin(out_img, skin_for_highlights, strength=even_out)
-
-    return out_img
+def build_protect_mask(img: Image.Image) -> np.ndarray:
+    return _upscale_mask(protect_mask_small(_small(img)), img.size)
 
 
 def mask_preview(img: Image.Image, regions=None) -> Image.Image:
@@ -607,3 +383,335 @@ def mask_preview(img: Image.Image, regions=None) -> Image.Image:
     if regions:
         mask = mask * regions_mask(img.size, regions)
     return Image.fromarray((np.clip(mask, 0, 1) * 255).astype(np.uint8), mode="L")
+
+
+# ====================== ДЕТЕКЦИЯ ДЕФЕКТОВ ======================
+
+
+def detect_defects(arr: np.ndarray, skin: np.ndarray,
+                   sensitivity: float = 0.6) -> np.ndarray:
+    """Карта дефектов кожи 0..1 в ЛОГАРИФМИЧЕСКОМ (относительном) контрасте.
+
+    Ключевой момент — почему работает и в тенях. Отклонение считается как
+    log(пиксель) - log(локальный фон кожи). Это отношение, а не разность:
+    пятно, которое на 18% темнее окружающей кожи, даёт отклик 0.18 и на
+    залитом светом лбу, и в глубокой тени под челюстью. Абсолютные пороги
+    (как было раньше) в тени срабатывать переставали.
+
+    Ловим три типа дефектов:
+      * тёмные   — пост-акне, точки, комедоны, рубцы;
+      * красные  — воспалённое акне, раздражение, розацеа;
+      * светлые  — белые головки, точечный жирный блеск.
+
+    Args:
+        arr: float32 HxWx3 0..255 (рабочее разрешение).
+        skin: float32 HxW 0..1 — где искать.
+        sensitivity: 0..1, выше = агрессивнее.
+
+    Returns:
+        float32 HxW 0..1.
+    """
+    h, w = arr.shape[:2]
+    sens = float(np.clip(sensitivity, 0.0, 1.0))
+    valid = np.clip(skin, 0.0, 1.0).astype(np.float32)
+    if float(valid.sum()) < 50:
+        return np.zeros((h, w), dtype=np.float32)
+
+    eps = 6.0  # гасит шум логарифма в самых тёмных пикселях
+    r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
+    y = 0.299 * r + 0.587 * g + 0.114 * b
+
+    lum = np.log(np.maximum(y, 0.0) + eps)
+    # Относительная краснота: тоже логарифм отношения, поэтому не зависит
+    # от того, насколько ярко освещён участок.
+    red = np.log(np.maximum(r, 0.0) + eps) - np.log(np.maximum(g + b, 0.0) * 0.5 + eps)
+
+    # Мелкое сглаживание — убирает шум матрицы и JPEG-артефакты,
+    # но сохраняет прыщ (он крупнее пары пикселей).
+    fine_r = max(1.0, min(h, w) * 0.0018)
+    lum_s = _blur_f(lum, fine_r)
+    red_s = _blur_f(red, fine_r)
+
+    # --- Полосовой фильтр (DoG) вместо простого «темнее фона» ---
+    # Это ключевая деталь. Разность с одним фоном срабатывает на ЛЮБОМ
+    # тёмном участке — глазницу, бровь, тень от носа и волосы она честно
+    # считает «дефектом», и именно поэтому лицо раньше плыло.
+    # Прыщ же — локальный пик ОПРЕДЕЛЁННОГО размера. Разность двух блюров
+    # (мелкого и крупного) пропускает только эту полосу масштабов: всё
+    # крупнее (светотень, глазница) и всё мельче (шум, поры) обнуляется.
+    #
+    # Берём два масштаба, чтобы ловить и точку пост-акне, и крупный очаг.
+    def dog(src, s1, s2):
+        return _blur_f(src, s1) - _blur_f(src, s2)
+
+    sm = max(1.2, min(h, w) * 0.0025)   # мелкие точки, комедоны
+    md = max(2.5, min(h, w) * 0.0060)   # крупные прыщи
+    dark = np.maximum(dog(-lum_s, sm, sm * 3.5), dog(-lum_s, md, md * 3.5))
+    redx = np.maximum(dog(red_s, sm, sm * 3.5), dog(red_s, md, md * 3.5))
+    # Светлые дефекты (белые головки) — только на мелком масштабе: на
+    # крупном туда попадает блик на носу и скуле, то есть нормальный объём.
+    light = dog(lum_s, sm, sm * 3.5)
+
+    # --- Плоские красные пятна ---
+    # DoG ловит выпуклые «пики» нужного размера, но зажившее пост-акне и
+    # сплошное воспаление на щеке — это широкое ПЛОСКОЕ пятно. На масштабе
+    # прыща оно почти не даёт отклика, и именно поэтому такая щека раньше
+    # оставалась нетронутой. Сравниваем красноту с тоном кожи ВСЕГО лица.
+    red_bg = _norm_blur(red_s, valid, max(12.0, min(h, w) * 0.09))
+    flat_red = red_s - red_bg
+
+    # Объединяем каналы. Краснота весит больше всего: она отличает
+    # воспаление от тени и от контура века лучше любого яркостного признака.
+    resp = np.maximum(np.maximum(dark, redx * 1.8), light * 0.6)
+    resp = np.maximum(resp, flat_red * 1.4)
+    del red_bg, flat_red
+
+    # --- Подавление КРАЁВ ---
+    # DoG сам по себе охотно отзывается на границы: контур века, крыло носа,
+    # линия губ, край брови. Именно это и было видно — правка садилась на
+    # черты лица, а не на акне.
+    # Отличие геометрическое: прыщ — замкнутое пятно, внутри него градиент
+    # близок к нулю, сильные перепады только по кольцу вокруг. У контура же
+    # градиент велик В САМОЙ точке отклика. Гасим по локальному градиенту.
+    gy, gx = np.gradient(lum_s)
+    grad = _blur_f(np.sqrt(gx * gx + gy * gy), max(1.0, sm))
+    del gx, gy
+    resp *= 1.0 - _ramp(grad, 0.045, 0.110)
+
+    # Волосяные структуры: ресница, бровь, волосок дают перепад заметно
+    # резче и контрастнее любого дефекта кожи.
+    struct = np.abs(lum_s - _blur_f(lum_s, fine_r * 3.0))
+    resp *= 1.0 - _ramp(struct, 0.16, 0.32)
+    resp *= valid
+
+    # --- Порог по БЮДЖЕТУ ПЛОЩАДИ ---
+    # Фиксированный порог всегда подводит: на проблемной коже он ловит
+    # слишком мало, на чистой — выдумывает дефекты из шума и светотени.
+    # Поэтому берём фиксированную долю самых сильных откликов внутри кожи.
+    # Площадь правки предсказуема по определению, и лицо не может «поплыть»
+    # целиком, сколько бы ни ошиблась маска.
+    sel = valid > 0.5
+    budget = 3.0 + 17.0 * sens     # 3% площади кожи на «Лёгкой», 20% на «Сильной»
+    if int(np.count_nonzero(sel)) > 500:
+        thr = float(np.percentile(resp[sel], 100.0 - budget))
+        # Абсолютный минимум: на чистой коже дефекты не выдумываем.
+        thr = max(thr, 0.020)
+    else:
+        thr = 0.030
+    defects = _ramp(resp, thr, thr * 1.9 + 0.012) * valid
+
+    # Расширяем каждый очаг: у прыща есть ореол, и если оставить только
+    # ядро, вокруг останется кольцо — это читается как грязь.
+    grow = max(1.0, min(h, w) * 0.0035)
+    defects = np.clip(_blur_f(defects, grow) * 2.2, 0.0, 1.0) * valid
+    return defects.astype(np.float32)
+
+
+# ====================== НИЗКИЕ ЧАСТОТЫ ======================
+
+
+def _tone_layer(orig_s: np.ndarray, gen_s: np.ndarray, alpha_s: np.ndarray,
+                skin_s: np.ndarray, defects: np.ndarray, even_out: float,
+                highlights: float) -> np.ndarray:
+    """Считает поправку НИЗКИХ частот (тон и цвет) на рабочем разрешении.
+
+    ГЛАВНЫЙ ПРИНЦИП: тон правится ТОЛЬКО там, где найден дефект.
+
+    Предыдущая версия выравнивала тон по всей коже сразу — и именно это
+    делало лицо плоским и белёсым: вместе с пятнами уходила светотень,
+    скулы и объём. Здесь вместо «выравнивания всего» работает healing:
+    внутри пятна цвет берётся интерполяцией окружающей ЧИСТОЙ кожи
+    (нормализованная свёртка, аналог Spot Healing Brush в Photoshop).
+    Чистые участки не трогаются вообще, поэтому объём лица сохраняется
+    полностью, а исчезают ровно дефекты.
+
+    Healing идёт в НЕСКОЛЬКО МАСШТАБОВ, от крупного к мелкому: первый
+    проход вытягивает общий тон на месте крупного воспаления, следующие
+    подгоняют переход к краю. Один проход оставлял бы вокруг залеченного
+    пятна заметное кольцо.
+
+    Args:
+        orig_s: оригинал в рабочем разрешении, float32 0..255.
+        gen_s: результат модели там же.
+        alpha_s: 0..1 — где разрешено брать тон модели.
+        skin_s: 0..1 маска кожи.
+        defects: 0..1 карта дефектов.
+        even_out: 0..1 сила арифметического healing.
+        highlights: 0..1 сила сжатия пересвета.
+
+    Returns:
+        float32 HxWx3 — дельта, которую надо прибавить к оригиналу.
+    """
+    h, w = orig_s.shape[:2]
+    # Разделение low/high: пятно и краснота целиком попадают в low.
+    split_r = max(2.0, min(h, w) * 0.020)
+
+    low_o = _blur_f(orig_s, split_r)
+
+    # 1. Тон от модели — только в низких частотах и только на коже.
+    low = low_o + (_blur_f(gen_s, split_r) - low_o) * alpha_s[..., None]
+
+    valid_skin = np.clip(skin_s, 0.0, 1.0).astype(np.float32)
+
+    # 2. Healing: дефекты заливаются цветом окружающей чистой кожи.
+    ev = float(np.clip(even_out, 0.0, 1.0))
+    if ev > 0.01:
+        d = np.clip(defects, 0.0, 1.0)
+        # Донор — кожа за вычетом дефектов. Брать пиксели из самого прыща
+        # нельзя: тогда он «залечится» сам в себя и останется на месте.
+        donor = np.clip(valid_skin - d, 0.0, 1.0)
+        base_r = max(5.0, min(h, w) * 0.045)
+        for i in range(3):
+            radius = base_r / (1.8 ** i)
+            filled = _norm_blur(low, donor, radius)
+            # Уверенность: там, где чистой кожи рядом почти нет, результату
+            # доверять нельзя — иначе на краю маски вылезут серые кляксы.
+            conf = _ramp(_blur_f(donor, radius), 0.10, 0.25)
+            a = (d * conf * ev)[..., None]
+            low = low * (1.0 - a) + filled * a
+            del filled, conf, a
+        del donor, d
+
+    # 3. Пересвет: жирный блеск на лбу и носу подтягиваем к тону кожи.
+    #    Делаем это в low, поэтому текстура под бликом остаётся живой.
+    hl = float(np.clip(highlights, 0.0, 1.0))
+    if hl > 0.01:
+        # Опорный тон берём по широкому радиусу — блик должен сравниваться
+        # с кожей вокруг, а не сам с собой.
+        base = _norm_blur(low, valid_skin, max(10.0, min(h, w) * 0.10))
+        y_low = low.mean(axis=-1)
+        y_base = np.maximum(base.mean(axis=-1), 1.0)
+        # Порог высокий: обычная светотень (до +22%) остаётся нетронутой,
+        # гасится только выбитый в белое блеск.
+        over = _ramp(y_low / y_base - 1.0, 0.22, 0.55) * valid_skin
+        low = low + (base - low) * (over * hl * 0.6)[..., None]
+        del base, y_low, y_base, over
+
+    return low - low_o
+
+
+# ====================== ГЛАВНЫЙ КОМПОЗИТ ======================
+
+
+def blend_skin(original: Image.Image, generated: Image.Image,
+               strength: float = 0.9, keep_texture: float = 0.9,
+               regions=None, trust_threshold: float = 60.0,
+               highlight_recovery: float = 0.6,
+               even_out: float = 0.7) -> Image.Image:
+    """Собирает финал по схеме частотного разложения.
+
+        out = orig + delta_low - mid * defects * supp
+
+    Оригинал не заменяется ни в одном пикселе — к нему прибавляется плавная
+    поправка тона и вычитается рельеф дефектов. Поэтому контуры, ресницы,
+    волосы и края одежды остаются ровно такими, какими были: ни двоения,
+    ни потери резкости.
+
+    Args:
+        original: исходный кадр.
+        generated: результат генеративной модели (нужны только его тона).
+        strength: 0..1 — насколько доверяем тону модели.
+        keep_texture: 0..1 — сколько текстуры кожи сохранить (1 = вся).
+        regions: боксы с людьми, вне них ретушь не применяется.
+        trust_threshold: порог структурного расхождения с моделью.
+        highlight_recovery: 0..1 — сила восстановления пересвета.
+        even_out: 0..1 — сила арифметического выравнивания тона.
+    """
+    strength = float(np.clip(strength, 0.0, 1.0))
+    keep_texture = float(np.clip(keep_texture, 0.0, 1.0))
+
+    # --- 1. Маски на мелкой копии ---
+    mask_img = _small(original, MASK_SIDE)
+    mask_s = np.clip(
+        skin_mask_small(mask_img) * (1.0 - protect_mask_small(mask_img)), 0.0, 1.0)
+    if regions:
+        mask_s *= regions_mask(mask_img.size, regions)
+
+    # --- 2. Рабочее разрешение: тон, дефекты ---
+    work = _small(original, WORK_SIDE)
+    work_size = work.size
+    orig_s = _to_arr(work)
+    gen_s = _to_arr(generated.resize(work_size, Image.BILINEAR))
+    skin_s = _upscale_mask(mask_s, work_size)
+    del mask_s, mask_img
+
+    # Структурная страховка: считаем расхождение по СИЛЬНО размытым кадрам,
+    # чтобы видеть сдвиг черт, но не видеть локальных дефектов. Если модель
+    # перерисовала человека — доверие падает и берём меньше её тона.
+    blur_r = max(6.0, min(work_size) / 60.0)
+    diff = np.abs(_blur_f(gen_s, blur_r) - _blur_f(orig_s, blur_r)).mean(axis=-1)
+    trust = np.clip(1.0 - (diff - float(trust_threshold)) / 30.0, 0.0, 1.0)
+    trust = _blur_f(trust, blur_r)
+    del diff
+
+    alpha_s = np.clip(skin_s * trust * strength, 0.0, 1.0)
+    del trust
+
+    # Карта дефектов — общая и для healing тона, и для срезания рельефа.
+    # Чувствительность растёт вместе с силой пресета.
+    defects = detect_defects(orig_s, skin_s, sensitivity=0.30 + 0.65 * strength)
+
+    delta_s = _tone_layer(orig_s, gen_s, alpha_s, skin_s, defects,
+                          even_out=even_out, highlights=highlight_recovery)
+    del gen_s
+
+    # Подавление рельефа: бугорок прыща живёт в средних частотах, и одного
+    # выравнивания цвета мало — без этого шага пятно уходит, а «шишка»
+    # остаётся видна на косом свете.
+    supp = np.clip(defects * (0.55 + 0.45 * strength), 0.0, 1.0)
+    # Общее приглаживание кожи вне дефектов — ровно настолько, насколько
+    # разрешает keep_texture (при 1.0 его нет вовсе, и это норма).
+    supp = np.clip(supp + skin_s * (1.0 - keep_texture) * 0.35, 0.0, 1.0)
+    del defects, orig_s, alpha_s, skin_s
+
+    # --- 3. Упаковка карт в изображения: полнокадровых float32 не держим ---
+    # Дельта тона: диапазон ±96 с запасом покрывает любую реальную поправку.
+    delta_img = Image.fromarray(
+        np.clip(delta_s * (127.0 / 96.0) + 128.0, 0, 255).astype(np.uint8)
+    ).resize(original.size, Image.BICUBIC)
+    supp_img = Image.fromarray(
+        (np.clip(supp, 0, 1) * 255).astype(np.uint8), mode="L"
+    ).resize(original.size, Image.BILINEAR)
+    # Низкие частоты полного кадра = апскейл размытой рабочей копии. Это
+    # корректно ровно потому, что они низкие: апскейл их не искажает,
+    # а честный блюр радиусом в десятки пикселей стоил бы секунд.
+    low_full_img = Image.fromarray(
+        np.clip(_blur_f(_to_arr(work), max(2.0, min(work_size) * 0.022)),
+                0, 255).astype(np.uint8)
+    ).resize(original.size, Image.BICUBIC)
+    del delta_s, supp, work
+
+    # --- 4. Сборка полосами: пик памяти — десятки мегабайт, не сотни ---
+    width, height = original.size
+    fine_r = max(1.0, min(original.size) / 700.0)
+    band = max(64, int(700_000 / max(width, 1)))
+    overlap = int(fine_r * 4) + 4
+    out_img = Image.new("RGB", original.size)
+
+    for top in range(0, height, band):
+        bottom = min(height, top + band)
+        src_top = max(0, top - overlap)
+        src_bottom = min(height, bottom + overlap)
+        box = (0, src_top, width, src_bottom)
+
+        arr = np.asarray(original.crop(box), dtype=np.float32)
+        delta = (np.asarray(delta_img.crop(box), dtype=np.float32) - 128.0) * (96.0 / 127.0)
+        low = np.asarray(low_full_img.crop(box), dtype=np.float32)
+        s = np.asarray(supp_img.crop(box), dtype=np.float32)[..., None] / 255.0
+
+        # MID = рельеф дефектов: всё между порами и тоном.
+        # HIGH (arr - blur(arr, fine_r)) не участвует вообще — поры,
+        # волоски и края остаются нетронутыми, поэтому мыла нет.
+        mid = _blur_arr(arr, fine_r) - low
+        out = arr + delta - mid * s
+        del arr, delta, low, s, mid
+
+        chunk = np.clip(out, 0, 255).astype(np.uint8)
+        inner = chunk[top - src_top: top - src_top + (bottom - top)]
+        out_img.paste(Image.fromarray(inner), (0, top))
+        del out, chunk, inner
+
+    delta_img.close()
+    supp_img.close()
+    low_full_img.close()
+    return out_img
