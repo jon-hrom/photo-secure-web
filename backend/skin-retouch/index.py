@@ -217,6 +217,38 @@ def _handle_status(payload: dict, user_id):
     return _response(200, body)
 
 
+def _handle_abandon(payload: dict, user_id):
+    """Фронт перестал ждать задачу — возвращаем энергию.
+
+    Раньше при исчерпании времени ожидания энергия оставалась списанной:
+    задача жива у провайдера, но пользователь результата уже не увидит.
+    Перед возвратом ещё раз спрашиваем провайдера: если результат всё-таки
+    готов, отдаём его — платить за успешную работу не грех, а вот терять
+    готовое фото обидно.
+    """
+    task_id = payload.get("task_id")
+    if not task_id:
+        return _response(400, {"error": "task_id is required"})
+    if not user_id:
+        return _response(401, {"error": "X-User-Id required"})
+
+    try:
+        state = models.poll_task(task_id)
+        if state["status"] == "done" and state.get("url"):
+            return _response(200, {"status": "ready", "url": state["url"]})
+    except Exception as e:
+        print(f"[SKIN] abandon poll failed: {e}")
+
+    refunded = energy.refund_once(
+        user_id, models.PRICE, f"Возврат: ретушь не дождалась результата (задача {task_id})"
+    )
+    return _response(200, {
+        "status": "refunded",
+        "refunded": models.PRICE if refunded else 0,
+        "energy_balance": energy.get_balance(user_id),
+    })
+
+
 def _handle_compose(payload: dict, user_id):
     """Скачивает готовый результат и собирает финальный кадр по маске кожи."""
     url = payload.get("url")
@@ -340,6 +372,8 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         return _handle_start(payload, user_id)
     if action == "status":
         return _handle_status(payload, user_id)
+    if action == "abandon":
+        return _handle_abandon(payload, user_id)
     if action == "compose":
         return _handle_compose(payload, user_id)
     if action == "regions":

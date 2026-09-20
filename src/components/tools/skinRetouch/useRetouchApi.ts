@@ -99,13 +99,21 @@ export const useRetouchApi = (open: boolean) => {
       // Обрыв соединения на мобильном интернете — норма. Задача на сервере
       // при этом жива, поэтому сетевые ошибки не валят прогон: пробуем снова.
       let networkFails = 0;
+      let gaveUpOnNetwork = false;
       // Сервер может перезапустить задачу на запасной модели (если основная
       // отклонила фото по модерации) — тогда он вернёт новый task_id.
       let taskId = started.task_id as string;
       let retried = false;
       let readyUrl = '';
-      for (let attempt = 0; attempt < 60; attempt++) {
-        await new Promise((r) => setTimeout(r, 4000));
+      // Очередь у провайдера в час пик растягивается, и прежние 4 минуты
+      // обрывали ретушь, которая была уже почти готова. Ждём до 12 минут,
+      // после первой минуты опрашивая реже, чтобы не долбить функцию.
+      const startedAt = Date.now();
+      const MAX_WAIT_MS = 12 * 60 * 1000;
+      while (Date.now() - startedAt < MAX_WAIT_MS) {
+        const waited = Date.now() - startedAt;
+        await new Promise((r) => setTimeout(r, waited < 60000 ? 4000 : 8000));
+        const mins = Math.floor((Date.now() - startedAt) / 60000);
         let sd: Record<string, unknown>;
         try {
           const sr = await fetch(`${SKIN_RETOUCH_URL}?action=status`, {
@@ -124,7 +132,12 @@ export const useRetouchApi = (open: boolean) => {
         } catch (netErr) {
           networkFails += 1;
           console.warn('retouch poll failed', netErr);
-          if (networkFails >= 5) throw netErr;
+          // Связь окончательно потеряна. Не бросаем ошибку сразу: выходим из
+          // цикла в общий путь завершения, который вернёт энергию за задачу.
+          if (networkFails >= 8) {
+            gaveUpOnNetwork = true;
+            break;
+          }
           setLoadingText('Связь оборвалась, повторяем запрос...');
           continue;
         }
@@ -134,7 +147,11 @@ export const useRetouchApi = (open: boolean) => {
             retried = true;
             setLoadingText('Подбираем другую модель...');
           } else {
-            setLoadingText('AI выравнивает кожу...');
+            setLoadingText(
+              mins >= 1
+                ? `AI выравнивает кожу... очередь загружена, ждём ${mins} мин`
+                : 'AI выравнивает кожу...',
+            );
           }
           continue;
         }
@@ -145,7 +162,39 @@ export const useRetouchApi = (open: boolean) => {
         readyUrl = String(sd.url || '');
         break;
       }
-      if (!readyUrl) throw new Error('Превышено время ожидания');
+      if (!readyUrl) {
+        // Ждать дальше бессмысленно, но энергия уже списана. Просим сервер
+        // закрыть задачу: если результат подоспел — заберём его, если нет —
+        // он вернёт 15 ⚡ обратно, чтобы ожидание не стоило пользователю денег.
+        try {
+          const ar = await fetch(`${SKIN_RETOUCH_URL}?action=abandon`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ task_id: taskId }),
+          });
+          const ad = await ar.json();
+          if (ad?.status === 'ready' && ad.url) {
+            readyUrl = String(ad.url);
+          } else {
+            const cause = gaveUpOnNetwork
+              ? 'Пропала связь с сервером'
+              : 'Сервис ретуши не ответил за 12 минут';
+            throw new Error(
+              ad?.refunded
+                ? `${cause}. Энергия возвращена — попробуйте ещё раз.`
+                : `${cause}. Попробуйте ещё раз.`,
+            );
+          }
+        } catch (abandonErr) {
+          if (readyUrl) {
+            // результат всё-таки пришёл — идём дальше
+          } else {
+            throw abandonErr instanceof Error
+              ? abandonErr
+              : new Error('Сервис ретуши не ответил за 12 минут.');
+          }
+        }
+      }
 
       // Второй шаг: сборка финального кадра. Вынесена в отдельный запрос,
       // потому что вместе с ожиданием модели она не укладывалась в лимит

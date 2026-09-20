@@ -18,21 +18,27 @@
       "path": "/?action=estimate",
       "body": {},
       "expectedStatus": 200,
-      "expectedBody": {"label": "Ретушь кожи"},
+      "expectedBody": {
+        "label": "Ретушь кожи"
+      },
       "bodyMatcher": "partial"
     },
     {
       "name": "Start without image",
       "method": "POST",
       "path": "/?action=start",
-      "body": {"ping": 1},
+      "body": {
+        "ping": 1
+      },
       "expectedStatus": 400
     },
     {
       "name": "Start without user id",
       "method": "POST",
       "path": "/?action=start",
-      "body": {"image": "aGVsbG8="},
+      "body": {
+        "image": "aGVsbG8="
+      },
       "expectedStatus": 401
     },
     {
@@ -46,14 +52,18 @@
       "name": "Compose without url",
       "method": "POST",
       "path": "/?action=compose",
-      "body": {"image": "aGVsbG8="},
+      "body": {
+        "image": "aGVsbG8="
+      },
       "expectedStatus": 400
     },
     {
       "name": "Compose without image",
       "method": "POST",
       "path": "/?action=compose",
-      "body": {"url": "https://example.com/a.jpg"},
+      "body": {
+        "url": "https://example.com/a.jpg"
+      },
       "expectedStatus": 400
     },
     {
@@ -76,6 +86,22 @@
       "path": "/?action=bogus",
       "body": {},
       "expectedStatus": 400
+    },
+    {
+      "name": "Abandon without task_id",
+      "method": "POST",
+      "path": "/?action=abandon",
+      "body": {},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Abandon without user id",
+      "method": "POST",
+      "path": "/?action=abandon",
+      "body": {
+        "task_id": "x"
+      },
+      "expectedStatus": 401
     }
   ]
 }

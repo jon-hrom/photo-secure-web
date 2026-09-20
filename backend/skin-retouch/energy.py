@@ -78,6 +78,56 @@ def spend(user_id: int, amount: int, description: str):
         conn.close()
 
 
+def refund_once(user_id: int, amount: int, description: str) -> bool:
+    """Возврат, который нельзя получить дважды за одну задачу.
+
+    Ключ идемпотентности — текст описания (в нём id задачи). Если строка
+    возврата с таким описанием уже есть, второй раз не начисляем: иначе
+    повторный запрос с фронта дорисовывал бы энергию из воздуха.
+    Возвращает True, если возврат реально произошёл.
+    """
+    if amount <= 0 or not user_id:
+        return False
+    conn = _conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT 1 FROM {SCHEMA}.energy_transactions
+                WHERE user_id = %s AND type = 'refund' AND description = %s
+                LIMIT 1
+                """,
+                (user_id, description),
+            )
+            if cur.fetchone():
+                conn.rollback()
+                return False
+            cur.execute(
+                f"""
+                UPDATE {SCHEMA}.users
+                SET energy_balance = COALESCE(energy_balance, 0) + %s
+                WHERE id = %s
+                """,
+                (amount, user_id),
+            )
+            cur.execute(
+                f"""
+                INSERT INTO {SCHEMA}.energy_transactions
+                (user_id, amount, type, rub_amount, description)
+                VALUES (%s, %s, 'refund', 0, %s)
+                """,
+                (user_id, amount, description),
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        conn.rollback()
+        print(f"[ENERGY] refund_once failed for user {user_id}: {e}")
+        return False
+    finally:
+        conn.close()
+
+
 def refund(user_id: int, amount: int, description: str):
     """Возврат энергии при неудачной операции. Ошибки глушим."""
     if amount <= 0:
