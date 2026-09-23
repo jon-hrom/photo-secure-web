@@ -261,7 +261,7 @@ export const SubfolderPhotosView = ({
       <GalleryModals
         selectedPhoto={state.selectedPhoto}
         gallery={{ ...gallery, photos: visibleSubfolderPhotos, subfolders: [] }}
-        clientFolderName={viewingSubfolder.folder_name}
+        clientFolderName={subfolderFolderName}
         clientData={state.clientData}
         clientFavoritePhotoIds={state.clientFavoritePhotoIds}
         viewingFavorites={state.viewingFavorites}
