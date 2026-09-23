@@ -42,6 +42,7 @@ interface GalleryToolbarProps {
   favoriteLists?: Array<{ id: number; name: string; photo_count: number }>;
   onOpenFavoriteList?: (list: { id: number; name: string }) => void;
   pulseStarBtn?: boolean;
+  onBackToGallery?: () => void;
 }
 
 export default function GalleryToolbar({
@@ -75,6 +76,7 @@ export default function GalleryToolbar({
   favoriteLists = [],
   onOpenFavoriteList,
   pulseStarBtn = false,
+  onBackToGallery,
 }: GalleryToolbarProps) {
   const hasFolders = showClientFolders && clientFolders.length > 0;
   const hasLists = favoriteLists.length > 0;
@@ -119,6 +121,20 @@ export default function GalleryToolbar({
     }}>
       <div className="max-w-7xl mx-auto px-2 sm:px-4">
         <div className="flex items-center gap-2 py-2 sm:py-2.5 flex-wrap sm:flex-nowrap sm:overflow-x-auto justify-center sm:justify-start">
+          {onBackToGallery && (
+            <button
+              onClick={onBackToGallery}
+              className="flex items-center justify-center gap-1.5 px-3 rounded-full text-xs sm:text-sm font-medium transition-colors touch-manipulation whitespace-nowrap flex-shrink-0"
+              style={{
+                minHeight: 40,
+                background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                color: textColor,
+              }}
+            >
+              <Icon name="ArrowLeft" size={16} className="flex-shrink-0" />
+              В галерею
+            </button>
+          )}
           <ThemeToggleButton isDarkBg={isDarkBg} onToggle={onToggleTheme} />
           <p className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0" style={{ color: secondaryText }}>
             {gallery.photos.length} фото · {formatFileSize(gallery.total_size)}

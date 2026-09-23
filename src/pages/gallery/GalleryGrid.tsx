@@ -106,6 +106,7 @@ export interface GalleryGridProps {
   onCancelListSelection?: () => void;
   favoriteLists?: Array<{ id: number; name: string; photo_count: number }>;
   onOpenFavoriteList?: (list: { id: number; name: string }) => void;
+  onBackToGallery?: () => void;
 }
 
 export default function GalleryGrid({
@@ -141,6 +142,7 @@ export default function GalleryGrid({
   onCancelListSelection,
   favoriteLists = [],
   onOpenFavoriteList,
+  onBackToGallery,
 }: GalleryGridProps) {
   console.log('[GALLERY_GRID] Rendering with photos count:', gallery.photos.length, 'subfolders:', gallery.subfolders?.length || 0, gallery.subfolders);
 
@@ -369,6 +371,7 @@ export default function GalleryGrid({
         onCreateFavoriteList={onCreateFavoriteList}
         favoriteLists={favoriteLists}
         onOpenFavoriteList={onOpenFavoriteList}
+        onBackToGallery={onBackToGallery}
       />
       <div id="gallery-photo-grid" className="w-full max-w-[1920px] mx-auto px-2 sm:px-4 lg:px-6 pt-2 md:pt-0"
         style={{ paddingBottom: selectionMode ? '100px' : 'max(2rem, env(safe-area-inset-bottom, 0px))' }}

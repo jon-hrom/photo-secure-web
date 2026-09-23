@@ -256,6 +256,7 @@ export const SubfolderPhotosView = ({
           unreadMessagesCount={state.unreadCount}
           onRegisterToDownload={handlers.handleRegisterToDownload}
           onRegisterAccount={handlers.handleRegisterAccount}
+          onBackToGallery={onBack}
         />
       </div>
       <GalleryModals
