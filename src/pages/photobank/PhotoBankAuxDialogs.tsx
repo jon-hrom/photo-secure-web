@@ -1,5 +1,7 @@
 import SubfolderSettingsModal from '@/components/photobank/SubfolderSettingsModal';
-import RetouchDialog from '@/components/photobank/RetouchDialog';
+// Старое окно ретуши через внешний сервер (io.foto-mix) временно отключено.
+// import RetouchDialog from '@/components/photobank/RetouchDialog';
+import PhotoBankSkinRetouchDialog from '@/components/photobank/PhotoBankSkinRetouchDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,7 +108,7 @@ const PhotoBankAuxDialogs = ({
       />
 
       {retouchFolder && (
-        <RetouchDialog
+        <PhotoBankSkinRetouchDialog
           open={retouchFolder !== null}
           onOpenChange={(open) => { if (!open) setRetouchFolder(null); }}
           folderId={retouchFolder.id}
