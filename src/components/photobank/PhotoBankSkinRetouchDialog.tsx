@@ -19,6 +19,9 @@ import {
 } from '@/components/tools/skinRetouch/runSkinRetouch';
 
 const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
+/** Конвертер RAW → JPEG (превью 2400px, для ретуши его более чем достаточно — модель работает с 1600px). */
+const RAW_CONVERT_URL = 'https://functions.poehali.dev/40c5290a-b9a7-48e8-a0a6-68468d29a62c';
+const RAW_CONVERT_CONCURRENCY = 4;
 const RETOUCH_FOLDER_NAME = 'Ретуширование фото';
 const BATCH_CONCURRENCY = 2;
 const RAW_RE = /\.(cr2|cr3|nef|nrw|arw|srf|sr2|dng|orf|rw2|raf|pef|raw|rwl|iiq|3fr)$/i;
@@ -53,14 +56,13 @@ interface Props {
   onRetouchComplete?: () => void;
 }
 
-const isRetouchable = (p: Photo) =>
-  !p.is_video &&
-  !(p.content_type || '').startsWith('video/') &&
-  !p.is_raw &&
-  !RAW_RE.test(p.file_name || '') &&
-  !!p.s3_url;
+const isRaw = (p: Photo) => !!p.is_raw || RAW_RE.test(p.file_name || '');
 
-const thumbOf = (p: Photo) => p.thumbnail_s3_url || p.s3_url || '';
+const isRetouchable = (p: Photo) =>
+  !p.is_video && !(p.content_type || '').startsWith('video/') && (isRaw(p) || !!p.s3_url);
+
+/** Для RAW показываем только JPEG-превью (сам RAW браузер не отрисует). */
+const thumbOf = (p: Photo) => (isRaw(p) ? p.thumbnail_s3_url || '' : p.thumbnail_s3_url || p.s3_url || '');
 
 const PhotoBankSkinRetouchDialog = ({
   open,
@@ -92,6 +94,8 @@ const PhotoBankSkinRetouchDialog = ({
 
   const cancelRef = useRef(false);
   const retouchFolderIdRef = useRef<number | null>(null);
+  /** Фоновые конвертации RAW → JPEG: id фото → промис с URL готового JPEG. */
+  const rawJobsRef = useRef<Map<number, Promise<string>>>(new Map());
 
   const retouchable = useMemo(() => photos.filter(isRetouchable), [photos]);
   const skippedCount = photos.length - retouchable.length;
@@ -104,16 +108,104 @@ const PhotoBankSkinRetouchDialog = ({
         headers: { 'X-User-Id': userId },
       });
       const data = await res.json();
-      setPhotos(data.photos || []);
+      const list: Photo[] = data.photos || [];
+      setPhotos(list);
+      // Сразу запускаем фоновую конвертацию RAW без готового JPEG,
+      // чтобы к моменту нажатия «Отретушировать» всё было готово.
+      const missing = list.filter((p) => isRetouchable(p) && isRaw(p) && !p.thumbnail_s3_url);
+      startRawConversion(missing);
     } catch (e) {
       console.error('[SKIN_RETOUCH] load photos failed', e);
     } finally {
       setLoadingPhotos(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folderId, userId]);
+
+  /** Получает свежий URL JPEG-превью для фото (после конвертации). */
+  const fetchPreviewUrl = useCallback(
+    async (photoId: number): Promise<string> => {
+      const res = await fetch(`${PHOTOBANK_FOLDERS_API}?action=list_photos&folder_id=${folderId}`, {
+        headers: { 'X-User-Id': userId },
+      });
+      const data = await res.json();
+      const fresh: Photo[] = data.photos || [];
+      setPhotos(fresh);
+      return fresh.find((p) => p.id === photoId)?.thumbnail_s3_url || '';
+    },
+    [folderId, userId],
+  );
+
+  const convertOne = useCallback(
+    async (photoId: number): Promise<string> => {
+      const res = await fetch(RAW_CONVERT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_id: photoId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const r = data?.results?.[0];
+      if (!res.ok || !r || r.error) throw new Error(r?.error || data?.error || 'Не удалось конвертировать RAW в JPG');
+      const url = await fetchPreviewUrl(photoId);
+      if (!url) throw new Error('JPG из RAW ещё не готов, попробуйте через минуту');
+      return url;
+    },
+    [fetchPreviewUrl],
+  );
+
+  /** Ставит RAW-файлы в очередь конвертации (параллельно, не больше RAW_CONVERT_CONCURRENCY). */
+  function startRawConversion(list: Photo[]) {
+    const jobs = rawJobsRef.current;
+    const todo = list.filter((p) => !jobs.has(p.id));
+    if (!todo.length) return;
+    let active = 0;
+    const waiters: Array<() => void> = [];
+    const acquire = () =>
+      new Promise<void>((resolve) => {
+        if (active < RAW_CONVERT_CONCURRENCY) {
+          active += 1;
+          resolve();
+        } else waiters.push(() => { active += 1; resolve(); });
+      });
+    const release = () => {
+      active -= 1;
+      waiters.shift()?.();
+    };
+    for (const p of todo) {
+      const job = (async () => {
+        await acquire();
+        try {
+          return await convertOne(p.id);
+        } finally {
+          release();
+        }
+      })();
+      job.catch(() => jobs.delete(p.id)); // при ошибке разрешаем повторную попытку
+      jobs.set(p.id, job);
+    }
+  }
+
+  /** URL JPEG-источника для ретуши: обычное фото — оригинал, RAW — сконвертированный JPEG. */
+  const getSourceUrl = useCallback(
+    async (photo: Photo, onStatus: (t: string) => void): Promise<string> => {
+      if (!isRaw(photo)) return photo.s3_url!;
+      const current = photos.find((p) => p.id === photo.id)?.thumbnail_s3_url || photo.thumbnail_s3_url;
+      if (current) return current;
+      onStatus('Конвертируем RAW в JPG...');
+      let job = rawJobsRef.current.get(photo.id);
+      if (!job) {
+        job = convertOne(photo.id);
+        rawJobsRef.current.set(photo.id, job);
+        job.catch(() => rawJobsRef.current.delete(photo.id));
+      }
+      return job;
+    },
+    [convertOne, photos],
+  );
 
   useEffect(() => {
     if (!open) return;
+    rawJobsRef.current = new Map();
     cancelRef.current = false;
     retouchFolderIdRef.current = null;
     setItems([]);
@@ -186,8 +278,9 @@ const PhotoBankSkinRetouchDialog = ({
 
   const processPhoto = useCallback(
     async (photo: Photo, onStatus: (t: string) => void) => {
+      const srcUrl = await getSourceUrl(photo, onStatus);
       onStatus('Загружаем фото...');
-      const img = await urlToImage(photo.s3_url!);
+      const img = await urlToImage(srcUrl);
       const sourceDataUrl = imageToDataUrl(img);
       const result = await runSkinRetouch({
         userId,
@@ -200,7 +293,7 @@ const PhotoBankSkinRetouchDialog = ({
       await saveResult(photo, result.image);
       return { sourceDataUrl, result };
     },
-    [preset, saveResult, userId],
+    [getSourceUrl, preset, saveResult, userId],
   );
 
   const runSingle = async () => {
@@ -356,7 +449,7 @@ const PhotoBankSkinRetouchDialog = ({
           ) : retouchable.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Icon name="ImageOff" size={32} className="mx-auto mb-2 opacity-50" />
-              <p className="text-xs sm:text-sm">В папке нет фото для ретуши (JPG/PNG/WEBP)</p>
+              <p className="text-xs sm:text-sm">В папке нет фото для ретуши (JPG/PNG/WEBP/RAW)</p>
             </div>
           ) : (
             <>
@@ -381,7 +474,17 @@ const PhotoBankSkinRetouchDialog = ({
                             selectedId === p.id ? 'border-primary ring-2 ring-primary/30' : 'border-transparent hover:border-primary/30'
                           }`}
                         >
-                          <img src={thumbOf(p)} alt={p.file_name} className="w-full h-full object-cover" loading="lazy" />
+                          {thumbOf(p) ? (
+                            <img src={thumbOf(p)} alt={p.file_name} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="w-full h-full bg-muted flex flex-col items-center justify-center gap-1 text-muted-foreground">
+                              <Icon name="Loader2" size={16} className="animate-spin" />
+                              <span className="text-[10px]">RAW → JPG</span>
+                            </div>
+                          )}
+                          {isRaw(p) && (
+                            <span className="absolute top-1 left-1 rounded bg-black/60 px-1 text-[9px] font-semibold text-white">RAW</span>
+                          )}
                           {selectedId === p.id && (
                             <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
                               <Icon name="Check" size={22} className="text-white drop-shadow-lg" />
@@ -421,7 +524,7 @@ const PhotoBankSkinRetouchDialog = ({
                     </p>
                     {skippedCount > 0 && (
                       <p className="text-[11px] text-muted-foreground">
-                        Пропущено {skippedCount} (видео и RAW не ретушируются)
+                        Пропущено {skippedCount} (видео не ретушируются)
                       </p>
                     )}
                     <Button onClick={() => runBatch()} className="w-full gap-2">
@@ -447,7 +550,11 @@ const PhotoBankSkinRetouchDialog = ({
                     <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
                       {items.map((it) => (
                         <div key={it.id} className="flex items-center gap-2 rounded-lg border border-border p-1.5">
-                          <img src={it.thumb} alt="" className="w-10 h-10 rounded object-cover shrink-0" loading="lazy" />
+                          {it.thumb ? (
+                            <img src={it.thumb} alt="" className="w-10 h-10 rounded object-cover shrink-0" loading="lazy" />
+                          ) : (
+                            <div className="w-10 h-10 rounded bg-muted shrink-0 flex items-center justify-center text-[9px] font-semibold text-muted-foreground">RAW</div>
+                          )}
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-medium truncate">{it.file_name}</p>
                             <p className={`text-[11px] truncate ${it.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}`}>
