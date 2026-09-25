@@ -8,6 +8,7 @@ import SessionTimeoutWarning from '@/components/SessionTimeoutWarning';
 import TelegramBanner from '@/components/TelegramBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityTracking } from '@/hooks/useActivityTracking';
+import { touchStoredSession } from '@/utils/sessionTimeout';
 import { useClientsSync } from '@/hooks/useClientsSync';
 import { useVerificationChecks } from '@/hooks/useVerificationChecks';
 import { useSessionWatcher } from '@/hooks/useSessionWatcher';
@@ -210,19 +211,9 @@ const Index = () => {
   }
 
   const handleExtendSession = () => {
-    lastActivityRef.current = Date.now();
-    const savedSession = localStorage.getItem('authSession');
-    if (savedSession) {
-      try {
-        const session = JSON.parse(savedSession);
-        localStorage.setItem('authSession', JSON.stringify({
-          ...session,
-          lastActivity: Date.now(),
-        }));
-      } catch (error) {
-        console.error('[SESSION] Error extending session:', error);
-      }
-    }
+    const now = Date.now();
+    lastActivityRef.current = now;
+    touchStoredSession(now);
   };
 
   if (showAccessDenied) {

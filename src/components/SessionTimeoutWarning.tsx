@@ -19,7 +19,7 @@ export const SessionTimeoutWarning = ({ onExtendSession, onLogout }: SessionTime
   const [showWarning, setShowWarning] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(60);
   const [warningMinutes, setWarningMinutes] = useState(1);
-  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(7);
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(50);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -33,7 +33,7 @@ export const SessionTimeoutWarning = ({ onExtendSession, onLogout }: SessionTime
         const timeoutData = await timeoutRes.json();
         
         setWarningMinutes(warningData.value || 1);
-        setSessionTimeoutMinutes(timeoutData.value || 7);
+        setSessionTimeoutMinutes(timeoutData.value || 50);
       } catch (error) {
         console.warn('[SESSION_WARNING] Failed to load settings');
       }

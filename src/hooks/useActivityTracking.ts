@@ -1,20 +1,5 @@
 import { useEffect, MutableRefObject } from 'react';
-
-const getSessionTimeout = async (): Promise<number> => {
-  try {
-    const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=session_timeout_minutes');
-    const data = await response.json();
-    return (data.value || 7) * 60 * 1000;
-  } catch (error) {
-    return 7 * 60 * 1000;
-  }
-};
-
-let SESSION_TIMEOUT = 7 * 60 * 1000;
-
-getSessionTimeout().then(timeout => {
-  SESSION_TIMEOUT = timeout;
-});
+import { getSessionTimeoutMs, touchStoredSession, getStoredLastActivity } from '@/utils/sessionTimeout';
 
 interface UseActivityTrackingProps {
   isAuthenticated: boolean;
@@ -33,6 +18,7 @@ export const useActivityTracking = ({
     if (!isAuthenticated) return;
 
     const updateActivityOnServer = async () => {
+      if (document.visibilityState !== 'visible') return;
       try {
         if (userEmail) {
           const res = await fetch('https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9', {
@@ -40,7 +26,6 @@ export const useActivityTracking = ({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'update-activity', email: userEmail })
           });
-          
           if (!res.ok) {
             console.warn(`[ACTIVITY] Activity tracking failed (${res.status}), continuing...`);
           }
@@ -50,57 +35,53 @@ export const useActivityTracking = ({
       }
     };
 
+    // Реальная последняя активность: максимум из памяти этой страницы и localStorage
+    // (туда пишут активность внутренние страницы и другие вкладки).
+    const getLastActivity = () => Math.max(lastActivityRef.current || 0, getStoredLastActivity());
+
+    const isExpired = (now: number) => now - getLastActivity() > getSessionTimeoutMs();
+
+    const expire = () => {
+      console.log('⏰ Session expired during inactivity. Logging out...');
+      onLogout();
+      alert('Сессия истекла. Пожалуйста, войдите снова.');
+    };
+
+    let lastWrite = 0;
     const updateActivity = () => {
       const now = Date.now();
-      const timeSinceLastActivity = now - lastActivityRef.current;
-      
-      // Проверяем сессию перед обновлением активности
-      if (timeSinceLastActivity > SESSION_TIMEOUT) {
-        console.log('⏰ Session expired during inactivity. Logging out...');
-        onLogout();
-        alert('Сессия истекла. Пожалуйста, войдите снова.');
+      if (isExpired(now)) {
+        expire();
         return;
       }
-      
       lastActivityRef.current = now;
-      
-      const savedSession = localStorage.getItem('authSession');
-      if (savedSession) {
-        try {
-          const session = JSON.parse(savedSession);
-          // Продлеваем сессию по реальной активности: обновляем и метку активности,
-          // и абсолютное время истечения expiresAt (по нему проверяется вход после перезагрузки).
-          localStorage.setItem('authSession', JSON.stringify({
-            ...session,
-            lastActivity: now,
-            expiresAt: now + SESSION_TIMEOUT,
-          }));
-        } catch (error) {
-          console.error('Ошибка обновления активности:', error);
-        }
+      // Не чаще раза в 5 секунд пишем в localStorage (scroll/mousemove шлют много событий)
+      if (now - lastWrite > 5000) {
+        lastWrite = now;
+        touchStoredSession(now);
       }
     };
 
     const checkSession = () => {
-      const now = Date.now();
-      const timeSinceLastActivity = now - lastActivityRef.current;
-      
-      if (timeSinceLastActivity > SESSION_TIMEOUT) {
-        onLogout();
-        alert('Сессия истекла. Пожалуйста, войдите снова.');
-      }
+      if (isExpired(Date.now())) expire();
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') checkSession();
     };
 
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
-    events.forEach(event => window.addEventListener(event, updateActivity));
+    events.forEach(event => window.addEventListener(event, updateActivity, { passive: true }));
+    document.addEventListener('visibilitychange', onVisibility);
 
     const sessionCheckInterval = setInterval(checkSession, 30000);
     const activityUpdateInterval = setInterval(updateActivityOnServer, 60000);
-    
+
     updateActivityOnServer();
 
     return () => {
       events.forEach(event => window.removeEventListener(event, updateActivity));
+      document.removeEventListener('visibilitychange', onVisibility);
       clearInterval(sessionCheckInterval);
       clearInterval(activityUpdateInterval);
     };

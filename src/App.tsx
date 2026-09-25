@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import LegalConsentModal from "@/components/login/LegalConsentModal";
 import { fetchPendingDocs } from "@/lib/legalApi";
 import { logPageView } from "@/lib/activityLog";
+import { touchStoredSession } from "@/utils/sessionTimeout";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import VKCallback from "./pages/VKCallback";
@@ -127,6 +128,25 @@ const ActivityLogger = () => {
   return null;
 };
 
+// Продление сессии по активности на ЛЮБОЙ странице (скользящее окно).
+// Без этого внутренние страницы не обновляли метку активности, и при возврате
+// на главную сессия считалась истёкшей.
+const SessionActivityKeeper = () => {
+  useEffect(() => {
+    let last = 0;
+    const onActivity = () => {
+      const now = Date.now();
+      if (now - last < 5000) return;
+      last = now;
+      touchStoredSession(now);
+    };
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(e => window.addEventListener(e, onActivity, { passive: true }));
+    return () => events.forEach(e => window.removeEventListener(e, onActivity));
+  }, []);
+  return null;
+};
+
 // Защита от bfcache (back-forward cache браузера).
 // Когда пользователь нажимает «Назад», браузер может восстановить страницу
 // из кэша БЕЗ перезагрузки JS — тогда в памяти остаётся состояние предыдущего
@@ -203,6 +223,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
         <BFCacheGuard />
+        <SessionActivityKeeper />
         <LegalConsentGuard />
         <CookieConsentBanner />
         <VpnWarningBanner />

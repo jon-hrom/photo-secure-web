@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { isAdminUser } from '@/utils/adminCheck';
 import { clearUserSession } from '@/utils/sessionCleanup';
+import { getSessionTimeoutMs } from '@/utils/sessionTimeout';
 
 export interface AuthState {
   isAuthenticated: boolean;
@@ -19,24 +20,6 @@ export interface AuthState {
   needsTelegramVerification: boolean;
 }
 
-const getSessionTimeout = async (): Promise<number> => {
-  try {
-    const response = await fetch('https://functions.poehali.dev/7426d212-23bb-4a8c-941e-12952b14a7c0?key=session_timeout_minutes');
-    const data = await response.json();
-    return (data.value || 7) * 60 * 1000;
-  } catch (error) {
-    console.warn('[AUTH] Failed to load session timeout, using default 7 minutes');
-    return 7 * 60 * 1000;
-  }
-};
-
-let SESSION_TIMEOUT = 7 * 60 * 1000;
-
-getSessionTimeout().then(timeout => {
-  SESSION_TIMEOUT = timeout;
-  console.log('[AUTH] Session timeout loaded:', SESSION_TIMEOUT / 60000, 'minutes');
-});
-
 // Единая проверка истечения сессии.
 // Работает даже если SESSION_TIMEOUT ещё не загрузился с сервера:
 // приоритет у абсолютной метки expiresAt, сохранённой при логине.
@@ -48,7 +31,7 @@ const isSessionExpired = (session: { lastActivity?: number; expiresAt?: number }
   }
   const last = session.lastActivity || 0;
   if (!last) return true;
-  return now - last > SESSION_TIMEOUT;
+  return now - last > getSessionTimeoutMs();
 };
 
 export const useAuth = () => {
@@ -123,7 +106,7 @@ export const useAuth = () => {
       isAdmin: isUserAdmin,
       currentPage: 'dashboard',
       lastActivity: Date.now(),
-      expiresAt: Date.now() + SESSION_TIMEOUT,
+      expiresAt: Date.now() + getSessionTimeoutMs(),
     }));
 
     try {
@@ -491,7 +474,7 @@ export const useAuth = () => {
                 isAdmin: isUserAdmin,
                 currentPage: 'dashboard',
                 lastActivity: nowTs,
-                expiresAt: nowTs + SESSION_TIMEOUT,
+                expiresAt: nowTs + getSessionTimeoutMs(),
               }));
             } catch (e) {
               console.warn('[AUTH] Не удалось обновить authSession для OAuth:', e);
