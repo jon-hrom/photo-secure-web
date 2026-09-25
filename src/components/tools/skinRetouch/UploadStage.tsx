@@ -1,18 +1,21 @@
 import { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-import { PRESETS, PresetKey } from '@/components/tools/skinRetouch/utils';
+import { PRESETS, PresetKey, EyeSharpenKey } from '@/components/tools/skinRetouch/utils';
+import EyeSharpenSelector from '@/components/tools/skinRetouch/EyeSharpenSelector';
 
 interface UploadStageProps {
   fileInputRef: RefObject<HTMLInputElement>;
   preset: PresetKey;
   setPreset: (p: PresetKey) => void;
+  eyeSharpen: EyeSharpenKey;
+  setEyeSharpen: (v: EyeSharpenKey) => void;
   price: number | null;
   onFile: (file: File) => void;
   onOpenPicker: () => void;
 }
 
-const UploadStage = ({ fileInputRef, preset, setPreset, price, onFile, onOpenPicker }: UploadStageProps) => {
+const UploadStage = ({ fileInputRef, preset, setPreset, eyeSharpen, setEyeSharpen, price, onFile, onOpenPicker }: UploadStageProps) => {
   const active = PRESETS.find((p) => p.key === preset);
 
   return (
@@ -36,6 +39,8 @@ const UploadStage = ({ fileInputRef, preset, setPreset, price, onFile, onOpenPic
         </div>
         {active && <p className="text-[11px] text-muted-foreground mt-1.5">{active.hint}</p>}
       </div>
+
+      <EyeSharpenSelector value={eyeSharpen} onChange={setEyeSharpen} />
 
       <div
         className="border-2 border-dashed border-border rounded-xl p-8 sm:p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"

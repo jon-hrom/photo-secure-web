@@ -263,6 +263,11 @@ def _handle_compose(payload: dict, user_id):
 
     preset = _preset(payload.get("preset"))
     regions = payload.get("regions") or None
+    # Резкость глаз выбирает пользователь: off / normal / strong.
+    # normal — значение пресета, strong — в 1.5 раза сильнее, off — выключено.
+    eye_mode = str(payload.get("eye_sharpen") or "normal").lower()
+    eye_base = preset.get("eye_sharpen", 0.0)
+    eye_value = {"off": 0.0, "strong": min(2.2, eye_base * 1.5)}.get(eye_mode, eye_base)
 
     started = time.time()
     try:
@@ -278,7 +283,7 @@ def _handle_compose(payload: dict, user_id):
             highlight_recovery=preset["highlights"],
             even_out=preset["even_out"],
             detail=preset.get("detail", 0.0),
-            eye_sharpen=preset.get("eye_sharpen", 0.0),
+            eye_sharpen=eye_value,
         )
         print(f"[SKIN] compose ok: download={downloaded - started:.2f}s "
               f"blend={time.time() - downloaded:.2f}s")

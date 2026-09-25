@@ -19,6 +19,14 @@ export const PRESETS: RetouchPreset[] = [
   { key: 'strong', label: 'Сильная', hint: 'Для проблемной кожи — максимально ровный тон' },
 ];
 
+export type EyeSharpenKey = 'off' | 'normal' | 'strong';
+
+export const EYE_SHARPEN_OPTIONS: { key: EyeSharpenKey; label: string }[] = [
+  { key: 'off', label: 'Выкл' },
+  { key: 'normal', label: 'Обычная' },
+  { key: 'strong', label: 'Сильная' },
+];
+
 export const urlToImage = (url: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const img = new Image();

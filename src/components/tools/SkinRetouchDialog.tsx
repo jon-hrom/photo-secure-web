@@ -5,7 +5,7 @@ import PhotoBankPicker from '@/components/tools/PhotoBankPicker';
 import UploadStage from '@/components/tools/skinRetouch/UploadStage';
 import CompareView from '@/components/tools/skinRetouch/CompareView';
 import { useRetouchApi } from '@/components/tools/skinRetouch/useRetouchApi';
-import { PRESETS } from '@/components/tools/skinRetouch/utils';
+import { PRESETS, EYE_SHARPEN_OPTIONS } from '@/components/tools/skinRetouch/utils';
 
 interface SkinRetouchDialogProps {
   open: boolean;
@@ -33,6 +33,8 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
             fileInputRef={s.fileInputRef}
             preset={s.preset}
             setPreset={s.setPreset}
+            eyeSharpen={s.eyeSharpen}
+            setEyeSharpen={s.setEyeSharpen}
             price={s.price}
             onFile={s.handleFile}
             onOpenPicker={() => s.setShowPicker(true)}
@@ -68,6 +70,22 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
                 Не тот результат? Пересчитать с другой силой — новое списание
                 {s.price !== null ? ` ${s.price} ⚡` : ''}
               </p>
+              <div className="flex items-center gap-1.5 mb-2 text-[11px]">
+                <span className="text-muted-foreground">Резкость глаз:</span>
+                {EYE_SHARPEN_OPTIONS.map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    disabled={s.loading}
+                    onClick={() => s.setEyeSharpen(o.key)}
+                    className={`rounded-md border px-2 py-0.5 transition-colors ${
+                      s.eyeSharpen === o.key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 {PRESETS.map((p) => (
                   <Button

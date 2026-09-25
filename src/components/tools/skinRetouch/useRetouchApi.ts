@@ -5,6 +5,7 @@ import {
   SKIN_RETOUCH_URL,
   PHOTOBANK_URL,
   PresetKey,
+  EyeSharpenKey,
   RetouchStage,
   dataUrlToBase64,
   fileToImage,
@@ -19,6 +20,15 @@ export const useRetouchApi = (open: boolean) => {
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [preset, setPreset] = useState<PresetKey>('medium');
+  const [eyeSharpen, setEyeSharpenState] = useState<EyeSharpenKey>(
+    () => (localStorage.getItem('retouch_eye_sharpen') as EyeSharpenKey) || 'normal',
+  );
+  const eyeSharpenRef = useRef<EyeSharpenKey>(eyeSharpen);
+  const setEyeSharpen = useCallback((v: EyeSharpenKey) => {
+    eyeSharpenRef.current = v;
+    setEyeSharpenState(v);
+    localStorage.setItem('retouch_eye_sharpen', v);
+  }, []);
   const [price, setPrice] = useState<number | null>(null);
   const [compare, setCompare] = useState(50);
   const [showPicker, setShowPicker] = useState(false);
@@ -206,7 +216,12 @@ export const useRetouchApi = (open: boolean) => {
           const cr = await fetch(`${SKIN_RETOUCH_URL}?action=compose`, {
             method: 'POST',
             headers,
-            body: JSON.stringify({ url: readyUrl, image: imageB64, preset: presetKey }),
+            body: JSON.stringify({
+              url: readyUrl,
+              image: imageB64,
+              preset: presetKey,
+              eye_sharpen: eyeSharpenRef.current,
+            }),
           });
           const cd = await cr.json();
           if (!cr.ok) throw new Error((cd?.error as string) || `HTTP ${cr.status}`);
@@ -346,6 +361,8 @@ export const useRetouchApi = (open: boolean) => {
     loadingText,
     preset,
     setPreset,
+    eyeSharpen,
+    setEyeSharpen,
     price,
     compare,
     setCompare,

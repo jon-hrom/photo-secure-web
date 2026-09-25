@@ -1,4 +1,4 @@
-import { SKIN_RETOUCH_URL, PresetKey, dataUrlToBase64 } from '@/components/tools/skinRetouch/utils';
+import { SKIN_RETOUCH_URL, PresetKey, EyeSharpenKey, dataUrlToBase64 } from '@/components/tools/skinRetouch/utils';
 
 export class NotEnoughEnergyError extends Error {
   needed: number | string;
@@ -21,6 +21,7 @@ interface RunOptions {
   userId: string | number;
   sourceDataUrl: string;
   preset: PresetKey;
+  eyeSharpen?: EyeSharpenKey;
   onStatus?: (text: string) => void;
   isCancelled?: () => boolean;
 }
@@ -40,6 +41,7 @@ export const runSkinRetouch = async ({
   userId,
   sourceDataUrl,
   preset,
+  eyeSharpen = 'normal',
   onStatus,
   isCancelled,
 }: RunOptions): Promise<SkinRetouchResult> => {
@@ -144,7 +146,7 @@ export const runSkinRetouch = async ({
       const cr = await fetch(`${SKIN_RETOUCH_URL}?action=compose`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ url: readyUrl, image: imageB64, preset }),
+        body: JSON.stringify({ url: readyUrl, image: imageB64, preset, eye_sharpen: eyeSharpen }),
       });
       const cd = await cr.json();
       if (!cr.ok) throw new Error((cd?.error as string) || `HTTP ${cr.status}`);

@@ -5,9 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import CompareView from '@/components/tools/skinRetouch/CompareView';
+import EyeSharpenSelector from '@/components/tools/skinRetouch/EyeSharpenSelector';
 import {
   PRESETS,
   PresetKey,
+  EyeSharpenKey,
   SKIN_RETOUCH_URL,
   imageToDataUrl,
   urlToImage,
@@ -77,6 +79,12 @@ const PhotoBankSkinRetouchDialog = ({
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [preset, setPreset] = useState<PresetKey>('medium');
+  const [eyeSharpen, setEyeSharpen] = useState<EyeSharpenKey>(
+    () => (localStorage.getItem('retouch_eye_sharpen') as EyeSharpenKey) || 'normal',
+  );
+  useEffect(() => {
+    localStorage.setItem('retouch_eye_sharpen', eyeSharpen);
+  }, [eyeSharpen]);
   const [price, setPrice] = useState<number | null>(null);
   const [tab, setTab] = useState<'single' | 'all'>('single');
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -286,6 +294,7 @@ const PhotoBankSkinRetouchDialog = ({
         userId,
         sourceDataUrl,
         preset,
+        eyeSharpen,
         onStatus,
         isCancelled: () => cancelRef.current,
       });
@@ -293,7 +302,7 @@ const PhotoBankSkinRetouchDialog = ({
       await saveResult(photo, result.image);
       return { sourceDataUrl, result };
     },
-    [getSourceUrl, preset, saveResult, userId],
+    [eyeSharpen, getSourceUrl, preset, saveResult, userId],
   );
 
   const runSingle = async () => {
@@ -428,6 +437,8 @@ const PhotoBankSkinRetouchDialog = ({
           </div>
           {activePreset && <p className="text-[11px] text-muted-foreground mt-1.5">{activePreset.hint}</p>}
         </div>
+
+        <EyeSharpenSelector value={eyeSharpen} onChange={setEyeSharpen} disabled={busy} />
 
         <Tabs value={tab} onValueChange={(v) => !busy && setTab(v as 'single' | 'all')} className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-10 sm:h-9">
