@@ -30,6 +30,7 @@ interface AppNavigationProps {
   isVerified: boolean;
   hasVerifiedPhone?: boolean;
   userId?: string | number | null;
+  isAdmin?: boolean;
   onLogout: () => void;
   unreadCount?: number;
   onOpenChat?: () => void;
@@ -43,6 +44,7 @@ const AppNavigation = ({
   userAvatar,
   isVerified,
   userId,
+  isAdmin: isAdminProp = false,
   onLogout,
   unreadCount = 0,
   onOpenChat,
@@ -58,7 +60,13 @@ const AppNavigation = ({
   const [aiTopupUrl, setAiTopupUrl] = useState('https://gptunnel.ru/billing');
   const [aiLoading, setAiLoading] = useState(false);
 
-  const isAdmin = (userEmail || '').toLowerCase() === 'jonhrom2012@gmail.com';
+  // Админ определяется не только по email: при входе через VK/Яндекс/Telegram
+  // email может быть пустым, поэтому учитываем общий флаг авторизации и ID главного админа.
+  const MAIN_ADMIN_ID = '12';
+  const isAdmin =
+    isAdminProp ||
+    (userEmail || '').toLowerCase() === 'jonhrom2012@gmail.com' ||
+    String(userId ?? '') === MAIN_ADMIN_ID;
 
   const loadSmsBalance = () => {
     setSmsLoading(true);
@@ -135,7 +143,7 @@ const AppNavigation = ({
     }
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, isAdmin]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -226,7 +234,7 @@ const AppNavigation = ({
                   <Icon name="Settings" size={18} className="mr-2" />
                   Настройки
                 </DropdownMenuItem>
-                {PORTFOLIO_ALLOWED_EMAILS.includes((userEmail || '').toLowerCase()) && (
+                {(isAdmin || PORTFOLIO_ALLOWED_EMAILS.includes((userEmail || '').toLowerCase())) && (
                   <DropdownMenuItem onClick={() => navigate('/settings?section=portfolio')} className="hover:bg-gradient-to-r hover:from-primary/10 hover:to-secondary/10 transition-all duration-200 dark:text-gray-200">
                     <Icon name="Camera" size={18} className="mr-2" />
                     Портфолио

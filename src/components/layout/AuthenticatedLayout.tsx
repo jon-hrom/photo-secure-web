@@ -133,6 +133,7 @@ const AuthenticatedLayout = ({
         userAvatar={userAvatar}
         isVerified={isVerified}
         userId={userId}
+        isAdmin={isAdmin}
         onLogout={onLogout}
         unreadCount={totalUnread}
         onOpenChat={() => { setShowMAXChat(true); markSupportRead(); }}
