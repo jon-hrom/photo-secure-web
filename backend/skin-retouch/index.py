@@ -35,16 +35,19 @@ PRESETS = {
     "light": {
         "strength": 0.55, "keep_texture": 1.00, "trust": 40.0,
         "highlights": 0.35, "even_out": 0.40, "label": "Лёгкая",
+        "detail": 0.45, "eye_sharpen": 0.9,
     },
     "medium": {
         "strength": 0.80, "keep_texture": 0.95, "trust": 60.0,
         "highlights": 0.60, "even_out": 0.70, "label": "Стандарт",
+        "detail": 0.55, "eye_sharpen": 1.1,
     },
     # Максимум: кожа как после профессиональной бьюти-ретуши.
     # Ни одного прыща, но поры и резкость кадра сохранены полностью.
     "strong": {
         "strength": 1.00, "keep_texture": 0.86, "trust": 90.0,
         "highlights": 0.85, "even_out": 0.92, "label": "Сильная",
+        "detail": 0.6, "eye_sharpen": 1.25,
     },
 }
 
@@ -274,6 +277,8 @@ def _handle_compose(payload: dict, user_id):
             trust_threshold=preset["trust"],
             highlight_recovery=preset["highlights"],
             even_out=preset["even_out"],
+            detail=preset.get("detail", 0.0),
+            eye_sharpen=preset.get("eye_sharpen", 0.0),
         )
         print(f"[SKIN] compose ok: download={downloaded - started:.2f}s "
               f"blend={time.time() - downloaded:.2f}s")

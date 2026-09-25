@@ -522,7 +522,9 @@ def blend_skin(original: Image.Image, generated: Image.Image,
                strength: float = 0.9, keep_texture: float = 0.9,
                regions=None, trust_threshold: float = 60.0,
                highlight_recovery: float = 0.6,
-               even_out: float = 0.7) -> Image.Image:
+               even_out: float = 0.7,
+               detail: float = 0.0,
+               eye_sharpen: float = 0.0) -> Image.Image:
     """Собирает финал: тон кожи от модели, вся текстура от оригинала.
 
         out = orig + (blur(gen) - blur(orig)) * mask * strength
@@ -563,9 +565,17 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     # --- 1. Маска кожи на мелкой копии ---
     mask_img = _small(original, MASK_SIDE)
     skin_raw = skin_mask_small(mask_img)
-    mask_s = np.clip(
-        skin_raw * (1.0 - protect_mask_small(mask_img, skin_raw)), 0.0, 1.0)
-    del skin_raw
+    protect_s = protect_mask_small(mask_img, skin_raw)
+    mask_s = np.clip(skin_raw * (1.0 - protect_s), 0.0, 1.0)
+    # Черты лица (глаза, ресницы, брови, губы) — то, что защищено от ретуши
+    # и лежит ВНУТРИ лица. Маска кожи заполнена по дырам, поэтому глаза в неё
+    # входят, а волосы и одежда за контуром лица — нет.
+    # Берём только ЯДРО лица (вокруг — сплошная кожа), иначе в зону попадают
+    # контур щёк и кромка волос, и усиленная резкость даёт там ореолы.
+    face_core = _ramp(_blur_f(skin_raw, max(2.0, min(mask_img.size) * 0.02)), 0.6, 0.85)
+    features_s = np.clip(protect_s * face_core, 0.0, 1.0)
+    del face_core
+    del skin_raw, protect_s
     if regions:
         mask_s *= regions_mask(mask_img.size, regions)
     del mask_img
@@ -790,4 +800,58 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     if red_map is not None:
         red_map.close()
         dark_map.close()
+
+    if detail > 0.001 or eye_sharpen > 0.001:
+        out_img = enhance_details(out_img, features_s, detail=detail, eye_sharpen=eye_sharpen)
     return out_img
+
+
+def enhance_details(img: Image.Image, features_small: np.ndarray,
+                    detail: float = 0.5, eye_sharpen: float = 1.0) -> Image.Image:
+    """Финальная детализация: общая резкость + отдельная резкость глаз.
+
+    Работает только по ЯРКОСТИ (канал Y): резкость по RGB даёт цветные ореолы
+    на ресницах и контуре губ. Все фильтры — нативные PIL (C-код), поэтому
+    на кадре 1800 px проход занимает ~0.1–0.2 с и в лимит функции укладывается.
+
+      detail      — мягкий unsharp по всему кадру: возвращает микроконтраст
+                    текстуре ткани, волосам, бороде, порам после ретуши.
+                    threshold отсекает шум ровных участков кожи.
+      eye_sharpen — усиленная резкость + «кларити» средней полосы в зоне
+                    черт лица: радужка, ресницы, брови, контур губ.
+    """
+    detail = float(np.clip(detail, 0.0, 2.0))
+    eye_sharpen = float(np.clip(eye_sharpen, 0.0, 3.0))
+    side = min(img.size)
+
+    ycc = img.convert("YCbCr")
+    y, cb, cr = ycc.split()
+    del ycc
+
+    fine_r = max(0.8, side * 0.0008)
+    y_base = y
+    if detail > 0.001:
+        y_base = y.filter(ImageFilter.UnsharpMask(
+            radius=fine_r, percent=int(90 * detail), threshold=2))
+
+    if eye_sharpen > 0.001 and features_small is not None and features_small.max() > 0.05:
+        # Маска черт лица: чуть расширяем (радужка целиком, кромка век),
+        # растягиваем до полного кадра и растушёвываем край.
+        feat = _dilate((features_small > 0.25).astype(np.float32),
+                       _odd(max(3, features_small.shape[0] // 170)))
+        feat = np.clip(np.maximum(feat * 0.9, features_small), 0.0, 1.0)
+        fmask = Image.fromarray((feat * 255).astype(np.uint8), mode="L").resize(
+            img.size, Image.BILINEAR).filter(
+            ImageFilter.GaussianBlur(radius=max(1.5, side * 0.002)))
+        y_eyes = y.filter(ImageFilter.UnsharpMask(
+            radius=fine_r, percent=int(140 * eye_sharpen), threshold=1))
+        y_eyes = y_eyes.filter(ImageFilter.UnsharpMask(
+            radius=max(2.0, side * 0.003), percent=int(35 * eye_sharpen), threshold=2))
+        y_final = Image.composite(y_eyes, y_base, fmask)
+        del y_eyes, fmask
+    else:
+        y_final = y_base
+
+    out = Image.merge("YCbCr", (y_final, cb, cr)).convert("RGB")
+    del y, cb, cr, y_base, y_final
+    return out
