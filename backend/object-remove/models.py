@@ -64,16 +64,20 @@ HINT = "AI дорисует фон так, будто объекта не был
 MARKER = (255, 0, 255)
 
 PROMPT = (
-    "The bright magenta areas mark unwanted objects or people. Remove them completely "
-    "and fill every magenta pixel with a seamless, photorealistic continuation of the "
-    "surrounding scene: background, pavement, grass, trees, water, walls — matching "
-    "perspective, lighting, grain, focus and colors. No magenta must remain, no new "
-    "people or objects added, no blur patches. Keep everything outside the magenta "
-    "areas absolutely identical: same main subject, face, pose, clothes, composition, "
-    "framing and size. Do not crop, do not restyle."
+    "Magenta marks unwanted people/objects. Remove them and fill every magenta pixel "
+    "with a seamless photorealistic continuation of the surrounding background, matching "
+    "perspective, light, blur and colors. No magenta left. Keep everything else identical, "
+    "no crop."
 )
 
 MAX_SIDE = int(os.environ.get("OBJECT_REMOVE_MAX_SIDE", "2048"))
+
+# Запрет на выдумывание предметов: без него модель ставила на месте человека
+# тумбы/постаменты вместо продолжения газона и фонтана.
+STRICT_TAIL = (
+    " Do NOT invent new objects: no stands, boxes, pillars, walls, benches, furniture, people."
+    " Only continue textures entering the area from its edges."
+)
 
 
 def _headers():
@@ -210,11 +214,12 @@ def _gpt_start(model: str, image_b64: str, mask_b64: str) -> str:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
     marked_b64 = build_marked(image_b64, mask_b64)
     cfg = CANDIDATES.get(model, {})
+    prompt = PROMPT + STRICT_TAIL
     r = requests.post(
         f"{BASE_URL}/tasks",
         json={
             "model": model,
-            "prompt": PROMPT,
+            "prompt": prompt,
             "params": cfg.get("params", {"aspect_ratio": "auto"}),
             "inputs": {cfg.get("input_key", "image_input"): [f"data:image/jpeg;base64,{marked_b64}"]},
         },
