@@ -68,7 +68,7 @@ def _handle_inpaint(payload: dict, user_id):
         return _response(401, {"error": "X-User-Id required"})
 
     try:
-        marked = models.build_marked(image_b64, mask_b64)
+        models._load(image_b64, mask_b64)
     except Exception as e:
         return _response(400, {"error": f"не удалось прочитать фото: {str(e)[:200]}"})
 
@@ -80,12 +80,14 @@ def _handle_inpaint(payload: dict, user_id):
         return _response(500, {"error": err or "energy error"})
 
     try:
-        task_id = models.start_task(marked)
+        task_id, model_used = models.start_with_fallback(image_b64, mask_b64)
     except Exception as e:
+        print(f"[object-remove] start failed: {e}")
         energy.refund(user_id, price, "Возврат: не удалось запустить удаление объекта")
         return _response(502, {"error": str(e)[:300], "refunded": price})
 
-    return _response(200, {"task_id": task_id, "model": models.MODEL, "charged": price, "energy_balance": balance})
+    print(f"[object-remove] started {model_used} task={task_id}")
+    return _response(200, {"task_id": task_id, "model": model_used, "charged": price, "energy_balance": balance})
 
 
 def _handle_status(payload: dict, user_id):
@@ -107,14 +109,15 @@ def _handle_status(payload: dict, user_id):
         return err_resp
 
     if state["status"] == "failed":
-        # Отказ модерации основной модели — перезапускаем на запасной без доплаты
-        if model_used != models.FALLBACK_MODEL:
+        print(f"[object-remove] {model_used} failed: {state.get('error')}")
+        # Модель не справилась — перезапускаем на следующей по цепочке без доплаты
+        nxt = models.next_model(model_used)
+        if nxt:
             try:
-                marked = models.build_marked(image_b64, mask_b64)
-                new_id = models.start_task(marked, models.FALLBACK_MODEL)
-                return _response(200, {"status": "processing", "task_id": new_id, "model": models.FALLBACK_MODEL})
-            except Exception:
-                pass
+                new_id, new_model = models.start_with_fallback(image_b64, mask_b64, nxt)
+                return _response(200, {"status": "processing", "task_id": new_id, "model": new_model})
+            except Exception as e:
+                print(f"[object-remove] fallback failed: {e}")
         if user_id:
             energy.refund(user_id, models.PRICE, "Возврат: удаление объекта не удалось")
         return _response(200, {"status": "failed", "error": state["error"] or "не удалось удалить объект",
