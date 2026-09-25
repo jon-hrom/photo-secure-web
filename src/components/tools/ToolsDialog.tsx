@@ -7,6 +7,7 @@ interface ToolsDialogProps {
   onOpenLogoRemover: () => void;
   onOpenHumanizer: () => void;
   onOpenSkinRetouch: () => void;
+  onOpenObjectRemover: () => void;
 }
 
 interface ToolCardProps {
@@ -36,7 +37,7 @@ const ToolCard = ({ icon, title, description, onClick, gradient }: ToolCardProps
   </button>
 );
 
-const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, onOpenSkinRetouch }: ToolsDialogProps) => {
+const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, onOpenSkinRetouch, onOpenObjectRemover }: ToolsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -59,6 +60,17 @@ const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, o
             onClick={() => {
               onOpenChange(false);
               onOpenLogoRemover();
+            }}
+          />
+
+          <ToolCard
+            icon="ScanEye"
+            title="Удалить объект с фото"
+            description="Закрасьте кистью лишних людей или предметы — AI дорисует фон так, будто их и не было."
+            gradient="from-sky-500 to-indigo-500"
+            onClick={() => {
+              onOpenChange(false);
+              onOpenObjectRemover();
             }}
           />
 

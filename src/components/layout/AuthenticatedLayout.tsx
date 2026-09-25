@@ -30,6 +30,7 @@ import ToolsDialog from '@/components/tools/ToolsDialog';
 import LogoRemoverDialog from '@/components/tools/LogoRemoverDialog';
 import HumanizerDialog from '@/components/tools/HumanizerDialog';
 import SkinRetouchDialog from '@/components/tools/SkinRetouchDialog';
+import ObjectRemoverDialog from '@/components/tools/ObjectRemoverDialog';
 
 const AUTH_URL = 'https://functions.poehali.dev/0a1390c4-0522-4759-94b3-0bab009437a9';
 
@@ -92,6 +93,7 @@ const AuthenticatedLayout = ({
   const [showLogoRemover, setShowLogoRemover] = useState(false);
   const [showHumanizer, setShowHumanizer] = useState(false);
   const [showSkinRetouch, setShowSkinRetouch] = useState(false);
+  const [showObjectRemover, setShowObjectRemover] = useState(false);
   const unreadCount = useUnreadCount(userId);
   const { unreadCount: supportUnread, markRead: markSupportRead } = useSupportUnread(userId);
   const totalUnread = unreadCount + supportUnread;
@@ -325,6 +327,7 @@ const AuthenticatedLayout = ({
         onOpenLogoRemover={() => setShowLogoRemover(true)}
         onOpenHumanizer={() => setShowHumanizer(true)}
         onOpenSkinRetouch={() => setShowSkinRetouch(true)}
+        onOpenObjectRemover={() => setShowObjectRemover(true)}
       />
 
       <LogoRemoverDialog
@@ -341,6 +344,11 @@ const AuthenticatedLayout = ({
       <SkinRetouchDialog
         open={showSkinRetouch}
         onOpenChange={setShowSkinRetouch}
+      />
+
+      <ObjectRemoverDialog
+        open={showObjectRemover}
+        onOpenChange={setShowObjectRemover}
       />
 
 
