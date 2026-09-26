@@ -121,6 +121,22 @@ def _handle_status(payload: dict, user_id):
 
     try:
         result_b64 = models.compose(vals[2], vals[3], state["url"])
+    except models.UnchangedResult as e:
+        attempt = int(payload.get("attempt") or 1)
+        print(f"[face-swap] {model_used} returned unchanged face ({e}), attempt {attempt}")
+        nxt = models.next_model(model_used) or (model_used if attempt < 2 else None)
+        if nxt:
+            try:
+                new_id, new_model = models.start_with_fallback(*vals, model=nxt)
+                return _response(200, {"status": "processing", "task_id": new_id, "model": new_model,
+                                       "attempt": attempt + 1})
+            except Exception as ex:
+                print(f"[face-swap] retry failed: {ex}")
+        if user_id:
+            energy.refund_once(user_id, models.PRICE, f"Возврат: лицо не изменилось ({task_id})")
+        return _response(200, {"status": "failed", "refunded": models.PRICE,
+                               "error": "AI не заменил лицо. Энергия возвращена. Попробуйте закрасить лицо "
+                                        "на обоих фото чуть шире (вместе с подбородком и лбом) и повторить."})
     except Exception as e:
         print(f"[face-swap] compose failed: {e}")
         if user_id:

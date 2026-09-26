@@ -130,13 +130,14 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       setLoadingText('AI переносит лицо...');
       let taskId: string = started.task_id;
       let model: string | undefined = started.model;
+      let attempt = 1;
       let data: Record<string, unknown> | null = null;
       for (let i = 0; i < 90; i++) {
         await new Promise((r) => setTimeout(r, 4000));
         const sr = await fetch(`${FACE_SWAP_URL}?action=status`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ task_id: taskId, model, ...payload }),
+          body: JSON.stringify({ task_id: taskId, model, attempt, ...payload }),
         });
         const sd = await sr.json();
         if (!sr.ok) throw new Error(sd?.error || `HTTP ${sr.status}`);
@@ -144,6 +145,10 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
           if (sd.task_id) {
             taskId = sd.task_id;
             model = sd.model;
+            if (sd.attempt) {
+              attempt = Number(sd.attempt);
+              setLoadingText('Лицо не изменилось — пробуем ещё раз...');
+            }
           }
           continue;
         }

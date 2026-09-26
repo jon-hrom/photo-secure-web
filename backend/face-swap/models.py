@@ -41,22 +41,25 @@ HINT = "Лицо донора органично встанет на целев�
 TARGET_MAX_SIDE = 1536
 DONOR_MAX_SIDE = 1024
 
+# Провайдер GPTunneL ограничивает промпт ~800 символами — длинный промпт обрезался,
+# и модель возвращала кадр почти без изменений. Держим коротким и категоричным.
 PROMPT = (
-    "You get two images. IMAGE 1 is the target picture. IMAGE 2 is a reference showing ONE person's face "
-    "(everything grey around it is irrelevant). Task: face swap. Replace the face of the main person in "
-    "IMAGE 1 with the face identity of the person from IMAGE 2, so it looks as if this person was really "
-    "there originally. Preserve the identity precisely: face shape, eyes, eye colour, nose, lips, brows, "
-    "age, skin tone, distinctive features. Adapt it naturally to IMAGE 1: same head position, angle, "
-    "scale, gaze direction and expression as the original face in IMAGE 1; same lighting direction, "
-    "shadows, colour grading, white balance, grain, sharpness and depth of field. "
-    "STYLE MATCHING IS MANDATORY: first determine the medium of IMAGE 1. If IMAGE 1 is a drawing, "
-    "illustration, cartoon, anime, comic, painting, 3D render or any stylised art, redraw the new face in "
-    "exactly that same art style (same line work, shading technique, colour palette, level of detail, "
-    "brush strokes) — do NOT paste a photographic face into artwork. If IMAGE 1 is a real photograph, "
-    "the face must be fully photorealistic with natural skin texture. "
-    "Keep hair, headwear, neck, body, clothes, hands, background and composition of IMAGE 1 unchanged. "
-    "No distortions, no warping, no extra faces, no seams, no text. Same framing, no crop, no zoom."
+    "Face swap. IMAGE 1 = target picture. IMAGE 2 = reference face (ignore grey area). "
+    "Redraw the face of the person in IMAGE 1 so it clearly becomes the person from IMAGE 2: "
+    "her face shape, eyes, nose, lips, brows, cheekbones, age. The new identity must be obvious. "
+    "Keep head pose, angle, gaze, expression and lighting of IMAGE 1. "
+    "Match the medium of IMAGE 1: if it is a drawing or illustration, draw the new face in the same "
+    "art style (line work, shading, palette); if it is a photo, keep it photorealistic. "
+    "Keep hair, glasses, body, clothes, background and framing of IMAGE 1 unchanged. "
+    "No text, no extra faces, no crop."
 )
+
+# Если средняя разница в зоне лица меньше порога — модель фактически ничего не сделала.
+UNCHANGED_THRESHOLD = float(os.environ.get("FACE_SWAP_MIN_DIFF", "6"))
+
+
+class UnchangedResult(Exception):
+    """Модель вернула кадр без заметной замены лица."""
 
 
 def _headers_gpt():
@@ -355,6 +358,17 @@ def compose(target_b64: str, target_mask_b64: str, result_url: str) -> str:
     edge.paste(255, (pad, pad, max(pad + 1, cw - pad), max(pad + 1, ch - pad)))
     from PIL import ImageChops
     blend = ImageChops.multiply(blend, edge)
+
+    # Проверка: изменилось ли лицо вообще (сравниваем по исходной маске лица)
+    import numpy as np
+    inner = np.asarray(mask_crop, dtype=np.uint8) > 128
+    if inner.sum() > 50:
+        g_arr = np.asarray(generated, dtype=np.float32)[inner]
+        o_arr = np.asarray(orig_crop, dtype=np.float32)[inner]
+        diff = float(np.abs(g_arr - o_arr).mean())
+        print(f"[face-swap] face diff={diff:.2f} url={result_url[:120]}")
+        if diff < UNCHANGED_THRESHOLD:
+            raise UnchangedResult(f"diff={diff:.2f}")
 
     generated = _match_colors(orig_crop, generated, blend)
     soft = blend.filter(ImageFilter.GaussianBlur(feather))
