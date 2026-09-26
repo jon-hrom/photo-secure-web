@@ -25,8 +25,19 @@ REPLICATE_MODELS = {
     "nano-banana": "google/nano-banana",
 }
 
-_CHAIN_REPLICATE = ["nano-banana-pro", "nano-banana", "gpt-nano-banana"]
-_CHAIN_GPTUNNEL = ["gpt-nano-banana"]
+# Модели GPTunneL для переноса. nano-banana-pro (Gemini 3 Pro Image) заметно лучше
+# держит сходство лица, чем обычная nano-banana, которая давала «похожую, но другую» женщину.
+GPT_MODELS = {
+    "gpt-nano-banana-pro": {"model": "nano-banana-pro",
+                            "params": {"resolution": "2K", "aspect_ratio": "auto", "output_format": "png"}},
+    "gpt-nano-banana-2": {"model": "nano-banana-2",
+                          "params": {"resolution": "2K", "aspect_ratio": "auto", "output_format": "png"}},
+    "gpt-nano-banana": {"model": "nano-banana", "params": {"aspect_ratio": "auto"}},
+}
+
+# Replicate-токен сейчас недействителен (401), поэтому основной путь — GPTunneL.
+_CHAIN_GPTUNNEL = ["gpt-nano-banana-pro", "gpt-nano-banana-2", "gpt-nano-banana"]
+_CHAIN_REPLICATE = ["gpt-nano-banana-pro", "nano-banana-pro", "gpt-nano-banana-2", "gpt-nano-banana"]
 
 
 def _chain():
@@ -41,17 +52,15 @@ HINT = "Лицо донора органично встанет на целев�
 TARGET_MAX_SIDE = 1536
 DONOR_MAX_SIDE = 1024
 
-# Провайдер GPTunneL ограничивает промпт ~800 символами — длинный промпт обрезался,
-# и модель возвращала кадр почти без изменений. Держим коротким и категоричным.
+# Промпт держим < 800 символов (лимит GPTunneL).
 PROMPT = (
-    "Face swap. IMAGE 1 = target picture. IMAGE 2 = reference face (ignore grey area). "
-    "Redraw the face of the person in IMAGE 1 so it clearly becomes the person from IMAGE 2: "
-    "her face shape, eyes, nose, lips, brows, cheekbones, age. The new identity must be obvious. "
-    "Keep head pose, angle, gaze, expression and lighting of IMAGE 1. "
-    "Match the medium of IMAGE 1: if it is a drawing or illustration, draw the new face in the same "
-    "art style (line work, shading, palette); if it is a photo, keep it photorealistic. "
-    "Keep hair, glasses, body, clothes, background and framing of IMAGE 1 unchanged. "
-    "No text, no extra faces, no crop."
+    "Face swap. IMAGE 1 = target. IMAGE 2 = identity reference (ignore grey). "
+    "Replace the face in IMAGE 1 with the exact face of the woman/man from IMAGE 2 so she is instantly "
+    "recognizable: same face shape, jaw, eye shape and spacing, nose, lips, brows, cheekbones, age, "
+    "moles. Render it highly detailed and lifelike, realistic facial anatomy and fine features, "
+    "but in the same medium and technique as IMAGE 1 (if illustration: same line work, soft shading, "
+    "palette; if photo: photorealistic). Keep IMAGE 1 hairstyle, glasses, head pose, expression, "
+    "light, body, clothes, background, framing. No text."
 )
 
 # Если средняя разница в зоне лица меньше порога — модель фактически ничего не сделала.
@@ -237,7 +246,7 @@ def _rep_poll(pid: str) -> dict:
 
 
 # ---------- GPTunneL ----------
-def _gpt_start(target_bytes: bytes, donor_bytes: bytes) -> str:
+def _gpt_start(name: str, target_bytes: bytes, donor_bytes: bytes) -> str:
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
     t = base64.b64encode(target_bytes).decode()
@@ -245,9 +254,9 @@ def _gpt_start(target_bytes: bytes, donor_bytes: bytes) -> str:
     r = requests.post(
         f"{GPT_BASE}/tasks",
         json={
-            "model": "nano-banana",
+            "model": GPT_MODELS[name]["model"],
             "prompt": PROMPT,
-            "params": {"aspect_ratio": "auto"},
+            "params": GPT_MODELS[name]["params"],
             "inputs": {"image_input": [f"data:image/jpeg;base64,{t}", f"data:image/jpeg;base64,{d}"]},
         },
         headers=_headers_gpt(),
@@ -290,7 +299,7 @@ def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, 
         try:
             if name in REPLICATE_MODELS:
                 return _rep_start(name, target_bytes, donor_bytes), name
-            return _gpt_start(target_bytes, donor_bytes), name
+            return _gpt_start(name, target_bytes, donor_bytes), name
         except Exception as e:
             print(f"[face-swap] start {name} failed: {e}")
             last_err = e
