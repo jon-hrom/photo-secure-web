@@ -53,7 +53,7 @@ HINT = "Лицо донора органично встанет на целев�
 TARGET_MAX_SIDE = 1152
 DONOR_MAX_SIDE = 768
 
-# Промпт держим < 800 символов (лимит GPTunneL).
+# Промпты держим < 800 символов (лимит GPTunneL).
 PROMPT = (
     "Face swap. IMAGE 1 = target. IMAGE 2 = identity reference (ignore grey). "
     "Replace the face in IMAGE 1 with the exact face of the woman/man from IMAGE 2 so she is instantly "
@@ -62,6 +62,17 @@ PROMPT = (
     "but in the same medium and technique as IMAGE 1 (if illustration: same line work, soft shading, "
     "palette; if photo: photorealistic). Keep IMAGE 1 hairstyle, glasses, head pose, expression, "
     "light, body, clothes, background, framing. No text."
+)
+
+# Режим «лицо + волосы»: причёска тоже берётся с донора — так узнаваемость максимальная.
+PROMPT_HAIR = (
+    "Head swap. IMAGE 1 = target. IMAGE 2 = identity reference (ignore grey). "
+    "Replace the head in IMAGE 1 with the person from IMAGE 2 so she is instantly recognizable: "
+    "exact face shape, jaw, eyes, nose, lips, brows, cheekbones, age, moles AND her exact hairstyle: "
+    "hair colour, length, cut, fringe, parting, volume. Ignore sunglasses or hats on her head. "
+    "Highly detailed, lifelike anatomy, but drawn in the same medium and technique as IMAGE 1 "
+    "(illustration: same line work, shading, palette; photo: photorealistic). Keep IMAGE 1 eyeglasses, "
+    "head pose, light, body, clothes, background, framing. No text."
 )
 
 # Если средняя разница в зоне лица меньше порога — модель фактически ничего не сделала.
@@ -124,28 +135,38 @@ def _expand_box(box, size, factor: float, min_side: int = 0, square: bool = True
     return (int(round(nx0)), int(round(ny0)), int(round(nx0 + w)), int(round(ny0 + h)))
 
 
-def target_region(target_b64: str, target_mask_b64: str):
+def target_region(target_b64: str, target_mask_b64: str, with_hair: bool = False):
     """Возвращает (оригинал, маска, рамка кропа). Детерминировано — нужно и на старте, и при сборке."""
     original = _open_rgb(target_b64)
     mask = _open_mask(target_mask_b64, original.size)
     box = _bbox(mask)
     side = min(original.size)
-    crop_box = _expand_box(box, original.size, 2.4, min_side=min(side, 384))
+    crop_box = _expand_box(box, original.size, 3.0 if with_hair else 2.4, min_side=min(side, 384))
     return original, mask, crop_box
 
 
-def build_donor(donor_b64: str, donor_mask_b64: str) -> bytes:
-    """Вырезка лица донора: вне закрашенного — нейтрально-серый, чтобы не путать лица."""
-    from PIL import Image, ImageFilter
+def build_donor(donor_b64: str, donor_mask_b64: str, with_hair: bool = False) -> bytes:
+    """Вырезка лица донора: вне закрашенного — нейтрально-серый, чтобы не путать лица.
+    В режиме с волосами открываем широкий овал вокруг головы, чтобы причёска попала целиком."""
+    from PIL import Image, ImageFilter, ImageDraw, ImageChops
 
     donor = _open_rgb(donor_b64)
     mask = _open_mask(donor_mask_b64, donor.size)
     box = _bbox(mask)
-    grow = max(9, int(max(box[2] - box[0], box[3] - box[1]) * 0.12) | 1)
-    soft = mask.filter(ImageFilter.MaxFilter(min(grow, 61))).filter(ImageFilter.GaussianBlur(6))
+    size = max(box[2] - box[0], box[3] - box[1])
+    grow = max(9, int(size * 0.12) | 1)
+    region = mask.filter(ImageFilter.MaxFilter(min(grow, 61)))
+    if with_hair:
+        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        w, h = (box[2] - box[0]), (box[3] - box[1])
+        head = Image.new("L", donor.size, 0)
+        ImageDraw.Draw(head).ellipse(
+            (cx - w * 1.05, cy - h * 1.15, cx + w * 1.05, cy + h * 1.05), fill=255)
+        region = ImageChops.lighter(region, head)
+    soft = region.filter(ImageFilter.GaussianBlur(6 if not with_hair else 10))
     grey = Image.new("RGB", donor.size, (128, 128, 128))
     isolated = Image.composite(donor, grey, soft)
-    crop = isolated.crop(_expand_box(box, donor.size, 1.5))
+    crop = isolated.crop(_expand_box(box, donor.size, 2.4 if with_hair else 1.5))
     if max(crop.size) > DONOR_MAX_SIDE:
         crop.thumbnail((DONOR_MAX_SIDE, DONOR_MAX_SIDE), Image.LANCZOS)
     elif max(crop.size) < 512:
@@ -154,9 +175,9 @@ def build_donor(donor_b64: str, donor_mask_b64: str) -> bytes:
     return _to_bytes(crop, "JPEG", 90)
 
 
-def build_target(target_b64: str, target_mask_b64: str) -> bytes:
+def build_target(target_b64: str, target_mask_b64: str, with_hair: bool = False) -> bytes:
     from PIL import Image
-    original, _, crop_box = target_region(target_b64, target_mask_b64)
+    original, _, crop_box = target_region(target_b64, target_mask_b64, with_hair)
     crop = original.crop(crop_box)
     if max(crop.size) > TARGET_MAX_SIDE:
         crop.thumbnail((TARGET_MAX_SIDE, TARGET_MAX_SIDE), Image.LANCZOS)
@@ -175,8 +196,8 @@ def _to_bytes(img, fmt: str, quality: int = 93) -> bytes:
     return buf.getvalue()
 
 
-def validate_inputs(donor_b64, donor_mask_b64, target_b64, target_mask_b64):
-    build_donor(donor_b64, donor_mask_b64)
+def validate_inputs(donor_b64, donor_mask_b64, target_b64, target_mask_b64, with_hair: bool = False):
+    build_donor(donor_b64, donor_mask_b64, with_hair)
     target_region(target_b64, target_mask_b64)
 
 
@@ -196,13 +217,13 @@ def _rep_upload(data: bytes, filename: str) -> str:
     return url
 
 
-def _rep_start(model: str, target_bytes: bytes, donor_bytes: bytes) -> str:
+def _rep_start(model: str, target_bytes: bytes, donor_bytes: bytes, prompt: str = PROMPT) -> str:
     if not REPLICATE_TOKEN:
         raise RuntimeError("REPLICATE_API_TOKEN не задан")
     t_url = _rep_upload(target_bytes, "target.jpg")
     d_url = _rep_upload(donor_bytes, "donor.jpg")
     inp = {
-        "prompt": PROMPT,
+        "prompt": prompt,
         "image_input": [t_url, d_url],
         "aspect_ratio": "match_input_image",
         "output_format": "png",
@@ -247,7 +268,7 @@ def _rep_poll(pid: str) -> dict:
 
 
 # ---------- GPTunneL ----------
-def _gpt_start(name: str, target_bytes: bytes, donor_bytes: bytes) -> str:
+def _gpt_start(name: str, target_bytes: bytes, donor_bytes: bytes, prompt: str = PROMPT) -> str:
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
     t = base64.b64encode(target_bytes).decode()
@@ -256,7 +277,7 @@ def _gpt_start(name: str, target_bytes: bytes, donor_bytes: bytes) -> str:
         f"{GPT_BASE}/tasks",
         json={
             "model": GPT_MODELS[name]["model"],
-            "prompt": PROMPT,
+            "prompt": prompt,
             "params": GPT_MODELS[name]["params"],
             "inputs": {"image_input": [f"data:image/jpeg;base64,{t}", f"data:image/jpeg;base64,{d}"]},
         },
@@ -291,16 +312,18 @@ def _gpt_poll(task_id: str) -> dict:
 
 
 # ---------- Общий интерфейс ----------
-def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, model: str = None):
-    donor_bytes = build_donor(donor_b64, donor_mask_b64)
-    target_bytes = build_target(target_b64, target_mask_b64)
+def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, model: str = None,
+                        with_hair: bool = False):
+    donor_bytes = build_donor(donor_b64, donor_mask_b64, with_hair)
+    target_bytes = build_target(target_b64, target_mask_b64, with_hair)
+    prompt = PROMPT_HAIR if with_hair else PROMPT
     name = model or MODEL
     last_err = None
     while name:
         try:
             if name in REPLICATE_MODELS:
-                return _rep_start(name, target_bytes, donor_bytes), name
-            return _gpt_start(name, target_bytes, donor_bytes), name
+                return _rep_start(name, target_bytes, donor_bytes, prompt), name
+            return _gpt_start(name, target_bytes, donor_bytes, prompt), name
         except Exception as e:
             print(f"[face-swap] start {name} failed: {e}")
             last_err = e
@@ -335,7 +358,7 @@ def _match_colors(original, generated, blend_mask):
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
 
 
-def compose(target_b64: str, target_mask_b64: str, result_url: str) -> str:
+def compose(target_b64: str, target_mask_b64: str, result_url: str, with_hair: bool = False) -> str:
     """Вклеивает переписанную область в оригинал с мягким краем."""
     from PIL import Image, ImageFilter
 
@@ -344,7 +367,7 @@ def compose(target_b64: str, target_mask_b64: str, result_url: str) -> str:
     if r.status_code != 200:
         raise RuntimeError(f"не скачался результат: {r.status_code}")
 
-    original, mask, crop_box = target_region(target_b64, target_mask_b64)
+    original, mask, crop_box = target_region(target_b64, target_mask_b64, with_hair)
     cw, ch = crop_box[2] - crop_box[0], crop_box[3] - crop_box[1]
     generated = Image.open(io.BytesIO(r.content)).convert("RGB").resize((cw, ch), Image.LANCZOS)
     orig_crop = original.crop(crop_box)
@@ -354,14 +377,24 @@ def compose(target_b64: str, target_mask_b64: str, result_url: str) -> str:
     # плюс волосы/тени на границе), края растушёвываем.
     face_box = mask_crop.getbbox() or (0, 0, cw, ch)
     face_size = max(face_box[2] - face_box[0], face_box[3] - face_box[1])
-    grow = int(face_size * 0.35) | 1
+    # С волосами новая причёска шире/длиннее старой — берём зону вклейки заметно больше
+    grow = int(face_size * (0.9 if with_hair else 0.35)) | 1
     blend = mask_crop
     remaining = grow
     while remaining > 1:  # MaxFilter принимает размер до ~ разумного, наращиваем шагами
         step = min(remaining, 41) | 1
         blend = blend.filter(ImageFilter.MaxFilter(step))
         remaining -= step - 1
-    feather = max(4, int(face_size * 0.08))
+    if with_hair:
+        # Причёска донора может быть длиннее/пышнее — открываем овал головы с «хвостом» вниз до плеч
+        from PIL import ImageDraw, ImageChops as _IC
+        fx0, fy0, fx1, fy1 = face_box
+        fw, fh = fx1 - fx0, fy1 - fy0
+        fcx = (fx0 + fx1) / 2
+        head = Image.new("L", (cw, ch), 0)
+        ImageDraw.Draw(head).ellipse((fcx - fw * 1.15, fy0 - fh * 0.75, fcx + fw * 1.15, fy1 + fh * 1.1), fill=255)
+        blend = _IC.lighter(blend, head)
+    feather = max(4, int(face_size * (0.12 if with_hair else 0.08)))
     # Не даём маске касаться краёв кропа — там шов с оригиналом
     edge = Image.new("L", (cw, ch), 0)
     pad = feather * 2 + 2

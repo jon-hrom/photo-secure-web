@@ -65,7 +65,7 @@ def _handle_swap(payload: dict, user_id):
     if not user_id:
         return _response(401, {"error": "X-User-Id required"})
     try:
-        models.validate_inputs(*vals)
+        models.validate_inputs(*vals, with_hair=bool(payload.get("with_hair")))
     except Exception as e:
         return _response(400, {"error": f"не удалось прочитать фото: {str(e)[:200]}"})
 
@@ -77,7 +77,7 @@ def _handle_swap(payload: dict, user_id):
         return _response(402, {"error": "Недостаточно энергии", "needed": price, "energy_balance": balance})
 
     try:
-        task_id, model_used = models.start_with_fallback(*vals)
+        task_id, model_used = models.start_with_fallback(*vals, with_hair=bool(payload.get("with_hair")))
     except Exception as e:
         print(f"[face-swap] start failed: {e}")
         return _response(502, {"error": str(e)[:300]})
@@ -116,7 +116,7 @@ def _handle_status(payload: dict, user_id):
         nxt = models.next_model(model_used)
         if nxt:
             try:
-                new_id, new_model = models.start_with_fallback(*vals, model=nxt)
+                new_id, new_model = models.start_with_fallback(*vals, model=nxt, with_hair=bool(payload.get("with_hair")))
                 return _response(200, {"status": "processing", "task_id": new_id, "model": new_model})
             except Exception as e:
                 print(f"[face-swap] fallback failed: {e}")
@@ -126,14 +126,14 @@ def _handle_status(payload: dict, user_id):
                                "refunded": models.PRICE})
 
     try:
-        result_b64 = models.compose(vals[2], vals[3], state["url"])
+        result_b64 = models.compose(vals[2], vals[3], state["url"], with_hair=bool(payload.get("with_hair")))
     except models.UnchangedResult as e:
         attempt = int(payload.get("attempt") or 1)
         print(f"[face-swap] {model_used} returned unchanged face ({e}), attempt {attempt}")
         nxt = models.next_model(model_used) or (model_used if attempt < 2 else None)
         if nxt:
             try:
-                new_id, new_model = models.start_with_fallback(*vals, model=nxt)
+                new_id, new_model = models.start_with_fallback(*vals, model=nxt, with_hair=bool(payload.get("with_hair")))
                 return _response(200, {"status": "processing", "task_id": new_id, "model": new_model,
                                        "attempt": attempt + 1})
             except Exception as ex:

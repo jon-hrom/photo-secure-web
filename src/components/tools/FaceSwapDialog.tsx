@@ -95,6 +95,28 @@ const FaceSwapDialog = ({ open, onOpenChange }: FaceSwapDialogProps) => {
           />
         </div>
 
+
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <span className="text-xs text-muted-foreground">Что переносить:</span>
+          {[
+            { v: true, label: 'Лицо + волосы', hint: 'максимальная узнаваемость' },
+            { v: false, label: 'Только лицо', hint: 'причёска останется как на фото 2' },
+          ].map((o) => (
+            <button
+              key={o.label}
+              type="button"
+              disabled={busy}
+              onClick={() => api.setWithHair(o.v)}
+              title={o.hint}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 ${
+                api.withHair === o.v ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
         {/* ШАГ 1 — донор. Держим смонтированным, чтобы маска не терялась при переключении шагов. */}
         <div className={step === 'donor' ? '' : 'hidden'}>
           {donor.stage === 'upload' && (
@@ -130,7 +152,7 @@ const FaceSwapDialog = ({ open, onOpenChange }: FaceSwapDialogProps) => {
                 </Button>
               </div>
               <p className="text-[11px] text-muted-foreground px-1">
-                Закрасьте кистью лицо, которое нужно перенести (лоб, глаза, нос, рот, подбородок). Если на фото несколько
+                Закрасьте кистью лицо, которое нужно перенести (лоб, глаза, нос, рот, подбородок). Волосы закрашивать не нужно — в режиме «Лицо + волосы» причёска возьмётся автоматически. Если на фото несколько
                 людей — отметьте только нужного. ПКМ или Ctrl — ластик маски.
               </p>
             </div>
@@ -190,7 +212,7 @@ const FaceSwapDialog = ({ open, onOpenChange }: FaceSwapDialogProps) => {
                 </Button>
               </div>
               <p className="text-[11px] text-muted-foreground px-1">
-                Закрасьте лицо, которое нужно заменить. Остальная часть кадра не меняется. Если это рисунок — лицо
+                Закрасьте лицо, которое нужно заменить. В режиме «Лицо + волосы» заменится и причёска, очки на фото 2 сохранятся. Остальная часть кадра не меняется. Если это рисунок — лицо
                 будет нарисовано в том же стиле, если фото — останется фотореалистичным. После результата можно снова
                 закрасить и повторить.
               </p>

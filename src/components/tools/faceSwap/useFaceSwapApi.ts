@@ -67,6 +67,10 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
   const { toast } = useToast();
   const [step, setStep] = useState<SwapStep>('donor');
   const [price, setPrice] = useState(30);
+  const [withHair, setWithHair] = useState<boolean>(() => localStorage.getItem('face_swap_with_hair') !== '0');
+  useEffect(() => {
+    localStorage.setItem('face_swap_with_hair', withHair ? '1' : '0');
+  }, [withHair]);
   const estimateLoaded = useRef(false);
   const donorLoader = useLoader(donor);
   const targetLoader = useLoader(target);
@@ -109,6 +113,7 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       donor_mask: buildInpaintMask(donor.maskCanvasRef.current!, 2, 0),
       target: dataUrlToBase64(target.currentDataUrlRef.current),
       target_mask: buildInpaintMask(target.maskCanvasRef.current!, 2, 0),
+      with_hair: withHair,
     };
     const { setLoading, setLoadingText, historyRef, setHistoryLen, loadImageIntoCanvas } = target;
 
@@ -172,7 +177,7 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
     } finally {
       setLoading(false);
     }
-  }, [donor, target, toast]);
+  }, [donor, target, toast, withHair]);
 
   const undo = useCallback(async () => {
     const { historyRef, setHistoryLen, loadImageIntoCanvas } = target;
@@ -236,5 +241,5 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
     setStep('donor');
   }, [donor, target]);
 
-  return { step, setStep, price, donorLoader, targetLoader, goToTarget, swap, undo, download, handleSaveToFolder, resetAll };
+  return { step, setStep, price, withHair, setWithHair, donorLoader, targetLoader, goToTarget, swap, undo, download, handleSaveToFolder, resetAll };
 };
