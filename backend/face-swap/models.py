@@ -54,25 +54,25 @@ TARGET_MAX_SIDE = 1152
 DONOR_MAX_SIDE = 768
 
 # Промпты держим < 800 символов (лимит GPTunneL).
+# IMAGE 1 — цель, IMAGE 2 — голова донора с контекстом, IMAGE 3 — крупный план лица донора.
 PROMPT = (
-    "Face swap. IMAGE 1 = target. IMAGE 2 = identity reference (ignore grey). "
-    "Replace the face in IMAGE 1 with the exact face of the woman/man from IMAGE 2 so she is instantly "
-    "recognizable: same face shape, jaw, eye shape and spacing, nose, lips, brows, cheekbones, age, "
-    "moles. Render it highly detailed and lifelike, realistic facial anatomy and fine features, "
-    "but in the same medium and technique as IMAGE 1 (if illustration: same line work, soft shading, "
-    "palette; if photo: photorealistic). Keep IMAGE 1 hairstyle, glasses, head pose, expression, "
-    "light, body, clothes, background, framing. No text."
+    "Face swap. IMAGE 1 = target. IMAGE 2 and IMAGE 3 = the SAME real person (ignore grey). "
+    "Put her exact face into IMAGE 1. Likeness is the top priority: copy her real proportions - face "
+    "length and width, jaw, chin, cheekbones, eye shape, eyelids, eye spacing, brows, nose, lip "
+    "thickness, skin texture, age, asymmetry. Do NOT beautify, slim, smooth or make younger. "
+    "Paint the face as a detailed realistic portrait in the palette and line work of IMAGE 1. "
+    "Keep IMAGE 1 hairstyle, head pose, light, body, clothes, background, framing. No text."
 )
 
-# Режим «лицо + волосы»: причёска тоже берётся с донора — так узнаваемость максимальная.
+# Режим «лицо + волосы»: причёска и аксессуары тоже как у донора — узнаваемость максимальная.
 PROMPT_HAIR = (
-    "Head swap. IMAGE 1 = target. IMAGE 2 = identity reference (ignore grey). "
-    "Replace the head in IMAGE 1 with the person from IMAGE 2 so she is instantly recognizable: "
-    "exact face shape, jaw, eyes, nose, lips, brows, cheekbones, age, moles AND her exact hairstyle: "
-    "hair colour, length, cut, fringe, parting, volume. Ignore sunglasses or hats on her head. "
-    "Highly detailed, lifelike anatomy, but drawn in the same medium and technique as IMAGE 1 "
-    "(illustration: same line work, shading, palette; photo: photorealistic). Keep IMAGE 1 eyeglasses, "
-    "head pose, light, body, clothes, background, framing. No text."
+    "Head swap. IMAGE 1 = target. IMAGE 2 and IMAGE 3 = the SAME real person (ignore grey). "
+    "Replace the head in IMAGE 1 with her. Likeness is the top priority: copy her real proportions - "
+    "face length and width, jaw, chin, cheekbones, eye shape, eyelids, eye spacing, brows, nose, lip "
+    "thickness, age, asymmetry. Do NOT beautify, slim, smooth or make younger. Exact hair from IMAGE 2: "
+    "colour, length, parting, fringe, volume. No eyeglasses unless she wears them; ignore sunglasses "
+    "on her head. Paint her as a detailed realistic portrait in the palette and line work of IMAGE 1. "
+    "Keep IMAGE 1 pose, light, body, clothes, background. No text."
 )
 
 # Если средняя разница в зоне лица меньше порога — модель фактически ничего не сделала.
@@ -175,6 +175,20 @@ def build_donor(donor_b64: str, donor_mask_b64: str, with_hair: bool = False) ->
     return _to_bytes(crop, "JPEG", 90)
 
 
+def build_donor_face(donor_b64: str, donor_mask_b64: str) -> bytes:
+    """Крупный план лица донора в высоком разрешении — главный ориентир для сходства."""
+    from PIL import Image
+    donor = _open_rgb(donor_b64)
+    mask = _open_mask(donor_mask_b64, donor.size)
+    crop = donor.crop(_expand_box(_bbox(mask), donor.size, 1.3))
+    if max(crop.size) > DONOR_MAX_SIDE:
+        crop.thumbnail((DONOR_MAX_SIDE, DONOR_MAX_SIDE), Image.LANCZOS)
+    elif max(crop.size) < 640:
+        s = 640 / max(crop.size)
+        crop = crop.resize((round(crop.width * s), round(crop.height * s)), Image.LANCZOS)
+    return _to_bytes(crop, "JPEG", 92)
+
+
 def build_target(target_b64: str, target_mask_b64: str, with_hair: bool = False) -> bytes:
     from PIL import Image
     original, _, crop_box = target_region(target_b64, target_mask_b64, with_hair)
@@ -217,14 +231,14 @@ def _rep_upload(data: bytes, filename: str) -> str:
     return url
 
 
-def _rep_start(model: str, target_bytes: bytes, donor_bytes: bytes, prompt: str = PROMPT) -> str:
+def _rep_start(model: str, target_bytes: bytes, donor_list: list, prompt: str = PROMPT) -> str:
     if not REPLICATE_TOKEN:
         raise RuntimeError("REPLICATE_API_TOKEN не задан")
     t_url = _rep_upload(target_bytes, "target.jpg")
-    d_url = _rep_upload(donor_bytes, "donor.jpg")
+    d_urls = [_rep_upload(d, f"donor{i}.jpg") for i, d in enumerate(donor_list)]
     inp = {
         "prompt": prompt,
-        "image_input": [t_url, d_url],
+        "image_input": [t_url, *d_urls],
         "aspect_ratio": "match_input_image",
         "output_format": "png",
     }
@@ -268,18 +282,18 @@ def _rep_poll(pid: str) -> dict:
 
 
 # ---------- GPTunneL ----------
-def _gpt_start(name: str, target_bytes: bytes, donor_bytes: bytes, prompt: str = PROMPT) -> str:
+def _gpt_start(name: str, target_bytes: bytes, donor_list: list, prompt: str = PROMPT) -> str:
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
     t = base64.b64encode(target_bytes).decode()
-    d = base64.b64encode(donor_bytes).decode()
     r = requests.post(
         f"{GPT_BASE}/tasks",
         json={
             "model": GPT_MODELS[name]["model"],
             "prompt": prompt,
             "params": GPT_MODELS[name]["params"],
-            "inputs": {"image_input": [f"data:image/jpeg;base64,{t}", f"data:image/jpeg;base64,{d}"]},
+            "inputs": {"image_input": [f"data:image/jpeg;base64,{t}"] + [
+                f"data:image/jpeg;base64,{base64.b64encode(d).decode()}" for d in donor_list]},
         },
         headers=_headers_gpt(),
         timeout=120,
@@ -314,7 +328,7 @@ def _gpt_poll(task_id: str) -> dict:
 # ---------- Общий интерфейс ----------
 def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, model: str = None,
                         with_hair: bool = False):
-    donor_bytes = build_donor(donor_b64, donor_mask_b64, with_hair)
+    donor_list = [build_donor(donor_b64, donor_mask_b64, with_hair), build_donor_face(donor_b64, donor_mask_b64)]
     target_bytes = build_target(target_b64, target_mask_b64, with_hair)
     prompt = PROMPT_HAIR if with_hair else PROMPT
     name = model or MODEL
@@ -322,8 +336,8 @@ def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, 
     while name:
         try:
             if name in REPLICATE_MODELS:
-                return _rep_start(name, target_bytes, donor_bytes, prompt), name
-            return _gpt_start(name, target_bytes, donor_bytes, prompt), name
+                return _rep_start(name, target_bytes, donor_list, prompt), name
+            return _gpt_start(name, target_bytes, donor_list, prompt), name
         except Exception as e:
             print(f"[face-swap] start {name} failed: {e}")
             last_err = e
