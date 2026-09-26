@@ -343,18 +343,21 @@ def _match_colors(original, generated, blend_mask):
     from PIL import Image, ImageFilter
 
     w, h = original.size
-    o = np.asarray(original, dtype=np.float32)
-    g = np.asarray(generated, dtype=np.float32)
-    inner = np.asarray(blend_mask, dtype=np.float32) > 200
-    outer = np.asarray(blend_mask.filter(ImageFilter.MaxFilter(21)), dtype=np.float32) > 10
+    k = min(1.0, 256 / max(w, h))
+    sz = (max(8, round(w * k)), max(8, round(h * k)))
+    o = np.asarray(original.resize(sz, Image.BILINEAR), dtype=np.float32)
+    g_small = np.asarray(generated.resize(sz, Image.BILINEAR), dtype=np.float32)
+    m_small = blend_mask.resize(sz, Image.BILINEAR)
+    inner = np.asarray(m_small, dtype=np.float32) > 200
+    outer = np.asarray(m_small.filter(ImageFilter.MaxFilter(7)), dtype=np.float32) > 10
     ring = outer & ~inner
     if ring.sum() < 50:
         ring = ~inner
     if ring.sum() < 50:
         return generated
-    diff = (o[ring] - g[ring]).mean(axis=0)
+    diff = (o[ring] - g_small[ring]).mean(axis=0)
     diff = np.clip(diff, -30, 30)
-    out = g + diff[None, None, :]
+    out = np.asarray(generated, dtype=np.float32) + diff[None, None, :]
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
 
 
@@ -373,34 +376,35 @@ def compose(target_b64: str, target_mask_b64: str, result_url: str, with_hair: b
     orig_crop = original.crop(crop_box)
     mask_crop = mask.crop(crop_box)
 
-    # Зона вклейки: лицо + заметный запас (новое лицо может быть чуть другой формы,
-    # плюс волосы/тени на границе), края растушёвываем.
+    # Зона вклейки считается на уменьшенной копии (~256 px): MaxFilter/Blur на полном
+    # кропе съедали 2+ секунды из 5-секундного лимита функции.
+    from PIL import ImageDraw, ImageChops
     face_box = mask_crop.getbbox() or (0, 0, cw, ch)
     face_size = max(face_box[2] - face_box[0], face_box[3] - face_box[1])
-    # С волосами новая причёска шире/длиннее старой — берём зону вклейки заметно больше
-    grow = int(face_size * (0.9 if with_hair else 0.35)) | 1
-    blend = mask_crop
-    remaining = grow
-    while remaining > 1:  # MaxFilter принимает размер до ~ разумного, наращиваем шагами
-        step = min(remaining, 41) | 1
-        blend = blend.filter(ImageFilter.MaxFilter(step))
+    k = min(1.0, 256 / max(cw, ch))
+    sw, sh = max(8, round(cw * k)), max(8, round(ch * k))
+    small = mask_crop.resize((sw, sh), Image.BILINEAR).point(lambda v: 255 if v > 100 else 0)
+    grow_s = max(3, int(face_size * k * (0.9 if with_hair else 0.35)) | 1)
+    remaining = grow_s
+    while remaining > 1:
+        step = min(remaining, 21) | 1
+        small = small.filter(ImageFilter.MaxFilter(step))
         remaining -= step - 1
     if with_hair:
-        # Причёска донора может быть длиннее/пышнее — открываем овал головы с «хвостом» вниз до плеч
-        from PIL import ImageDraw, ImageChops as _IC
-        fx0, fy0, fx1, fy1 = face_box
+        # Причёска донора может быть длиннее/пышнее — открываем овал головы вниз до плеч
+        fx0, fy0, fx1, fy1 = [v * k for v in face_box]
         fw, fh = fx1 - fx0, fy1 - fy0
         fcx = (fx0 + fx1) / 2
-        head = Image.new("L", (cw, ch), 0)
+        head = Image.new("L", (sw, sh), 0)
         ImageDraw.Draw(head).ellipse((fcx - fw * 1.15, fy0 - fh * 0.75, fcx + fw * 1.15, fy1 + fh * 1.1), fill=255)
-        blend = _IC.lighter(blend, head)
-    feather = max(4, int(face_size * (0.12 if with_hair else 0.08)))
-    # Не даём маске касаться краёв кропа — там шов с оригиналом
-    edge = Image.new("L", (cw, ch), 0)
-    pad = feather * 2 + 2
-    edge.paste(255, (pad, pad, max(pad + 1, cw - pad), max(pad + 1, ch - pad)))
-    from PIL import ImageChops
-    blend = ImageChops.multiply(blend, edge)
+        small = ImageChops.lighter(small, head)
+    feather_s = max(2, int(face_size * k * (0.12 if with_hair else 0.08)))
+    edge = Image.new("L", (sw, sh), 0)
+    pad = feather_s * 2 + 1
+    edge.paste(255, (pad, pad, max(pad + 1, sw - pad), max(pad + 1, sh - pad)))
+    small = ImageChops.multiply(small, edge)
+    blend = small.resize((cw, ch), Image.BILINEAR)
+    soft = small.filter(ImageFilter.GaussianBlur(feather_s)).resize((cw, ch), Image.BILINEAR)
 
     # Проверка: изменилось ли лицо вообще (сравниваем по исходной маске лица)
     import numpy as np
@@ -414,7 +418,6 @@ def compose(target_b64: str, target_mask_b64: str, result_url: str, with_hair: b
             raise UnchangedResult(f"diff={diff:.2f}")
 
     generated = _match_colors(orig_crop, generated, blend)
-    soft = blend.filter(ImageFilter.GaussianBlur(feather))
 
     merged_crop = Image.composite(generated, orig_crop, soft)
     result = original.copy()

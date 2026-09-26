@@ -136,6 +136,7 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       let taskId: string = started.task_id;
       let model: string | undefined = started.model;
       let attempt = 1;
+      let serverFails = 0;
       let data: Record<string, unknown> | null = null;
       for (let i = 0; i < 90; i++) {
         await new Promise((r) => setTimeout(r, 4000));
@@ -144,8 +145,17 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
           headers,
           body: JSON.stringify({ task_id: taskId, model, attempt, ...payload }),
         });
-        const sd = await sr.json();
+        // Кратковременный сбой/таймаут сервера при сборке — повторяем, результат у провайдера не теряется
+        if (sr.status >= 500 && i < 85) {
+          serverFails += 1;
+          if (serverFails <= 3) {
+            setLoadingText('Собираем результат...');
+            continue;
+          }
+        }
+        const sd = await sr.json().catch(() => ({}));
         if (!sr.ok) throw new Error(sd?.error || `HTTP ${sr.status}`);
+        serverFails = 0;
         if (sd.status === 'processing') {
           if (sd.task_id) {
             taskId = sd.task_id;
