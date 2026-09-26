@@ -8,6 +8,7 @@ interface ToolsDialogProps {
   onOpenHumanizer: () => void;
   onOpenSkinRetouch: () => void;
   onOpenObjectRemover: () => void;
+  onOpenFaceSwap: () => void;
 }
 
 interface ToolCardProps {
@@ -37,7 +38,7 @@ const ToolCard = ({ icon, title, description, onClick, gradient }: ToolCardProps
   </button>
 );
 
-const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, onOpenSkinRetouch, onOpenObjectRemover }: ToolsDialogProps) => {
+const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, onOpenSkinRetouch, onOpenObjectRemover, onOpenFaceSwap }: ToolsDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -71,6 +72,17 @@ const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, o
             onClick={() => {
               onOpenChange(false);
               onOpenObjectRemover();
+            }}
+          />
+
+          <ToolCard
+            icon="Replace"
+            title="Перенос лица"
+            description="Возьмите лицо с одного фото и органично вставьте на другое — в том же свете и стиле, даже в рисунок."
+            gradient="from-fuchsia-500 to-violet-500"
+            onClick={() => {
+              onOpenChange(false);
+              onOpenFaceSwap();
             }}
           />
 

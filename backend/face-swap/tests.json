@@ -1,0 +1,10 @@
+{
+  "tests": [
+    {"name": "OPTIONS CORS", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "GET not allowed", "method": "GET", "path": "/", "expectedStatus": 405},
+    {"name": "Estimate", "method": "POST", "path": "/?action=estimate", "body": {"ping": 1}, "expectedStatus": 200, "expectedBody": {"price": 30, "tier": "ai"}, "bodyMatcher": "partial"},
+    {"name": "Swap without masks", "method": "POST", "path": "/?action=swap", "body": {"donor": "aGVsbG8="}, "expectedStatus": 400},
+    {"name": "Status without task", "method": "POST", "path": "/?action=status", "body": {"ping": 1}, "expectedStatus": 400},
+    {"name": "Bad action", "method": "POST", "path": "/?action=bogus", "body": {"ping": 1}, "expectedStatus": 400}
+  ]
+}
