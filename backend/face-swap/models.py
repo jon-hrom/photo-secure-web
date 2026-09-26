@@ -49,30 +49,29 @@ PRICE = int(os.environ.get("FACE_SWAP_PRICE", "30"))
 LABEL = "Перенос лица"
 HINT = "Лицо донора органично встанет на целевое фото в его стиле"
 
-# Меньше вход — быстрее провайдер принимает задачу (лимит функции ~5 c).
-TARGET_MAX_SIDE = 1152
-DONOR_MAX_SIDE = 768
+# Картинку отдаём модели ЦЕЛИКОМ (как при ручной работе в Banana Pro): так она видит
+# всю композицию и возвращает готовый кадр — без вырезок, вклеек и «двоения» текста.
+TARGET_MAX_SIDE = 1536
+DONOR_MAX_SIDE = 1024
 
-# Промпты держим < 800 символов (лимит GPTunneL).
-# IMAGE 1 — цель, IMAGE 2 — голова донора с контекстом, IMAGE 3 — крупный план лица донора.
-PROMPT = (
-    "Face swap. IMAGE 1 = target. IMAGE 2 and IMAGE 3 = the SAME real person (ignore grey). "
-    "Put her exact face into IMAGE 1. Likeness is the top priority: copy her real proportions - face "
-    "length and width, jaw, chin, cheekbones, eye shape, eyelids, eye spacing, brows, nose, lip "
-    "thickness, skin texture, age, asymmetry. Do NOT beautify, slim, smooth or make younger. "
-    "Paint the face as a detailed realistic portrait in the palette and line work of IMAGE 1. "
-    "Keep IMAGE 1 hairstyle, head pose, light, body, clothes, background, framing. No text."
+# Промпты держим < 800 символов (лимит GPTunneL). IMAGE 1 — куда, IMAGE 2 — кто.
+PROMPT_HAIR = (
+    "Replace the person in IMAGE 1 with the person from IMAGE 2: use her face and her hairstyle "
+    "(hair colour, length, cut, parting). She must be instantly recognizable as the same person: "
+    "same face shape, eyes, nose, lips, brows and natural age. Pleasant, soft, friendly look, gentle "
+    "natural smile, not older than in IMAGE 2. No eyeglasses unless she wears them in IMAGE 2. "
+    "Draw her in exactly the same art style as IMAGE 1. Keep everything else in IMAGE 1 unchanged: "
+    "pose, body, clothes, hands, flowers, books, background, frame, all notes and all text "
+    "letter-for-letter, same composition and size."
 )
 
-# Режим «лицо + волосы»: причёска и аксессуары тоже как у донора — узнаваемость максимальная.
-PROMPT_HAIR = (
-    "Head swap. IMAGE 1 = target. IMAGE 2 and IMAGE 3 = the SAME real person (ignore grey). "
-    "Replace the head in IMAGE 1 with her. Likeness is the top priority: copy her real proportions - "
-    "face length and width, jaw, chin, cheekbones, eye shape, eyelids, eye spacing, brows, nose, lip "
-    "thickness, age, asymmetry. Do NOT beautify, slim, smooth or make younger. Exact hair from IMAGE 2: "
-    "colour, length, parting, fringe, volume. No eyeglasses unless she wears them; ignore sunglasses "
-    "on her head. Paint her as a detailed realistic portrait in the palette and line work of IMAGE 1. "
-    "Keep IMAGE 1 pose, light, body, clothes, background. No text."
+PROMPT = (
+    "Replace the face of the person in IMAGE 1 with the face of the person from IMAGE 2. "
+    "She must be instantly recognizable as the same person: same face shape, eyes, nose, lips, brows "
+    "and natural age. Pleasant, soft, friendly look, gentle natural smile, not older than in IMAGE 2. "
+    "Keep the hairstyle and eyeglasses of IMAGE 1. Draw the face in exactly the same art style as "
+    "IMAGE 1. Keep everything else in IMAGE 1 unchanged: pose, body, clothes, hands, background, "
+    "all notes and all text letter-for-letter, same composition and size."
 )
 
 # Если средняя разница в зоне лица меньше порога — модель фактически ничего не сделала.
@@ -146,33 +145,17 @@ def target_region(target_b64: str, target_mask_b64: str, with_hair: bool = False
 
 
 def build_donor(donor_b64: str, donor_mask_b64: str, with_hair: bool = False) -> bytes:
-    """Вырезка лица донора: вне закрашенного — нейтрально-серый, чтобы не путать лица.
-    В режиме с волосами открываем широкий овал вокруг головы, чтобы причёска попала целиком."""
-    from PIL import Image, ImageFilter, ImageDraw, ImageChops
-
+    """Фото донора вокруг отмеченного лица (с причёской и плечами), без искажений."""
+    from PIL import Image
     donor = _open_rgb(donor_b64)
     mask = _open_mask(donor_mask_b64, donor.size)
-    box = _bbox(mask)
-    size = max(box[2] - box[0], box[3] - box[1])
-    grow = max(9, int(size * 0.12) | 1)
-    region = mask.filter(ImageFilter.MaxFilter(min(grow, 61)))
-    if with_hair:
-        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-        w, h = (box[2] - box[0]), (box[3] - box[1])
-        head = Image.new("L", donor.size, 0)
-        ImageDraw.Draw(head).ellipse(
-            (cx - w * 1.05, cy - h * 1.15, cx + w * 1.05, cy + h * 1.05), fill=255)
-        region = ImageChops.lighter(region, head)
-    soft = region.filter(ImageFilter.GaussianBlur(6 if not with_hair else 10))
-    grey = Image.new("RGB", donor.size, (128, 128, 128))
-    isolated = Image.composite(donor, grey, soft)
-    crop = isolated.crop(_expand_box(box, donor.size, 2.4 if with_hair else 1.5))
+    crop = donor.crop(_expand_box(_bbox(mask), donor.size, 3.2, square=False))
     if max(crop.size) > DONOR_MAX_SIDE:
         crop.thumbnail((DONOR_MAX_SIDE, DONOR_MAX_SIDE), Image.LANCZOS)
-    elif max(crop.size) < 512:
-        s = 512 / max(crop.size)
-        crop = crop.resize((round(crop.width * s), round(crop.height * s)), Image.LANCZOS)
-    return _to_bytes(crop, "JPEG", 90)
+    elif max(crop.size) < 640:
+        k = 640 / max(crop.size)
+        crop = crop.resize((round(crop.width * k), round(crop.height * k)), Image.LANCZOS)
+    return _to_bytes(crop, "JPEG", 92)
 
 
 def build_donor_face(donor_b64: str, donor_mask_b64: str) -> bytes:
@@ -190,15 +173,13 @@ def build_donor_face(donor_b64: str, donor_mask_b64: str) -> bytes:
 
 
 def build_target(target_b64: str, target_mask_b64: str, with_hair: bool = False) -> bytes:
+    """Целевая картинка целиком — модель должна видеть всю композицию."""
     from PIL import Image
-    original, _, crop_box = target_region(target_b64, target_mask_b64, with_hair)
-    crop = original.crop(crop_box)
-    if max(crop.size) > TARGET_MAX_SIDE:
-        crop.thumbnail((TARGET_MAX_SIDE, TARGET_MAX_SIDE), Image.LANCZOS)
-    elif max(crop.size) < 768:
-        s = 768 / max(crop.size)
-        crop = crop.resize((round(crop.width * s), round(crop.height * s)), Image.LANCZOS)
-    return _to_bytes(crop, "JPEG", 90)
+    img = _open_rgb(target_b64)
+    _bbox(_open_mask(target_mask_b64, img.size))
+    if max(img.size) > TARGET_MAX_SIDE:
+        img.thumbnail((TARGET_MAX_SIDE, TARGET_MAX_SIDE), Image.LANCZOS)
+    return _to_bytes(img, "JPEG", 92)
 
 
 def _to_bytes(img, fmt: str, quality: int = 93) -> bytes:
@@ -211,8 +192,8 @@ def _to_bytes(img, fmt: str, quality: int = 93) -> bytes:
 
 
 def validate_inputs(donor_b64, donor_mask_b64, target_b64, target_mask_b64, with_hair: bool = False):
-    build_donor(donor_b64, donor_mask_b64, with_hair)
-    target_region(target_b64, target_mask_b64)
+    _bbox(_open_mask(donor_mask_b64, _open_rgb(donor_b64).size))
+    _bbox(_open_mask(target_mask_b64, _open_rgb(target_b64).size))
 
 
 # ---------- Replicate ----------
@@ -328,7 +309,7 @@ def _gpt_poll(task_id: str) -> dict:
 # ---------- Общий интерфейс ----------
 def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, model: str = None,
                         with_hair: bool = False):
-    donor_list = [build_donor(donor_b64, donor_mask_b64, with_hair), build_donor_face(donor_b64, donor_mask_b64)]
+    donor_list = [build_donor(donor_b64, donor_mask_b64, with_hair)]
     target_bytes = build_target(target_b64, target_mask_b64, with_hair)
     prompt = PROMPT_HAIR if with_hair else PROMPT
     name = model or MODEL
@@ -376,64 +357,31 @@ def _match_colors(original, generated, blend_mask):
 
 
 def compose(target_b64: str, target_mask_b64: str, result_url: str, with_hair: bool = False) -> str:
-    """Вклеивает переписанную область в оригинал с мягким краем."""
-    from PIL import Image, ImageFilter
+    """Модель вернула готовый кадр целиком — приводим к размеру оригинала без вклеек."""
+    import numpy as np
+    from PIL import Image
 
     headers = _rep_headers() if result_url.startswith(REPLICATE_API) else {}
     r = requests.get(result_url, headers=headers, timeout=120)
     if r.status_code != 200:
         raise RuntimeError(f"не скачался результат: {r.status_code}")
 
-    original, mask, crop_box = target_region(target_b64, target_mask_b64, with_hair)
-    cw, ch = crop_box[2] - crop_box[0], crop_box[3] - crop_box[1]
-    generated = Image.open(io.BytesIO(r.content)).convert("RGB").resize((cw, ch), Image.LANCZOS)
-    orig_crop = original.crop(crop_box)
-    mask_crop = mask.crop(crop_box)
+    original = _open_rgb(target_b64)
+    generated = Image.open(io.BytesIO(r.content)).convert("RGB")
+    if generated.size != original.size:
+        generated = generated.resize(original.size, Image.LANCZOS)
 
-    # Зона вклейки считается на уменьшенной копии (~256 px): MaxFilter/Blur на полном
-    # кропе съедали 2+ секунды из 5-секундного лимита функции.
-    from PIL import ImageDraw, ImageChops
-    face_box = mask_crop.getbbox() or (0, 0, cw, ch)
-    face_size = max(face_box[2] - face_box[0], face_box[3] - face_box[1])
-    k = min(1.0, 256 / max(cw, ch))
-    sw, sh = max(8, round(cw * k)), max(8, round(ch * k))
-    small = mask_crop.resize((sw, sh), Image.BILINEAR).point(lambda v: 255 if v > 100 else 0)
-    grow_s = max(3, int(face_size * k * (0.9 if with_hair else 0.35)) | 1)
-    remaining = grow_s
-    while remaining > 1:
-        step = min(remaining, 21) | 1
-        small = small.filter(ImageFilter.MaxFilter(step))
-        remaining -= step - 1
-    if with_hair:
-        # Причёска донора может быть длиннее/пышнее — открываем овал головы вниз до плеч
-        fx0, fy0, fx1, fy1 = [v * k for v in face_box]
-        fw, fh = fx1 - fx0, fy1 - fy0
-        fcx = (fx0 + fx1) / 2
-        head = Image.new("L", (sw, sh), 0)
-        ImageDraw.Draw(head).ellipse((fcx - fw * 1.15, fy0 - fh * 0.75, fcx + fw * 1.15, fy1 + fh * 1.1), fill=255)
-        small = ImageChops.lighter(small, head)
-    feather_s = max(2, int(face_size * k * (0.12 if with_hair else 0.08)))
-    edge = Image.new("L", (sw, sh), 0)
-    pad = feather_s * 2 + 1
-    edge.paste(255, (pad, pad, max(pad + 1, sw - pad), max(pad + 1, sh - pad)))
-    small = ImageChops.multiply(small, edge)
-    blend = small.resize((cw, ch), Image.BILINEAR)
-    soft = small.filter(ImageFilter.GaussianBlur(feather_s)).resize((cw, ch), Image.BILINEAR)
-
-    # Проверка: изменилось ли лицо вообще (сравниваем по исходной маске лица)
-    import numpy as np
-    inner = np.asarray(mask_crop, dtype=np.uint8) > 128
-    if inner.sum() > 50:
-        g_arr = np.asarray(generated, dtype=np.float32)[inner]
-        o_arr = np.asarray(orig_crop, dtype=np.float32)[inner]
-        diff = float(np.abs(g_arr - o_arr).mean())
+    # Проверка, что лицо вообще поменялось (на уменьшенной копии — быстро)
+    k = min(1.0, 384 / max(original.size))
+    sz = (max(8, round(original.width * k)), max(8, round(original.height * k)))
+    mask = _open_mask(target_mask_b64, original.size).resize(sz, Image.BILINEAR)
+    inner = np.asarray(mask, dtype=np.uint8) > 128
+    if inner.sum() > 20:
+        g = np.asarray(generated.resize(sz, Image.BILINEAR), dtype=np.float32)[inner]
+        o = np.asarray(original.resize(sz, Image.BILINEAR), dtype=np.float32)[inner]
+        diff = float(np.abs(g - o).mean())
         print(f"[face-swap] face diff={diff:.2f} url={result_url[:120]}")
         if diff < UNCHANGED_THRESHOLD:
             raise UnchangedResult(f"diff={diff:.2f}")
 
-    generated = _match_colors(orig_crop, generated, blend)
-
-    merged_crop = Image.composite(generated, orig_crop, soft)
-    result = original.copy()
-    result.paste(merged_crop, crop_box[:2])
-    return base64.b64encode(_to_bytes(result, "JPEG", 95)).decode()
+    return base64.b64encode(_to_bytes(generated, "JPEG", 95)).decode()
