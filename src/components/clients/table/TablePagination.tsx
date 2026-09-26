@@ -21,11 +21,11 @@ const TablePagination = ({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="border-t p-4 flex items-center justify-between">
+    <div className="border-t p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
       <p className="text-sm text-muted-foreground">
         Показано {startIndex + 1}–{Math.min(startIndex + itemsPerPage, totalItems)} из {totalItems}
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
         <Button
           variant="outline"
           size="sm"

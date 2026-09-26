@@ -50,8 +50,8 @@ const TableHeader = ({
 }: TableHeaderProps) => {
   return (
     <div className="border-b space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <h3 className="text-lg font-semibold">Все клиенты ({clientsCount})</h3>
           {hasSorting && (
             <Button
@@ -97,7 +97,7 @@ const TableHeader = ({
         </div>
       </div>
       
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
         <ViewPresetsDropdown
           allPresets={allPresets}
           defaultPresets={defaultPresets}
@@ -109,7 +109,7 @@ const TableHeader = ({
           currentState={currentState}
         />
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"

@@ -158,6 +158,25 @@ const ClientsFilterSidebar = ({ activeFilter, onFilterChange, clients }: Clients
             </Button>
           </div>
 
+          {!isExpanded && activeFilter !== 'all' && (
+            <div className="flex items-center justify-between gap-2 -mt-2 px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-sm">
+              <span className="text-purple-700 dark:text-purple-300 truncate">
+                Фильтр: {typeof activeFilter === 'object'
+                  ? (shootingStyles.find(s => s.id === activeFilter.styleId)?.name || 'стиль съёмки')
+                  : (filters.find(f => f.id === activeFilter)?.label || '')}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onFilterChange('all')}
+                className="h-7 px-2 text-xs shrink-0"
+              >
+                <Icon name="X" size={14} className="mr-1" />
+                Сбросить
+              </Button>
+            </div>
+          )}
+
           {isExpanded && (
             <div className="space-y-1">
               {filters.map((filter) => (

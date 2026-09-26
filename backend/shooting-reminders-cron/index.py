@@ -419,7 +419,8 @@ def determine_pending_reminders(hours_until: float, already_sent: set, is_today:
             pending.append('today')
         else:
             pending.append('24h')
-    if '5h' not in already_sent and hours_until <= 5.5:
+    # «За 5 часов» не шлём, если уже пора слать «за 1 час» — иначе придут два сообщения подряд
+    if '5h' not in already_sent and 1.5 < hours_until <= 5.5:
         pending.append('5h')
     if '1h' not in already_sent and hours_until <= 1.5:
         pending.append('1h')

@@ -14,10 +14,16 @@ interface ClientsListSectionProps {
   userId?: string | null;
   isDetailDialogOpen?: boolean;
   selectedClientId?: number | null;
+  totalClientsCount?: number;
+  hasActiveFilters?: boolean;
+  onResetFilters?: () => void;
 }
 
 const ClientsListSection = ({
   filteredClients,
+  totalClientsCount,
+  hasActiveFilters = false,
+  onResetFilters,
   onSelectClient,
   onEditClient,
   onDeleteClient,
@@ -99,12 +105,26 @@ const ClientsListSection = ({
 
   return (
     <div className="lg:col-span-2">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon name="Users" size={20} className="text-purple-600" />
           <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
             Найдено клиентов: <span className="text-purple-600 font-bold">{filteredClients.length}</span>
+            {typeof totalClientsCount === 'number' && totalClientsCount !== filteredClients.length && (
+              <span className="text-muted-foreground"> из {totalClientsCount}</span>
+            )}
           </span>
+          {hasActiveFilters && onResetFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onResetFilters}
+              className="h-7 px-2 text-xs text-purple-600 hover:text-purple-700"
+            >
+              <Icon name="X" size={14} className="mr-1" />
+              Показать всех
+            </Button>
+          )}
         </div>
         
         {selectedClients.length > 0 && (

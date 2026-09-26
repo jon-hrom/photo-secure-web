@@ -245,6 +245,17 @@ const ClientsPage = ({ autoOpenClient, autoOpenAddDialog, onAddDialogClose, user
           <div className="xl:order-2">
             <ClientsListSection
               filteredClients={filteredClients}
+              totalClientsCount={clients.length}
+              hasActiveFilters={
+                activeFilter !== 'all' ||
+                dialogsState.statusFilter !== 'all' ||
+                dialogsState.searchQuery.trim() !== ''
+              }
+              onResetFilters={() => {
+                setActiveFilter('all');
+                dialogsState.setStatusFilter('all');
+                dialogsState.setSearchQuery('');
+              }}
               onSelectClient={dialogsState.handleOpenClientWithProjectCheck}
               onEditClient={dialogsState.openEditDialog}
               onDeleteClient={handlers.handleDeleteClient}

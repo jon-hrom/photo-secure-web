@@ -11,7 +11,6 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import boto3
 import requests
-from reminder_checker import check_and_send_reminders
 
 
 def _extract_vk_username(value: str) -> str:
@@ -472,12 +471,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 }
             
             if action == 'list':
-                # Проверяем и отправляем напоминания о предстоящих съёмках
-                try:
-                    check_and_send_reminders(conn, DB_SCHEMA, photographer_id)
-                except Exception as e:
-                    print(f'[REMINDER_CHECK_ERROR] {e}')
-                    # Продолжаем работу даже если проверка напоминаний упала
+                # Напоминания о съёмках отправляет только shooting-reminders-cron
+                # (с учётом часового пояса фотографа). Здесь их НЕ шлём: старая проверка
+                # считала время по UTC сервера и присылала напоминания о прошедших съёмках,
+                # а также замедляла загрузку списка клиентов до таймаута.
                 
                 # Оптимизированный запрос: сначала получаем всех клиентов
                 cur.execute('''

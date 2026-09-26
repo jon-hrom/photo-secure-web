@@ -137,8 +137,9 @@ export const useClientsSync = ({ isAuthenticated, userId }: UseClientsSyncProps)
         setClients(clientsWithDates);
         setLastSyncTime(new Date());
       } catch (error) {
+        // Не очищаем список при временной ошибке сети/сервера —
+        // иначе на мобильном клиенты «пропадали» до следующей удачной синхронизации
         console.error('Failed to load clients:', error);
-        setClients([]);
       } finally {
         setClientsLoading(false);
       }
