@@ -1,4 +1,4 @@
-import { SKIN_RETOUCH_URL, PresetKey, EyeSharpenKey, dataUrlToBase64 } from '@/components/tools/skinRetouch/utils';
+import { SKIN_RETOUCH_URL, PresetKey, EyeSharpenKey, dataUrlToBase64, fetchChinBoxes } from '@/components/tools/skinRetouch/utils';
 
 export class NotEnoughEnergyError extends Error {
   needed: number | string;
@@ -22,6 +22,8 @@ interface RunOptions {
   sourceDataUrl: string;
   preset: PresetKey;
   eyeSharpen?: EyeSharpenKey;
+  /** Убрать второй подбородок */
+  removeChin?: boolean;
   onStatus?: (text: string) => void;
   isCancelled?: () => boolean;
 }
@@ -42,6 +44,7 @@ export const runSkinRetouch = async ({
   sourceDataUrl,
   preset,
   eyeSharpen = 'normal',
+  removeChin = false,
   onStatus,
   isCancelled,
 }: RunOptions): Promise<SkinRetouchResult> => {
@@ -53,7 +56,7 @@ export const runSkinRetouch = async ({
   const res = await fetch(`${SKIN_RETOUCH_URL}?action=start`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ image: imageB64 }),
+    body: JSON.stringify({ image: imageB64, chin: removeChin }),
   });
   const started = await res.json();
   if (res.status === 402) {
@@ -62,6 +65,10 @@ export const runSkinRetouch = async ({
   if (!res.ok || !started?.task_id) throw new Error(started?.error || `HTTP ${res.status}`);
 
   status('AI выравнивает кожу...');
+
+  const chinBoxesPromise: Promise<number[][]> = removeChin
+    ? fetchChinBoxes(imageB64, headers)
+    : Promise.resolve([]);
 
   let networkFails = 0;
   let gaveUpOnNetwork = false;
@@ -81,7 +88,7 @@ export const runSkinRetouch = async ({
       const sr = await fetch(`${SKIN_RETOUCH_URL}?action=status`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ task_id: taskId, image: imageB64, preset, retried }),
+        body: JSON.stringify({ task_id: taskId, image: imageB64, preset, retried, chin: removeChin }),
       });
       sd = await sr.json();
       if (!sr.ok) throw new Error((sd?.error as string) || `HTTP ${sr.status}`);
@@ -140,13 +147,16 @@ export const runSkinRetouch = async ({
   }
 
   status('Собираем результат...');
+  const chinBoxes = await chinBoxesPromise;
   let data: Record<string, unknown> | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const cr = await fetch(`${SKIN_RETOUCH_URL}?action=compose`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ url: readyUrl, image: imageB64, preset, eye_sharpen: eyeSharpen }),
+        body: JSON.stringify({
+          url: readyUrl, image: imageB64, preset, eye_sharpen: eyeSharpen, chin_boxes: chinBoxes,
+        }),
       });
       const cd = await cr.json();
       if (!cr.ok) throw new Error((cd?.error as string) || `HTTP ${cr.status}`);

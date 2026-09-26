@@ -12,6 +12,7 @@ import {
   fileToImage,
   imageToDataUrl,
   urlToImage,
+  fetchChinBoxes,
 } from '@/components/tools/skinRetouch/utils';
 
 export const useRetouchApi = (open: boolean) => {
@@ -29,6 +30,15 @@ export const useRetouchApi = (open: boolean) => {
     eyeSharpenRef.current = v;
     setEyeSharpenState(v);
     localStorage.setItem('retouch_eye_sharpen', v);
+  }, []);
+  const [removeChin, setRemoveChinState] = useState<boolean>(
+    () => localStorage.getItem('retouch_remove_chin') === '1',
+  );
+  const removeChinRef = useRef(removeChin);
+  const setRemoveChin = useCallback((v: boolean) => {
+    removeChinRef.current = v;
+    setRemoveChinState(v);
+    localStorage.setItem('retouch_remove_chin', v ? '1' : '0');
   }, []);
   const [price, setPrice] = useState<number | null>(null);
   const [compare, setCompare] = useState(50);
@@ -84,6 +94,7 @@ export const useRetouchApi = (open: boolean) => {
     }
     const imageB64 = dataUrlToBase64(sourceDataUrl);
     const headers = { 'Content-Type': 'application/json', 'X-User-Id': String(userId) };
+    const chin = removeChinRef.current;
 
     setLoading(true);
     setLoadingText('Отправляем фото на ретушь...');
@@ -91,7 +102,7 @@ export const useRetouchApi = (open: boolean) => {
       const res = await fetch(`${SKIN_RETOUCH_URL}?action=start`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ image: imageB64 }),
+        body: JSON.stringify({ image: imageB64, chin }),
       });
       const started = await res.json();
 
@@ -106,6 +117,11 @@ export const useRetouchApi = (open: boolean) => {
       if (!res.ok || !started?.task_id) throw new Error(started?.error || `HTTP ${res.status}`);
 
       setLoadingText('AI выравнивает кожу...');
+
+      // Зону подбородка ищем параллельно с ожиданием модели.
+      const chinBoxesPromise: Promise<number[][]> = chin
+        ? fetchChinBoxes(imageB64, headers)
+        : Promise.resolve([]);
 
       // Обрыв соединения на мобильном интернете — норма. Задача на сервере
       // при этом жива, поэтому сетевые ошибки не валят прогон: пробуем снова.
@@ -135,6 +151,7 @@ export const useRetouchApi = (open: boolean) => {
               image: imageB64,
               preset: presetKey,
               retried,
+              chin,
             }),
           });
           sd = await sr.json();
@@ -211,6 +228,13 @@ export const useRetouchApi = (open: boolean) => {
       // потому что вместе с ожиданием модели она не укладывалась в лимит
       // времени функции и готовая ретушь срывалась по таймауту.
       setLoadingText('Собираем результат...');
+      const chinBoxes = await chinBoxesPromise;
+      if (chin && !chinBoxes.length) {
+        toast({
+          title: 'Подбородок не найден',
+          description: 'Не удалось определить зону подбородка — сделали только ретушь кожи.',
+        });
+      }
       let data: Record<string, unknown> | null = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -222,6 +246,7 @@ export const useRetouchApi = (open: boolean) => {
               image: imageB64,
               preset: presetKey,
               eye_sharpen: eyeSharpenRef.current,
+              chin_boxes: chinBoxes,
             }),
           });
           const cd = await cr.json();
@@ -366,6 +391,8 @@ export const useRetouchApi = (open: boolean) => {
     setPreset,
     eyeSharpen,
     setEyeSharpen,
+    removeChin,
+    setRemoveChin,
     price,
     compare,
     setCompare,

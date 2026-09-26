@@ -66,3 +66,30 @@ export const imageToDataUrl = (img: HTMLImageElement, mime = 'image/jpeg'): stri
   ctx.drawImage(img, 0, 0, w, h);
   return canvas.toDataURL(mime, 0.94);
 };
+
+/**
+ * Зона подбородка для режима «убрать второй подбородок».
+ * Поиск идёт параллельно с ожиданием модели, поэтому можно позволить
+ * себе несколько попыток: сервис распознавания иногда не укладывается
+ * в лимит времени функции и отвечает пустым списком.
+ */
+export const fetchChinBoxes = async (
+  imageB64: string,
+  headers: Record<string, string>,
+  attempts = 4,
+): Promise<number[][]> => {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const r = await fetch(`${SKIN_RETOUCH_URL}?action=chin_regions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ image: imageB64 }),
+      });
+      const d = await r.json();
+      if (Array.isArray(d?.boxes) && d.boxes.length) return d.boxes;
+    } catch (e) {
+      console.warn('chin regions failed', e);
+    }
+  }
+  return [];
+};

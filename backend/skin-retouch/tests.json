@@ -102,6 +102,15 @@
         "task_id": "x"
       },
       "expectedStatus": 401
+    },
+    {
+      "name": "Chin regions without image",
+      "method": "POST",
+      "path": "/?action=chin_regions",
+      "body": {
+        "ping": 1
+      },
+      "expectedStatus": 400
     }
   ]
 }

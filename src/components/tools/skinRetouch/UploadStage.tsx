@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { PRESETS, PresetKey, EyeSharpenKey } from '@/components/tools/skinRetouch/utils';
 import EyeSharpenSelector from '@/components/tools/skinRetouch/EyeSharpenSelector';
+import ChinToggle from '@/components/tools/skinRetouch/ChinToggle';
 
 interface UploadStageProps {
   fileInputRef: RefObject<HTMLInputElement>;
@@ -10,12 +11,14 @@ interface UploadStageProps {
   setPreset: (p: PresetKey) => void;
   eyeSharpen: EyeSharpenKey;
   setEyeSharpen: (v: EyeSharpenKey) => void;
+  removeChin: boolean;
+  setRemoveChin: (v: boolean) => void;
   price: number | null;
   onFile: (file: File) => void;
   onOpenPicker: () => void;
 }
 
-const UploadStage = ({ fileInputRef, preset, setPreset, eyeSharpen, setEyeSharpen, price, onFile, onOpenPicker }: UploadStageProps) => {
+const UploadStage = ({ fileInputRef, preset, setPreset, eyeSharpen, setEyeSharpen, removeChin, setRemoveChin, price, onFile, onOpenPicker }: UploadStageProps) => {
   const active = PRESETS.find((p) => p.key === preset);
 
   return (
@@ -41,6 +44,8 @@ const UploadStage = ({ fileInputRef, preset, setPreset, eyeSharpen, setEyeSharpe
       </div>
 
       <EyeSharpenSelector value={eyeSharpen} onChange={setEyeSharpen} />
+
+      <ChinToggle value={removeChin} onChange={setRemoveChin} />
 
       <div
         className="border-2 border-dashed border-border rounded-xl p-8 sm:p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"

@@ -143,8 +143,9 @@ def _handle_start(payload: dict, user_id):
             })
         return _response(500, {"error": err or "energy error"})
 
+    prompt = models.CHIN_PROMPT if payload.get("chin") else None
     try:
-        task_id = models.start_task(image_b64)
+        task_id = models.start_task(image_b64, prompt=prompt)
     except Exception as e:
         energy.refund(user_id, price, "Возврат: не удалось запустить ретушь")
         return _response(502, {"error": str(e)[:300], "refunded": price})
@@ -167,6 +168,18 @@ def _handle_regions(payload: dict):
     if not image_b64:
         return _response(400, {"error": "image (base64) is required"})
     return _response(200, {"regions": models.detect_skin_regions(image_b64) or []})
+
+
+def _handle_chin_regions(payload: dict):
+    """Зона подбородка для режима «убрать второй подбородок».
+
+    Отдельный вызов по той же причине, что и regions: фронт дёргает его
+    параллельно с ожиданием модели. Пустой ответ — режим просто не применится.
+    """
+    image_b64 = payload.get("image")
+    if not image_b64:
+        return _response(400, {"error": "image (base64) is required"})
+    return _response(200, {"boxes": models.detect_chin_regions(image_b64) or []})
 
 
 def _handle_status(payload: dict, user_id):
@@ -197,7 +210,10 @@ def _handle_status(payload: dict, user_id):
         image_b64 = payload.get("image")
         if state.get("blocked") and image_b64 and not payload.get("retried"):
             try:
-                new_task = models.start_task(image_b64, model=models.FALLBACK_MODEL)
+                new_task = models.start_task(
+                    image_b64, model=models.FALLBACK_MODEL,
+                    prompt=models.CHIN_PROMPT if payload.get("chin") else None,
+                )
                 return _response(200, {
                     "status": "processing",
                     "task_id": new_task,
@@ -252,6 +268,19 @@ def _handle_abandon(payload: dict, user_id):
     })
 
 
+def _chin_boxes(raw):
+    """Проверяет боксы подбородка из запроса: список [x0, y0, x1, y1] в 0..1."""
+    out = []
+    for b in raw or []:
+        try:
+            x0, y0, x1, y1 = [min(1.0, max(0.0, float(v))) for v in b][:4]
+        except (TypeError, ValueError):
+            continue
+        if x1 > x0 and y1 > y0:
+            out.append((x0, y0, x1, y1))
+    return out or None
+
+
 def _handle_compose(payload: dict, user_id):
     """Скачивает готовый результат и собирает финальный кадр по маске кожи."""
     url = payload.get("url")
@@ -284,6 +313,7 @@ def _handle_compose(payload: dict, user_id):
             even_out=preset["even_out"],
             detail=preset.get("detail", 0.0),
             eye_sharpen=eye_value,
+            chin_boxes=_chin_boxes(payload.get("chin_boxes")),
         )
         print(f"[SKIN] compose ok: download={downloaded - started:.2f}s "
               f"blend={time.time() - downloaded:.2f}s")
@@ -388,6 +418,8 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         return _handle_compose(payload, user_id)
     if action == "regions":
         return _handle_regions(payload)
+    if action == "chin_regions":
+        return _handle_chin_regions(payload)
     if action == "balance":
         return _handle_balance(user_id)
     if action == "catalog":

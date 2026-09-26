@@ -6,6 +6,7 @@ import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import CompareView from '@/components/tools/skinRetouch/CompareView';
 import EyeSharpenSelector from '@/components/tools/skinRetouch/EyeSharpenSelector';
+import ChinToggle from '@/components/tools/skinRetouch/ChinToggle';
 import {
   PRESETS,
   PresetKey,
@@ -85,6 +86,12 @@ const PhotoBankSkinRetouchDialog = ({
   useEffect(() => {
     localStorage.setItem('retouch_eye_sharpen', eyeSharpen);
   }, [eyeSharpen]);
+  const [removeChin, setRemoveChin] = useState<boolean>(
+    () => localStorage.getItem('retouch_remove_chin') === '1',
+  );
+  useEffect(() => {
+    localStorage.setItem('retouch_remove_chin', removeChin ? '1' : '0');
+  }, [removeChin]);
   const [price, setPrice] = useState<number | null>(null);
   const [tab, setTab] = useState<'single' | 'all'>('single');
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -295,6 +302,7 @@ const PhotoBankSkinRetouchDialog = ({
         sourceDataUrl,
         preset,
         eyeSharpen,
+        removeChin,
         onStatus,
         isCancelled: () => cancelRef.current,
       });
@@ -302,7 +310,7 @@ const PhotoBankSkinRetouchDialog = ({
       await saveResult(photo, result.image);
       return { sourceDataUrl, result };
     },
-    [eyeSharpen, getSourceUrl, preset, saveResult, userId],
+    [eyeSharpen, removeChin, getSourceUrl, preset, saveResult, userId],
   );
 
   const runSingle = async () => {
@@ -439,6 +447,7 @@ const PhotoBankSkinRetouchDialog = ({
         </div>
 
         <EyeSharpenSelector value={eyeSharpen} onChange={setEyeSharpen} disabled={busy} />
+        <ChinToggle value={removeChin} onChange={setRemoveChin} disabled={busy} />
 
         <Tabs value={tab} onValueChange={(v) => !busy && setTab(v as 'single' | 'all')} className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-10 sm:h-9">

@@ -4,6 +4,7 @@ import Icon from '@/components/ui/icon';
 import PhotoBankPicker from '@/components/tools/PhotoBankPicker';
 import UploadStage from '@/components/tools/skinRetouch/UploadStage';
 import CompareView from '@/components/tools/skinRetouch/CompareView';
+import ChinToggle from '@/components/tools/skinRetouch/ChinToggle';
 import { useRetouchApi } from '@/components/tools/skinRetouch/useRetouchApi';
 import { PRESETS, EYE_SHARPEN_OPTIONS } from '@/components/tools/skinRetouch/utils';
 
@@ -24,7 +25,7 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
             Ретушь фото
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            AI выровняет кожу и уберёт акне, не меняя черты лица и фигуру
+            AI выровняет кожу, уберёт акне и при желании второй подбородок
           </DialogDescription>
         </DialogHeader>
 
@@ -35,6 +36,8 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
             setPreset={s.setPreset}
             eyeSharpen={s.eyeSharpen}
             setEyeSharpen={s.setEyeSharpen}
+            removeChin={s.removeChin}
+            setRemoveChin={s.setRemoveChin}
             price={s.price}
             onFile={s.handleFile}
             onOpenPicker={() => s.setShowPicker(true)}
@@ -85,6 +88,9 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
                     {o.label}
                   </button>
                 ))}
+              </div>
+              <div className="mb-2">
+                <ChinToggle compact value={s.removeChin} onChange={s.setRemoveChin} disabled={s.loading} />
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {PRESETS.map((p) => (

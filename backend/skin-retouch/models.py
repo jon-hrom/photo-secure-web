@@ -100,6 +100,37 @@ PROMPT = (
 )
 
 
+# Режим «убрать второй подбородок». Повторяет ручную технику ретушёров:
+# «Пластика» подтягивает складку под челюстью к шее и выпрямляет контур,
+# затем осветляется тень, которую отбрасывала складка. Геометрию меняем
+# ТОЛЬКО в зоне подбородка — остальной кадр собирается обычной ретушью кожи.
+CHIN_PROMPT = (
+    "Professional portrait retouch like subtle Photoshop Liquify. "
+    "1) Remove the double chin: tuck the fat fold under the jaw toward the neck, "
+    "make a clean defined jawline and a smooth straight chin-to-neck line, "
+    "remove the fold's crease and dark shadow under the chin, keep neck natural. "
+    "2) Clean skin: remove acne, blemishes and redness, keep real pores. "
+    "Change NOTHING else: same person and identity, same eyes, nose, lips, cheeks, "
+    "face width, expression, hair, body, clothes, background, lighting, colors, "
+    "framing and size. Natural and subtle, no plastic skin, do not crop."
+)
+
+CHIN_REGION_PROMPT = """Найди на фото лица людей. Для каждого лица верни прямоугольник ЗОНЫ ПОДБОРОДКА:
+- верх — сразу под нижней губой (саму губу НЕ включай);
+- низ — на шее, ниже складки второго подбородка (примерно до середины шеи);
+- по ширине — от угла нижней челюсти слева до угла челюсти справа.
+В зону должны войти: подбородок, линия челюсти, второй подбородок, складка и тень под ним.
+Если лицо в профиль — зона от кончика подбородка до угла челюсти и шеи под ними.
+
+Система координат: изображение — сетка 1000x1000 независимо от реального размера.
+(0,0) — левый верхний угол, (1000,1000) — правый нижний.
+
+Верни ТОЛЬКО JSON без markdown:
+{"boxes": [{"x0":300,"y0":550,"x1":700,"y1":800}]}
+
+Лиц нет: {"boxes": []}"""
+
+
 CHAT_URL = "https://gptunnel.ru/v1/chat/completions"
 VISION_MODEL = os.environ.get("SKIN_VISION_MODEL", "gpt-4o")
 
@@ -120,7 +151,26 @@ def _headers():
     return {"Authorization": GPTUNNEL_KEY, "Content-Type": "application/json"}
 
 
-def detect_skin_regions(image_b64: str):
+def detect_chin_regions(image_b64: str):
+    """Боксы зоны подбородка (0..1 от кадра). None — не нашли или ошибка."""
+    boxes = detect_skin_regions(image_b64, prompt=CHIN_REGION_PROMPT, detail="low",
+                                side=512, max_tokens=120, timeout=4)
+    if not boxes:
+        return None
+    # Модель обычно даёт зону впритык к подбородку. Ретушёр в «Пластике»
+    # захватывает шире: углы челюсти по бокам и шею ниже складки.
+    out = []
+    for x0, y0, x1, y1 in boxes:
+        w, h = x1 - x0, y1 - y0
+        out.append((
+            max(0.0, x0 - w * 0.25), max(0.0, y0 - h * 0.05),
+            min(1.0, x1 + w * 0.25), min(1.0, y1 + h * 0.6),
+        ))
+    return out
+
+
+def detect_skin_regions(image_b64: str, prompt: str = None, detail: str = "low",
+                        side: int = 768, max_tokens: int = 600, timeout: int = 90):
     """Боксы с открытой кожей людей (0..1 от размера кадра).
 
     Нужен, чтобы ретушь не трогала фон и предметы телесного цвета.
@@ -135,7 +185,7 @@ def detect_skin_regions(image_b64: str):
 
         original = Image.open(io.BytesIO(base64.b64decode(image_b64))).convert("RGB")
         small = original.copy()
-        small.thumbnail((768, 768), Image.LANCZOS)
+        small.thumbnail((side, side), Image.LANCZOS)
         buf = io.BytesIO()
         small.save(buf, format="JPEG", quality=85)
         small_b64 = base64.b64encode(buf.getvalue()).decode()
@@ -147,16 +197,16 @@ def detect_skin_regions(image_b64: str):
                 "messages": [{
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": REGION_PROMPT},
+                        {"type": "text", "text": prompt or REGION_PROMPT},
                         {"type": "image_url", "image_url": {
-                            "url": f"data:image/jpeg;base64,{small_b64}", "detail": "low"}},
+                            "url": f"data:image/jpeg;base64,{small_b64}", "detail": detail}},
                     ],
                 }],
-                "max_tokens": 600,
+                "max_tokens": max_tokens,
                 "temperature": 0,
             },
             headers=_headers(),
-            timeout=90,
+            timeout=timeout,
         )
         if r.status_code != 200:
             print(f"[SKIN] detect {r.status_code}: {r.text[:200]}")
@@ -279,7 +329,7 @@ def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
             keep_texture: float = 0.35, regions=None,
             trust_threshold: float = 40.0, highlight_recovery: float = 0.6,
             even_out: float = 0.6, detail: float = 0.0,
-            eye_sharpen: float = 0.0) -> str:
+            eye_sharpen: float = 0.0, chin_boxes=None) -> str:
     """Собирает финал: результат модели только на коже, остальное — оригинал.
 
     strength          — сила ретуши 0..1 (доля результата на коже)
@@ -314,6 +364,13 @@ def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
                              even_out=even_out,
                              detail=detail,
                              eye_sharpen=eye_sharpen)
+
+    # Второй подбородок: в зоне подбородка берём изменённую моделью геометрию.
+    if chin_boxes:
+        try:
+            merged = skin.reshape_chin(merged, generated, chin_boxes)
+        except Exception as e:
+            print(f"[SKIN] chin reshape failed: {e}")
 
     # Исходники больше не нужны: держать их в памяти вместе с результатом
     # и base64-строкой — лишние сотни мегабайт при лимите функции 256 МБ.

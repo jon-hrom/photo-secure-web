@@ -855,3 +855,112 @@ def enhance_details(img: Image.Image, features_small: np.ndarray,
     out = Image.merge("YCbCr", (y_final, cb, cr)).convert("RGB")
     del y, cb, cr, y_base, y_final
     return out
+
+# ================== ВТОРОЙ ПОДБОРОДОК (ЛОКАЛЬНАЯ ПЛАСТИКА) ==================
+#
+# Ручная техника ретушёров: «Пластика» подтягивает складку под челюстью к шее,
+# выпрямляет контур «подбородок → шея», затем осветляется тень складки.
+# Геометрию здесь меняет модель (у неё отдельный промпт), а мы берём её
+# пиксели ТОЛЬКО в зоне подбородка с мягким краем. Всё остальное лицо —
+# из обычного композита, поэтому глаза, губы и черты остаются оригинальными.
+
+
+def _align_shift(base: np.ndarray, gen: np.ndarray, ring: np.ndarray, max_shift: int):
+    """Подбирает сдвиг gen относительно base по кольцу вокруг зоны.
+
+    Модель возвращает кадр с небольшим смещением. Сравниваем только
+    кольцо ВОКРУГ подбородка (там геометрия не менялась), чтобы складка,
+    которую модель убрала, не влияла на подбор.
+    """
+    best, best_err = (0, 0), None
+    h, w = base.shape
+    for dy in range(-max_shift, max_shift + 1):
+        for dx in range(-max_shift, max_shift + 1):
+            shifted = np.roll(np.roll(gen, dy, axis=0), dx, axis=1)
+            err = float((np.abs(shifted - base) * ring).sum())
+            if best_err is None or err < best_err:
+                best_err, best = err, (dy, dx)
+    return best
+
+
+def reshape_chin(merged: Image.Image, generated: Image.Image, boxes) -> Image.Image:
+    """Вклеивает зону подбородка из результата модели с плавным краем.
+
+    boxes — прямоугольники зоны подбородка в долях кадра (x0, y0, x1, y1).
+    """
+    if not boxes:
+        return merged
+    W, H = merged.size
+    if generated.size != merged.size:
+        generated = generated.resize(merged.size, Image.LANCZOS)
+
+    out = _to_arr(merged).copy()
+    gen_full = _to_arr(generated)
+
+    for x0, y0, x1, y1 in boxes:
+        bx0, by0 = int(x0 * W), int(y0 * H)
+        bx1, by1 = int(x1 * W), int(y1 * H)
+        bw, bh = bx1 - bx0, by1 - by0
+        if bw < 16 or bh < 16:
+            continue
+        # Рабочее окно с запасом: в нём и подбор сдвига, и растушёвка.
+        pad = int(max(bw, bh) * 0.35)
+        wx0, wy0 = max(0, bx0 - pad), max(0, by0 - pad)
+        wx1, wy1 = min(W, bx1 + pad), min(H, by1 + pad)
+        ww, wh = wx1 - wx0, wy1 - wy0
+
+        base_win = out[wy0:wy1, wx0:wx1]
+        gen_win = gen_full[wy0:wy1, wx0:wx1]
+
+        # --- подбор сдвига на мелкой копии ---
+        k = max(1, int(max(ww, wh) / 160))
+        base_s = _downsample(base_win.mean(axis=2), k) if k > 1 else base_win.mean(axis=2)
+        gen_s = _downsample(gen_win.mean(axis=2), k) if k > 1 else gen_win.mean(axis=2)
+        hs, ws = base_s.shape
+        ring = np.ones((hs, ws), dtype=np.float32)
+        iy0, iy1 = (by0 - wy0) // k, (by1 - wy0) // k
+        ix0, ix1 = (bx0 - wx0) // k, (bx1 - wx0) // k
+        ring[max(0, iy0):iy1, max(0, ix0):ix1] = 0.0
+        ms = max(1, int(max(hs, ws) * 0.04))
+        m = ms + 1
+        ring[:m, :] = 0
+        ring[-m:, :] = 0
+        ring[:, :m] = 0
+        ring[:, -m:] = 0
+        dy, dx = (0, 0)
+        if ring.sum() > 50:
+            dy, dx = _align_shift(base_s, gen_s, ring, ms)
+        dy, dx = dy * k, dx * k
+
+        # Сдвинутое окно из полного кадра модели (без заворота краёв).
+        sy0, sy1 = wy0 - dy, wy1 - dy
+        sx0, sx1 = wx0 - dx, wx1 - dx
+        if sy0 < 0 or sx0 < 0 or sy1 > H or sx1 > W:
+            dy = dx = 0
+            sy0, sy1, sx0, sx1 = wy0, wy1, wx0, wx1
+        gen_win = gen_full[sy0:sy1, sx0:sx1]
+
+        # --- маска зоны: 1 внутри бокса, мягко к нулю за его пределами ---
+        mask = np.zeros((wh, ww), dtype=np.float32)
+        feather = max(4, int(min(bw, bh) * 0.18))
+        # Верх держим по границе бокса (под губой), низ и бока — с запасом.
+        my0 = by0 - wy0 + feather // 2
+        my1 = by1 - wy0 + feather // 2
+        mx0 = bx0 - wx0 - feather // 3
+        mx1 = bx1 - wx0 + feather // 3
+        mask[max(0, my0):max(0, my1), max(0, mx0):max(0, mx1)] = 1.0
+        mask = np.clip(_blur_f(mask, feather), 0.0, 1.0)
+
+        # --- выравнивание тона: модель могла чуть сместить цвет кадра ---
+        edge = (mask > 0.05) & (mask < 0.5)
+        if edge.sum() > 30:
+            offset = (base_win[edge] - gen_win[edge]).mean(axis=0)
+            offset = np.clip(offset, -25, 25)
+        else:
+            offset = np.zeros(3, dtype=np.float32)
+        gen_adj = np.clip(gen_win + offset[None, None, :], 0, 255)
+
+        a = mask[..., None]
+        out[wy0:wy1, wx0:wx1] = base_win * (1.0 - a) + gen_adj * a
+
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), mode="RGB")
