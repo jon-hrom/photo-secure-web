@@ -1,3 +1,4 @@
+import { addToHistory } from '@/lib/toolsHistory';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
@@ -174,6 +175,7 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       if (!data?.image) throw new Error('Превышено время ожидания');
 
       const resultDataUrl = `data:image/jpeg;base64,${data.image}`;
+      addToHistory({ tool: 'face-swap', image: resultDataUrl });
       historyRef.current.push(resultDataUrl);
       setHistoryLen(historyRef.current.length);
       await loadImageIntoCanvas(resultDataUrl);

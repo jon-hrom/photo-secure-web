@@ -9,6 +9,7 @@ import SettingsPanel from '@/components/tools/humanizer/SettingsPanel';
 import HighlightedText from '@/components/tools/humanizer/HighlightedText';
 import ScorePanel from '@/components/tools/humanizer/ScorePanel';
 import VariantsPanel from '@/components/tools/humanizer/VariantsPanel';
+import { addToHistory } from '@/lib/toolsHistory';
 import { useHumanizerApi } from '@/components/tools/humanizer/useHumanizerApi';
 import type {
   HumanizerSettings,
@@ -140,6 +141,7 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
       }
 
       setCurrentText(res.humanizedText);
+      addToHistory({ tool: 'humanizer', text: res.humanizedText });
       try {
         const afterDetect = await api.detect(res.humanizedText, true);
         setDetectAfter(afterDetect);
@@ -291,7 +293,7 @@ const HumanizerDialog = ({ open, onOpenChange, userId }: Props) => {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[98vw] sm:max-w-6xl max-h-[95vh] overflow-hidden p-0 flex flex-col">
+      <DialogContent onInteractOutside={(e) => e.preventDefault()} className="max-w-[98vw] sm:max-w-6xl max-h-[95vh] overflow-hidden p-0 flex flex-col">
         <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Icon name="Wand2" size={22} className="text-primary" />

@@ -1,3 +1,4 @@
+import { addToHistory } from '@/lib/toolsHistory';
 import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
@@ -227,6 +228,7 @@ export const useLogoApi = (s: CanvasState) => {
     if (!data?.image) throw new Error('Превышено время ожидания');
 
     const resultDataUrl = `data:image/jpeg;base64,${data.image}`;
+    addToHistory({ tool: 'logo-remover', image: resultDataUrl });
     historyRef.current.push(resultDataUrl);
     setHistoryLen(historyRef.current.length);
     await loadImageIntoCanvas(resultDataUrl);

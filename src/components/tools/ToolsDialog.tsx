@@ -1,5 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useState } from 'react';
 import Icon from '@/components/ui/icon';
+import ToolsHistoryDialog from '@/components/tools/ToolsHistoryDialog';
 
 interface ToolsDialogProps {
   open: boolean;
@@ -39,7 +41,9 @@ const ToolCard = ({ icon, title, description, onClick, gradient }: ToolCardProps
 );
 
 const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, onOpenSkinRetouch, onOpenObjectRemover, onOpenFaceSwap }: ToolsDialogProps) => {
+  const [showHistory, setShowHistory] = useState(false);
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -53,6 +57,18 @@ const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, o
         </DialogHeader>
 
         <div className="grid gap-3 mt-2">
+          <button
+            type="button"
+            onClick={() => {
+              onOpenChange(false);
+              setShowHistory(true);
+            }}
+            className="flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors px-4 py-2.5 text-sm font-medium text-primary"
+          >
+            <Icon name="History" size={18} />
+            История результатов
+          </button>
+
           <ToolCard
             icon="Eraser"
             title="Убрать лого с фото"
@@ -115,6 +131,8 @@ const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, o
         </div>
       </DialogContent>
     </Dialog>
+    <ToolsHistoryDialog open={showHistory} onOpenChange={setShowHistory} />
+    </>
   );
 };
 

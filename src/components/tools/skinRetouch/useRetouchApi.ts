@@ -1,3 +1,4 @@
+import { addToHistory } from '@/lib/toolsHistory';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
@@ -237,7 +238,9 @@ export const useRetouchApi = (open: boolean) => {
       }
       if (!data?.image) throw new Error('Не удалось собрать результат');
 
-      setResultUrl(`data:image/jpeg;base64,${data.image}`);
+      const retouchedUrl = `data:image/jpeg;base64,${data.image}`;
+      addToHistory({ tool: 'skin-retouch', image: retouchedUrl });
+      setResultUrl(retouchedUrl);
       setStage('result');
       setCompare(50);
       toast({
