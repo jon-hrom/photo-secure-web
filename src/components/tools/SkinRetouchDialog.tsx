@@ -5,6 +5,8 @@ import PhotoBankPicker from '@/components/tools/PhotoBankPicker';
 import UploadStage from '@/components/tools/skinRetouch/UploadStage';
 import CompareView from '@/components/tools/skinRetouch/CompareView';
 import ChinToggle from '@/components/tools/skinRetouch/ChinToggle';
+import PlasticPanel from '@/components/tools/skinRetouch/PlasticPanel';
+import { usePlasticParams, useLivePlastic } from '@/components/tools/skinRetouch/plastic';
 import { useRetouchApi } from '@/components/tools/skinRetouch/useRetouchApi';
 import { PRESETS, EYE_SHARPEN_OPTIONS } from '@/components/tools/skinRetouch/utils';
 
@@ -15,6 +17,8 @@ interface SkinRetouchDialogProps {
 
 const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
   const s = useRetouchApi(open);
+  const { params: plastic, setParams: setPlastic } = usePlasticParams();
+  const live = useLivePlastic(s.stage === 'result' ? s.baseResultUrl : '', plastic, s.setResultUrl);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -25,7 +29,7 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
             Ретушь фото
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            AI выровняет кожу, уберёт акне и при желании второй подбородок
+            AI выровняет кожу и уберёт акне. Пластика — подбородок, плечи, руки, талия
           </DialogDescription>
         </DialogHeader>
 
@@ -53,12 +57,20 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               setCompare={s.setCompare}
             />
 
+            <PlasticPanel
+              value={plastic}
+              onChange={setPlastic}
+              disabled={s.loading}
+              status={live.status}
+              found={live.found}
+            />
+
             <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={s.download} disabled={s.loading} size="sm" className="gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90">
+              <Button onClick={s.download} disabled={s.loading || live.status === 'applying' || live.status === 'detecting'} size="sm" className="gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90">
                 <Icon name="Download" size={16} />
                 Скачать
               </Button>
-              <Button onClick={() => s.setShowSaver(true)} disabled={s.loading || s.saving} variant="outline" size="sm" className="gap-1.5">
+              <Button onClick={() => s.setShowSaver(true)} disabled={s.loading || s.saving || live.status === 'applying' || live.status === 'detecting'} variant="outline" size="sm" className="gap-1.5">
                 <Icon name="Save" size={16} />
                 В фотобанк
               </Button>

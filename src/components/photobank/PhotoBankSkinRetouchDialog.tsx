@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import CompareView from '@/components/tools/skinRetouch/CompareView';
+import PlasticPanel from '@/components/tools/skinRetouch/PlasticPanel';
+import { usePlasticParams, plasticProcess, isPlasticZero } from '@/components/tools/skinRetouch/plastic';
 import EyeSharpenSelector from '@/components/tools/skinRetouch/EyeSharpenSelector';
 import ChinToggle from '@/components/tools/skinRetouch/ChinToggle';
 import {
@@ -92,6 +94,7 @@ const PhotoBankSkinRetouchDialog = ({
   useEffect(() => {
     localStorage.setItem('retouch_remove_chin', removeChin ? '1' : '0');
   }, [removeChin]);
+  const { params: plastic, setParams: setPlastic } = usePlasticParams();
   const [price, setPrice] = useState<number | null>(null);
   const [tab, setTab] = useState<'single' | 'all'>('single');
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -306,11 +309,16 @@ const PhotoBankSkinRetouchDialog = ({
         onStatus,
         isCancelled: () => cancelRef.current,
       });
+      if (!isPlasticZero(plastic)) {
+        onStatus('Пластика...');
+        const warped = await plasticProcess(`data:image/jpeg;base64,${result.image}`, plastic);
+        result.image = warped.split(',')[1] || result.image;
+      }
       onStatus('Сохраняем в папку...');
       await saveResult(photo, result.image);
       return { sourceDataUrl, result };
     },
-    [eyeSharpen, removeChin, getSourceUrl, preset, saveResult, userId],
+    [eyeSharpen, removeChin, plastic, getSourceUrl, preset, saveResult, userId],
   );
 
   const runSingle = async () => {
@@ -448,6 +456,12 @@ const PhotoBankSkinRetouchDialog = ({
 
         <EyeSharpenSelector value={eyeSharpen} onChange={setEyeSharpen} disabled={busy} />
         <ChinToggle value={removeChin} onChange={setRemoveChin} disabled={busy} />
+        <PlasticPanel
+          value={plastic}
+          onChange={setPlastic}
+          disabled={busy}
+          hint="Бесплатно. Применяется к каждому фото перед сохранением. Черты лица не меняются."
+        />
 
         <Tabs value={tab} onValueChange={(v) => !busy && setTab(v as 'single' | 'all')} className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-10 sm:h-9">

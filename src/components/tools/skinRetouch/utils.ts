@@ -78,6 +78,14 @@ export const fetchChinBoxes = async (
   headers: Record<string, string>,
   attempts = 4,
 ): Promise<number[][]> => {
+  // Сначала точки лица в браузере — быстро и надёжно даже на общем плане.
+  try {
+    const { localChinBoxes } = await import('@/components/tools/skinRetouch/plastic');
+    const local = await localChinBoxes(`data:image/jpeg;base64,${imageB64}`);
+    if (local.length) return local;
+  } catch (e) {
+    console.warn('local chin boxes failed', e);
+  }
   for (let i = 0; i < attempts; i++) {
     try {
       const r = await fetch(`${SKIN_RETOUCH_URL}?action=chin_regions`, {

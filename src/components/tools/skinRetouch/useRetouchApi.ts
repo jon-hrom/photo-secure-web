@@ -47,6 +47,8 @@ export const useRetouchApi = (open: boolean) => {
   const [saving, setSaving] = useState(false);
   const [originalUrl, setOriginalUrl] = useState('');
   const [resultUrl, setResultUrl] = useState('');
+  /** Результат AI-ретуши без пластики — от него считается пластика. */
+  const [baseResultUrl, setBaseResultUrl] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const sourceNameRef = useRef('photo');
@@ -59,6 +61,7 @@ export const useRetouchApi = (open: boolean) => {
     setCompare(50);
     setOriginalUrl('');
     setResultUrl('');
+    setBaseResultUrl('');
     setSaving(false);
   }, []);
 
@@ -265,6 +268,7 @@ export const useRetouchApi = (open: boolean) => {
 
       const retouchedUrl = `data:image/jpeg;base64,${data.image}`;
       addToHistory({ tool: 'skin-retouch', image: retouchedUrl });
+      setBaseResultUrl(retouchedUrl);
       setResultUrl(retouchedUrl);
       setStage('result');
       setCompare(50);
@@ -403,6 +407,8 @@ export const useRetouchApi = (open: boolean) => {
     saving,
     originalUrl,
     resultUrl,
+    setResultUrl,
+    baseResultUrl,
     fileInputRef,
     handleFile,
     handlePickFromBank,

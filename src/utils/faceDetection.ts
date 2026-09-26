@@ -22,6 +22,20 @@ export const loadFaceDetectionModels = async (): Promise<boolean> => {
 
   try {
     const MODEL_URL = '/models';
+    // Без WebGL (старые телефоны, отключённое ускорение) tfjs выбирает
+    // бэкенд, который ещё не готов, — ждём его, а при сбое уходим на CPU.
+    const tf = faceapi.tf as unknown as {
+      ready: () => Promise<void>;
+      getBackend: () => string | undefined;
+      setBackend: (name: string) => Promise<boolean>;
+    };
+    try {
+      await tf.ready();
+      if (!tf.getBackend()) throw new Error('no backend');
+    } catch {
+      await tf.setBackend('cpu');
+      await tf.ready();
+    }
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
       faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
