@@ -29,9 +29,9 @@ REPLICATE_MODELS = {
 # держит сходство лица, чем обычная nano-banana, которая давала «похожую, но другую» женщину.
 GPT_MODELS = {
     "gpt-nano-banana-pro": {"model": "nano-banana-pro",
-                            "params": {"resolution": "2K", "aspect_ratio": "auto", "output_format": "png"}},
+                            "params": {"resolution": "2K", "aspect_ratio": "auto", "output_format": "jpg"}},
     "gpt-nano-banana-2": {"model": "nano-banana-2",
-                          "params": {"resolution": "2K", "aspect_ratio": "auto", "output_format": "png"}},
+                          "params": {"resolution": "2K", "aspect_ratio": "auto", "output_format": "jpg"}},
     "gpt-nano-banana": {"model": "nano-banana", "params": {"aspect_ratio": "auto"}},
 }
 
@@ -49,8 +49,9 @@ PRICE = int(os.environ.get("FACE_SWAP_PRICE", "30"))
 LABEL = "Перенос лица"
 HINT = "Лицо донора органично встанет на целевое фото в его стиле"
 
-TARGET_MAX_SIDE = 1536
-DONOR_MAX_SIDE = 1024
+# Меньше вход — быстрее провайдер принимает задачу (лимит функции ~5 c).
+TARGET_MAX_SIDE = 1152
+DONOR_MAX_SIDE = 768
 
 # Промпт держим < 800 символов (лимит GPTunneL).
 PROMPT = (
@@ -150,7 +151,7 @@ def build_donor(donor_b64: str, donor_mask_b64: str) -> bytes:
     elif max(crop.size) < 512:
         s = 512 / max(crop.size)
         crop = crop.resize((round(crop.width * s), round(crop.height * s)), Image.LANCZOS)
-    return _to_bytes(crop, "JPEG", 95)
+    return _to_bytes(crop, "JPEG", 90)
 
 
 def build_target(target_b64: str, target_mask_b64: str) -> bytes:
@@ -162,7 +163,7 @@ def build_target(target_b64: str, target_mask_b64: str) -> bytes:
     elif max(crop.size) < 768:
         s = 768 / max(crop.size)
         crop = crop.resize((round(crop.width * s), round(crop.height * s)), Image.LANCZOS)
-    return _to_bytes(crop, "JPEG", 95)
+    return _to_bytes(crop, "JPEG", 90)
 
 
 def _to_bytes(img, fmt: str, quality: int = 93) -> bytes:

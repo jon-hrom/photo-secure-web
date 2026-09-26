@@ -70,18 +70,24 @@ def _handle_swap(payload: dict, user_id):
         return _response(400, {"error": f"не удалось прочитать фото: {str(e)[:200]}"})
 
     price = models.PRICE
-    ok, balance, err = energy.spend(user_id, price, f"Перенос лица — {models.LABEL}")
-    if not ok:
-        if err == "insufficient_energy":
-            return _response(402, {"error": "Недостаточно энергии", "needed": price, "energy_balance": balance})
-        return _response(500, {"error": err or "energy error"})
+    # Сначала только проверяем баланс, списываем ПОСЛЕ успешного запуска задачи:
+    # если запуск оборвётся по таймауту, энергия не должна пропасть.
+    balance = energy.get_balance(user_id)
+    if balance < price:
+        return _response(402, {"error": "Недостаточно энергии", "needed": price, "energy_balance": balance})
 
     try:
         task_id, model_used = models.start_with_fallback(*vals)
     except Exception as e:
         print(f"[face-swap] start failed: {e}")
-        energy.refund(user_id, price, "Возврат: не удалось запустить перенос лица")
-        return _response(502, {"error": str(e)[:300], "refunded": price})
+        return _response(502, {"error": str(e)[:300]})
+
+    ok, balance, err = energy.spend(user_id, price, f"Перенос лица ({task_id})")
+    if not ok:
+        print(f"[face-swap] spend after start failed: {err}")
+        if err == "insufficient_energy":
+            return _response(402, {"error": "Недостаточно энергии", "needed": price, "energy_balance": balance})
+        return _response(500, {"error": err or "energy error"})
 
     print(f"[face-swap] started {model_used} task={task_id}")
     return _response(200, {"task_id": task_id, "model": model_used, "charged": price, "energy_balance": balance})
