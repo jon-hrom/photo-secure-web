@@ -24,25 +24,42 @@ const BrushCursor = ({ containerRef, diameter, enabled = true }: BrushCursorProp
       setPos(null);
       return;
     }
+    const touches = new Set<number>();
     const update = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') {
+        if (e.type === 'pointerdown') touches.add(e.pointerId);
+        // Два пальца — это масштаб, а не кисть: кружок не показываем
+        if (touches.size > 1) {
+          setPos(null);
+          return;
+        }
+        // Палец без касания (Android-стилус «над экраном») не рисует
+        if (e.type === 'pointermove' && !touches.has(e.pointerId)) return;
+      }
       const rect = el.getBoundingClientRect();
       setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     };
-    const hide = () => setPos(null);
+    const hide = (e: PointerEvent) => {
+      touches.delete(e.pointerId);
+      setPos(null);
+    };
     const onUp = (e: PointerEvent) => {
+      touches.delete(e.pointerId);
       if (e.pointerType !== 'mouse') setPos(null);
     };
-    el.addEventListener('pointermove', update);
-    el.addEventListener('pointerdown', update);
-    el.addEventListener('pointerleave', hide);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('pointercancel', hide);
+    // capture: иначе setPointerCapture у canvas перехватывает события раньше нас
+    const opt = { capture: true, passive: true } as AddEventListenerOptions;
+    el.addEventListener('pointermove', update, opt);
+    el.addEventListener('pointerdown', update, opt);
+    el.addEventListener('pointerleave', hide, opt);
+    el.addEventListener('pointerup', onUp, opt);
+    el.addEventListener('pointercancel', hide, opt);
     return () => {
-      el.removeEventListener('pointermove', update);
-      el.removeEventListener('pointerdown', update);
-      el.removeEventListener('pointerleave', hide);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('pointercancel', hide);
+      el.removeEventListener('pointermove', update, opt);
+      el.removeEventListener('pointerdown', update, opt);
+      el.removeEventListener('pointerleave', hide, opt);
+      el.removeEventListener('pointerup', onUp, opt);
+      el.removeEventListener('pointercancel', hide, opt);
     };
   }, [containerRef, enabled]);
 

@@ -14,7 +14,7 @@ interface FaceSwapDialogProps {
 }
 
 const Editor = ({ s }: { s: CanvasState }) => {
-  const { onPointerDown, onPointerMove, onPointerUp, onWheel } = useBrushInteractions(s);
+  const { onPointerDown, onPointerMove, onPointerUp, onWheel, zoomBy } = useBrushInteractions(s);
   return (
     <EditorCanvas
       tool={s.tool}
@@ -32,6 +32,7 @@ const Editor = ({ s }: { s: CanvasState }) => {
       setZoom={s.setZoom}
       resetZoom={s.resetZoom}
       onWheel={onWheel}
+      zoomBy={zoomBy}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

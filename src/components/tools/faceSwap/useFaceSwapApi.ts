@@ -231,7 +231,7 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       setLoading(true);
       setLoadingText('Готовим файл в исходном разрешении...');
       const exp = await buildExport();
-      if (exp) downloadBlob(exp.blob, exp.name);
+      if (exp) await downloadBlob(exp.blob, exp.name);
     } catch (e) {
       toast({ title: 'Не удалось скачать', description: String((e as Error)?.message || e), variant: 'destructive' });
     } finally {

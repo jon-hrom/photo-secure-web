@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 import PhotoBankPicker from '@/components/tools/PhotoBankPicker';
+import { downloadBlob } from '@/components/tools/objectRemover/fullRes';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 import { PHOTOBANK_URL, urlToImage } from '@/components/tools/logoRemover/utils';
 import {
@@ -42,18 +43,13 @@ const ToolsHistoryDialog = ({ open, onOpenChange }: Props) => {
     return () => window.removeEventListener(HISTORY_EVENT, reload);
   }, [open, reload]);
 
-  const download = (item: ToolHistoryItem) => {
-    const a = document.createElement('a');
+  const download = async (item: ToolHistoryItem) => {
     if (item.image) {
-      a.href = item.image;
-      a.download = fileNameFor(item, 'jpg');
+      const blob = await (await fetch(item.image)).blob();
+      await downloadBlob(blob, fileNameFor(item, 'jpg'));
     } else {
-      a.href = URL.createObjectURL(new Blob([item.text || ''], { type: 'text/plain;charset=utf-8' }));
-      a.download = fileNameFor(item, 'txt');
+      await downloadBlob(new Blob([item.text || ''], { type: 'text/plain;charset=utf-8' }), fileNameFor(item, 'txt'));
     }
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
   };
 
   const copyText = async (item: ToolHistoryItem) => {

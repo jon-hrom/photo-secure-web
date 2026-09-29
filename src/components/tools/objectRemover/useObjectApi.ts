@@ -12,8 +12,8 @@ import {
 import { CanvasState } from '@/components/tools/logoRemover/useCanvasState';
 import { buildInpaintMask } from '@/components/tools/logoRemover/maskAnalysis';
 import {
-  mimeFromName, ensureName, mergeMask, buildFullResCanvas,
-  copyJpegMeta, canvasToBlob, blobToDataUrl,
+  ensureName, mergeMask, exportFullRes, downloadBlob,
+  canvasToBlob, blobToDataUrl,
 } from '@/components/tools/objectRemover/fullRes';
 
 export const OBJECT_REMOVE_URL = 'https://functions.poehali.dev/61d4064f-fce9-47b5-bfa8-0704146ff165';
@@ -89,13 +89,13 @@ export const useObjectApi = (s: CanvasState) => {
     const canvas = imageCanvasRef.current;
     if (!canvas) return null;
     const name = origNameRef.current || `photo-${Date.now()}.jpg`;
-    const mime = mimeFromName(name);
     const orig = origImgRef.current;
     const mask = maskHistoryRef.current[historyRef.current.length - 1] ?? null;
-    const full = orig ? buildFullResCanvas(orig, canvas, mask) : canvas;
-    let blob = await canvasToBlob(full, mime, 0.95);
-    if (mime === 'image/jpeg') blob = await copyJpegMeta(origBytesRef.current, blob);
-    return { blob, name, width: full.width, height: full.height };
+    if (!orig) {
+      const blob = await canvasToBlob(canvas, 'image/jpeg', 0.95);
+      return { blob, name, width: canvas.width, height: canvas.height };
+    }
+    return exportFullRes({ img: orig, bytes: origBytesRef.current, name }, canvas, mask);
   }, [imageCanvasRef, historyRef]);
 
   const handleSaveToFolder = useCallback(async (folder: { id: number; folder_name: string }) => {
@@ -243,14 +243,7 @@ export const useObjectApi = (s: CanvasState) => {
       setLoadingText('Готовим файл в исходном разрешении...');
       const exp = await buildExport();
       if (!exp) return;
-      const url = URL.createObjectURL(exp.blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = exp.name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      await downloadBlob(exp.blob, exp.name);
     } catch (e) {
       toast({ title: 'Не удалось скачать', description: String((e as Error)?.message || e), variant: 'destructive' });
     } finally {

@@ -15,7 +15,7 @@ interface LogoRemoverDialogProps {
 
 const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
   const s = useCanvasState(open);
-  const { onPointerDown, onPointerMove, onPointerUp, onWheel } = useBrushInteractions(s);
+  const { onPointerDown, onPointerMove, onPointerUp, onWheel, zoomBy } = useBrushInteractions(s);
   const {
     handleFile,
     handlePickFromBank,
@@ -65,6 +65,7 @@ const LogoRemoverDialog = ({ open, onOpenChange }: LogoRemoverDialogProps) => {
               setZoom={s.setZoom}
               resetZoom={s.resetZoom}
               onWheel={onWheel}
+              zoomBy={zoomBy}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}

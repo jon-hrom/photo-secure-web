@@ -15,7 +15,7 @@ interface ObjectRemoverDialogProps {
 
 const ObjectRemoverDialog = ({ open, onOpenChange }: ObjectRemoverDialogProps) => {
   const s = useCanvasState(open);
-  const { onPointerDown, onPointerMove, onPointerUp, onWheel } = useBrushInteractions(s);
+  const { onPointerDown, onPointerMove, onPointerUp, onWheel, zoomBy } = useBrushInteractions(s);
   const { handleFile, handlePickFromBank, handleSaveToFolder, removeObjects, undo, download } = useObjectApi(s);
   const price = s.estimate?.price ?? 25;
 
@@ -63,6 +63,7 @@ const ObjectRemoverDialog = ({ open, onOpenChange }: ObjectRemoverDialogProps) =
               setZoom={s.setZoom}
               resetZoom={s.resetZoom}
               onWheel={onWheel}
+              zoomBy={zoomBy}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -108,7 +109,7 @@ const ObjectRemoverDialog = ({ open, onOpenChange }: ObjectRemoverDialogProps) =
 
             <p className="text-[11px] text-muted-foreground px-1">
               Закрашивайте объект целиком, с небольшим запасом — вместе с тенью и краями. ПКМ или Ctrl — ластик маски.
-              Два пальца или Ctrl+колесо — масштаб. Остальная часть фото не меняется.
+              Остальная часть фото не меняется.
             </p>
           </div>
         )}

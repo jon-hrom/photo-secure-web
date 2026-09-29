@@ -4,6 +4,7 @@
  * дорисованные участки масштабируются и вклеиваются в оригинал по маске —
  * остальная часть фото остаётся пиксель в пиксель как у оригинала.
  */
+import { fitToCanvasLimit, drawBlurred, releaseCanvas } from '@/lib/canvasCompat';
 
 export const mimeFromName = (name: string): string => {
   const ext = name.split('.').pop()?.toLowerCase() || '';
@@ -74,10 +75,11 @@ const toAlphaMask = (mask: HTMLCanvasElement, w: number, h: number, scale: numbe
   out.width = w;
   out.height = h;
   const octx = out.getContext('2d')!;
-  octx.filter = `blur(${Math.max(2, Math.round(6 * scale))}px)`;
   octx.imageSmoothingQuality = 'high';
-  octx.drawImage(grown, 0, 0, w, h);
-  octx.filter = 'none';
+  // iOS Safari < 18 не знает ctx.filter — drawBlurred размоет иначе
+  drawBlurred(octx, grown, w, h, Math.max(2, Math.round(6 * scale)));
+  releaseCanvas(a);
+  releaseCanvas(grown);
   return out;
 };
 
@@ -86,8 +88,8 @@ export const buildFullResCanvas = (
   edited: HTMLCanvasElement,
   mask: HTMLCanvasElement | null,
 ): HTMLCanvasElement => {
-  const w = original.naturalWidth;
-  const h = original.naturalHeight;
+  // На iPhone/iPad canvas больше ~16 Мп рисуется пустым — ужимаем до лимита
+  const { w, h } = fitToCanvasLimit(original.naturalWidth, original.naturalHeight);
   const out = document.createElement('canvas');
   out.width = w;
   out.height = h;
@@ -104,9 +106,12 @@ export const buildFullResCanvas = (
   lctx.imageSmoothingQuality = 'high';
   lctx.drawImage(edited, 0, 0, w, h);
   lctx.globalCompositeOperation = 'destination-in';
-  lctx.drawImage(toAlphaMask(mask, w, h, scale), 0, 0);
+  const alpha = toAlphaMask(mask, w, h, scale);
+  lctx.drawImage(alpha, 0, 0);
+  releaseCanvas(alpha);
 
   ctx.drawImage(layer, 0, 0);
+  releaseCanvas(layer);
   return out;
 };
 
@@ -296,19 +301,58 @@ export const exportFullRes = async (
 ) => {
   const m = mask === 'auto' ? diffMask(src.img, edited) : mask;
   const full = buildFullResCanvas(src.img, edited, m);
-  const mime = mimeFromName(src.name);
+  if (mask === 'auto') releaseCanvas(m as HTMLCanvasElement);
+  let mime = mimeFromName(src.name);
+  let name = src.name;
+  // Safari не умеет кодировать WEBP — сохраняем такие файлы в JPEG
+  if (mime === 'image/webp' && !(await canEncode('image/webp'))) {
+    mime = 'image/jpeg';
+    name = name.replace(/\.webp$/i, '.jpg');
+  }
   let blob = await canvasToBlob(full, mime, 0.95);
   if (mime === 'image/jpeg') blob = await copyJpegMeta(src.bytes, blob);
-  return { blob, name: src.name, width: full.width, height: full.height };
+  const out = { blob, name, width: full.width, height: full.height };
+  releaseCanvas(full);
+  return out;
 };
 
-export const downloadBlob = (blob: Blob, name: string) => {
+let webpOk: boolean | null = null;
+const canEncode = async (mime: string) => {
+  if (mime !== 'image/webp') return true;
+  if (webpOk !== null) return webpOk;
+  const c = document.createElement('canvas');
+  c.width = c.height = 1;
+  webpOk = c.toDataURL('image/webp').startsWith('data:image/webp');
+  return webpOk;
+};
+
+/**
+ * Скачивание файла. На iPhone/iPad атрибут download у ссылки работает
+ * не всегда, поэтому там открываем системное меню «Поделиться» —
+ * из него фото сохраняется в «Фото» или «Файлы» с правильным именем.
+ */
+export const downloadBlob = async (blob: Blob, name: string) => {
+  const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  if (ios && typeof File !== 'undefined' && nav.share && nav.canShare) {
+    try {
+      const file = new File([blob], name, { type: blob.type || 'image/jpeg' });
+      if (nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], title: name });
+        return;
+      }
+    } catch (e) {
+      // Пользователь закрыл меню — это не ошибка
+      if ((e as Error)?.name === 'AbortError') return;
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
+  a.rel = 'noopener';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 };

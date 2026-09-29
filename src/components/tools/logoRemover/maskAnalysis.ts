@@ -1,3 +1,5 @@
+import { drawBlurred } from '@/lib/canvasCompat';
+
 /**
  * Готовит маску для inpaint: лёгкое расширение (dilate) и мягкие края (feather).
  * Жёсткая бинарная маска оставляет видимый шов по контуру — расширение
@@ -47,9 +49,7 @@ export const buildInpaintMask = (mask: HTMLCanvasElement, dilatePx = 3, featherP
     blurred.width = w;
     blurred.height = h;
     const bCtx = blurred.getContext('2d')!;
-    bCtx.filter = `blur(${featherPx}px)`;
-    bCtx.drawImage(out, 0, 0);
-    bCtx.filter = 'none';
+    drawBlurred(bCtx, out, w, h, featherPx);
     return blurred.toDataURL('image/png').split(',')[1] || '';
   }
 

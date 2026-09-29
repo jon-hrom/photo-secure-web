@@ -111,8 +111,16 @@ const ZoomCompareViewer = ({ open, onOpenChange, originalUrl, resultUrl }: Props
       const r = st.getBoundingClientRect();
       zoomAt(Math.exp(-e.deltaY * 0.0022), e.clientX - r.left, e.clientY - r.top);
     };
+    // iOS Safari: без этого жест двумя пальцами масштабирует всю страницу
+    const stop = (e: Event) => e.preventDefault();
     st.addEventListener('wheel', onWheel, { passive: false });
-    return () => st.removeEventListener('wheel', onWheel);
+    st.addEventListener('gesturestart', stop);
+    st.addEventListener('gesturechange', stop);
+    return () => {
+      st.removeEventListener('wheel', onWheel);
+      st.removeEventListener('gesturestart', stop);
+      st.removeEventListener('gesturechange', stop);
+    };
   }, [open, zoomAt, nat]);
 
   const local = (e: { clientX: number; clientY: number }) => {
@@ -223,7 +231,10 @@ const ZoomCompareViewer = ({ open, onOpenChange, originalUrl, resultUrl }: Props
         <DialogTitle className="sr-only">Сравнение до и после</DialogTitle>
         <DialogDescription className="sr-only">Приближение и сравнение результата ретуши</DialogDescription>
 
-        <div className="flex items-center gap-1.5 px-2 sm:px-3 py-2 bg-neutral-900/95 text-white border-b border-white/10 flex-wrap">
+        <div
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-2 bg-neutral-900/95 text-white border-b border-white/10 flex-wrap"
+          style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))', paddingLeft: 'max(0.5rem, env(safe-area-inset-left))', paddingRight: 'max(0.5rem, env(safe-area-inset-right))' }}
+        >
           <div className="flex rounded-lg bg-white/10 p-0.5">
             {([
               ['before', 'До'],
@@ -271,7 +282,9 @@ const ZoomCompareViewer = ({ open, onOpenChange, originalUrl, resultUrl }: Props
 
         <div
           ref={stageRef}
-          className="relative flex-1 overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing"
+          className="relative flex-1 overflow-hidden touch-none select-none overscroll-contain cursor-grab active:cursor-grabbing"
+          style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+          onContextMenu={(e) => e.preventDefault()}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -308,7 +321,8 @@ const ZoomCompareViewer = ({ open, onOpenChange, originalUrl, resultUrl }: Props
 
           <button
             type="button"
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 h-10 rounded-full bg-white/90 text-black text-xs font-medium shadow-lg flex items-center gap-1.5 active:bg-white"
+            style={{ bottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))' }}
+            className="absolute left-1/2 -translate-x-1/2 px-4 h-10 rounded-full bg-white/90 text-black text-xs font-medium shadow-lg flex items-center gap-1.5 active:bg-white"
             onPointerDown={(e) => {
               e.stopPropagation();
               setHoldBefore(true);
@@ -318,6 +332,7 @@ const ZoomCompareViewer = ({ open, onOpenChange, originalUrl, resultUrl }: Props
               setHoldBefore(false);
             }}
             onPointerLeave={() => setHoldBefore(false)}
+            onContextMenu={(e) => e.preventDefault()}
             onPointerCancel={() => setHoldBefore(false)}
           >
             <Icon name="Eye" size={16} />

@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -80,24 +80,130 @@ const AIToolsPanel = ({
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }, [maskCanvasRef]);
 
-  const handleMaskDraw = (e: React.MouseEvent<HTMLCanvasElement>, isStart = false) => {
+  // Масштаб редактора маски: колесо, два пальца, кнопки
+  const [mz, setMz] = useState(1);
+  const [mpan, setMpan] = useState({ x: 0, y: 0 });
+  const viewRef = useRef({ z: 1, pan: { x: 0, y: 0 } });
+  viewRef.current = { z: mz, pan: mpan };
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; z: number; cx: number; cy: number; px: number; py: number } | null>(null);
+  const lastPt = useRef<{ x: number; y: number } | null>(null);
+
+  const fromCenter = (clientX: number, clientY: number) => {
+    const r = maskContainerRef.current!.getBoundingClientRect();
+    return { x: clientX - r.left - r.width / 2, y: clientY - r.top - r.height / 2 };
+  };
+
+  const zoomAt = useCallback((factor: number, clientX: number, clientY: number) => {
+    const el = maskContainerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const p = { x: clientX - r.left - r.width / 2, y: clientY - r.top - r.height / 2 };
+    const { z, pan } = viewRef.current;
+    const nz = Math.min(8, Math.max(1, z * factor));
+    const k = nz / z;
+    const np = nz <= 1 ? { x: 0, y: 0 } : { x: p.x - (p.x - pan.x) * k, y: p.y - (p.y - pan.y) * k };
+    viewRef.current = { z: nz, pan: np };
+    setMz(nz);
+    setMpan(np);
+  }, []);
+
+  const zoomCenter = (f: number) => {
+    const r = maskContainerRef.current?.getBoundingClientRect();
+    if (r) zoomAt(f, r.left + r.width / 2, r.top + r.height / 2);
+  };
+
+  useEffect(() => {
+    const el = maskContainerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0022)), e.clientX, e.clientY);
+    };
+    const stop = (e: Event) => e.preventDefault();
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('gesturestart', stop);
+    el.addEventListener('gesturechange', stop);
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('gesturestart', stop);
+      el.removeEventListener('gesturechange', stop);
+    };
+  });
+
+  useEffect(() => {
+    setMz(1);
+    setMpan({ x: 0, y: 0 });
+  }, [previewSrc]);
+
+  const paint = (clientX: number, clientY: number) => {
     const canvas = maskCanvasRef.current;
     if (!canvas) return;
-    if (isStart) maskDrawing.current = true;
-    if (!maskDrawing.current) return;
-
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const r = brushSize * scaleX;
     ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#FFFFFF';
     ctx.beginPath();
-    ctx.arc(x, y, brushSize * scaleX, 0, Math.PI * 2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
+    if (lastPt.current) {
+      ctx.lineWidth = r * 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(lastPt.current.x, lastPt.current.y);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    }
+    lastPt.current = { x, y };
+  };
+
+  const onMaskDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* noop */ }
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      maskDrawing.current = false;
+      lastPt.current = null;
+      const [a, b] = Array.from(pointers.current.values());
+      const c = fromCenter((a.x + b.x) / 2, (a.y + b.y) / 2);
+      pinch.current = {
+        dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+        z: viewRef.current.z, cx: c.x, cy: c.y, px: viewRef.current.pan.x, py: viewRef.current.pan.y,
+      };
+      return;
+    }
+    if (pointers.current.size > 2) return;
+    maskDrawing.current = true;
+    lastPt.current = null;
+    paint(e.clientX, e.clientY);
+  };
+
+  const onMaskMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = pinch.current;
+    if (p && pointers.current.size >= 2) {
+      const [a, b] = Array.from(pointers.current.values());
+      const nz = Math.min(8, Math.max(1, p.z * (Math.hypot(a.x - b.x, a.y - b.y) / p.dist)));
+      const c = fromCenter((a.x + b.x) / 2, (a.y + b.y) / 2);
+      const k = nz / p.z;
+      const np = nz <= 1 ? { x: 0, y: 0 } : { x: c.x - (p.cx - p.px) * k, y: c.y - (p.cy - p.py) * k };
+      viewRef.current = { z: nz, pan: np };
+      setMz(nz);
+      setMpan(np);
+      return;
+    }
+    if (maskDrawing.current) paint(e.clientX, e.clientY);
+  };
+
+  const onMaskUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    maskDrawing.current = false;
+    lastPt.current = null;
   };
 
   const clearMask = () => {
@@ -197,10 +303,23 @@ const AIToolsPanel = ({
                 />
                 <span className="text-[9px] font-mono text-muted-foreground w-6 text-right">{brushSize}</span>
               </div>
-              <div ref={maskContainerRef} className="relative rounded overflow-hidden border border-border/60">
+              <div
+                ref={maskContainerRef}
+                className="relative rounded overflow-hidden border border-border/60 touch-none select-none overscroll-contain"
+                style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                <div
+                  className="relative will-change-transform"
+                  style={{
+                    transform: `translate3d(${mpan.x}px, ${mpan.y}px, 0) scale(${mz})`,
+                    transformOrigin: 'center center',
+                  }}
+                >
                 <img
                   src={previewSrc}
                   alt="Preview"
+                  draggable={false}
                   className="w-full block"
                   onLoad={(e) => {
                     const img = e.currentTarget;
@@ -214,16 +333,44 @@ const AIToolsPanel = ({
                 />
                 <canvas
                   ref={maskCanvasRef}
-                  className="absolute inset-0 w-full h-full opacity-40 cursor-none"
-                  onMouseDown={(e) => handleMaskDraw(e, true)}
-                  onMouseMove={handleMaskDraw}
-                  onMouseUp={() => { maskDrawing.current = false; }}
-                  onMouseLeave={() => { maskDrawing.current = false; }}
+                  className="absolute inset-0 w-full h-full opacity-40 cursor-none touch-none"
+                  onPointerDown={onMaskDown}
+                  onPointerMove={onMaskMove}
+                  onPointerUp={onMaskUp}
+                  onPointerCancel={onMaskUp}
                 />
+                </div>
                 <BrushCursor containerRef={maskContainerRef} diameter={brushSize * 2} />
+                <div className="absolute top-1 right-1 flex gap-1 z-40">
+                  {[
+                    { icon: 'ZoomIn', f: 1.4, dis: mz >= 8, t: 'Приблизить' },
+                    { icon: 'ZoomOut', f: 1 / 1.4, dis: mz <= 1.001, t: 'Отдалить' },
+                  ].map((b) => (
+                    <button
+                      key={b.icon}
+                      type="button"
+                      title={b.t}
+                      disabled={b.dis}
+                      onClick={() => zoomCenter(b.f)}
+                      className="w-8 h-8 rounded-md bg-black/60 text-white flex items-center justify-center disabled:opacity-40 touch-manipulation"
+                    >
+                      <Icon name={b.icon} size={15} />
+                    </button>
+                  ))}
+                  {mz > 1.01 && (
+                    <button
+                      type="button"
+                      title="Всё фото"
+                      onClick={() => { setMz(1); setMpan({ x: 0, y: 0 }); }}
+                      className="h-8 px-2 rounded-md bg-black/60 text-white text-[10px] touch-manipulation"
+                    >
+                      {Math.round(mz * 100)}%
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="text-[8px] text-muted-foreground text-center">
-                Белые области будут зачищены и заполнены AI
+                Белые области будут зачищены и заполнены AI. Колесо или два пальца — приблизить
               </div>
             </div>
           )}
