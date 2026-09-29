@@ -187,3 +187,128 @@ export const blobToDataUrl = (blob: Blob) =>
     r.onerror = () => reject(r.error);
     r.readAsDataURL(blob);
   });
+
+// ---------- общие помощники для всех инструментов ----------
+
+export interface SourceImage {
+  img: HTMLImageElement;
+  bytes: ArrayBuffer | null;
+  name: string;
+}
+
+const bytesToImage = (bytes: ArrayBuffer, type = ''): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(new Blob([bytes], type ? { type } : undefined));
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+    img.src = url;
+  });
+
+/** Оригинал из файла: картинка в полном разрешении + байты (для EXIF) + имя. */
+export const loadSourceFromFile = async (file: File): Promise<SourceImage> => {
+  const bytes = await file.arrayBuffer();
+  return { img: await bytesToImage(bytes, file.type), bytes, name: ensureName(file.name) };
+};
+
+/** Оригинал по ссылке (фотобанк). Если байты не скачались — хотя бы картинка. */
+export const loadSourceFromUrl = async (url: string, name: string): Promise<SourceImage> => {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const bytes = await r.arrayBuffer();
+    return { img: await bytesToImage(bytes), bytes, name: ensureName(name) };
+  } catch {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.crossOrigin = 'anonymous';
+      i.onload = () => resolve(i);
+      i.onerror = (e) => reject(e);
+      i.src = url;
+    });
+    return { img, bytes: null, name: ensureName(name) };
+  }
+};
+
+export const dataUrlToCanvas = async (dataUrl: string): Promise<HTMLCanvasElement> => {
+  const img = new Image();
+  await new Promise<void>((res, rej) => {
+    img.onload = () => res();
+    img.onerror = (e) => rej(e);
+    img.src = dataUrl;
+  });
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth;
+  c.height = img.naturalHeight;
+  c.getContext('2d')!.drawImage(img, 0, 0);
+  return c;
+};
+
+/**
+ * Маска изменений для инструментов без явной маски (ретушь, замена лица, пластика):
+ * сравниваем результат AI с уменьшенным оригиналом блоками 4×4.
+ * Где разницы нет — в итог пойдёт оригинал в полном разрешении.
+ */
+export const diffMask = (original: HTMLImageElement, edited: HTMLCanvasElement, threshold = 5): HTMLCanvasElement => {
+  const w = edited.width;
+  const h = edited.height;
+  const a = document.createElement('canvas');
+  a.width = w;
+  a.height = h;
+  const actx = a.getContext('2d', { willReadFrequently: true })!;
+  actx.imageSmoothingQuality = 'high';
+  actx.drawImage(original, 0, 0, w, h);
+  const od = actx.getImageData(0, 0, w, h).data;
+  const ed = edited.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
+
+  const B = 4;
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext('2d')!;
+  octx.fillStyle = '#000';
+  octx.fillRect(0, 0, w, h);
+  octx.fillStyle = '#fff';
+  for (let by = 0; by < h; by += B) {
+    for (let bx = 0; bx < w; bx += B) {
+      let sum = 0;
+      let n = 0;
+      const ye = Math.min(h, by + B);
+      const xe = Math.min(w, bx + B);
+      for (let y = by; y < ye; y++) {
+        for (let x = bx; x < xe; x++) {
+          const i = (y * w + x) * 4;
+          sum += Math.max(Math.abs(od[i] - ed[i]), Math.abs(od[i + 1] - ed[i + 1]), Math.abs(od[i + 2] - ed[i + 2]));
+          n++;
+        }
+      }
+      if (sum / n > threshold) octx.fillRect(bx, by, xe - bx, ye - by);
+    }
+  }
+  return out;
+};
+
+/** Итоговый файл: исходное разрешение, исходное имя, формат и EXIF оригинала. */
+export const exportFullRes = async (
+  src: SourceImage,
+  edited: HTMLCanvasElement,
+  mask: HTMLCanvasElement | null | 'auto',
+) => {
+  const m = mask === 'auto' ? diffMask(src.img, edited) : mask;
+  const full = buildFullResCanvas(src.img, edited, m);
+  const mime = mimeFromName(src.name);
+  let blob = await canvasToBlob(full, mime, 0.95);
+  if (mime === 'image/jpeg') blob = await copyJpegMeta(src.bytes, blob);
+  return { blob, name: src.name, width: full.width, height: full.height };
+};
+
+export const downloadBlob = (blob: Blob, name: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+};

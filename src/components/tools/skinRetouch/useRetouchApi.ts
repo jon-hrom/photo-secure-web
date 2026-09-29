@@ -14,6 +14,10 @@ import {
   urlToImage,
   fetchChinBoxes,
 } from '@/components/tools/skinRetouch/utils';
+import {
+  SourceImage, loadSourceFromFile, loadSourceFromUrl, exportFullRes,
+  dataUrlToCanvas, blobToDataUrl, downloadBlob,
+} from '@/components/tools/objectRemover/fullRes';
 
 export const useRetouchApi = (open: boolean) => {
   const { toast } = useToast();
@@ -52,6 +56,8 @@ export const useRetouchApi = (open: boolean) => {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const sourceNameRef = useRef('photo');
+  /** Оригинал в полном разрешении — в него вклеивается результат при экспорте. */
+  const srcRef = useRef<SourceImage | null>(null);
   const estimatedRef = useRef(false);
 
   const reset = useCallback(() => {
@@ -298,8 +304,9 @@ export const useRetouchApi = (open: boolean) => {
     try {
       setLoading(true);
       setLoadingText('Загружаем фото...');
-      const img = await fileToImage(file);
-      const dataUrl = imageToDataUrl(img);
+      const src = await loadSourceFromFile(file).catch(async () => ({ img: await fileToImage(file), bytes: null, name: file.name }));
+      srcRef.current = src;
+      const dataUrl = imageToDataUrl(src.img);
       sourceNameRef.current = file.name.replace(/\.[^.]+$/, '') || 'photo';
       setOriginalUrl(dataUrl);
       setLoading(false);
@@ -316,8 +323,10 @@ export const useRetouchApi = (open: boolean) => {
     try {
       setLoading(true);
       setLoadingText('Загружаем фото из фотобанка...');
-      const img = await urlToImage(photo.s3_url);
-      const dataUrl = imageToDataUrl(img);
+      const src = await loadSourceFromUrl(photo.s3_url, photo.file_name)
+        .catch(async () => ({ img: await urlToImage(photo.s3_url), bytes: null, name: photo.file_name }));
+      srcRef.current = src;
+      const dataUrl = imageToDataUrl(src.img);
       sourceNameRef.current = photo.file_name.replace(/\.[^.]+$/, '') || 'photo';
       setOriginalUrl(dataUrl);
       setLoading(false);
@@ -340,15 +349,32 @@ export const useRetouchApi = (open: boolean) => {
     await runRetouch(originalUrl, presetKey);
   }, [originalUrl, runRetouch]);
 
-  const download = useCallback(() => {
-    if (!resultUrl) return;
-    const a = document.createElement('a');
-    a.href = resultUrl;
-    a.download = `${sourceNameRef.current}-retouched.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  /** Готовый файл: исходное разрешение, имя и EXIF оригинала. */
+  const buildExport = useCallback(async () => {
+    if (!resultUrl) return null;
+    const edited = await dataUrlToCanvas(resultUrl);
+    const src = srcRef.current;
+    if (!src) {
+      const blob = await new Promise<Blob | null>((r) => edited.toBlob(r, 'image/jpeg', 0.95));
+      return blob ? { blob, name: `${sourceNameRef.current}.jpg`, width: edited.width, height: edited.height } : null;
+    }
+    // Там, где ретушь и пластика ничего не меняли, остаются пиксели оригинала
+    return exportFullRes(src, edited, 'auto');
   }, [resultUrl]);
+
+  const download = useCallback(async () => {
+    try {
+      setLoading(true);
+      setLoadingText('Готовим файл в исходном разрешении...');
+      const exp = await buildExport();
+      if (exp) downloadBlob(exp.blob, exp.name);
+    } catch (e) {
+      toast({ title: 'Не удалось скачать', description: String((e as Error)?.message || e), variant: 'destructive' });
+    } finally {
+      setLoading(false);
+      setLoadingText('');
+    }
+  }, [buildExport, toast]);
 
   const handleSaveToFolder = useCallback(async (folder: { id: number; folder_name: string }) => {
     const userId = getAuthUserId();
@@ -360,17 +386,18 @@ export const useRetouchApi = (open: boolean) => {
       setSaving(true);
       setLoading(true);
       setLoadingText('Сохраняем в фотобанк...');
-      const img = await urlToImage(resultUrl);
+      const exp = await buildExport();
+      if (!exp) throw new Error('нет изображения');
       const res = await fetch(PHOTOBANK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
         body: JSON.stringify({
           action: 'upload_direct',
           folder_id: folder.id,
-          file_name: `${sourceNameRef.current}-retouched-${Date.now()}.jpg`,
-          file_data: resultUrl,
-          width: img.naturalWidth,
-          height: img.naturalHeight,
+          file_name: exp.name,
+          file_data: await blobToDataUrl(exp.blob),
+          width: exp.width,
+          height: exp.height,
         }),
       });
       const data = await res.json();
@@ -385,7 +412,7 @@ export const useRetouchApi = (open: boolean) => {
       setLoading(false);
       setLoadingText('');
     }
-  }, [resultUrl, toast]);
+  }, [resultUrl, buildExport, toast]);
 
   return {
     stage,

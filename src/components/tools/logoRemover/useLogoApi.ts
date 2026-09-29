@@ -12,6 +12,10 @@ import {
 } from '@/components/tools/logoRemover/utils';
 import { CanvasState } from '@/components/tools/logoRemover/useCanvasState';
 import { buildInpaintMask } from '@/components/tools/logoRemover/maskAnalysis';
+import {
+  SourceImage, loadSourceFromFile, loadSourceFromUrl, mergeMask,
+  exportFullRes, blobToDataUrl, downloadBlob,
+} from '@/components/tools/objectRemover/fullRes';
 
 export const useLogoApi = (s: CanvasState) => {
   const { toast } = useToast();
@@ -27,13 +31,18 @@ export const useLogoApi = (s: CanvasState) => {
   } = s;
 
   const estimateSeq = useRef(0);
+  // Оригинал в полном разрешении (имя, байты для EXIF) и маски изменений по шагам истории
+  const srcRef = useRef<SourceImage | null>(null);
+  const maskHistoryRef = useRef<(HTMLCanvasElement | null)[]>([]);
 
   const handleFile = useCallback(async (file: File) => {
     try {
       setLoading(true);
       setLoadingText('Загружаем фото...');
-      const img = await fileToImage(file);
-      const dataUrl = imageToDataUrl(img, 'image/jpeg');
+      const src = await loadSourceFromFile(file).catch(async () => ({ img: await fileToImage(file), bytes: null, name: file.name }));
+      srcRef.current = src;
+      maskHistoryRef.current = [null];
+      const dataUrl = imageToDataUrl(src.img, 'image/jpeg');
       originalDataUrlRef.current = dataUrl;
       historyRef.current = [dataUrl];
       setHistoryLen(1);
@@ -55,8 +64,11 @@ export const useLogoApi = (s: CanvasState) => {
       setLoading(true);
       setLoadingText('Загружаем фото из фотобанка...');
       await new Promise((r) => setTimeout(r, 50));
-      const img = await urlToImage(photo.s3_url);
-      const dataUrl = imageToDataUrl(img, 'image/jpeg');
+      const src = await loadSourceFromUrl(photo.s3_url, photo.file_name)
+        .catch(async () => ({ img: await urlToImage(photo.s3_url), bytes: null, name: photo.file_name }));
+      srcRef.current = src;
+      maskHistoryRef.current = [null];
+      const dataUrl = imageToDataUrl(src.img, 'image/jpeg');
       originalDataUrlRef.current = dataUrl;
       historyRef.current = [dataUrl];
       setHistoryLen(1);
@@ -74,6 +86,19 @@ export const useLogoApi = (s: CanvasState) => {
     }
   }, [loadImageIntoCanvas, toast, setShowPicker, setStage, setLoading, setLoadingText, setHistoryLen, originalDataUrlRef, historyRef]);
 
+  /** Готовый файл: исходное разрешение, имя и EXIF оригинала. */
+  const buildExport = useCallback(async () => {
+    const canvas = imageCanvasRef.current;
+    if (!canvas) return null;
+    const src = srcRef.current;
+    if (!src) {
+      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.95));
+      return blob ? { blob, name: `photo-${Date.now()}.jpg`, width: canvas.width, height: canvas.height } : null;
+    }
+    const mask = maskHistoryRef.current[historyRef.current.length - 1] ?? null;
+    return exportFullRes(src, canvas, mask);
+  }, [imageCanvasRef, historyRef]);
+
   const handleSaveToFolder = useCallback(async (folder: { id: number; folder_name: string }) => {
     const userId = getAuthUserId();
     if (!userId) {
@@ -86,18 +111,18 @@ export const useLogoApi = (s: CanvasState) => {
       setSaving(true);
       setLoading(true);
       setLoadingText('Сохраняем в фотобанк...');
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      const fileName = `logo-removed-${Date.now()}.jpg`;
+      const exp = await buildExport();
+      if (!exp) throw new Error('нет изображения');
       const res = await fetch(PHOTOBANK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({
           action: 'upload_direct',
           folder_id: folder.id,
-          file_name: fileName,
-          file_data: dataUrl,
-          width: canvas.width,
-          height: canvas.height,
+          file_name: exp.name,
+          file_data: await blobToDataUrl(exp.blob),
+          width: exp.width,
+          height: exp.height,
         }),
       });
       const data = await res.json();
@@ -111,7 +136,7 @@ export const useLogoApi = (s: CanvasState) => {
       setSaving(false);
       setLoading(false);
     }
-  }, [toast, imageCanvasRef, setSaving, setLoading, setLoadingText, setShowSaver]);
+  }, [toast, imageCanvasRef, buildExport, setSaving, setLoading, setLoadingText, setShowSaver]);
 
   /** Цена стирания одна на все фото — забираем её один раз при открытии редактора. */
   useEffect(() => {
@@ -228,6 +253,12 @@ export const useLogoApi = (s: CanvasState) => {
     if (!data?.image) throw new Error('Превышено время ожидания');
 
     const resultDataUrl = `data:image/jpeg;base64,${data.image}`;
+    const prevMask = maskHistoryRef.current[historyRef.current.length - 1] ?? null;
+    const cur = imageCanvasRef.current;
+    maskHistoryRef.current = maskHistoryRef.current.slice(0, historyRef.current.length);
+    maskHistoryRef.current.push(
+      await mergeMask(prevMask, maskB64, cur?.width || maskCanvasRef.current!.width, cur?.height || maskCanvasRef.current!.height),
+    );
     addToHistory({ tool: 'logo-remover', image: resultDataUrl });
     historyRef.current.push(resultDataUrl);
     setHistoryLen(historyRef.current.length);
@@ -284,23 +315,25 @@ export const useLogoApi = (s: CanvasState) => {
   const undo = useCallback(async () => {
     if (historyRef.current.length < 2) return;
     historyRef.current.pop();
+    maskHistoryRef.current = maskHistoryRef.current.slice(0, historyRef.current.length);
     setHistoryLen(historyRef.current.length);
     const prev = historyRef.current[historyRef.current.length - 1];
     await loadImageIntoCanvas(prev);
     toast({ title: 'Отменено' });
   }, [loadImageIntoCanvas, toast, setHistoryLen, historyRef]);
 
-  const download = useCallback(() => {
-    const canvas = imageCanvasRef.current;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `logo-removed-${Date.now()}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }, [imageCanvasRef]);
+  const download = useCallback(async () => {
+    try {
+      setLoading(true);
+      setLoadingText('Готовим файл в исходном разрешении...');
+      const exp = await buildExport();
+      if (exp) downloadBlob(exp.blob, exp.name);
+    } catch (e) {
+      toast({ title: 'Не удалось скачать', description: String((e as Error)?.message || e), variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [buildExport, toast, setLoading, setLoadingText]);
 
   return {
     handleFile,

@@ -11,6 +11,10 @@ import {
 } from '@/components/tools/logoRemover/utils';
 import { CanvasState } from '@/components/tools/logoRemover/useCanvasState';
 import { buildInpaintMask } from '@/components/tools/logoRemover/maskAnalysis';
+import {
+  SourceImage, loadSourceFromFile, loadSourceFromUrl, exportFullRes,
+  diffMask, blobToDataUrl, downloadBlob,
+} from '@/components/tools/objectRemover/fullRes';
 
 export const FACE_SWAP_URL = 'https://functions.poehali.dev/ebf5f521-be34-42d2-a0f8-1424c0b4b494';
 
@@ -21,9 +25,11 @@ const useLoader = (s: CanvasState) => {
   const { toast } = useToast();
   const { setStage, setLoading, setLoadingText, setHistoryLen, setShowPicker,
     originalDataUrlRef, historyRef, loadImageIntoCanvas } = s;
+  const srcRef = useRef<SourceImage | null>(null);
 
-  const startWith = useCallback(async (img: HTMLImageElement) => {
-    const dataUrl = imageToDataUrl(img, 'image/jpeg');
+  const startWith = useCallback(async (src: SourceImage) => {
+    srcRef.current = src;
+    const dataUrl = imageToDataUrl(src.img, 'image/jpeg');
     originalDataUrlRef.current = dataUrl;
     historyRef.current = [dataUrl];
     setHistoryLen(1);
@@ -36,7 +42,9 @@ const useLoader = (s: CanvasState) => {
     try {
       setLoading(true);
       setLoadingText('Загружаем фото...');
-      await startWith(await fileToImage(file));
+      await startWith(
+        await loadSourceFromFile(file).catch(async () => ({ img: await fileToImage(file), bytes: null, name: file.name })),
+      );
     } catch (e) {
       console.error(e);
       toast({ title: 'Не удалось загрузить фото', variant: 'destructive' });
@@ -51,7 +59,10 @@ const useLoader = (s: CanvasState) => {
       setStage('edit');
       setLoading(true);
       setLoadingText('Загружаем фото из фотобанка...');
-      await startWith(await urlToImage(photo.s3_url));
+      await startWith(
+        await loadSourceFromUrl(photo.s3_url, photo.file_name)
+          .catch(async () => ({ img: await urlToImage(photo.s3_url), bytes: null, name: photo.file_name })),
+      );
     } catch (e) {
       console.error(e);
       toast({ title: 'Не удалось загрузить фото', description: 'Попробуйте скачать фото и загрузить файлом.', variant: 'destructive' });
@@ -61,7 +72,7 @@ const useLoader = (s: CanvasState) => {
     }
   }, [startWith, toast, setShowPicker, setStage, setLoading, setLoadingText]);
 
-  return { handleFile, handlePickFromBank };
+  return { handleFile, handlePickFromBank, srcRef };
 };
 
 export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: boolean) => {
@@ -200,16 +211,33 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
     toast({ title: 'Отменено' });
   }, [target, toast]);
 
-  const download = useCallback(() => {
+  /** Готовый файл: исходное разрешение, имя и EXIF фото, на котором меняли лицо. */
+  const buildExport = useCallback(async () => {
     const canvas = target.imageCanvasRef.current;
-    if (!canvas) return;
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/jpeg', 0.95);
-    a.download = `face-swap-${Date.now()}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }, [target.imageCanvasRef]);
+    if (!canvas) return null;
+    const src = targetLoader.srcRef.current;
+    if (!src) {
+      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.95));
+      return blob ? { blob, name: `face-swap-${Date.now()}.jpg`, width: canvas.width, height: canvas.height } : null;
+    }
+    // Модель перерисовывает кадр целиком — берём из результата только заметно изменённое (лицо/волосы)
+    const changed = target.historyRef.current.length > 1 ? diffMask(src.img, canvas, 10) : null;
+    return exportFullRes(src, canvas, changed);
+  }, [target.imageCanvasRef, target.historyRef, targetLoader.srcRef]);
+
+  const download = useCallback(async () => {
+    const { setLoading, setLoadingText } = target;
+    try {
+      setLoading(true);
+      setLoadingText('Готовим файл в исходном разрешении...');
+      const exp = await buildExport();
+      if (exp) downloadBlob(exp.blob, exp.name);
+    } catch (e) {
+      toast({ title: 'Не удалось скачать', description: String((e as Error)?.message || e), variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [buildExport, target, toast]);
 
   const handleSaveToFolder = useCallback(async (folder: { id: number; folder_name: string }) => {
     const userId = getAuthUserId();
@@ -223,16 +251,18 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       setSaving(true);
       setLoading(true);
       setLoadingText('Сохраняем в фотобанк...');
+      const exp = await buildExport();
+      if (!exp) throw new Error('нет изображения');
       const res = await fetch(PHOTOBANK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({
           action: 'upload_direct',
           folder_id: folder.id,
-          file_name: `face-swap-${Date.now()}.jpg`,
-          file_data: canvas.toDataURL('image/jpeg', 0.92),
-          width: canvas.width,
-          height: canvas.height,
+          file_name: exp.name,
+          file_data: await blobToDataUrl(exp.blob),
+          width: exp.width,
+          height: exp.height,
         }),
       });
       const data = await res.json();
@@ -245,7 +275,7 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       setSaving(false);
       setLoading(false);
     }
-  }, [target, toast]);
+  }, [target, toast, buildExport]);
 
   const resetAll = useCallback(() => {
     donor.resetAll();

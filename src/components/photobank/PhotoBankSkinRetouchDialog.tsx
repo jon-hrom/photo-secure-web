@@ -15,13 +15,15 @@ import {
   EyeSharpenKey,
   SKIN_RETOUCH_URL,
   imageToDataUrl,
-  urlToImage,
 } from '@/components/tools/skinRetouch/utils';
 import {
   NotEnoughEnergyError,
   friendlyRetouchError,
   runSkinRetouch,
 } from '@/components/tools/skinRetouch/runSkinRetouch';
+import {
+  SourceImage, loadSourceFromUrl, exportFullRes, dataUrlToCanvas, blobToDataUrl,
+} from '@/components/tools/objectRemover/fullRes';
 
 const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
 /** Конвертер RAW → JPEG (превью 2400px, для ретуши его более чем достаточно — модель работает с 1600px). */
@@ -270,36 +272,42 @@ const PhotoBankSkinRetouchDialog = ({
     return data.folder.id;
   }, [folderId, userId]);
 
+  /** Сохраняет результат в исходном разрешении, с именем и EXIF оригинала. */
   const saveResult = useCallback(
-    async (photo: Photo, imageB64: string) => {
+    async (src: SourceImage, imageB64: string) => {
       const targetId = await ensureRetouchFolder();
-      const dataUrl = `data:image/jpeg;base64,${imageB64}`;
-      const img = await urlToImage(dataUrl);
-      const base = (photo.file_name || 'photo').replace(/\.[^.]+$/, '');
+      const edited = await dataUrlToCanvas(`data:image/jpeg;base64,${imageB64}`);
+      const exp = await exportFullRes(src, edited, 'auto');
       const res = await fetch(PHOTOBANK_FOLDERS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
         body: JSON.stringify({
           action: 'upload_direct',
           folder_id: targetId,
-          file_name: `${base}-retouch-${preset}.jpg`,
-          file_data: dataUrl,
-          width: img.naturalWidth,
-          height: img.naturalHeight,
+          file_name: exp.name,
+          file_data: await blobToDataUrl(exp.blob),
+          width: exp.width,
+          height: exp.height,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Сохранение: HTTP ${res.status}`);
     },
-    [ensureRetouchFolder, preset, userId],
+    [ensureRetouchFolder, userId],
   );
 
   const processPhoto = useCallback(
     async (photo: Photo, onStatus: (t: string) => void) => {
       const srcUrl = await getSourceUrl(photo, onStatus);
       onStatus('Загружаем фото...');
-      const img = await urlToImage(srcUrl);
-      const sourceDataUrl = imageToDataUrl(img);
+      // У RAW берём сконвертированный JPEG, но имя оставляем исходное (с расширением .jpg)
+      const baseName = isRaw(photo)
+        ? `${(photo.file_name || 'photo').replace(/\.[^.]+$/, '')}.jpg`
+        : photo.file_name;
+      const src = await loadSourceFromUrl(srcUrl, baseName);
+      // EXIF у превью RAW не тот — не переносим
+      if (isRaw(photo)) src.bytes = null;
+      const sourceDataUrl = imageToDataUrl(src.img);
       const result = await runSkinRetouch({
         userId,
         sourceDataUrl,
@@ -315,7 +323,7 @@ const PhotoBankSkinRetouchDialog = ({
         result.image = warped.split(',')[1] || result.image;
       }
       onStatus('Сохраняем в папку...');
-      await saveResult(photo, result.image);
+      await saveResult(src, result.image);
       return { sourceDataUrl, result };
     },
     [eyeSharpen, removeChin, plastic, getSourceUrl, preset, saveResult, userId],
