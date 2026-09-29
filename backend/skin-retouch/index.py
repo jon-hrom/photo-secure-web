@@ -11,6 +11,7 @@ from typing import Dict, Any
 
 import models
 import energy
+import slim
 
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
@@ -91,6 +92,7 @@ def _handle_estimate():
         "label": models.LABEL,
         "hint": models.HINT,
         "presets": [{"key": k, "label": v["label"]} for k, v in PRESETS.items()],
+        "slim_price": slim.PRICE,
     })
 
 
@@ -384,6 +386,96 @@ def _handle_bench(payload: dict, user_id):
                            "candidates": {k: v["cost_rub"] for k, v in models.CANDIDATES.items()}})
 
 
+def _slim_payload(payload: dict):
+    image_b64 = payload.get("image")
+    mask_b64 = payload.get("mask")
+    if not image_b64 or not mask_b64:
+        return None, None, _response(400, {"error": "image and mask (base64) are required"})
+    try:
+        if len(base64.b64decode(image_b64)) > MAX_IMAGE_BYTES:
+            return None, None, _response(413, {"error": "image too large"})
+        base64.b64decode(mask_b64)
+    except Exception:
+        return None, None, _response(400, {"error": "invalid base64"})
+    return image_b64, mask_b64, None
+
+
+def _handle_slim_start(payload: dict, user_id):
+    """Генеративное похудение по маске кисти: списывает энергию и ставит задачу."""
+    image_b64, mask_b64, err = _slim_payload(payload)
+    if err:
+        return err
+    if not user_id:
+        return _response(401, {"error": "X-User-Id required"})
+    try:
+        img, m = slim._load(image_b64, mask_b64)
+        slim.crop_box(img.size, m)
+    except ValueError as e:
+        return _response(400, {"error": str(e)})
+    except Exception as e:
+        return _response(400, {"error": f"не удалось прочитать фото: {str(e)[:200]}"})
+
+    ok, balance, e = energy.spend(user_id, slim.PRICE, "Пластика по маске — AI")
+    if not ok:
+        if e == "insufficient_energy":
+            return _response(402, {"error": "Недостаточно энергии", "needed": slim.PRICE, "energy_balance": balance})
+        return _response(500, {"error": e or "energy error"})
+    try:
+        task_id, model = slim.start(image_b64, mask_b64)
+    except Exception as ex:
+        energy.refund(user_id, slim.PRICE, "Возврат: не удалось запустить пластику по маске")
+        return _response(502, {"error": str(ex)[:300], "refunded": slim.PRICE})
+    print(f"[SLIM] started {model} task={task_id}")
+    return _response(200, {"task_id": task_id, "model": model, "charged": slim.PRICE, "energy_balance": balance})
+
+
+def _handle_slim_status(payload: dict, user_id):
+    """Опрос задачи; при провале — следующая модель без доплаты или возврат энергии."""
+    task_id = payload.get("task_id")
+    if not task_id:
+        return _response(400, {"error": "task_id is required"})
+    try:
+        st = slim.poll(task_id)
+    except Exception as e:
+        return _response(502, {"error": str(e)[:300]})
+    if st["status"] in ("queued", "running", "processing", "pending"):
+        return _response(200, {"status": "processing"})
+    if st["status"] == "failed":
+        nxt = slim.next_model(payload.get("model") or "")
+        image_b64, mask_b64, err = _slim_payload(payload)
+        if nxt and not err:
+            try:
+                new_id, new_model = slim.start(image_b64, mask_b64, nxt)
+                return _response(200, {"status": "processing", "task_id": new_id, "model": new_model})
+            except Exception as e:
+                print(f"[SLIM] fallback failed: {e}")
+        if user_id:
+            energy.refund_once(user_id, slim.PRICE, f"Возврат: пластика по маске не удалась ({task_id})")
+        return _response(200, {"status": "failed", "error": st["error"] or "модель не справилась", "refunded": slim.PRICE})
+    return _response(200, {"status": "ready", "url": st["url"]})
+
+
+def _handle_slim_compose(payload: dict, user_id):
+    """Скачивает результат модели и вклеивает зону в фото по маске."""
+    image_b64, mask_b64, err = _slim_payload(payload)
+    if err:
+        return err
+    url = payload.get("url")
+    if not url:
+        return _response(400, {"error": "url is required"})
+    try:
+        out = slim.compose(image_b64, mask_b64, url)
+    except Exception as e:
+        print(f"[SLIM] compose failed: {e}")
+        if user_id:
+            energy.refund_once(user_id, slim.PRICE, f"Возврат: ошибка сборки пластики ({payload.get('task_id') or url[-40:]})")
+        return _response(200, {"status": "failed", "error": str(e)[:300], "refunded": slim.PRICE})
+    body = {"status": "done", "image": out, "charged": slim.PRICE}
+    if user_id:
+        body["energy_balance"] = energy.get_balance(user_id)
+    return _response(200, body)
+
+
 def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
     """Ретушь кожи через AI с защитой внешности композитом по маске."""
     method = event.get("httpMethod", "POST")
@@ -420,6 +512,12 @@ def handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         return _handle_regions(payload)
     if action == "chin_regions":
         return _handle_chin_regions(payload)
+    if action == "slim_start":
+        return _handle_slim_start(payload, user_id)
+    if action == "slim_status":
+        return _handle_slim_status(payload, user_id)
+    if action == "slim_compose":
+        return _handle_slim_compose(payload, user_id)
     if action == "balance":
         return _handle_balance(user_id)
     if action == "catalog":

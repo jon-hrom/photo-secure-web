@@ -12,6 +12,8 @@ interface Props {
   mask: SlimMaskState;
   disabled?: boolean;
   busy?: boolean;
+  /** Цена генеративной пластики по маске */
+  aiNote?: number | null;
 }
 
 const BRUSH_KEY = 'retouch_slim_brush';
@@ -21,7 +23,7 @@ const BRUSH_KEY = 'retouch_slim_brush';
  * закрашенное место сжимается к своей середине. Как «Удалить объект»,
  * только вместо удаления — пластика.
  */
-const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy }: Props) => {
+const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy, aiNote }: Props) => {
   const boxRef = useRef<HTMLDivElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef<{ erase: boolean; last: { x: number; y: number } | null } | null>(null);
@@ -137,7 +139,7 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy }: Props) 
             onClick={() => setView('result')}
             className={`px-2.5 py-1 flex items-center gap-1 border-l border-border ${view === 'result' ? 'bg-primary/15 text-primary' : 'hover:bg-muted'}`}
           >
-            <Icon name="Eye" size={12} /> Результат
+            <Icon name="Eye" size={12} /> Ползунки
           </button>
         </div>
       </div>
@@ -164,7 +166,7 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy }: Props) 
           onPointerCancel={onUp}
         />
         <BrushCursor containerRef={boxRef} diameter={brush} enabled={brushMode} />
-        {busy && (
+        {busy && view === 'result' && (
           <span className="absolute top-2 right-2 text-[11px] text-white bg-black/60 px-2 py-0.5 rounded flex items-center gap-1">
             <Icon name="Loader2" size={12} className="animate-spin" /> применяем...
           </span>
@@ -185,11 +187,13 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy }: Props) 
           <Slider value={[brush]} min={8} max={160} step={2} onValueChange={([v]) => setBrush(v)} disabled={disabled} />
         </div>
         <div>
-          <div className="flex items-center justify-between text-[11px] mb-1">
-            <span className="font-medium">Сила похудения</span>
-            <span className="tabular-nums text-muted-foreground">{mask.amount}</span>
-          </div>
-          <Slider value={[mask.amount]} min={5} max={100} step={5} onValueChange={([v]) => mask.setAmount(v)} disabled={disabled} />
+          <p className="text-[11px] font-medium mb-1 flex items-center gap-1">
+            <Icon name="Sparkles" size={12} className="text-primary" /> Делает генеративная модель
+          </p>
+          <p className="text-[10px] text-muted-foreground leading-snug">
+            Уберёт объём и складки в закрашенной зоне, сохранит ткань и кружево.
+            {aiNote ? ` +${aiNote} ⚡ к ретуши, если маска нарисована.` : ''}
+          </p>
         </div>
       </div>
 
@@ -229,8 +233,9 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy }: Props) 
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        Закрашивайте складку или участок целиком, чуть заходя за контур тела. Длинный мазок вдоль руки или бока
-        сужает его поперёк, круглое пятно стягивается к центру. ПКМ или Ctrl — ластик. Бесплатно, считается в браузере.
+        Закрашивайте руку, складку или бок целиком, чуть заходя за контур тела — модели нужен запас, чтобы
+        провести новый ровный контур. ПКМ или Ctrl — ластик. Результат появится после кнопки «Ретушь».
+        Вкладка «Ползунки» показывает только действие ползунков пластики.
       </p>
     </div>
   );

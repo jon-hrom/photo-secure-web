@@ -111,6 +111,22 @@
         "ping": 1
       },
       "expectedStatus": 400
+    },
+    {
+      "name": "Slim start without mask",
+      "method": "POST",
+      "path": "/?action=slim_start",
+      "body": {
+        "image": "aGVsbG8="
+      },
+      "expectedStatus": 400
+    },
+    {
+      "name": "Slim status without task",
+      "method": "POST",
+      "path": "/?action=slim_status",
+      "body": {},
+      "expectedStatus": 400
     }
   ]
 }

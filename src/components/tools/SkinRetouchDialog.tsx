@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
@@ -20,9 +20,12 @@ interface SkinRetouchDialogProps {
 }
 
 const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
-  const s = useRetouchApi(open);
-  const { params: plastic, setParams: setPlastic } = usePlasticParams();
   const mask = useSlimMask();
+  // Маска кисти уходит в генеративную модель вместе с ретушью
+  const maskRef = useRef(mask);
+  maskRef.current = mask;
+  const s = useRetouchApi(open, () => (maskRef.current.hasPaint ? maskRef.current.canvas : null));
+  const { params: plastic, setParams: setPlastic } = usePlasticParams();
   const [setupPreview, setSetupPreview] = useState('');
 
   // Маска рисуется в разрешении загруженного фото — сбрасываем её на новом фото.
@@ -42,8 +45,8 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
     liveBase,
     plastic,
     (url) => (s.stage === 'result' ? s.setResultUrl(url) : setSetupPreview(url)),
-    mask.slim,
-    mask.version,
+    null,
+    0,
   );
   const liveBusy = live.status === 'applying' || live.status === 'detecting';
 
@@ -77,6 +80,7 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               mask={mask}
               disabled={s.loading}
               busy={liveBusy}
+              aiNote={s.slimPrice}
             />
 
             <PlasticPanel
@@ -124,7 +128,7 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
                 Ретушь
                 {s.price !== null && (
                   <span className="inline-flex items-center gap-0.5 text-xs opacity-90">
-                    · {s.price}
+                    · {s.price + (mask.hasPaint ? s.slimPrice ?? 0 : 0)}
                     <Icon name="Zap" size={12} className="fill-current" />
                   </span>
                 )}
@@ -173,13 +177,11 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               found={live.found}
             />
 
-            <SlimBrushEditor
-              imageUrl={s.baseResultUrl}
-              previewUrl={s.resultUrl}
-              mask={mask}
-              disabled={s.loading}
-              busy={liveBusy}
-            />
+            {mask.hasPaint && (
+              <p className="text-[11px] text-muted-foreground px-1">
+                Пластика по маске уже сделана AI. Чтобы изменить маску — «К настройкам» и снова «Ретушь».
+              </p>
+            )}
 
             <div className="rounded-lg border border-border p-3">
               <p className="text-[11px] text-muted-foreground mb-2">

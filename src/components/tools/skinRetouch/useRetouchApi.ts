@@ -18,8 +18,9 @@ import {
   SourceImage, loadSourceFromFile, loadSourceFromUrl, exportFullRes,
   dataUrlToCanvas, blobToDataUrl, downloadBlob,
 } from '@/components/tools/objectRemover/fullRes';
+import { runSlim, maskToB64 } from '@/components/tools/skinRetouch/runSlim';
 
-export const useRetouchApi = (open: boolean) => {
+export const useRetouchApi = (open: boolean, getSlimMask?: () => HTMLCanvasElement | null) => {
   const { toast } = useToast();
 
   const [stage, setStage] = useState<RetouchStage>('upload');
@@ -45,6 +46,9 @@ export const useRetouchApi = (open: boolean) => {
     localStorage.setItem('retouch_remove_chin', v ? '1' : '0');
   }, []);
   const [price, setPrice] = useState<number | null>(null);
+  const [slimPrice, setSlimPrice] = useState<number | null>(null);
+  const getSlimMaskRef = useRef(getSlimMask);
+  getSlimMaskRef.current = getSlimMask;
   const [compare, setCompare] = useState(50);
   const [showPicker, setShowPicker] = useState(false);
   const [showSaver, setShowSaver] = useState(false);
@@ -87,7 +91,10 @@ export const useRetouchApi = (open: boolean) => {
           body: JSON.stringify({}),
         });
         const data = await res.json();
-        if (res.ok) setPrice(data.price ?? null);
+        if (res.ok) {
+          setPrice(data.price ?? null);
+          setSlimPrice(data.slim_price ?? null);
+        }
       } catch (e) {
         console.error('estimate failed', e);
       }
@@ -272,7 +279,31 @@ export const useRetouchApi = (open: boolean) => {
       }
       if (!data?.image) throw new Error('Не удалось собрать результат');
 
-      const retouchedUrl = `data:image/jpeg;base64,${data.image}`;
+      let retouchedUrl = `data:image/jpeg;base64,${data.image}`;
+      let slimNote = '';
+      // Кисть «Похудеть»: зону по маске перерисовывает генеративная модель
+      const slimMask = getSlimMaskRef.current?.();
+      if (slimMask) {
+        try {
+          const img = await urlToImage(retouchedUrl);
+          const slimRes = await runSlim({
+            userId,
+            imageB64: data.image as string,
+            maskB64: maskToB64(slimMask, img.naturalWidth, img.naturalHeight),
+            onStatus: setLoadingText,
+          });
+          retouchedUrl = `data:image/jpeg;base64,${slimRes.image}`;
+          slimNote = ` Пластика по маске: ${slimRes.charged} ⚡.`;
+          data.energy_balance = slimRes.energy_balance ?? data.energy_balance;
+        } catch (slimErr) {
+          console.error(slimErr);
+          toast({
+            title: 'Пластика по маске не удалась',
+            description: `${String((slimErr as Error)?.message || slimErr)}. Показана ретушь кожи без неё.`,
+            variant: 'destructive',
+          });
+        }
+      }
       addToHistory({ tool: 'skin-retouch', image: retouchedUrl });
       setBaseResultUrl(retouchedUrl);
       setResultUrl(retouchedUrl);
@@ -280,7 +311,7 @@ export const useRetouchApi = (open: boolean) => {
       setCompare(50);
       toast({
         title: 'Готово',
-        description: `Кожа выровнена. Списано ${data.charged} ⚡, осталось ${data.energy_balance ?? '—'} ⚡.`,
+        description: `Кожа выровнена. Списано ${data.charged} ⚡.${slimNote} Осталось ${data.energy_balance ?? '—'} ⚡.`,
       });
     } catch (e) {
       console.error(e);
@@ -438,6 +469,7 @@ export const useRetouchApi = (open: boolean) => {
     removeChin,
     setRemoveChin,
     price,
+    slimPrice,
     compare,
     setCompare,
     showPicker,
