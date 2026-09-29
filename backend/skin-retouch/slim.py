@@ -32,16 +32,31 @@ CROP_PAD = 0.35
 # Лимит провайдера — 800 символов. IMAGE 1 — что правим, IMAGE 2 — где.
 # Зона уже сужена деформацией на фронте, модель доводит её до естественного вида:
 # одной подсказки «сделай тоньше» Nano Banana не слушается и возвращает то же фото.
-PROMPT = (
-    "Photo retouch. IMAGE 2 marks the edit area in magenta; edit IMAGE 1 only there. "
-    "Subtle professional body retouch: straighten and smooth the outline of the arm, "
-    "back or waist, remove bulges, dents and fat rolls where the dress presses in, so the "
-    "contour becomes a clean smooth line. Change the shape only slightly, keep natural "
-    "proportions, never make it wider or much thinner. No double edges, no ghost contours, "
-    "no blur: keep the lace pattern, seams and fabric sharp and identical in detail. "
-    "Do NOT change colors, white balance or brightness. Everything outside the magenta "
-    "area stays pixel-identical. Same framing and size, photorealistic, no magenta, no text."
-)
+def _slim_words(amount: int) -> str:
+    """Процент ползунка → словесная степень: модель плохо понимает числа."""
+    if amount <= 0:
+        return "Keep the same thickness, only make the outline straight and smooth."
+    if amount <= 15:
+        return f"Make it slightly slimmer (about {amount}% narrower)."
+    if amount <= 40:
+        return f"Make it noticeably slimmer (about {amount}% narrower)."
+    return f"Make it clearly slimmer (about {min(amount, 60)}% narrower), still natural."
+
+
+def slim_prompt(amount: int) -> str:
+    # Лимит провайдера — 800 символов. Маска — отдельная ч/б картинка, а не
+    # пурпурная заливка поверх фото: заливка протекала в результат розовым.
+    return (
+        "Professional body retouch. IMAGE 2 is a black/white mask: edit IMAGE 1 only "
+        "inside the WHITE area. Redraw the arm (or waist/back) there as a slimmer, "
+        "toned body part with a clean smooth outline: no bulges, dents or fat rolls. "
+        + _slim_words(amount) + " "
+        "Redraw the sleeve fabric on the new shape with the SAME lace pattern, "
+        "sharp detail and exactly the same pure white color. Fill freed space with "
+        "the matching background. Do NOT add pink, red or warm tint, do NOT change "
+        "brightness or white balance. Outside the white area keep IMAGE 1 identical. "
+        "Same framing, photorealistic, no text."
+    )
 
 
 # Режим «Разгладить»: зона маски полностью закрыта пурпуром, модель не видит
@@ -124,7 +139,8 @@ def build_inputs(image_b64: str, mask_b64: str, mode: str = "slim"):
         marked = Image.composite(marker, crop, hole)
         crop = marked
     else:
-        marked = Image.composite(Image.blend(crop, marker, 0.55), crop, mcrop)
+        # Отдельная ч/б маска: модель видит руку без цветной подсветки
+        marked = mcrop.filter(ImageFilter.MaxFilter(9)).convert("RGB")
     if max(crop.size) > CROP_MAX_SIDE:
         k = CROP_MAX_SIDE / max(crop.size)
         sz = (round(crop.width * k), round(crop.height * k))
@@ -134,12 +150,12 @@ def build_inputs(image_b64: str, mask_b64: str, mode: str = "slim"):
 
 
 # ---------- провайдер ----------
-def start(image_b64: str, mask_b64: str, model: str = None, mode: str = "slim"):
+def start(image_b64: str, mask_b64: str, model: str = None, mode: str = "slim", amount: int = 0):
     """Запускает модель; при ошибке старта пробует следующую по цепочке."""
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
     crop_b64, marked_b64 = build_inputs(image_b64, mask_b64, mode)
-    prompt = PROMPT_REDRAW if mode == "redraw" else PROMPT
+    prompt = PROMPT_REDRAW if mode == "redraw" else slim_prompt(amount)
     # В режиме redraw достаточно одной картинки с дыркой — вторая с оригиналом
     # подсказала бы модели ту самую складку
     images = [crop_b64] if mode == "redraw" else [crop_b64, marked_b64]
@@ -241,6 +257,28 @@ def compose(image_b64: str, mask_b64: str, result_url: str) -> str:
             off = float(oo.mean() - go.mean() * gain)
             g_full[..., c] = g_full[..., c] * gain + off
         g_full = np.clip(g_full, 0, 255)
+        g = np.asarray(
+            Image.fromarray(g_full.astype(np.uint8), "RGB").resize((sw, sh), Image.BILINEAR),
+            dtype=np.float32)
+
+    # Внутри маски модель любит «подогреть» белое кружево в розовый.
+    # Сравниваем средний оттенок зоны с оригиналом той же зоны и снимаем
+    # лишний сдвиг по каналам (яркость не трогаем — форма зоны могла измениться).
+    inside = a > 0.5
+    if inside.sum() > 100:
+        go = g[inside].mean(axis=0)
+        oo = o[inside].mean(axis=0)
+        shift = (go - go.mean()) - (oo - oo.mean())  # разница оттенка, без яркости
+        shift = np.clip(shift, -25, 25)
+        g_full = np.clip(g_full - shift.reshape(1, 1, 3), 0, 255)
+        # Светлые пиксели (белая ткань) дополнительно приводим к нейтрали оригинала
+        lum = g_full.mean(axis=2, keepdims=True)
+        o_light = o[inside & (o.mean(axis=2) > 200)]
+        if len(o_light) > 50:
+            tint = o_light.mean(axis=0) - o_light.mean()
+            w = np.clip((lum - 190) / 40, 0, 1)
+            neutral = lum + tint.reshape(1, 1, 3)
+            g_full = np.clip(g_full * (1 - w * 0.7) + neutral * (w * 0.7), 0, 255)
     gen = Image.fromarray(g_full.astype(np.uint8), "RGB")
 
     merged = Image.composite(gen, orig, soft)

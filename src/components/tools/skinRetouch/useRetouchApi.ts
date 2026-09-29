@@ -19,7 +19,6 @@ import {
   dataUrlToCanvas, blobToDataUrl, downloadBlob,
 } from '@/components/tools/objectRemover/fullRes';
 import { runSlim, maskToB64 } from '@/components/tools/skinRetouch/runSlim';
-import { applyPlastic, PLASTIC_ZERO } from '@/components/tools/skinRetouch/plastic/warp';
 
 export const useRetouchApi = (
   open: boolean,
@@ -128,17 +127,14 @@ export const useRetouchApi = (
       try {
         const img = await urlToImage(out);
         const amount = getSlimAmountRef.current?.() ?? 0;
-        let srcB64 = dataUrlToBase64(out);
-        if (amount > 0) {
-          setLoadingText('Слегка сужаем объём по маске...');
-          const warped = applyPlastic(img, null, PLASTIC_ZERO, { canvas: slimMask, amount });
-          srcB64 = warped.toDataURL('image/jpeg', 0.95).split(',')[1] || '';
-        }
+        // Пиксели не растягиваем: при сужении кружево «плыло» и появлялись волны.
+        // Руку целиком перерисовывает генеративная модель, процент уходит в промпт.
         const res = await runSlim({
           userId,
-          imageB64: srcB64,
+          imageB64: dataUrlToBase64(out),
           maskB64: maskToB64(slimMask, img.naturalWidth, img.naturalHeight),
           onStatus: setLoadingText,
+          amount,
         });
         out = `data:image/jpeg;base64,${res.image}`;
         note += ` Похудеть: ${res.charged} ⚡.`;

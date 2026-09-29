@@ -17,13 +17,15 @@ interface SlimOptions {
   onStatus?: (t: string) => void;
   /** slim — сузить объём, redraw — перерисовать зону ровной тканью */
   mode?: 'slim' | 'redraw';
+  /** Степень сужения 0–100 — передаётся модели словами */
+  amount?: number;
 }
 
 /**
  * Генеративная пластика по маске на сервере:
  * slim_start → опрос slim_status → slim_compose. Возвращает JPEG base64.
  */
-export const runSlim = async ({ userId, imageB64, maskB64, onStatus, mode = 'slim' }: SlimOptions) => {
+export const runSlim = async ({ userId, imageB64, maskB64, onStatus, mode = 'slim', amount = 0 }: SlimOptions) => {
   const headers = { 'Content-Type': 'application/json', 'X-User-Id': String(userId) };
   const post = async (action: string, body: object) => {
     const r = await fetch(`${SKIN_RETOUCH_URL}?action=${action}`, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -31,8 +33,8 @@ export const runSlim = async ({ userId, imageB64, maskB64, onStatus, mode = 'sli
     return { r, d };
   };
 
-  onStatus?.(mode === 'redraw' ? 'AI перерисовывает складку ровной тканью...' : 'AI убирает объём и складки по маске...');
-  const { r, d: started } = await post('slim_start', { image: imageB64, mask: maskB64, mode });
+  onStatus?.(mode === 'redraw' ? 'AI перерисовывает складку ровной тканью...' : 'AI перерисовывает руку по маске...');
+  const { r, d: started } = await post('slim_start', { image: imageB64, mask: maskB64, mode, amount });
   if (r.status === 402) {
     throw new Error(`Не хватает энергии на пластику: нужно ${started?.needed ?? '?'} ⚡, на балансе ${started?.energy_balance ?? 0} ⚡`);
   }
@@ -46,7 +48,7 @@ export const runSlim = async ({ userId, imageB64, maskB64, onStatus, mode = 'sli
   while (Date.now() - t0 < 8 * 60 * 1000) {
     await new Promise((res) => setTimeout(res, 4000));
     try {
-      const { r: sr, d: sd } = await post('slim_status', { task_id: taskId, model, image: imageB64, mask: maskB64, mode });
+      const { r: sr, d: sd } = await post('slim_status', { task_id: taskId, model, image: imageB64, mask: maskB64, mode, amount });
       if (!sr.ok) throw new Error(sd?.error || `HTTP ${sr.status}`);
       fails = 0;
       if (sd.status === 'processing') {

@@ -225,8 +225,8 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, slimMask, redrawMask, disabled,
                 {slimMask.amount === 0 ? 'только выровнять' : `${slimMask.amount}%`}
               </span>
             </div>
-            <Slider value={[slimMask.amount]} min={0} max={100} step={5} onValueChange={([v]) => slimMask.setAmount(v)} disabled={disabled} />
-            <p className="text-[10px] text-muted-foreground mt-1">0 — AI только выпрямит выпирающие линии, форма не сжимается</p>
+            <Slider value={[slimMask.amount]} min={0} max={60} step={5} onValueChange={([v]) => slimMask.setAmount(v)} disabled={disabled} />
+            <p className="text-[10px] text-muted-foreground mt-1">Руку перерисовывает AI, кружево не растягивается. 0 — только выровнять линию</p>
           </div>
         ) : (
           <div>
