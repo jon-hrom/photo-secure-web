@@ -2,6 +2,7 @@ import { RefObject } from 'react';
 import { Slider } from '@/components/ui/slider';
 import Icon from '@/components/ui/icon';
 import { EditorTool } from '@/components/tools/logoRemover/useCanvasState';
+import BrushCursor from '@/components/tools/BrushCursor';
 
 interface EditorCanvasProps {
   tool: EditorTool;
@@ -73,7 +74,7 @@ const EditorCanvas = ({
             />
             <canvas
               ref={maskCanvasRef}
-              className={`absolute inset-0 w-full h-full touch-none ${tool === 'pan' ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'}`}
+              className={`absolute inset-0 w-full h-full touch-none ${tool === 'pan' ? 'cursor-grab active:cursor-grabbing' : 'cursor-none'}`}
               style={{ maxHeight: '60vh' }}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
@@ -130,6 +131,12 @@ const EditorCanvas = ({
             <Icon name="Maximize2" size={16} />
           </button>
         </div>
+
+        <BrushCursor
+          containerRef={viewportRef}
+          diameter={Math.max(8, brushSize * 2)}
+          enabled={tool === 'brush' && !loading}
+        />
 
         {zoom > 1.01 && (
           <div className="absolute bottom-2 left-2 text-[11px] text-white bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded">

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
+import BrushCursor from '@/components/tools/BrushCursor';
 
 export const AI_TOOLS = [
   {
@@ -69,6 +70,7 @@ const AIToolsPanel = ({
   maskCanvasRef,
   maskDrawing,
 }: AIToolsPanelProps) => {
+  const maskContainerRef = useRef<HTMLDivElement>(null);
   const initMaskCanvas = useCallback(() => {
     const canvas = maskCanvasRef.current;
     if (!canvas) return;
@@ -195,7 +197,7 @@ const AIToolsPanel = ({
                 />
                 <span className="text-[9px] font-mono text-muted-foreground w-6 text-right">{brushSize}</span>
               </div>
-              <div className="relative rounded overflow-hidden border border-border/60">
+              <div ref={maskContainerRef} className="relative rounded overflow-hidden border border-border/60">
                 <img
                   src={previewSrc}
                   alt="Preview"
@@ -212,12 +214,13 @@ const AIToolsPanel = ({
                 />
                 <canvas
                   ref={maskCanvasRef}
-                  className="absolute inset-0 w-full h-full opacity-40 cursor-crosshair"
+                  className="absolute inset-0 w-full h-full opacity-40 cursor-none"
                   onMouseDown={(e) => handleMaskDraw(e, true)}
                   onMouseMove={handleMaskDraw}
                   onMouseUp={() => { maskDrawing.current = false; }}
                   onMouseLeave={() => { maskDrawing.current = false; }}
                 />
+                <BrushCursor containerRef={maskContainerRef} diameter={brushSize * 2} />
               </div>
               <div className="text-[8px] text-muted-foreground text-center">
                 Белые области будут зачищены и заполнены AI
