@@ -60,11 +60,8 @@ const EditorCanvas = ({
     <>
       <div
         ref={viewportRef}
-        className="relative rounded-xl overflow-hidden border border-border touch-none select-none overscroll-contain"
+        className="relative rounded-xl overflow-hidden border border-border bg-white dark:bg-black touch-none select-none overscroll-contain"
         style={{
-          backgroundImage: 'linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%)',
-          backgroundSize: '20px 20px',
-          backgroundPosition: '0 0, 0 10px, 10px -10px, 10px 0',
           height: '60dvh',
           maxHeight: '60vh',
           WebkitUserSelect: 'none',
