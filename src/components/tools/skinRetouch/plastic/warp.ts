@@ -206,11 +206,173 @@ const waistWarp = (f: Field, pose: VisPt[], amount: number) => {
   });
 };
 
+// ---------------------------------------------------------------------------
+// Кисть похудения: пользователь закрашивает складку / участок руки,
+// закрашенная область «стягивается» к своей середине. Вытянутые мазки
+// (вдоль руки, бока) сжимаются только поперёк — длина не меняется.
+// ---------------------------------------------------------------------------
+export interface SlimMask {
+  /** Маска: закрашенные пиксели непрозрачны. Любой размер — масштабируется к фото. */
+  canvas: HTMLCanvasElement;
+  /** Сила 0..100 */
+  amount: number;
+}
+
+/** Двойной box-blur по сетке (in-place результат в новый массив). */
+const boxBlur = (src: Float32Array, w: number, h: number, r: number) => {
+  const tmp = new Float32Array(w * h);
+  const out = new Float32Array(w * h);
+  const pass = (a: Float32Array, b: Float32Array, horiz: boolean) => {
+    const n = horiz ? w : h;
+    const m = horiz ? h : w;
+    const inv = 1 / (2 * r + 1);
+    for (let j = 0; j < m; j++) {
+      const idx = (i: number) => (horiz ? j * w + i : i * w + j);
+      let acc = 0;
+      for (let i = -r; i <= r; i++) acc += a[idx(Math.min(n - 1, Math.max(0, i)))];
+      for (let i = 0; i < n; i++) {
+        b[idx(i)] = acc * inv;
+        acc += a[idx(Math.min(n - 1, i + r + 1))] - a[idx(Math.max(0, i - r))];
+      }
+    }
+  };
+  pass(src, tmp, true);
+  pass(tmp, out, false);
+  pass(out, tmp, true);
+  pass(tmp, out, false);
+  return out;
+};
+
+export const hasSlimMask = (m?: SlimMask | null) => !!m && m.amount > 0 && maskHasPaint(m.canvas);
+
+export const maskHasPaint = (c: HTMLCanvasElement) => {
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return false;
+  const d = ctx.getImageData(0, 0, c.width, c.height).data;
+  for (let i = 3; i < d.length; i += 16) if (d[i] > 20) return true;
+  return false;
+};
+
+const slimWarp = (f: Field, mask: SlimMask) => {
+  const { gw, gh, step } = f;
+  const mc = document.createElement('canvas');
+  mc.width = gw;
+  mc.height = gh;
+  const mctx = mc.getContext('2d', { willReadFrequently: true })!;
+  mctx.drawImage(mask.canvas, 0, 0, gw, gh);
+  const data = mctx.getImageData(0, 0, gw, gh).data;
+  const raw = new Float32Array(gw * gh);
+  for (let i = 0; i < raw.length; i++) raw[i] = data[i * 4 + 3] / 255;
+
+  // Связные области маски — каждая стягивается к своему центру.
+  const label = new Int32Array(gw * gh).fill(-1);
+  const comps: number[][] = [];
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] < 0.4 || label[i] !== -1) continue;
+    const id = comps.length;
+    const cells: number[] = [];
+    const stack = [i];
+    label[i] = id;
+    while (stack.length) {
+      const k = stack.pop()!;
+      cells.push(k);
+      const x = k % gw;
+      const y = (k / gw) | 0;
+      const nb = [x > 0 ? k - 1 : -1, x < gw - 1 ? k + 1 : -1, y > 0 ? k - gw : -1, y < gh - 1 ? k + gw : -1];
+      for (const q of nb) {
+        if (q >= 0 && label[q] === -1 && raw[q] >= 0.4) {
+          label[q] = id;
+          stack.push(q);
+        }
+      }
+    }
+    if (cells.length >= 4) comps.push(cells);
+    else cells.forEach((k) => (label[k] = -2));
+  }
+
+  const s = 0.32 * (mask.amount / 100);
+  for (const cells of comps) {
+    let mx = 0;
+    let my = 0;
+    for (const k of cells) {
+      mx += k % gw;
+      my += (k / gw) | 0;
+    }
+    mx /= cells.length;
+    my /= cells.length;
+    let sxx = 0;
+    let syy = 0;
+    let sxy = 0;
+    let x0 = gw;
+    let y0 = gh;
+    let x1 = 0;
+    let y1 = 0;
+    for (const k of cells) {
+      const x = k % gw;
+      const y = (k / gw) | 0;
+      sxx += (x - mx) ** 2;
+      syy += (y - my) ** 2;
+      sxy += (x - mx) * (y - my);
+      if (x < x0) x0 = x;
+      if (y < y0) y0 = y;
+      if (x > x1) x1 = x;
+      if (y > y1) y1 = y;
+    }
+    sxx /= cells.length;
+    syy /= cells.length;
+    sxy /= cells.length;
+    // Главные оси области (PCA 2×2).
+    const tr = sxx + syy;
+    const det = sxx * syy - sxy * sxy;
+    const disc = Math.sqrt(Math.max(0, (tr * tr) / 4 - det));
+    const l1 = tr / 2 + disc;
+    const l2 = Math.max(1e-6, tr / 2 - disc);
+    const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    const t = { x: Math.cos(ang), y: Math.sin(ang) }; // вдоль
+    const n = { x: -t.y, y: t.x }; // поперёк
+    // 1 — круглое пятно (стягиваем со всех сторон), 0 — длинный мазок (только поперёк).
+    const iso = Math.min(1, Math.max(0, (Math.sqrt(l2 / l1) - 0.25) / 0.6));
+
+    const r = Math.round(Math.min(40, Math.max(2, Math.sqrt(l2) * 0.6)));
+    const pad = r * 2 + 2;
+    const bx0 = Math.max(0, x0 - pad);
+    const by0 = Math.max(0, y0 - pad);
+    const bx1 = Math.min(gw - 1, x1 + pad);
+    const by1 = Math.min(gh - 1, y1 + pad);
+    const bw = bx1 - bx0 + 1;
+    const bh = by1 - by0 + 1;
+    const local = new Float32Array(bw * bh);
+    for (const k of cells) {
+      const x = (k % gw) - bx0;
+      const y = ((k / gw) | 0) - by0;
+      local[y * bw + x] = raw[k];
+    }
+    const w = boxBlur(local, bw, bh, r);
+    const cx = mx * step;
+    const cy = my * step;
+    for (let y = 0; y < bh; y++) {
+      for (let x = 0; x < bw; x++) {
+        const wv = w[y * bw + x];
+        if (wv < 0.01) continue;
+        const px = (x + bx0) * step - cx;
+        const py = (y + by0) * step - cy;
+        const a = (px * t.x + py * t.y) * iso;
+        const b = px * n.x + py * n.y;
+        const i = (y + by0) * gw + (x + bx0);
+        // Цвет берём дальше от центра → содержимое сжимается к середине.
+        f.dx[i] += (t.x * a + n.x * b) * s * wv;
+        f.dy[i] += (t.y * a + n.y * b) * s * wv;
+      }
+    }
+  }
+};
+
 /** Применяет пластику к картинке. Возвращает новый canvas. */
 export const applyPlastic = (
   src: HTMLImageElement | HTMLCanvasElement,
-  geo: BodyGeo,
+  geo: BodyGeo | null,
   params: PlasticParams,
+  slim?: SlimMask | null,
 ): HTMLCanvasElement => {
   const W = src instanceof HTMLImageElement ? src.naturalWidth : src.width;
   const H = src instanceof HTMLImageElement ? src.naturalHeight : src.height;
@@ -219,7 +381,9 @@ export const applyPlastic = (
   canvas.height = H;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   ctx.drawImage(src, 0, 0, W, H);
-  if (isPlasticZero(params)) return canvas;
+  const useSlim = hasSlimMask(slim);
+  if (isPlasticZero(params) && !useSlim) return canvas;
+  if (!geo) geo = { width: W, height: H, faces: [], poses: [] };
 
   // Точки найдены на исходнике — масштабируем, если размеры отличаются.
   const sx = W / geo.width;
@@ -235,6 +399,7 @@ export const applyPlastic = (
     if (params.arms) armsWarp(field, p, params.arms / 100);
     if (params.waist) waistWarp(field, p, params.waist / 100);
   });
+  if (useSlim) slimWarp(field, slim!);
 
   const srcData = ctx.getImageData(0, 0, W, H);
   const out = ctx.createImageData(W, H);

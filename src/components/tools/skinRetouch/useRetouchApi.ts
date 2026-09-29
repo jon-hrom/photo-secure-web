@@ -310,13 +310,13 @@ export const useRetouchApi = (open: boolean) => {
       sourceNameRef.current = file.name.replace(/\.[^.]+$/, '') || 'photo';
       setOriginalUrl(dataUrl);
       setLoading(false);
-      await runRetouch(dataUrl, preset);
+      setStage('setup');
     } catch (e) {
       console.error(e);
       setLoading(false);
       toast({ title: 'Не удалось загрузить фото', variant: 'destructive' });
     }
-  }, [preset, runRetouch, toast]);
+  }, [toast]);
 
   const handlePickFromBank = useCallback(async (photo: { s3_url: string; file_name: string }) => {
     setShowPicker(false);
@@ -330,7 +330,7 @@ export const useRetouchApi = (open: boolean) => {
       sourceNameRef.current = photo.file_name.replace(/\.[^.]+$/, '') || 'photo';
       setOriginalUrl(dataUrl);
       setLoading(false);
-      await runRetouch(dataUrl, preset);
+      setStage('setup');
     } catch (e) {
       console.error(e);
       setLoading(false);
@@ -340,7 +340,20 @@ export const useRetouchApi = (open: boolean) => {
         variant: 'destructive',
       });
     }
-  }, [preset, runRetouch, toast]);
+  }, [toast]);
+
+  /** Запуск ретуши по кнопке — после того как все настройки выставлены. */
+  const startRetouch = useCallback(async () => {
+    if (!originalUrl) return;
+    await runRetouch(originalUrl, preset);
+  }, [originalUrl, preset, runRetouch]);
+
+  /** Вернуться к настройкам без повторной загрузки фото. */
+  const backToSetup = useCallback(() => {
+    setStage('setup');
+    setResultUrl('');
+    setBaseResultUrl('');
+  }, []);
 
   /** Пересчитать с другой силой — платный прогон, поэтому спрашиваем явно. */
   const rerun = useCallback(async (presetKey: PresetKey) => {
@@ -441,6 +454,8 @@ export const useRetouchApi = (open: boolean) => {
     handlePickFromBank,
     handleSaveToFolder,
     rerun,
+    startRetouch,
+    backToSetup,
     download,
     reset,
   };

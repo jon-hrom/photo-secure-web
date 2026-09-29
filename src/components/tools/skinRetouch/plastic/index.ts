@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { detectBody, BodyGeo } from './detect';
-import { applyPlastic, isPlasticZero, PlasticParams, PLASTIC_ZERO } from './warp';
+import { applyPlastic, isPlasticZero, hasSlimMask, PlasticParams, PLASTIC_ZERO, SlimMask } from './warp';
 
-export type { PlasticParams } from './warp';
-export { PLASTIC_ZERO, isPlasticZero } from './warp';
+export type { PlasticParams, SlimMask } from './warp';
+export { PLASTIC_ZERO, isPlasticZero, hasSlimMask, maskHasPaint } from './warp';
 
 const STORAGE_KEY = 'retouch_plastic_v1';
 
@@ -77,19 +77,27 @@ export const localChinBoxes = async (dataUrl: string): Promise<number[][]> => {
 };
 
 /** Применяет пластику к картинке (data URL) и возвращает новый JPEG data URL. */
-export const plasticProcess = async (dataUrl: string, params: PlasticParams): Promise<string> => {
-  if (isPlasticZero(params)) return dataUrl;
+export const plasticProcess = async (dataUrl: string, params: PlasticParams, slim?: SlimMask | null): Promise<string> => {
+  const useSlim = hasSlimMask(slim);
+  if (isPlasticZero(params) && !useSlim) return dataUrl;
   const img = await loadImg(dataUrl);
-  const geo = await geoFor(dataUrl, img);
-  if (!geo.faces.length && !geo.poses.length) return dataUrl;
-  return applyPlastic(img, geo, params).toDataURL('image/jpeg', 0.95);
+  const geo = isPlasticZero(params) ? null : await geoFor(dataUrl, img);
+  if (!useSlim && geo && !geo.faces.length && !geo.poses.length) return dataUrl;
+  return applyPlastic(img, geo, params, slim).toDataURL('image/jpeg', 0.95);
 };
 
 /**
  * Живое применение пластики к готовому результату ретуши.
  * Бесплатно и мгновенно: считается в браузере, сервер не трогаем.
  */
-export const useLivePlastic = (baseUrl: string, params: PlasticParams, onResult: (url: string) => void) => {
+export const useLivePlastic = (
+  baseUrl: string,
+  params: PlasticParams,
+  onResult: (url: string) => void,
+  slim?: SlimMask | null,
+  /** Меняется при каждом изменении маски — триггер пересчёта */
+  slimVersion = 0,
+) => {
   const [status, setStatus] = useState<'idle' | 'detecting' | 'applying' | 'ready'>('idle');
   const [found, setFound] = useState<{ faces: number; bodies: number } | null>(null);
   const imgRef = useRef<{ url: string; img: HTMLImageElement; geo: BodyGeo } | null>(null);
@@ -107,7 +115,8 @@ export const useLivePlastic = (baseUrl: string, params: PlasticParams, onResult:
     const id = ++runId.current;
     const t = setTimeout(async () => {
       try {
-        if (isPlasticZero(params)) {
+        const useSlim = hasSlimMask(slim);
+        if (isPlasticZero(params) && !useSlim) {
           onResultRef.current(baseUrl);
           setStatus('ready');
           return;
@@ -126,7 +135,7 @@ export const useLivePlastic = (baseUrl: string, params: PlasticParams, onResult:
         // Даём браузеру отрисовать статус перед тяжёлым расчётом.
         await new Promise((r) => setTimeout(r, 16));
         if (id !== runId.current) return;
-        const url = applyPlastic(cur.img, cur.geo, params).toDataURL('image/jpeg', 0.95);
+        const url = applyPlastic(cur.img, cur.geo, params, slim).toDataURL('image/jpeg', 0.95);
         if (id !== runId.current) return;
         onResultRef.current(url);
         setStatus('ready');
@@ -136,7 +145,8 @@ export const useLivePlastic = (baseUrl: string, params: PlasticParams, onResult:
       }
     }, 220);
     return () => clearTimeout(t);
-  }, [baseUrl, params]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseUrl, params, slimVersion]);
 
   return { status, found };
 };

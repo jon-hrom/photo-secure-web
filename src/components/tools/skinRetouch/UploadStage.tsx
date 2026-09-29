@@ -1,52 +1,18 @@
 import { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-import { PRESETS, PresetKey, EyeSharpenKey } from '@/components/tools/skinRetouch/utils';
-import EyeSharpenSelector from '@/components/tools/skinRetouch/EyeSharpenSelector';
-import ChinToggle from '@/components/tools/skinRetouch/ChinToggle';
 
 interface UploadStageProps {
   fileInputRef: RefObject<HTMLInputElement>;
-  preset: PresetKey;
-  setPreset: (p: PresetKey) => void;
-  eyeSharpen: EyeSharpenKey;
-  setEyeSharpen: (v: EyeSharpenKey) => void;
-  removeChin: boolean;
-  setRemoveChin: (v: boolean) => void;
   price: number | null;
   onFile: (file: File) => void;
   onOpenPicker: () => void;
 }
 
-const UploadStage = ({ fileInputRef, preset, setPreset, eyeSharpen, setEyeSharpen, removeChin, setRemoveChin, price, onFile, onOpenPicker }: UploadStageProps) => {
-  const active = PRESETS.find((p) => p.key === preset);
+const UploadStage = ({ fileInputRef, price, onFile, onOpenPicker }: UploadStageProps) => {
 
   return (
     <div className="mt-3 space-y-4">
-      <div>
-        <p className="text-xs font-medium mb-2">Сила ретуши</p>
-        <div className="grid grid-cols-3 gap-2">
-          {PRESETS.map((p) => (
-            <button
-              key={p.key}
-              onClick={() => setPreset(p.key)}
-              className={`rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors ${
-                preset === p.key
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border hover:border-primary/40'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        {active && <p className="text-[11px] text-muted-foreground mt-1.5">{active.hint}</p>}
-      </div>
-
-      <EyeSharpenSelector value={eyeSharpen} onChange={setEyeSharpen} />
-
-      <ChinToggle value={removeChin} onChange={setRemoveChin} />
-
       <div
         className="border-2 border-dashed border-border rounded-xl p-8 sm:p-12 text-center hover:border-primary/50 transition-colors cursor-pointer"
         onClick={() => fileInputRef.current?.click()}
@@ -92,8 +58,8 @@ const UploadStage = ({ fileInputRef, preset, setPreset, eyeSharpen, setEyeSharpe
       </Button>
 
       <p className="text-[11px] text-muted-foreground">
-        AI убирает акне, покраснения и жирный блеск. Черты лица, фигура, поза,
-        одежда и фон остаются без изменений — правится только поверхность кожи.
+        После загрузки фото вы настроите силу ретуши, пластику и кисть «Похудеть» —
+        обработка начнётся только по кнопке «Ретушь».
       </p>
     </div>
   );

@@ -4,7 +4,7 @@ export const PHOTOBANK_URL = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b
 /** Больше не нужно: модель всё равно работает с ~2K, а трафик экономим. */
 export const MAX_SIDE = 1600;
 
-export type RetouchStage = 'upload' | 'result';
+export type RetouchStage = 'upload' | 'setup' | 'result';
 export type PresetKey = 'light' | 'medium' | 'strong';
 
 export interface RetouchPreset {

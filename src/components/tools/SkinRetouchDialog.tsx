@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
@@ -6,6 +7,9 @@ import UploadStage from '@/components/tools/skinRetouch/UploadStage';
 import CompareView from '@/components/tools/skinRetouch/CompareView';
 import ChinToggle from '@/components/tools/skinRetouch/ChinToggle';
 import PlasticPanel from '@/components/tools/skinRetouch/PlasticPanel';
+import EyeSharpenSelector from '@/components/tools/skinRetouch/EyeSharpenSelector';
+import SlimBrushEditor from '@/components/tools/skinRetouch/SlimBrushEditor';
+import { useSlimMask } from '@/components/tools/skinRetouch/useSlimMask';
 import { usePlasticParams, useLivePlastic } from '@/components/tools/skinRetouch/plastic';
 import { useRetouchApi } from '@/components/tools/skinRetouch/useRetouchApi';
 import { PRESETS, EYE_SHARPEN_OPTIONS } from '@/components/tools/skinRetouch/utils';
@@ -18,7 +22,30 @@ interface SkinRetouchDialogProps {
 const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
   const s = useRetouchApi(open);
   const { params: plastic, setParams: setPlastic } = usePlasticParams();
-  const live = useLivePlastic(s.stage === 'result' ? s.baseResultUrl : '', plastic, s.setResultUrl);
+  const mask = useSlimMask();
+  const [setupPreview, setSetupPreview] = useState('');
+
+  // Маска рисуется в разрешении загруженного фото — сбрасываем её на новом фото.
+  const { init: initMask } = mask;
+  useEffect(() => {
+    setSetupPreview('');
+    if (!s.originalUrl) return;
+    const img = new Image();
+    img.onload = () => initMask(img.naturalWidth, img.naturalHeight);
+    img.src = s.originalUrl;
+  }, [s.originalUrl, initMask]);
+
+  // Одна живая пластика: на этапе настроек — по оригиналу (предпросмотр),
+  // после ретуши — по результату AI.
+  const liveBase = s.stage === 'result' ? s.baseResultUrl : s.stage === 'setup' ? s.originalUrl : '';
+  const live = useLivePlastic(
+    liveBase,
+    plastic,
+    (url) => (s.stage === 'result' ? s.setResultUrl(url) : setSetupPreview(url)),
+    mask.slim,
+    mask.version,
+  );
+  const liveBusy = live.status === 'applying' || live.status === 'detecting';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -29,23 +56,85 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
             Ретушь фото
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
-            AI выровняет кожу и уберёт акне. Пластика — подбородок, плечи, руки, талия
+            Загрузите фото, настройте ретушь, пластику и кисть «Похудеть» — затем нажмите «Ретушь»
           </DialogDescription>
         </DialogHeader>
 
-        {s.stage === 'upload' && (
+        {s.stage === 'upload' && !s.loading && (
           <UploadStage
             fileInputRef={s.fileInputRef}
-            preset={s.preset}
-            setPreset={s.setPreset}
-            eyeSharpen={s.eyeSharpen}
-            setEyeSharpen={s.setEyeSharpen}
-            removeChin={s.removeChin}
-            setRemoveChin={s.setRemoveChin}
             price={s.price}
             onFile={s.handleFile}
             onOpenPicker={() => s.setShowPicker(true)}
           />
+        )}
+
+        {s.stage === 'setup' && s.originalUrl && (
+          <div className="mt-3 space-y-3">
+            <SlimBrushEditor
+              imageUrl={s.originalUrl}
+              previewUrl={setupPreview}
+              mask={mask}
+              disabled={s.loading}
+              busy={liveBusy}
+            />
+
+            <PlasticPanel
+              value={plastic}
+              onChange={setPlastic}
+              disabled={s.loading}
+              status={live.status}
+              found={live.found}
+              hint="Предпросмотр — во вкладке «Результат» над фото. Пластика и кисть применятся к фото после ретуши."
+            />
+
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <div>
+                <p className="text-xs font-medium mb-2">Сила ретуши кожи</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {PRESETS.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      disabled={s.loading}
+                      onClick={() => s.setPreset(p.key)}
+                      className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors disabled:opacity-60 ${
+                        s.preset === p.key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  {PRESETS.find((p) => p.key === s.preset)?.hint}
+                </p>
+              </div>
+              <EyeSharpenSelector value={s.eyeSharpen} onChange={s.setEyeSharpen} disabled={s.loading} />
+              <ChinToggle value={s.removeChin} onChange={s.setRemoveChin} disabled={s.loading} />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={s.startRetouch}
+                disabled={s.loading || liveBusy}
+                className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 px-6"
+              >
+                <Icon name="Sparkles" size={18} />
+                Ретушь
+                {s.price !== null && (
+                  <span className="inline-flex items-center gap-0.5 text-xs opacity-90">
+                    · {s.price}
+                    <Icon name="Zap" size={12} className="fill-current" />
+                  </span>
+                )}
+              </Button>
+              <Button onClick={s.reset} disabled={s.loading} variant="ghost" size="sm" className="gap-1.5 ml-auto">
+                <Icon name="RotateCcw" size={16} />
+                Другое фото
+              </Button>
+            </div>
+          </div>
         )}
 
         {s.stage === 'result' && s.resultUrl && (
@@ -57,6 +146,25 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               setCompare={s.setCompare}
             />
 
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={s.download} disabled={s.loading || liveBusy} size="sm" className="gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90">
+                <Icon name="Download" size={16} />
+                Скачать
+              </Button>
+              <Button onClick={() => s.setShowSaver(true)} disabled={s.loading || s.saving || liveBusy} variant="outline" size="sm" className="gap-1.5">
+                <Icon name="Save" size={16} />
+                В фотобанк
+              </Button>
+              <Button onClick={s.backToSetup} disabled={s.loading} variant="outline" size="sm" className="gap-1.5">
+                <Icon name="SlidersHorizontal" size={16} />
+                К настройкам
+              </Button>
+              <Button onClick={s.reset} disabled={s.loading} variant="ghost" size="sm" className="gap-1.5 ml-auto">
+                <Icon name="RotateCcw" size={16} />
+                Новое фото
+              </Button>
+            </div>
+
             <PlasticPanel
               value={plastic}
               onChange={setPlastic}
@@ -65,20 +173,13 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               found={live.found}
             />
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={s.download} disabled={s.loading || live.status === 'applying' || live.status === 'detecting'} size="sm" className="gap-1.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90">
-                <Icon name="Download" size={16} />
-                Скачать
-              </Button>
-              <Button onClick={() => s.setShowSaver(true)} disabled={s.loading || s.saving || live.status === 'applying' || live.status === 'detecting'} variant="outline" size="sm" className="gap-1.5">
-                <Icon name="Save" size={16} />
-                В фотобанк
-              </Button>
-              <Button onClick={s.reset} disabled={s.loading} variant="ghost" size="sm" className="gap-1.5 ml-auto">
-                <Icon name="RotateCcw" size={16} />
-                Новое фото
-              </Button>
-            </div>
+            <SlimBrushEditor
+              imageUrl={s.baseResultUrl}
+              previewUrl={s.resultUrl}
+              mask={mask}
+              disabled={s.loading}
+              busy={liveBusy}
+            />
 
             <div className="rounded-lg border border-border p-3">
               <p className="text-[11px] text-muted-foreground mb-2">
