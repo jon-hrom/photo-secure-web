@@ -19,6 +19,7 @@ import {
   dataUrlToCanvas, blobToDataUrl, downloadBlob,
 } from '@/components/tools/objectRemover/fullRes';
 import { runSlim, maskToB64 } from '@/components/tools/skinRetouch/runSlim';
+import { applyPlastic, PLASTIC_ZERO } from '@/components/tools/skinRetouch/plastic/warp';
 
 export const useRetouchApi = (open: boolean, getSlimMask?: () => HTMLCanvasElement | null) => {
   const { toast } = useToast();
@@ -286,9 +287,16 @@ export const useRetouchApi = (open: boolean, getSlimMask?: () => HTMLCanvasEleme
       if (slimMask) {
         try {
           const img = await urlToImage(retouchedUrl);
+          // 1) Сама пластика: зона маски сжимается к центру (как «Пластика» в Photoshop).
+          //    Генеративная модель по просьбе «сделай тоньше» геометрию не меняет —
+          //    проверено: возвращает то же фото с другим цветом.
+          setLoadingText('Сужаем объём по маске...');
+          const warped = applyPlastic(img, null, PLASTIC_ZERO, { canvas: slimMask, amount: 100 });
+          const warpedB64 = warped.toDataURL('image/jpeg', 0.95).split(',')[1] || '';
+          // 2) Модель доводит сжатую зону: ровный контур, без складок и заломов ткани.
           const slimRes = await runSlim({
             userId,
-            imageB64: data.image as string,
+            imageB64: warpedB64,
             maskB64: maskToB64(slimMask, img.naturalWidth, img.naturalHeight),
             onStatus: setLoadingText,
           });

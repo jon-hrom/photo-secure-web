@@ -290,7 +290,7 @@ const slimWarp = (f: Field, mask: SlimMask) => {
     else cells.forEach((k) => (label[k] = -2));
   }
 
-  const s = 0.32 * (mask.amount / 100);
+  const s = 0.4 * (mask.amount / 100);
   for (const cells of comps) {
     let mx = 0;
     let my = 0;
@@ -328,10 +328,13 @@ const slimWarp = (f: Field, mask: SlimMask) => {
     const l1 = tr / 2 + disc;
     const l2 = Math.max(1e-6, tr / 2 - disc);
     const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy);
-    const t = { x: Math.cos(ang), y: Math.sin(ang) }; // вдоль
-    const n = { x: -t.y, y: t.x }; // поперёк
-    // 1 — круглое пятно (стягиваем со всех сторон), 0 — длинный мазок (только поперёк).
-    const iso = Math.min(1, Math.max(0, (Math.sqrt(l2 / l1) - 0.25) / 0.6));
+    // Худеют по ширине, не по высоте: вытянутый мазок (рука, бок) сжимаем поперёк
+    // своей оси, а широкое пятно (спина, складки) — только по горизонтали.
+    // Вертикальное сжатие тянуло юбку и фон — появлялись полосы.
+    const elongated = Math.sqrt(l2 / l1) < 0.55;
+    const t = elongated ? { x: Math.cos(ang), y: Math.sin(ang) } : { x: 0, y: 1 }; // не сжимается
+    const n = { x: -t.y, y: t.x }; // направление сжатия
+    const iso = 0;
 
     const r = Math.round(Math.min(40, Math.max(2, Math.sqrt(l2) * 0.6)));
     const pad = r * 2 + 2;

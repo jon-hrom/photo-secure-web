@@ -30,15 +30,17 @@ CROP_MAX_SIDE = 1536
 CROP_PAD = 0.35
 
 # Лимит провайдера — 800 символов. IMAGE 1 — что правим, IMAGE 2 — где.
+# Зона уже сужена деформацией на фронте, модель доводит её до естественного вида:
+# одной подсказки «сделай тоньше» Nano Banana не слушается и возвращает то же фото.
 PROMPT = (
-    "Professional body retouch, like subtle Photoshop Liquify. IMAGE 1 is the photo. "
-    "IMAGE 2 is the same photo with the area to slim highlighted in magenta. "
-    "Only inside the magenta area: make the body slimmer and natural - reduce arm volume, "
-    "remove fat rolls and bulges where clothing presses into the body, make the back and "
-    "side contour smooth and straight with no folds. Keep the exact same clothing: same "
-    "fabric, lace pattern, seams, color and lighting; the garment just fits a slimmer body. "
-    "Everything outside the magenta area must stay identical. Same pose, same framing and "
-    "size, photorealistic, no magenta in the result, no text."
+    "Photo retouch. IMAGE 2 marks the edit area in magenta; edit IMAGE 1 only there. "
+    "The body there was already slimmed with liquify. Finish it like a pro retoucher: "
+    "make the arm and back contour smooth, straight and slim, remove every fat roll, bulge "
+    "and fold where the dress presses into the body, make the back flat and even. "
+    "Keep the slimmer shape, never make it wider. Keep the same dress: same lace pattern, "
+    "seams, fabric, folds of fabric only where natural. Do NOT change colors, white balance, "
+    "brightness, contrast or saturation anywhere. Everything outside the magenta area stays "
+    "pixel-identical. Same framing and size, photorealistic, no magenta, no text."
 )
 
 
@@ -199,15 +201,22 @@ def compose(image_b64: str, mask_b64: str, result_url: str) -> str:
     feather = max(2, int(size * 0.05))
     soft = small.filter(ImageFilter.GaussianBlur(feather)).resize((cw, ch), Image.BILINEAR)
 
-    # Подгоняем общий тон генерации к оригиналу по кольцу вокруг зоны
+    # Модель сдвигает цвета всего кадра. Вне маски она должна была вернуть
+    # оригинал, поэтому по этим пикселям подбираем линейную поправку
+    # (gain + offset на канал) и применяем её ко всей генерации.
     a = np.asarray(soft.resize((sw, sh), Image.BILINEAR), dtype=np.float32) / 255
     o = np.asarray(orig.resize((sw, sh), Image.BILINEAR), dtype=np.float32)
     g = np.asarray(gen.resize((sw, sh), Image.BILINEAR), dtype=np.float32)
-    ring = (a > 0.05) & (a < 0.6)
+    outside = a < 0.02
     g_full = np.asarray(gen, dtype=np.float32)
-    if ring.sum() > 30:
-        diff = np.clip((o[ring] - g[ring]).mean(axis=0), -25, 25)
-        g_full = np.clip(g_full + diff[None, None, :], 0, 255)
+    if outside.sum() > 200:
+        for c in range(3):
+            go, oo = g[..., c][outside], o[..., c][outside]
+            gs = go.std()
+            gain = float(np.clip(oo.std() / gs, 0.8, 1.25)) if gs > 1 else 1.0
+            off = float(oo.mean() - go.mean() * gain)
+            g_full[..., c] = g_full[..., c] * gain + off
+        g_full = np.clip(g_full, 0, 255)
     gen = Image.fromarray(g_full.astype(np.uint8), "RGB")
 
     merged = Image.composite(gen, orig, soft)
