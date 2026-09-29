@@ -400,6 +400,10 @@ def _slim_payload(payload: dict):
     return image_b64, mask_b64, None
 
 
+def _slim_mode(payload: dict) -> str:
+    return "redraw" if payload.get("mode") == "redraw" else "slim"
+
+
 def _handle_slim_start(payload: dict, user_id):
     """Генеративное похудение по маске кисти: списывает энергию и ставит задачу."""
     image_b64, mask_b64, err = _slim_payload(payload)
@@ -415,13 +419,14 @@ def _handle_slim_start(payload: dict, user_id):
     except Exception as e:
         return _response(400, {"error": f"не удалось прочитать фото: {str(e)[:200]}"})
 
-    ok, balance, e = energy.spend(user_id, slim.PRICE, "Пластика по маске — AI")
+    label = "Разгладить по маске — AI" if _slim_mode(payload) == "redraw" else "Пластика по маске — AI"
+    ok, balance, e = energy.spend(user_id, slim.PRICE, label)
     if not ok:
         if e == "insufficient_energy":
             return _response(402, {"error": "Недостаточно энергии", "needed": slim.PRICE, "energy_balance": balance})
         return _response(500, {"error": e or "energy error"})
     try:
-        task_id, model = slim.start(image_b64, mask_b64)
+        task_id, model = slim.start(image_b64, mask_b64, mode=_slim_mode(payload))
     except Exception as ex:
         energy.refund(user_id, slim.PRICE, "Возврат: не удалось запустить пластику по маске")
         return _response(502, {"error": str(ex)[:300], "refunded": slim.PRICE})
@@ -445,7 +450,7 @@ def _handle_slim_status(payload: dict, user_id):
         image_b64, mask_b64, err = _slim_payload(payload)
         if nxt and not err:
             try:
-                new_id, new_model = slim.start(image_b64, mask_b64, nxt)
+                new_id, new_model = slim.start(image_b64, mask_b64, nxt, mode=_slim_mode(payload))
                 return _response(200, {"status": "processing", "task_id": new_id, "model": new_model})
             except Exception as e:
                 print(f"[SLIM] fallback failed: {e}")

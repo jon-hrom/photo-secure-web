@@ -14,6 +14,8 @@ interface Props {
   busy?: boolean;
   /** Цена генеративной пластики по маске */
   aiNote?: number | null;
+  /** slim — «Похудеть» (сужение + доводка AI), redraw — «Разгладить» (AI перерисовывает зону) */
+  variant?: 'slim' | 'redraw';
 }
 
 const BRUSH_KEY = 'retouch_slim_brush';
@@ -23,16 +25,19 @@ const BRUSH_KEY = 'retouch_slim_brush';
  * закрашенное место сжимается к своей середине. Как «Удалить объект»,
  * только вместо удаления — пластика.
  */
-const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy, aiNote }: Props) => {
+const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy, aiNote, variant = 'slim' }: Props) => {
   const boxRef = useRef<HTMLDivElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef<{ erase: boolean; last: { x: number; y: number } | null } | null>(null);
   const [view, setView] = useState<'brush' | 'result'>('brush');
+  const isRedraw = variant === 'redraw';
+  const tint = isRedraw ? '#0ea5e9' : '#ec4899';
   const [eraser, setEraser] = useState(false);
-  const [brush, setBrushState] = useState<number>(() => Number(localStorage.getItem(BRUSH_KEY)) || 40);
+  const brushKey = `${BRUSH_KEY}_${variant}`;
+  const [brush, setBrushState] = useState<number>(() => Number(localStorage.getItem(brushKey)) || 40);
   const setBrush = (v: number) => {
     setBrushState(v);
-    localStorage.setItem(BRUSH_KEY, String(v));
+    localStorage.setItem(brushKey, String(v));
   };
 
   /** Перерисовка розовой подсветки маски из самой маски (после отмены/очистки). */
@@ -49,10 +54,10 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy, aiNote }:
     ctx.clearRect(0, 0, ov.width, ov.height);
     ctx.drawImage(m, 0, 0);
     ctx.globalCompositeOperation = 'source-in';
-    ctx.fillStyle = '#ec4899';
+    ctx.fillStyle = tint;
     ctx.fillRect(0, 0, ov.width, ov.height);
     ctx.globalCompositeOperation = 'source-over';
-  }, [mask.canvas]);
+  }, [mask.canvas, tint]);
 
   useEffect(() => {
     syncOverlay();
@@ -68,7 +73,7 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy, aiNote }:
   const stroke = (from: { x: number; y: number } | null, to: { x: number; y: number }, width: number, erase: boolean) => {
     const targets: [HTMLCanvasElement, string][] = [
       [mask.canvas, '#fff'],
-      [overlayRef.current!, '#ec4899'],
+      [overlayRef.current!, tint],
     ];
     for (const [c, color] of targets) {
       const ctx = c.getContext('2d', { willReadFrequently: true })!;
@@ -123,10 +128,12 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy, aiNote }:
   return (
     <div className="rounded-lg border border-border p-3 space-y-2.5">
       <div className="flex items-center gap-2 flex-wrap">
-        <Icon name="Brush" size={16} className={mask.hasPaint ? 'text-pink-500' : 'text-muted-foreground'} />
-        <p className="text-xs font-medium">Кисть «Похудеть»</p>
-        <span className="text-[10px] text-muted-foreground hidden sm:inline">— закрасьте складки, бока, участки рук</span>
-        <div className="ml-auto flex rounded-md border border-border overflow-hidden text-[11px]">
+        <Icon name={isRedraw ? 'Wand2' : 'Brush'} size={16} className={mask.hasPaint ? (isRedraw ? 'text-sky-500' : 'text-pink-500') : 'text-muted-foreground'} />
+        <p className="text-xs font-medium">{isRedraw ? 'Кисть «Разгладить»' : 'Кисть «Похудеть»'}</p>
+        <span className="text-[10px] text-muted-foreground hidden sm:inline">
+          {isRedraw ? '— закрасьте висящую складку, AI перерисует её ровной тканью' : '— закрасьте руку, бок, спину'}
+        </span>
+        <div className={`ml-auto flex rounded-md border border-border overflow-hidden text-[11px] ${isRedraw ? 'hidden' : ''}`}>
           <button
             type="button"
             onClick={() => setView('brush')}
@@ -191,7 +198,9 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy, aiNote }:
             <Icon name="Sparkles" size={12} className="text-primary" /> Делает генеративная модель
           </p>
           <p className="text-[10px] text-muted-foreground leading-snug">
-            Уберёт объём и складки в закрашенной зоне, сохранит ткань и кружево.
+            {isRedraw
+              ? 'Закрашенное место модель не видит и рисует заново по соседней ткани — складка и тень исчезают.'
+              : 'Сузит объём и уберёт складки в закрашенной зоне, сохранит ткань и кружево.'}
             {aiNote ? ` +${aiNote} ⚡ к ретуши, если маска нарисована.` : ''}
           </p>
         </div>
@@ -233,9 +242,9 @@ const SlimBrushEditor = ({ imageUrl, previewUrl, mask, disabled, busy, aiNote }:
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        Закрашивайте руку, складку или бок целиком, чуть заходя за контур тела — модели нужен запас, чтобы
-        провести новый ровный контур. ПКМ или Ctrl — ластик. Результат появится после кнопки «Ретушь».
-        Вкладка «Ползунки» показывает только действие ползунков пластики.
+        {isRedraw
+          ? 'Закрашивайте только саму складку и тень под ней, без рукава и лица. Чем меньше зона, тем точнее ткань совпадёт с соседней. ПКМ или Ctrl — ластик. Результат — после кнопки «Ретушь».'
+          : 'Закрашивайте руку, складку или бок целиком, чуть заходя за контур тела — модели нужен запас, чтобы провести новый ровный контур. ПКМ или Ctrl — ластик. Результат появится после кнопки «Ретушь». Вкладка «Ползунки» показывает только действие ползунков пластики.'}
       </p>
     </div>
   );

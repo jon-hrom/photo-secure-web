@@ -44,6 +44,19 @@ PROMPT = (
 )
 
 
+# Режим «Разгладить»: зона маски полностью закрыта пурпуром, модель не видит
+# складку и рисует это место заново по окружению — как «Удалить объект».
+PROMPT_REDRAW = (
+    "Inpainting. The solid magenta area hides part of a wedding dress. Repaint only the "
+    "magenta area as a seamless continuation of the SAME dress around it: the same lace "
+    "pattern, fabric, color and light, lying smooth and flat on a slim body. No fat folds, "
+    "no bulges, no creases, no dark shadow hollows, no skin rolls. Clean straight contour "
+    "where the sleeve meets the bodice. Do not add new objects. Do NOT change colors, "
+    "brightness or white balance anywhere. Everything outside the magenta area stays "
+    "pixel-identical. Same framing and size, photorealistic, no magenta left, no text."
+)
+
+
 def _headers():
     return {"Authorization": GPTUNNEL_KEY, "Content-Type": "application/json"}
 
@@ -93,15 +106,25 @@ def _jpeg(img, q=92) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def build_inputs(image_b64: str, mask_b64: str):
-    """Кроп фото и та же зона с пурпурной подсветкой маски."""
-    from PIL import Image
+def build_inputs(image_b64: str, mask_b64: str, mode: str = "slim"):
+    """Кроп фото и та же зона с пурпурной маской.
+
+    slim   — подсветка 55%: модель видит тело и доводит суженный контур;
+    redraw — зона залита пурпуром целиком: модель не видит складку и рисует заново.
+    """
+    from PIL import Image, ImageFilter
     img, mask = _load(image_b64, mask_b64)
     box = crop_box(img.size, mask)
     crop = img.crop(box)
     mcrop = mask.crop(box)
     marker = Image.new("RGB", crop.size, (255, 0, 255))
-    marked = Image.composite(Image.blend(crop, marker, 0.55), crop, mcrop)
+    if mode == "redraw":
+        # Чуть шире маски: тень от складки на краю тоже должна исчезнуть
+        hole = mcrop.filter(ImageFilter.MaxFilter(7))
+        marked = Image.composite(marker, crop, hole)
+        crop = marked
+    else:
+        marked = Image.composite(Image.blend(crop, marker, 0.55), crop, mcrop)
     if max(crop.size) > CROP_MAX_SIDE:
         k = CROP_MAX_SIDE / max(crop.size)
         sz = (round(crop.width * k), round(crop.height * k))
@@ -111,11 +134,15 @@ def build_inputs(image_b64: str, mask_b64: str):
 
 
 # ---------- провайдер ----------
-def start(image_b64: str, mask_b64: str, model: str = None):
+def start(image_b64: str, mask_b64: str, model: str = None, mode: str = "slim"):
     """Запускает модель; при ошибке старта пробует следующую по цепочке."""
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
-    crop_b64, marked_b64 = build_inputs(image_b64, mask_b64)
+    crop_b64, marked_b64 = build_inputs(image_b64, mask_b64, mode)
+    prompt = PROMPT_REDRAW if mode == "redraw" else PROMPT
+    # В режиме redraw достаточно одной картинки с дыркой — вторая с оригиналом
+    # подсказала бы модели ту самую складку
+    images = [crop_b64] if mode == "redraw" else [crop_b64, marked_b64]
     name = model or CHAIN[0]
     last = None
     while name:
@@ -124,12 +151,9 @@ def start(image_b64: str, mask_b64: str, model: str = None):
                 f"{BASE_URL}/tasks",
                 json={
                     "model": name,
-                    "prompt": PROMPT,
+                    "prompt": prompt,
                     "params": MODELS[name],
-                    "inputs": {"image_input": [
-                        f"data:image/jpeg;base64,{crop_b64}",
-                        f"data:image/jpeg;base64,{marked_b64}",
-                    ]},
+                    "inputs": {"image_input": [f"data:image/jpeg;base64,{b}" for b in images]},
                 },
                 headers=_headers(),
                 timeout=60,

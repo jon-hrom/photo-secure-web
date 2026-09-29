@@ -21,7 +21,11 @@ import {
 import { runSlim, maskToB64 } from '@/components/tools/skinRetouch/runSlim';
 import { applyPlastic, PLASTIC_ZERO } from '@/components/tools/skinRetouch/plastic/warp';
 
-export const useRetouchApi = (open: boolean, getSlimMask?: () => HTMLCanvasElement | null) => {
+export const useRetouchApi = (
+  open: boolean,
+  getSlimMask?: () => HTMLCanvasElement | null,
+  getRedrawMask?: () => HTMLCanvasElement | null,
+) => {
   const { toast } = useToast();
 
   const [stage, setStage] = useState<RetouchStage>('upload');
@@ -50,6 +54,8 @@ export const useRetouchApi = (open: boolean, getSlimMask?: () => HTMLCanvasEleme
   const [slimPrice, setSlimPrice] = useState<number | null>(null);
   const getSlimMaskRef = useRef(getSlimMask);
   getSlimMaskRef.current = getSlimMask;
+  const getRedrawMaskRef = useRef(getRedrawMask);
+  getRedrawMaskRef.current = getRedrawMask;
   const [compare, setCompare] = useState(50);
   const [showPicker, setShowPicker] = useState(false);
   const [showSaver, setShowSaver] = useState(false);
@@ -308,6 +314,31 @@ export const useRetouchApi = (open: boolean, getSlimMask?: () => HTMLCanvasEleme
           toast({
             title: 'Пластика по маске не удалась',
             description: `${String((slimErr as Error)?.message || slimErr)}. Показана ретушь кожи без неё.`,
+            variant: 'destructive',
+          });
+        }
+      }
+      // Кисть «Разгладить»: складку не сжимаем, а закрываем и перерисовываем
+      // генеративной моделью по окружающей ткани — как «Удалить объект».
+      const redrawMask = getRedrawMaskRef.current?.();
+      if (redrawMask) {
+        try {
+          const img = await urlToImage(retouchedUrl);
+          const res = await runSlim({
+            userId,
+            imageB64: dataUrlToBase64(retouchedUrl),
+            maskB64: maskToB64(redrawMask, img.naturalWidth, img.naturalHeight),
+            onStatus: setLoadingText,
+            mode: 'redraw',
+          });
+          retouchedUrl = `data:image/jpeg;base64,${res.image}`;
+          slimNote += ` Разгладить: ${res.charged} ⚡.`;
+          data.energy_balance = res.energy_balance ?? data.energy_balance;
+        } catch (err) {
+          console.error(err);
+          toast({
+            title: 'Разгладить не удалось',
+            description: `${String((err as Error)?.message || err)}. Энергия возвращена.`,
             variant: 'destructive',
           });
         }

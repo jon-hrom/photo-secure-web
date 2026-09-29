@@ -21,22 +21,33 @@ interface SkinRetouchDialogProps {
 
 const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
   const mask = useSlimMask();
+  const redraw = useSlimMask('retouch_redraw_brush');
+  const redrawRef = useRef(redraw);
+  redrawRef.current = redraw;
   // Маска кисти уходит в генеративную модель вместе с ретушью
   const maskRef = useRef(mask);
   maskRef.current = mask;
-  const s = useRetouchApi(open, () => (maskRef.current.hasPaint ? maskRef.current.canvas : null));
+  const s = useRetouchApi(
+    open,
+    () => (maskRef.current.hasPaint ? maskRef.current.canvas : null),
+    () => (redrawRef.current.hasPaint ? redrawRef.current.canvas : null),
+  );
   const { params: plastic, setParams: setPlastic } = usePlasticParams();
   const [setupPreview, setSetupPreview] = useState('');
 
   // Маска рисуется в разрешении загруженного фото — сбрасываем её на новом фото.
   const { init: initMask } = mask;
+  const { init: initRedraw } = redraw;
   useEffect(() => {
     setSetupPreview('');
     if (!s.originalUrl) return;
     const img = new Image();
-    img.onload = () => initMask(img.naturalWidth, img.naturalHeight);
+    img.onload = () => {
+      initMask(img.naturalWidth, img.naturalHeight);
+      initRedraw(img.naturalWidth, img.naturalHeight);
+    };
     img.src = s.originalUrl;
-  }, [s.originalUrl, initMask]);
+  }, [s.originalUrl, initMask, initRedraw]);
 
   // Одна живая пластика: на этапе настроек — по оригиналу (предпросмотр),
   // после ретуши — по результату AI.
@@ -80,6 +91,15 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               mask={mask}
               disabled={s.loading}
               busy={liveBusy}
+              aiNote={s.slimPrice}
+            />
+
+            <SlimBrushEditor
+              variant="redraw"
+              imageUrl={s.originalUrl}
+              previewUrl=""
+              mask={redraw}
+              disabled={s.loading}
               aiNote={s.slimPrice}
             />
 
@@ -128,7 +148,7 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
                 Ретушь
                 {s.price !== null && (
                   <span className="inline-flex items-center gap-0.5 text-xs opacity-90">
-                    · {s.price + (mask.hasPaint ? s.slimPrice ?? 0 : 0)}
+                    · {s.price + (mask.hasPaint ? s.slimPrice ?? 0 : 0) + (redraw.hasPaint ? s.slimPrice ?? 0 : 0)}
                     <Icon name="Zap" size={12} className="fill-current" />
                   </span>
                 )}
@@ -177,9 +197,9 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               found={live.found}
             />
 
-            {mask.hasPaint && (
+            {(mask.hasPaint || redraw.hasPaint) && (
               <p className="text-[11px] text-muted-foreground px-1">
-                Пластика по маске уже сделана AI. Чтобы изменить маску — «К настройкам» и снова «Ретушь».
+                Кисти «Похудеть» и «Разгладить» уже отработаны AI. Чтобы изменить маску — «К настройкам» и снова «Ретушь».
               </p>
             )}
 

@@ -7,7 +7,7 @@ const AMOUNT_KEY = 'retouch_slim_amount';
  * Маска кисти «Похудеть»: хранится в отдельном canvas в разрешении фото.
  * version меняется после каждого мазка — по нему пересчитывается пластика.
  */
-export const useSlimMask = () => {
+export const useSlimMask = (_key = 'retouch_slim') => {
   const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
   const [version, setVersion] = useState(0);
   const [hasPaint, setHasPaint] = useState(false);
