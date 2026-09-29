@@ -290,7 +290,8 @@ const slimWarp = (f: Field, mask: SlimMask) => {
     else cells.forEach((k) => (label[k] = -2));
   }
 
-  const s = 0.4 * (mask.amount / 100);
+  // 100% = сужение на четверть ширины зоны; по умолчанию 20% → ~5%, едва заметно
+  const s = 0.25 * (mask.amount / 100);
   for (const cells of comps) {
     let mx = 0;
     let my = 0;

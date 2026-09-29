@@ -25,6 +25,7 @@ export const useRetouchApi = (
   open: boolean,
   getSlimMask?: () => HTMLCanvasElement | null,
   getRedrawMask?: () => HTMLCanvasElement | null,
+  getSlimAmount?: () => number,
 ) => {
   const { toast } = useToast();
 
@@ -56,6 +57,8 @@ export const useRetouchApi = (
   getSlimMaskRef.current = getSlimMask;
   const getRedrawMaskRef = useRef(getRedrawMask);
   getRedrawMaskRef.current = getRedrawMask;
+  const getSlimAmountRef = useRef(getSlimAmount);
+  getSlimAmountRef.current = getSlimAmount;
   const [compare, setCompare] = useState(50);
   const [showPicker, setShowPicker] = useState(false);
   const [showSaver, setShowSaver] = useState(false);
@@ -107,6 +110,94 @@ export const useRetouchApi = (
       }
     })();
   }, [open]);
+
+  /**
+   * Генеративная обработка по маскам: «Похудеть» (лёгкое сужение + AI выравнивает
+   * контур) и «Разгладить» (AI перерисовывает зону). Ошибки не валят прогон.
+   */
+  const applyMasks = useCallback(async (
+    url: string,
+    userId: string | number,
+    slimMask: HTMLCanvasElement | null,
+    redrawMask: HTMLCanvasElement | null,
+  ) => {
+    let out = url;
+    let note = '';
+    let balance: number | undefined;
+    if (slimMask) {
+      try {
+        const img = await urlToImage(out);
+        const amount = getSlimAmountRef.current?.() ?? 0;
+        let srcB64 = dataUrlToBase64(out);
+        if (amount > 0) {
+          setLoadingText('Слегка сужаем объём по маске...');
+          const warped = applyPlastic(img, null, PLASTIC_ZERO, { canvas: slimMask, amount });
+          srcB64 = warped.toDataURL('image/jpeg', 0.95).split(',')[1] || '';
+        }
+        const res = await runSlim({
+          userId,
+          imageB64: srcB64,
+          maskB64: maskToB64(slimMask, img.naturalWidth, img.naturalHeight),
+          onStatus: setLoadingText,
+        });
+        out = `data:image/jpeg;base64,${res.image}`;
+        note += ` Похудеть: ${res.charged} ⚡.`;
+        balance = res.energy_balance ?? balance;
+      } catch (err) {
+        console.error(err);
+        toast({
+          title: 'Похудеть по маске не удалось',
+          description: `${String((err as Error)?.message || err)}. Энергия возвращена.`,
+          variant: 'destructive',
+        });
+      }
+    }
+    if (redrawMask) {
+      try {
+        const img = await urlToImage(out);
+        const res = await runSlim({
+          userId,
+          imageB64: dataUrlToBase64(out),
+          maskB64: maskToB64(redrawMask, img.naturalWidth, img.naturalHeight),
+          onStatus: setLoadingText,
+          mode: 'redraw',
+        });
+        out = `data:image/jpeg;base64,${res.image}`;
+        note += ` Разгладить: ${res.charged} ⚡.`;
+        balance = res.energy_balance ?? balance;
+      } catch (err) {
+        console.error(err);
+        toast({
+          title: 'Разгладить не удалось',
+          description: `${String((err as Error)?.message || err)}. Энергия возвращена.`,
+          variant: 'destructive',
+        });
+      }
+    }
+    return { url: out, note, balance, changed: out !== url };
+  }, [toast]);
+  const applyMasksRef = useRef(applyMasks);
+  applyMasksRef.current = applyMasks;
+
+  /** Доработка готового результата новыми масками — без повторной ретуши кожи. */
+  const refine = useCallback(async (slimMask: HTMLCanvasElement | null, redrawMask: HTMLCanvasElement | null) => {
+    const userId = getAuthUserId();
+    if (!userId || !baseResultUrl || (!slimMask && !redrawMask)) return false;
+    setLoading(true);
+    setLoadingText('Отправляем маску...');
+    try {
+      const r = await applyMasks(baseResultUrl, userId, slimMask, redrawMask);
+      if (!r.changed) return false;
+      addToHistory({ tool: 'skin-retouch', image: r.url });
+      setBaseResultUrl(r.url);
+      setResultUrl(r.url);
+      toast({ title: 'Готово', description: `${r.note.trim()} Осталось ${r.balance ?? '—'} ⚡.` });
+      return true;
+    } finally {
+      setLoading(false);
+      setLoadingText('');
+    }
+  }, [applyMasks, baseResultUrl, toast]);
 
   /** Основной прогон: ставит задачу, ждёт результат, показывает «до/после». */
   const runRetouch = useCallback(async (sourceDataUrl: string, presetKey: PresetKey) => {
@@ -286,63 +377,15 @@ export const useRetouchApi = (
       }
       if (!data?.image) throw new Error('Не удалось собрать результат');
 
-      let retouchedUrl = `data:image/jpeg;base64,${data.image}`;
-      let slimNote = '';
-      // Кисть «Похудеть»: зону по маске перерисовывает генеративная модель
-      const slimMask = getSlimMaskRef.current?.();
-      if (slimMask) {
-        try {
-          const img = await urlToImage(retouchedUrl);
-          // 1) Сама пластика: зона маски сжимается к центру (как «Пластика» в Photoshop).
-          //    Генеративная модель по просьбе «сделай тоньше» геометрию не меняет —
-          //    проверено: возвращает то же фото с другим цветом.
-          setLoadingText('Сужаем объём по маске...');
-          const warped = applyPlastic(img, null, PLASTIC_ZERO, { canvas: slimMask, amount: 100 });
-          const warpedB64 = warped.toDataURL('image/jpeg', 0.95).split(',')[1] || '';
-          // 2) Модель доводит сжатую зону: ровный контур, без складок и заломов ткани.
-          const slimRes = await runSlim({
-            userId,
-            imageB64: warpedB64,
-            maskB64: maskToB64(slimMask, img.naturalWidth, img.naturalHeight),
-            onStatus: setLoadingText,
-          });
-          retouchedUrl = `data:image/jpeg;base64,${slimRes.image}`;
-          slimNote = ` Пластика по маске: ${slimRes.charged} ⚡.`;
-          data.energy_balance = slimRes.energy_balance ?? data.energy_balance;
-        } catch (slimErr) {
-          console.error(slimErr);
-          toast({
-            title: 'Пластика по маске не удалась',
-            description: `${String((slimErr as Error)?.message || slimErr)}. Показана ретушь кожи без неё.`,
-            variant: 'destructive',
-          });
-        }
-      }
-      // Кисть «Разгладить»: складку не сжимаем, а закрываем и перерисовываем
-      // генеративной моделью по окружающей ткани — как «Удалить объект».
-      const redrawMask = getRedrawMaskRef.current?.();
-      if (redrawMask) {
-        try {
-          const img = await urlToImage(retouchedUrl);
-          const res = await runSlim({
-            userId,
-            imageB64: dataUrlToBase64(retouchedUrl),
-            maskB64: maskToB64(redrawMask, img.naturalWidth, img.naturalHeight),
-            onStatus: setLoadingText,
-            mode: 'redraw',
-          });
-          retouchedUrl = `data:image/jpeg;base64,${res.image}`;
-          slimNote += ` Разгладить: ${res.charged} ⚡.`;
-          data.energy_balance = res.energy_balance ?? data.energy_balance;
-        } catch (err) {
-          console.error(err);
-          toast({
-            title: 'Разгладить не удалось',
-            description: `${String((err as Error)?.message || err)}. Энергия возвращена.`,
-            variant: 'destructive',
-          });
-        }
-      }
+      const masked = await applyMasksRef.current(
+        `data:image/jpeg;base64,${data.image}`,
+        userId,
+        getSlimMaskRef.current?.() ?? null,
+        getRedrawMaskRef.current?.() ?? null,
+      );
+      const retouchedUrl = masked.url;
+      const slimNote = masked.note;
+      data.energy_balance = masked.balance ?? data.energy_balance;
       addToHistory({ tool: 'skin-retouch', image: retouchedUrl });
       setBaseResultUrl(retouchedUrl);
       setResultUrl(retouchedUrl);
@@ -527,6 +570,7 @@ export const useRetouchApi = (
     rerun,
     startRetouch,
     backToSetup,
+    refine,
     download,
     reset,
   };

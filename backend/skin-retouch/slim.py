@@ -34,13 +34,13 @@ CROP_PAD = 0.35
 # одной подсказки «сделай тоньше» Nano Banana не слушается и возвращает то же фото.
 PROMPT = (
     "Photo retouch. IMAGE 2 marks the edit area in magenta; edit IMAGE 1 only there. "
-    "The body there was already slimmed with liquify. Finish it like a pro retoucher: "
-    "make the arm and back contour smooth, straight and slim, remove every fat roll, bulge "
-    "and fold where the dress presses into the body, make the back flat and even. "
-    "Keep the slimmer shape, never make it wider. Keep the same dress: same lace pattern, "
-    "seams, fabric, folds of fabric only where natural. Do NOT change colors, white balance, "
-    "brightness, contrast or saturation anywhere. Everything outside the magenta area stays "
-    "pixel-identical. Same framing and size, photorealistic, no magenta, no text."
+    "Subtle professional body retouch: straighten and smooth the outline of the arm, "
+    "back or waist, remove bulges, dents and fat rolls where the dress presses in, so the "
+    "contour becomes a clean smooth line. Change the shape only slightly, keep natural "
+    "proportions, never make it wider or much thinner. No double edges, no ghost contours, "
+    "no blur: keep the lace pattern, seams and fabric sharp and identical in detail. "
+    "Do NOT change colors, white balance or brightness. Everything outside the magenta "
+    "area stays pixel-identical. Same framing and size, photorealistic, no magenta, no text."
 )
 
 

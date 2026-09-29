@@ -31,6 +31,7 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
     open,
     () => (maskRef.current.hasPaint ? maskRef.current.canvas : null),
     () => (redrawRef.current.hasPaint ? redrawRef.current.canvas : null),
+    () => maskRef.current.amount,
   );
   const { params: plastic, setParams: setPlastic } = usePlasticParams();
   const [setupPreview, setSetupPreview] = useState('');
@@ -61,6 +62,47 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
   );
   const liveBusy = live.status === 'applying' || live.status === 'detecting';
 
+  // Доработка результата: маски, отработанные при «Ретуши», очищаем,
+  // чтобы на готовом фото рисовать с нуля (иначе AI обработал бы их второй раз).
+  const [refineOpen, setRefineOpen] = useState(false);
+  const stage = s.stage;
+  const resultImg = s.baseResultUrl;
+  const clearedFor = useRef('');
+  useEffect(() => {
+    if (stage !== 'result' || !resultImg) {
+      // Вернулись к настройкам — маски снова в размере оригинала
+      if (clearedFor.current && stage === 'setup' && s.originalUrl) {
+        const o = new Image();
+        o.onload = () => {
+          initMask(o.naturalWidth, o.naturalHeight);
+          initRedraw(o.naturalWidth, o.naturalHeight);
+        };
+        o.src = s.originalUrl;
+      }
+      clearedFor.current = '';
+      return;
+    }
+    if (clearedFor.current) return;
+    clearedFor.current = resultImg;
+    const img = new Image();
+    img.onload = () => {
+      initMask(img.naturalWidth, img.naturalHeight);
+      initRedraw(img.naturalWidth, img.naturalHeight);
+    };
+    img.src = resultImg;
+  }, [stage, resultImg, initMask, initRedraw, s.originalUrl]);
+
+  const applyRefine = async () => {
+    const ok = await s.refine(
+      mask.hasPaint ? mask.canvas : null,
+      redraw.hasPaint ? redraw.canvas : null,
+    );
+    if (ok) {
+      mask.clear();
+      redraw.clear();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent onInteractOutside={(e) => e.preventDefault()} className="max-w-[98vw] sm:max-w-3xl max-h-[95vh] overflow-y-auto p-3 sm:p-6">
@@ -88,19 +130,12 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
             <SlimBrushEditor
               imageUrl={s.originalUrl}
               previewUrl={setupPreview}
-              mask={mask}
+              slimMask={mask}
+              redrawMask={redraw}
               disabled={s.loading}
               busy={liveBusy}
               aiNote={s.slimPrice}
-            />
-
-            <SlimBrushEditor
-              variant="redraw"
-              imageUrl={s.originalUrl}
-              previewUrl=""
-              mask={redraw}
-              disabled={s.loading}
-              aiNote={s.slimPrice}
+              footer="Результат — после кнопки «Ретушь»."
             />
 
             <PlasticPanel
@@ -197,11 +232,45 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               found={live.found}
             />
 
-            {(mask.hasPaint || redraw.hasPaint) && (
-              <p className="text-[11px] text-muted-foreground px-1">
-                Кисти «Похудеть» и «Разгладить» уже отработаны AI. Чтобы изменить маску — «К настройкам» и снова «Ретушь».
-              </p>
-            )}
+            <div className="rounded-lg border border-border p-3 space-y-2">
+              <button
+                type="button"
+                onClick={() => setRefineOpen((v) => !v)}
+                className="w-full flex items-center gap-2 text-left"
+              >
+                <Icon name="Brush" size={16} className="text-primary" />
+                <span className="text-xs font-medium">Доработать кистью «Похудеть» / «Разгладить»</span>
+                <Icon name={refineOpen ? 'ChevronUp' : 'ChevronDown'} size={16} className="ml-auto text-muted-foreground" />
+              </button>
+              {refineOpen && (
+                <>
+                  <p className="text-[11px] text-muted-foreground">
+                    Рисуйте прямо на готовом результате — AI поправит только закрашенное, ретушь кожи повторно не списывается.
+                  </p>
+                  <SlimBrushEditor
+                    imageUrl={s.baseResultUrl}
+                    slimMask={mask}
+                    redrawMask={redraw}
+                    disabled={s.loading}
+                    aiNote={s.slimPrice}
+                  />
+                  <Button
+                    onClick={applyRefine}
+                    disabled={s.loading || liveBusy || (!mask.hasPaint && !redraw.hasPaint)}
+                    className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90"
+                  >
+                    <Icon name="Wand2" size={16} />
+                    Применить маску
+                    {s.slimPrice !== null && (mask.hasPaint || redraw.hasPaint) && (
+                      <span className="inline-flex items-center gap-0.5 text-xs opacity-90">
+                        · {(mask.hasPaint ? s.slimPrice : 0) + (redraw.hasPaint ? s.slimPrice : 0)}
+                        <Icon name="Zap" size={12} className="fill-current" />
+                      </span>
+                    )}
+                  </Button>
+                </>
+              )}
+            </div>
 
             <div className="rounded-lg border border-border p-3">
               <p className="text-[11px] text-muted-foreground mb-2">

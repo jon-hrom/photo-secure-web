@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { SlimMask } from '@/components/tools/skinRetouch/plastic';
 
-const AMOUNT_KEY = 'retouch_slim_amount';
+// Новый ключ: прежнее значение 60–100 сжимало руку слишком сильно
+const AMOUNT_KEY = 'retouch_slim_amount_v2';
 
 /**
  * Маска кисти «Похудеть»: хранится в отдельном canvas в разрешении фото.
@@ -13,7 +14,7 @@ export const useSlimMask = (_key = 'retouch_slim') => {
   const [hasPaint, setHasPaint] = useState(false);
   const [amount, setAmountState] = useState<number>(() => {
     const n = Number(localStorage.getItem(AMOUNT_KEY));
-    return Number.isFinite(n) && n > 0 ? n : 60;
+    return localStorage.getItem(AMOUNT_KEY) !== null && Number.isFinite(n) ? n : 20;
   });
   const historyRef = useRef<ImageData[]>([]);
   const [historyLen, setHistoryLen] = useState(0);
@@ -74,7 +75,7 @@ export const useSlimMask = (_key = 'retouch_slim') => {
   }, [snapshot, commit]);
 
   const slim: SlimMask | null = useMemo(
-    () => (hasPaint ? { canvas: canvasRef.current, amount } : null),
+    () => (hasPaint && amount > 0 ? { canvas: canvasRef.current, amount } : null),
     [hasPaint, amount],
   );
 
