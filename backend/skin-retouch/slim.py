@@ -43,33 +43,76 @@ def _slim_words(amount: int) -> str:
     return f"Make it clearly slimmer (about {min(amount, 60)}% narrower), still natural."
 
 
-def slim_prompt(amount: int) -> str:
+_COLORS = [
+    ("white", (235, 235, 235)), ("ivory", (235, 225, 205)), ("beige", (205, 185, 160)),
+    ("light grey", (180, 180, 180)), ("grey", (120, 120, 120)), ("black", (25, 25, 25)),
+    ("dark brown", (70, 45, 30)), ("brown", (130, 85, 55)), ("red", (180, 40, 40)),
+    ("burgundy", (100, 25, 40)), ("pink", (225, 160, 175)), ("orange", (220, 130, 50)),
+    ("yellow", (220, 200, 70)), ("green", (60, 130, 70)), ("dark green", (30, 65, 40)),
+    ("light blue", (150, 185, 220)), ("blue", (50, 90, 170)), ("navy", (25, 35, 75)),
+    ("purple", (110, 60, 140)), ("skin tone", (215, 170, 140)),
+]
+
+
+def describe_zone(crop, mask) -> str:
+    """Словесное описание того, что под маской: цвет и характер фактуры.
+
+    Одежда на каждом фото своя (кружево, трикотаж, атлас, джинса, голая кожа),
+    поэтому ткань не прописываем жёстко, а меряем по оригиналу: медианный цвет
+    зоны и силу мелкой детали (насколько зона отличается от своей размытой копии).
+    """
+    import numpy as np
+    from PIL import ImageFilter
+    k = min(1.0, 384 / max(crop.size))
+    sz = (max(8, round(crop.width * k)), max(8, round(crop.height * k)))
+    c = crop.resize(sz)
+    m = np.asarray(mask.resize(sz)) > 127
+    if m.sum() < 30:
+        return "Keep the same clothing or skin as in IMAGE 1."
+    px = np.asarray(c, dtype=np.float32)[m]
+    med = np.median(px, axis=0)
+    name = min(_COLORS, key=lambda t: sum((a - b) ** 2 for a, b in zip(med, t[1])))[0]
+    g = c.convert("L")
+    ga = np.asarray(g, dtype=np.float32)
+    gb = np.asarray(g.filter(ImageFilter.GaussianBlur(2)), dtype=np.float32)
+    detail = float(np.abs(ga - gb)[m].mean())
+    if detail > 7:
+        tex = "a fine detailed pattern (lace, embroidery, knit or print)"
+    elif detail > 3.5:
+        tex = "a visible fabric texture or weave"
+    else:
+        tex = "a smooth surface (smooth fabric or skin)"
+    return f"There it is mostly {name}, {tex}."
+
+
+def slim_prompt(amount: int, zone: str) -> str:
     # Лимит провайдера — 800 символов. Маска — отдельная ч/б картинка, а не
-    # пурпурная заливка поверх фото: заливка протекала в результат розовым.
+    # цветная заливка поверх фото: заливка протекала в результат розовым.
     return (
         "Professional body retouch. IMAGE 2 is a black/white mask: edit IMAGE 1 only "
-        "inside the WHITE area. Redraw the arm (or waist/back) there as a slimmer, "
-        "toned body part with a clean smooth outline: no bulges, dents or fat rolls. "
-        + _slim_words(amount) + " "
-        "Redraw the sleeve fabric on the new shape with the SAME lace pattern, "
-        "sharp detail and exactly the same pure white color. Fill freed space with "
-        "the matching background. Do NOT add pink, red or warm tint, do NOT change "
-        "brightness or white balance. Outside the white area keep IMAGE 1 identical. "
-        "Same framing, photorealistic, no text."
+        "inside the WHITE area. Redraw the body part there (arm, waist or back) slimmer "
+        "and toned, with a clean smooth outline: no bulges, dents or fat rolls. "
+        + _slim_words(amount) + " " + zone + " "
+        "Keep exactly the clothing or skin IMAGE 1 shows there: same fabric, pattern, "
+        "texture, sharpness and color. Fill freed space with the matching background. "
+        "Do NOT change colors, tint, brightness or white balance. Outside the white "
+        "area keep IMAGE 1 identical. Same framing, photorealistic, no text."
     )
 
 
-# Режим «Разгладить»: зона маски полностью закрыта пурпуром, модель не видит
-# складку и рисует это место заново по окружению — как «Удалить объект».
-PROMPT_REDRAW = (
-    "Inpainting. The solid magenta area hides part of a wedding dress. Repaint only the "
-    "magenta area as a seamless continuation of the SAME dress around it: the same lace "
-    "pattern, fabric, color and light, lying smooth and flat on a slim body. No fat folds, "
-    "no bulges, no creases, no dark shadow hollows, no skin rolls. Clean straight contour "
-    "where the sleeve meets the bodice. Do not add new objects. Do NOT change colors, "
-    "brightness or white balance anywhere. Everything outside the magenta area stays "
-    "pixel-identical. Same framing and size, photorealistic, no magenta left, no text."
-)
+# Режим «Разгладить»: зона на фото замазана размытым окружением (без цветной
+# заливки), маска идёт отдельной ч/б картинкой. Модель не видит складку
+# и рисует место заново по краям — в настоящих цветах одежды.
+def redraw_prompt(zone: str) -> str:
+    return (
+        "Inpainting. IMAGE 2 is a black/white mask; in IMAGE 1 the WHITE area is blurred. "
+        "Repaint only that area as a seamless continuation of the clothing or skin around "
+        "it. " + zone + " Same fabric, pattern, texture, sharpness, color and light, lying "
+        "smooth on a slim body: no fat folds, bulges, creases, shadow hollows or skin rolls. "
+        "Clean straight contours, no new objects. Do NOT change colors or white balance. "
+        "Outside the white area keep IMAGE 1 identical. Same framing, photorealistic, "
+        "no blur left, no text."
+    )
 
 
 def _headers():
@@ -121,32 +164,47 @@ def _jpeg(img, q=92) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def build_inputs(image_b64: str, mask_b64: str, mode: str = "slim"):
-    """Кроп фото и та же зона с пурпурной маской.
+def _blur_hole(crop, hole):
+    """Замазывает зону размытым окружением — без цветной заливки.
 
-    slim   — подсветка 55%: модель видит тело и доводит суженный контур;
-    redraw — зона залита пурпуром целиком: модель не видит складку и рисует заново.
+    Модель не видит складку, но видит настоящие цвета ткани вокруг.
+    Размываем на мелкой копии (дёшево), затем растягиваем обратно.
+    """
+    from PIL import Image, ImageFilter
+    k = min(1.0, 256 / max(crop.size))
+    sz = (max(8, round(crop.width * k)), max(8, round(crop.height * k)))
+    small = crop.resize(sz, Image.BILINEAR)
+    r = max(4, int(max(sz) * 0.06))
+    soft = small.filter(ImageFilter.GaussianBlur(r)).resize(crop.size, Image.BILINEAR)
+    return Image.composite(soft, crop, hole)
+
+
+def build_inputs(image_b64: str, mask_b64: str, mode: str = "slim"):
+    """Кроп фото (в настоящих цветах) + отдельная ч/б маска той же зоны.
+
+    slim   — фото как есть: модель видит тело и одежду и доводит суженный контур;
+    redraw — зона на фото замазана размытым окружением: складки не видно.
+    Возвращает (фото, маска, словесное описание одежды под маской).
     """
     from PIL import Image, ImageFilter
     img, mask = _load(image_b64, mask_b64)
     box = crop_box(img.size, mask)
     crop = img.crop(box)
     mcrop = mask.crop(box)
-    marker = Image.new("RGB", crop.size, (255, 0, 255))
+    zone = describe_zone(crop, mcrop)
     if mode == "redraw":
         # Чуть шире маски: тень от складки на краю тоже должна исчезнуть
         hole = mcrop.filter(ImageFilter.MaxFilter(7))
-        marked = Image.composite(marker, crop, hole)
-        crop = marked
+        crop = _blur_hole(crop, hole)
+        marked = hole.convert("RGB")
     else:
-        # Отдельная ч/б маска: модель видит руку без цветной подсветки
         marked = mcrop.filter(ImageFilter.MaxFilter(9)).convert("RGB")
     if max(crop.size) > CROP_MAX_SIDE:
         k = CROP_MAX_SIDE / max(crop.size)
         sz = (round(crop.width * k), round(crop.height * k))
         crop = crop.resize(sz, Image.LANCZOS)
         marked = marked.resize(sz, Image.LANCZOS)
-    return _jpeg(crop), _jpeg(marked)
+    return _jpeg(crop), _jpeg(marked), zone
 
 
 # ---------- провайдер ----------
@@ -154,11 +212,12 @@ def start(image_b64: str, mask_b64: str, model: str = None, mode: str = "slim", 
     """Запускает модель; при ошибке старта пробует следующую по цепочке."""
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
-    crop_b64, marked_b64 = build_inputs(image_b64, mask_b64, mode)
-    prompt = PROMPT_REDRAW if mode == "redraw" else slim_prompt(amount)
-    # В режиме redraw достаточно одной картинки с дыркой — вторая с оригиналом
-    # подсказала бы модели ту самую складку
-    images = [crop_b64] if mode == "redraw" else [crop_b64, marked_b64]
+    crop_b64, marked_b64, zone = build_inputs(image_b64, mask_b64, mode)
+    prompt = redraw_prompt(zone) if mode == "redraw" else slim_prompt(amount, zone)
+    print(f"[SLIM] mode={mode} zone='{zone}' prompt_len={len(prompt)}")
+    # В обоих режимах: IMAGE 1 — фото в настоящих цветах, IMAGE 2 — ч/б маска.
+    # В redraw складка на фото уже замазана, оригинал модели не передаём.
+    images = [crop_b64, marked_b64]
     name = model or CHAIN[0]
     last = None
     while name:
