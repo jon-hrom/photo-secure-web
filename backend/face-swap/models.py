@@ -222,12 +222,16 @@ def target_aspect(target_b64: str) -> str:
 # Если лицо на целевом кадре мелкое (групповое фото, человек в полный рост), при отправке
 # кадра целиком модель рисует лицо в ~150px и теряет сходство. В этом случае отдаём
 # увеличенную область вокруг лица и потом вклеиваем её обратно по мягкой маске.
-CROP_MODE_RATIO = float(os.environ.get("FACE_SWAP_CROP_RATIO", "0.22"))
+# 0 = выключено. Проверено на группе: на кропе модель «отъехала» камерой и дорисовала
+# соседей — вклейка испортила кадр. Оставлено под переменную окружения для экспериментов.
+CROP_MODE_RATIO = float(os.environ.get("FACE_SWAP_CROP_RATIO", "0"))
 CROP_WORK_SIDE = 1536
 
 
 def crop_plan(original, mask, with_hair: bool = False):
     """Детерминированно: None — работаем по всему кадру, иначе рамка кропа вокруг лица."""
+    if CROP_MODE_RATIO <= 0:
+        return None
     box = _bbox(mask)
     face_side = max(box[2] - box[0], box[3] - box[1])
     # лицо в рабочем кадре целиком (после уменьшения до TARGET_MAX_SIDE)
@@ -474,7 +478,33 @@ def compose(target_b64: str, target_mask_b64: str, result_url: str, with_hair: b
     generated = generated.crop((cx, cy, cx + PW, cy + PH))
     # Отрезаем служебные поля — возвращаемся ровно к кадру оригинала
     generated = generated.crop((ox, oy, ox + original.width, oy + original.height))
-    return _finish(original, full_mask, generated, result_url)
+    _check_framing(original, full_mask, generated)
+    # Из ответа модели берём только голову; остальные люди, фон и одежда остаются 1:1
+    region = _expand_box(_bbox(full_mask), original.size, 3.0 if with_hair else 2.4)
+    merged = _blend_crop(original, full_mask, region, generated.crop(region), with_hair)
+    return _finish(original, full_mask, merged, result_url)
+
+
+class FramingChanged(UnchangedResult):
+    """Модель сдвинула/перекадрировала снимок — вклейка встанет мимо."""
+
+
+def _check_framing(original, mask, generated):
+    """Вне зоны головы ответ модели должен совпадать с оригиналом. Если нет — кадр съехал."""
+    import numpy as np
+    from PIL import Image, ImageFilter
+    k = min(1.0, 256 / max(original.size))
+    sz = (max(8, round(original.width * k)), max(8, round(original.height * k)))
+    m = mask.resize(sz, Image.BILINEAR).filter(ImageFilter.MaxFilter(31))
+    outside = np.asarray(m) < 10
+    if outside.sum() < 200:
+        return
+    o = np.asarray(original.resize(sz, Image.BILINEAR).filter(ImageFilter.GaussianBlur(2)), dtype=np.float32)
+    g = np.asarray(generated.resize(sz, Image.BILINEAR).filter(ImageFilter.GaussianBlur(2)), dtype=np.float32)
+    d = float(np.abs(o - g)[outside].mean())
+    print(f"[face-swap] framing diff={d:.2f}")
+    if d > float(os.environ.get("FACE_SWAP_MAX_FRAME_DIFF", "22")):
+        raise FramingChanged(f"framing diff={d:.2f}")
 
 
 def _fit_to_canvas(generated, size):
@@ -499,6 +529,14 @@ def _paste_crop(original, mask, crop_box, generated, with_hair: bool):
     work = (round(PW * k), round(PH * k))
     g = _fit_to_canvas(generated, work).resize((PW, PH), Image.LANCZOS)
     g = g.crop((ox, oy, ox + cw, oy + ch))
+    return _blend_crop(original, mask, crop_box, g, with_hair)
+
+
+def _blend_crop(original, mask, crop_box, g, with_hair: bool):
+    """Вклеивает g (уже размером crop_box) в оригинал по мягкой расширенной маске головы."""
+    from PIL import Image, ImageFilter, ImageChops
+    x0, y0, x1, y1 = crop_box
+    cw, ch = x1 - x0, y1 - y0
 
     # Маска вклейки: лицо (или голова) + запас, мягкий край
     m = mask.crop(crop_box)

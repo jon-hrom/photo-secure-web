@@ -129,7 +129,8 @@ def _handle_status(payload: dict, user_id):
         result_b64 = models.compose(vals[2], vals[3], state["url"], with_hair=bool(payload.get("with_hair")))
     except models.UnchangedResult as e:
         attempt = int(payload.get("attempt") or 1)
-        print(f"[face-swap] {model_used} returned unchanged face ({e}), attempt {attempt}")
+        framing = isinstance(e, models.FramingChanged)
+        print(f"[face-swap] {model_used} {'shifted framing' if framing else 'returned unchanged face'} ({e}), attempt {attempt}")
         nxt = models.next_model(model_used) or (model_used if attempt < 2 else None)
         if nxt:
             try:
@@ -140,9 +141,11 @@ def _handle_status(payload: dict, user_id):
                 print(f"[face-swap] retry failed: {ex}")
         if user_id:
             energy.refund_once(user_id, models.PRICE, f"Возврат: лицо не изменилось ({task_id})")
-        return _response(200, {"status": "failed", "refunded": models.PRICE,
-                               "error": "AI не заменил лицо. Энергия возвращена. Попробуйте закрасить лицо "
-                                        "на обоих фото чуть шире (вместе с подбородком и лбом) и повторить."})
+        msg = ("AI сдвинул кадр, и голову не получилось вставить ровно. Энергия возвращена. "
+               "Попробуйте ещё раз." if framing else
+               "AI не заменил лицо. Энергия возвращена. Попробуйте закрасить лицо "
+               "на обоих фото чуть шире (вместе с подбородком и лбом) и повторить.")
+        return _response(200, {"status": "failed", "refunded": models.PRICE, "error": msg})
     except Exception as e:
         print(f"[face-swap] compose failed: {e}")
         if user_id:
