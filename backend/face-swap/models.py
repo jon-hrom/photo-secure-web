@@ -62,7 +62,8 @@ PROMPT_HAIR = (
     "Put this exact face and hairstyle onto the person in IMAGE 1. Copy the face 1:1 from IMAGE 3: "
     "identical face shape, eyes, eye colour, nose, lips, brows, skin, moles, wrinkles, age and the "
     "same expression. Do not beautify, retouch, smooth, slim, stylize or redraw any feature. Hair "
-    "exactly as in IMAGE 2. No eyeglasses unless in IMAGE 2. Only fit size, position, head tilt and "
+    "exactly as in IMAGE 2. Keep the exact face proportions of IMAGE 3, never stretch, elongate or "
+    "reshape it to fit IMAGE 1. No eyeglasses unless in IMAGE 2. Only fit size, position, head tilt and "
     "lighting so the neck blends naturally. Everything else in IMAGE 1 stays unchanged: pose, body, "
     "clothes, hands, background, all text, composition and size."
 )
@@ -72,7 +73,8 @@ PROMPT = (
     "Put this exact face onto the person in IMAGE 1, replacing only their face. Copy the face 1:1 "
     "from IMAGE 3: identical face shape, eyes, eye colour, nose, lips, brows, skin, moles, wrinkles, "
     "age and the same expression. Do not beautify, retouch, smooth, slim, stylize or redraw any "
-    "feature. Only fit size, position, head tilt and lighting so edges blend naturally. Keep the "
+    "feature. Keep the exact face proportions of IMAGE 3, never stretch, elongate or reshape it to "
+    "fit IMAGE 1. Only fit size, position, head tilt and lighting so edges blend naturally. Keep the "
     "hairstyle and eyeglasses of IMAGE 1. Everything else in IMAGE 1 stays unchanged: pose, body, "
     "clothes, hands, background, all text, composition and size."
 )
@@ -175,11 +177,55 @@ def build_donor_face(donor_b64: str, donor_mask_b64: str) -> bytes:
     return _to_bytes(crop, "JPEG", 92)
 
 
+# Соотношения сторон, которые модели умеют выдавать. Если отдать кадр «нестандартного»
+# формата, модель вернёт ближайший стандартный — и при обратном приведении лицо
+# растягивается. Поэтому сами дополняем кадр полями до точного стандартного формата,
+# а после генерации эти поля отрезаем: геометрия лица не меняется ни на пиксель.
+ASPECTS = {"1:1": 1.0, "2:3": 2 / 3, "3:2": 3 / 2, "3:4": 3 / 4, "4:3": 4 / 3,
+           "4:5": 4 / 5, "5:4": 5 / 4, "9:16": 9 / 16, "16:9": 16 / 9, "21:9": 21 / 9}
+
+
+def _pad_plan(size):
+    """Детерминированно: (ratio_name, PW, PH, ox, oy) — холст стандартного формата
+    минимальной площади, куда оригинал помещается без масштабирования."""
+    W, H = size
+    best = None
+    for name, r in ASPECTS.items():
+        if W / H >= r:
+            PW, PH = W, int(round(W / r))
+        else:
+            PW, PH = int(round(H * r)), H
+        PW, PH = max(PW, W), max(PH, H)
+        if best is None or PW * PH < best[1] * best[2]:
+            best = (name, PW, PH)
+    name, PW, PH = best
+    return name, PW, PH, (PW - W) // 2, (PH - H) // 2
+
+
+def _padded_target(img):
+    """Кладёт кадр по центру холста стандартного формата; поля — размытое продолжение краёв."""
+    import numpy as np
+    from PIL import Image, ImageFilter
+    name, PW, PH, ox, oy = _pad_plan(img.size)
+    if (PW, PH) == img.size:
+        return img, name
+    a = np.asarray(img)
+    pad = ((oy, PH - img.height - oy), (ox, PW - img.width - ox), (0, 0))
+    canvas = Image.fromarray(np.pad(a, pad, mode="edge")).filter(ImageFilter.GaussianBlur(12))
+    canvas.paste(img, (ox, oy))
+    return canvas, name
+
+
+def target_aspect(target_b64: str) -> str:
+    return _pad_plan(_open_rgb(target_b64).size)[0]
+
+
 def build_target(target_b64: str, target_mask_b64: str, with_hair: bool = False) -> bytes:
-    """Целевая картинка целиком — модель должна видеть всю композицию."""
+    """Целевая картинка целиком (дополненная до стандартного формата) — модель видит всю композицию."""
     from PIL import Image
     img = _open_rgb(target_b64)
     _bbox(_open_mask(target_mask_b64, img.size))
+    img, _ = _padded_target(img)
     if max(img.size) > TARGET_MAX_SIDE:
         img.thumbnail((TARGET_MAX_SIDE, TARGET_MAX_SIDE), Image.LANCZOS)
     return _to_bytes(img, "JPEG", 92)
@@ -266,16 +312,20 @@ def _rep_poll(pid: str) -> dict:
 
 
 # ---------- GPTunneL ----------
-def _gpt_start(name: str, target_bytes: bytes, donor_list: list, prompt: str = PROMPT) -> str:
+def _gpt_start(name: str, target_bytes: bytes, donor_list: list, prompt: str = PROMPT,
+               aspect: str = None) -> str:
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
     t = base64.b64encode(target_bytes).decode()
+    params = dict(GPT_MODELS[name]["params"])
+    if aspect:
+        params["aspect_ratio"] = aspect  # точный формат кадра — без растяжения при возврате
     r = requests.post(
         f"{GPT_BASE}/tasks",
         json={
             "model": GPT_MODELS[name]["model"],
             "prompt": prompt,
-            "params": GPT_MODELS[name]["params"],
+            "params": params,
             "inputs": {"image_input": [f"data:image/jpeg;base64,{t}"] + [
                 f"data:image/jpeg;base64,{base64.b64encode(d).decode()}" for d in donor_list]},
         },
@@ -317,6 +367,7 @@ def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, 
     donor_list = [build_donor(donor_b64, donor_mask_b64, with_hair),
                   build_donor_face(donor_b64, donor_mask_b64)]
     target_bytes = build_target(target_b64, target_mask_b64, with_hair)
+    aspect = target_aspect(target_b64)
     prompt = PROMPT_HAIR if with_hair else PROMPT
     name = model or MODEL
     last_err = None
@@ -324,7 +375,7 @@ def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, 
         try:
             if name in REPLICATE_MODELS:
                 return _rep_start(name, target_bytes, donor_list, prompt), name
-            return _gpt_start(name, target_bytes, donor_list, prompt), name
+            return _gpt_start(name, target_bytes, donor_list, prompt, aspect), name
         except Exception as e:
             print(f"[face-swap] start {name} failed: {e}")
             last_err = e
@@ -374,8 +425,18 @@ def compose(target_b64: str, target_mask_b64: str, result_url: str, with_hair: b
 
     original = _open_rgb(target_b64)
     generated = Image.open(io.BytesIO(r.content)).convert("RGB")
-    if generated.size != original.size:
-        generated = generated.resize(original.size, Image.LANCZOS)
+    _, PW, PH, ox, oy = _pad_plan(original.size)
+    print(f"[face-swap] generated {generated.size}, original {original.size}, canvas {(PW, PH)}")
+    # Только РАВНОМЕРНОЕ масштабирование (один коэффициент на обе оси) + обрезка по центру:
+    # никаких растяжений по одной оси, пропорции лица сохраняются.
+    s = max(PW / generated.width, PH / generated.height)
+    nw, nh = max(PW, round(generated.width * s)), max(PH, round(generated.height * s))
+    if (nw, nh) != generated.size:
+        generated = generated.resize((nw, nh), Image.LANCZOS)
+    cx, cy = (nw - PW) // 2, (nh - PH) // 2
+    generated = generated.crop((cx, cy, cx + PW, cy + PH))
+    # Отрезаем служебные поля — возвращаемся ровно к кадру оригинала
+    generated = generated.crop((ox, oy, ox + original.width, oy + original.height))
 
     # Проверка, что лицо вообще поменялось (на уменьшенной копии — быстро)
     k = min(1.0, 384 / max(original.size))
