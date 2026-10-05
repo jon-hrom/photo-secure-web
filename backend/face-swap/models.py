@@ -5,8 +5,8 @@
      модель не перепутала лица, если на фото донора их несколько).
   2. На целевом фото вырезаем область вокруг закрашенного лица с запасом контекста.
   3. Мультимодальная модель редактирования (nano-banana-pro → nano-banana на Replicate,
-     резерв — GPTunneL) переписывает лицо: личность донора, но поза, свет, ракурс,
-     выражение и СТИЛЬ целевого кадра (рисунок остаётся рисунком, фото — фото).
+     резерв — GPTunneL) переносит лицо донора КАК ЕСТЬ (черты, выражение, кожа, возраст
+     без изменений), подгоняя только размер, наклон и свет под целевой кадр.
   4. Результат вклеиваем обратно в оригинал по расширенной маске с мягким краем
      и выравниванием цвета — всё за пределами области остаётся 1:1.
 """
@@ -47,31 +47,34 @@ def _chain():
 MODEL = os.environ.get("FACE_SWAP_MODEL") or _chain()[0]
 PRICE = int(os.environ.get("FACE_SWAP_PRICE", "30"))
 LABEL = "Перенос лица"
-HINT = "Лицо донора органично встанет на целевое фото в его стиле"
+HINT = "Лицо донора переносится как есть — без изменения черт"
 
 # Картинку отдаём модели ЦЕЛИКОМ (как при ручной работе в Banana Pro): так она видит
 # всю композицию и возвращает готовый кадр — без вырезок, вклеек и «двоения» текста.
 TARGET_MAX_SIDE = 1536
 DONOR_MAX_SIDE = 1024
 
-# Промпты держим < 800 символов (лимит GPTunneL). IMAGE 1 — куда, IMAGE 2 — кто.
+# Промпты держим < 800 символов (лимит GPTunneL).
+# IMAGE 1 — куда, IMAGE 2 — донор с контекстом, IMAGE 3 — крупный план лица донора (эталон).
+# Главное требование: лицо переносится КАК ЕСТЬ — без украшательства, смены выражения и перерисовки.
 PROMPT_HAIR = (
-    "Replace the person in IMAGE 1 with the person from IMAGE 2: use her face and her hairstyle "
-    "(hair colour, length, cut, parting). She must be instantly recognizable as the same person: "
-    "same face shape, eyes, nose, lips, brows and natural age. Pleasant, soft, friendly look, gentle "
-    "natural smile, not older than in IMAGE 2. No eyeglasses unless she wears them in IMAGE 2. "
-    "Draw her in exactly the same art style as IMAGE 1. Keep everything else in IMAGE 1 unchanged: "
-    "pose, body, clothes, hands, flowers, books, background, frame, all notes and all text "
-    "letter-for-letter, same composition and size."
+    "Head transplant. IMAGE 2 and IMAGE 3 show the same real person (IMAGE 3 is a face close-up). "
+    "Put this exact face and hairstyle onto the person in IMAGE 1. Copy the face 1:1 from IMAGE 3: "
+    "identical face shape, eyes, eye colour, nose, lips, brows, skin, moles, wrinkles, age and the "
+    "same expression. Do not beautify, retouch, smooth, slim, stylize or redraw any feature. Hair "
+    "exactly as in IMAGE 2. No eyeglasses unless in IMAGE 2. Only fit size, position, head tilt and "
+    "lighting so the neck blends naturally. Everything else in IMAGE 1 stays unchanged: pose, body, "
+    "clothes, hands, background, all text, composition and size."
 )
 
 PROMPT = (
-    "Replace the face of the person in IMAGE 1 with the face of the person from IMAGE 2. "
-    "She must be instantly recognizable as the same person: same face shape, eyes, nose, lips, brows "
-    "and natural age. Pleasant, soft, friendly look, gentle natural smile, not older than in IMAGE 2. "
-    "Keep the hairstyle and eyeglasses of IMAGE 1. Draw the face in exactly the same art style as "
-    "IMAGE 1. Keep everything else in IMAGE 1 unchanged: pose, body, clothes, hands, background, "
-    "all notes and all text letter-for-letter, same composition and size."
+    "Face transplant. IMAGE 2 and IMAGE 3 show the same real person (IMAGE 3 is a face close-up). "
+    "Put this exact face onto the person in IMAGE 1, replacing only their face. Copy the face 1:1 "
+    "from IMAGE 3: identical face shape, eyes, eye colour, nose, lips, brows, skin, moles, wrinkles, "
+    "age and the same expression. Do not beautify, retouch, smooth, slim, stylize or redraw any "
+    "feature. Only fit size, position, head tilt and lighting so edges blend naturally. Keep the "
+    "hairstyle and eyeglasses of IMAGE 1. Everything else in IMAGE 1 stays unchanged: pose, body, "
+    "clothes, hands, background, all text, composition and size."
 )
 
 # Если средняя разница в зоне лица меньше порога — модель фактически ничего не сделала.
@@ -309,7 +312,10 @@ def _gpt_poll(task_id: str) -> dict:
 # ---------- Общий интерфейс ----------
 def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, model: str = None,
                         with_hair: bool = False):
-    donor_list = [build_donor(donor_b64, donor_mask_b64, with_hair)]
+    # Второй референс — крупный план лица строго по маске: модель видит черты в деталях
+    # и копирует именно это лицо (а не соседнее, если на фото донора несколько людей).
+    donor_list = [build_donor(donor_b64, donor_mask_b64, with_hair),
+                  build_donor_face(donor_b64, donor_mask_b64)]
     target_bytes = build_target(target_b64, target_mask_b64, with_hair)
     prompt = PROMPT_HAIR if with_hair else PROMPT
     name = model or MODEL
