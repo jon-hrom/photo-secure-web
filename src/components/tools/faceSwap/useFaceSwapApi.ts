@@ -1,9 +1,9 @@
+import { saveBlobToPhotoBank } from '@/components/tools/saveToPhotoBank';
 import { addToHistory } from '@/lib/toolsHistory';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 import {
-  PHOTOBANK_URL,
   urlToImage,
   fileToImage,
   dataUrlToBase64,
@@ -13,7 +13,7 @@ import { CanvasState } from '@/components/tools/logoRemover/useCanvasState';
 import { buildInpaintMask } from '@/components/tools/logoRemover/maskAnalysis';
 import {
   SourceImage, loadSourceFromFile, loadSourceFromUrl, exportFullRes,
-  diffMask, blobToDataUrl, downloadBlob,
+  diffMask, downloadBlob,
 } from '@/components/tools/objectRemover/fullRes';
 
 export const FACE_SWAP_URL = 'https://functions.poehali.dev/ebf5f521-be34-42d2-a0f8-1424c0b4b494';
@@ -253,20 +253,9 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       setLoadingText('Сохраняем в фотобанк...');
       const exp = await buildExport();
       if (!exp) throw new Error('нет изображения');
-      const res = await fetch(PHOTOBANK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({
-          action: 'upload_direct',
-          folder_id: folder.id,
-          file_name: exp.name,
-          file_data: await blobToDataUrl(exp.blob),
-          width: exp.width,
-          height: exp.height,
-        }),
+      await saveBlobToPhotoBank({
+        userId, folderId: folder.id, blob: exp.blob, fileName: exp.name, width: exp.width, height: exp.height,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       toast({ title: 'Сохранено', description: `Фото загружено в «${folder.folder_name}»` });
       setShowSaver(false);
     } catch (e) {

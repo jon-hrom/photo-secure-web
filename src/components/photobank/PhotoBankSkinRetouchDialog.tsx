@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { saveBlobToPhotoBank } from '@/components/tools/saveToPhotoBank';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,7 +23,7 @@ import {
   runSkinRetouch,
 } from '@/components/tools/skinRetouch/runSkinRetouch';
 import {
-  SourceImage, loadSourceFromUrl, exportFullRes, dataUrlToCanvas, blobToDataUrl,
+  SourceImage, loadSourceFromUrl, exportFullRes, dataUrlToCanvas,
 } from '@/components/tools/objectRemover/fullRes';
 
 const PHOTOBANK_FOLDERS_API = 'https://functions.poehali.dev/ccf8ab13-a058-4ead-b6c5-6511331471bc';
@@ -278,20 +279,9 @@ const PhotoBankSkinRetouchDialog = ({
       const targetId = await ensureRetouchFolder();
       const edited = await dataUrlToCanvas(`data:image/jpeg;base64,${imageB64}`);
       const exp = await exportFullRes(src, edited, 'auto');
-      const res = await fetch(PHOTOBANK_FOLDERS_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
-        body: JSON.stringify({
-          action: 'upload_direct',
-          folder_id: targetId,
-          file_name: exp.name,
-          file_data: await blobToDataUrl(exp.blob),
-          width: exp.width,
-          height: exp.height,
-        }),
+      await saveBlobToPhotoBank({
+        userId, folderId: targetId, blob: exp.blob, fileName: exp.name, width: exp.width, height: exp.height,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Сохранение: HTTP ${res.status}`);
     },
     [ensureRetouchFolder, userId],
   );

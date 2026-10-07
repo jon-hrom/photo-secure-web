@@ -1,10 +1,10 @@
+import { saveBlobToPhotoBank } from '@/components/tools/saveToPhotoBank';
 import { addToHistory } from '@/lib/toolsHistory';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 import {
   SKIN_RETOUCH_URL,
-  PHOTOBANK_URL,
   PresetKey,
   EyeSharpenKey,
   RetouchStage,
@@ -16,7 +16,7 @@ import {
 } from '@/components/tools/skinRetouch/utils';
 import {
   SourceImage, loadSourceFromFile, loadSourceFromUrl, exportFullRes,
-  dataUrlToCanvas, blobToDataUrl, downloadBlob,
+  dataUrlToCanvas, downloadBlob,
 } from '@/components/tools/objectRemover/fullRes';
 import { runSlim, maskToB64 } from '@/components/tools/skinRetouch/runSlim';
 
@@ -510,20 +510,9 @@ export const useRetouchApi = (
       setLoadingText('Сохраняем в фотобанк...');
       const exp = await buildExport();
       if (!exp) throw new Error('нет изображения');
-      const res = await fetch(PHOTOBANK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
-        body: JSON.stringify({
-          action: 'upload_direct',
-          folder_id: folder.id,
-          file_name: exp.name,
-          file_data: await blobToDataUrl(exp.blob),
-          width: exp.width,
-          height: exp.height,
-        }),
+      await saveBlobToPhotoBank({
+        userId, folderId: folder.id, blob: exp.blob, fileName: exp.name, width: exp.width, height: exp.height,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       toast({ title: 'Сохранено', description: `Фото загружено в «${folder.folder_name}»` });
       setShowSaver(false);
     } catch (e) {

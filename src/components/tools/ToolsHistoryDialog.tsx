@@ -6,7 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import PhotoBankPicker from '@/components/tools/PhotoBankPicker';
 import { downloadBlob } from '@/components/tools/objectRemover/fullRes';
 import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
-import { PHOTOBANK_URL, urlToImage } from '@/components/tools/logoRemover/utils';
+import { urlToImage } from '@/components/tools/logoRemover/utils';
+import { saveBlobToPhotoBank, dataUrlToBlob } from '@/components/tools/saveToPhotoBank';
 import {
   ToolHistoryItem,
   TOOL_LABELS,
@@ -73,20 +74,14 @@ const ToolsHistoryDialog = ({ open, onOpenChange }: Props) => {
     try {
       setSaving(true);
       const img = await urlToImage(saveItem.image);
-      const res = await fetch(PHOTOBANK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': String(userId) },
-        body: JSON.stringify({
-          action: 'upload_direct',
-          folder_id: folder.id,
-          file_name: fileNameFor(saveItem, 'jpg'),
-          file_data: saveItem.image,
-          width: img.naturalWidth,
-          height: img.naturalHeight,
-        }),
+      await saveBlobToPhotoBank({
+        userId,
+        folderId: folder.id,
+        blob: await dataUrlToBlob(saveItem.image),
+        fileName: fileNameFor(saveItem, 'jpg'),
+        width: img.naturalWidth,
+        height: img.naturalHeight,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
       toast({ title: 'Сохранено', description: `Фото загружено в «${folder.folder_name}»` });
       setSaveItem(null);
     } catch (e) {
