@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Восстановление электропитания серверов</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0f24; overflow: hidden; }
+  picture, img { display: block; width: 100%; height: 100%; }
+  img { object-fit: cover; object-position: center; }
+  .hint {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    font: 500 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    color: rgba(255,255,255,.75); background: rgba(5,10,30,.55);
+    padding: 8px 16px; border-radius: 999px; backdrop-filter: blur(6px);
+    white-space: nowrap;
+  }
+  .hint button {
+    margin-left: 10px; border: 0; border-radius: 999px; padding: 4px 12px; cursor: pointer;
+    background: #38bdf8; color: #04121f; font: inherit; font-weight: 600;
+  }
+  @media (max-aspect-ratio: 4/3) { img { object-fit: contain; } }
+</style>
+</head>
+<body>
+<picture>
+  <source media="(max-width: 900px)" srcset="/offline-mobile.webp" />
+  <img src="/offline.webp" alt="Восстановление электропитания серверов. Пожалуйста, попробуйте позже" />
+</picture>
+<div class="hint">Проверяем доступность сайта… <button type="button" onclick="check()">Обновить</button></div>
+<script>
+  function check() {
+    fetch('/?_alive=' + Date.now(), { cache: 'no-store', headers: { 'X-Offline-Probe': '1' } })
+      .then(function (r) { if (r.ok) location.reload(); })
+      .catch(function () {});
+  }
+  setInterval(check, 30000);
+  window.addEventListener('online', check);
+</script>
+</body>
+</html>
