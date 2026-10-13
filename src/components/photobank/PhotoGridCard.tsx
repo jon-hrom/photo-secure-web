@@ -4,6 +4,7 @@ import { getAuthUserId } from '@/pages/photobank/PhotoBankAuth';
 import { useState, useEffect, type CSSProperties } from 'react';
 import { extractDominantColor } from '@/utils/dominantColor';
 import { getThumbUrl } from '@/utils/imageThumb';
+import { isDocumentFile, fileIconName, fileExt } from '@/utils/fileKind';
 
 interface Photo {
   id: number;
@@ -141,7 +142,7 @@ const PhotoGridCard = ({
             </div>
           </div>
         )}
-        {!selectionMode && onShowExif && (photo.thumbnail_s3_url || photo.s3_url) && showButtons && (
+        {!selectionMode && onShowExif && !isDocumentFile(photo) && (photo.thumbnail_s3_url || photo.s3_url) && showButtons && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -153,7 +154,17 @@ const PhotoGridCard = ({
           </button>
         )}
         <div className="w-full h-full flex items-center justify-center p-1">
-          {photo.is_video && !photo.thumbnail_s3_url && photo.s3_url ? (
+          {isDocumentFile(photo) ? (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2 rounded bg-muted/60 px-2 text-center">
+              <Icon name={fileIconName(photo.file_name)} fallback="File" size={44} className="text-primary" />
+              <span className="px-2 py-0.5 rounded-md bg-primary/15 text-primary text-xs font-semibold uppercase">
+                {fileExt(photo.file_name) || 'файл'}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {photo.file_size ? `${(photo.file_size / 1024 / 1024).toFixed(photo.file_size > 10 * 1024 * 1024 ? 0 : 1)} МБ` : ''}
+              </span>
+            </div>
+          ) : photo.is_video && !photo.thumbnail_s3_url && photo.s3_url ? (
             <>
               {/* У видео нет обложки — показываем первый кадр прямо из видеофайла */}
               <video
@@ -259,7 +270,7 @@ const PhotoGridCard = ({
             >
               <Icon name="Trash2" size={10} className="text-white" />
             </button>
-            {onRetouch && !photo.is_video && (
+            {onRetouch && !photo.is_video && !isDocumentFile(photo) && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();

@@ -1,3 +1,4 @@
+import { isDocumentFile } from '@/utils/fileKind';
 import { useState, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { PHOTOBANK_FOLDERS_API } from '@/components/photobank/camera-upload/CameraUploadTypes';
@@ -181,6 +182,8 @@ export function usePhotoGridState({
 
   const handlePhotoClick = (photo: Photo) => {
     if (!selectionMode) {
+      // Документы/архивы не открываются в просмотрщике — для них есть кнопка «Скачать»
+      if (isDocumentFile(photo)) return;
       if (photo.is_video) {
         setViewVideo(photo);
       } else {

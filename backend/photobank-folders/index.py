@@ -1014,9 +1014,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         photo_id = cur.fetchone()['id']
                         inserted_ids.append(photo_id)
                         
+                        _img_exts = ('.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.gif', '.bmp', '.tif', '.tiff', '.avif')
+                        is_image = content_type.startswith('image/') or file_ext_lower in _img_exts
                         if is_raw:
                             raw_photo_ids.append(photo_id)
-                        elif not is_video:
+                        elif not is_video and is_image:
                             regular_photo_ids.append(photo_id)
                     
                     conn.commit()

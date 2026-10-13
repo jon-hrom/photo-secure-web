@@ -1,6 +1,7 @@
 import { CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { getIsAdmin } from '@/pages/photobank/PhotoBankAuth';
 
 interface PhotoFolder {
   id: number;
@@ -58,6 +59,7 @@ const PhotoGridHeader = ({
   regenProgress,
   onRegenerateThumbnails
 }: PhotoGridHeaderProps) => {
+  const anyFileAllowed = getIsAdmin();
   const isStorageFull = storageUsage && storageUsage.percent >= 100;
 
   const isUserCreatedSubfolder = (sf: PhotoFolder) => {
@@ -89,7 +91,7 @@ const PhotoGridHeader = ({
                 type="file"
                 id="photo-upload"
                 className="hidden"
-                accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
+                accept={anyFileAllowed ? undefined : "image/*,video/*,.raw,.cr2,.nef,.arw,.dng"}
                 multiple
                 onChange={onUploadPhoto}
                 disabled={uploading || isStorageFull}
@@ -98,7 +100,7 @@ const PhotoGridHeader = ({
                 <label htmlFor="photo-upload" className={`${isStorageFull ? 'cursor-not-allowed' : 'cursor-pointer'} flex items-center justify-center gap-1.5`}>
                   <Icon name={isStorageFull ? 'Ban' : 'Upload'} className="shrink-0" size={16} />
                   <span className="text-xs sm:text-sm leading-tight text-center whitespace-normal max-w-[120px] sm:max-w-none">
-                    {isStorageFull ? 'Хранилище заполнено' : uploading ? 'Загрузка...' : 'Загрузить фото / видео'}
+                    {isStorageFull ? 'Хранилище заполнено' : uploading ? 'Загрузка...' : anyFileAllowed ? 'Загрузить файлы' : 'Загрузить фото / видео'}
                   </span>
                 </label>
               </Button>
@@ -109,7 +111,7 @@ const PhotoGridHeader = ({
                   type="file"
                   id="photo-upload-missing"
                   className="hidden"
-                  accept="image/*,video/*,.raw,.cr2,.nef,.arw,.dng"
+                  accept={anyFileAllowed ? undefined : "image/*,video/*,.raw,.cr2,.nef,.arw,.dng"}
                   multiple
                   onChange={onUploadPhoto}
                   disabled={uploading}

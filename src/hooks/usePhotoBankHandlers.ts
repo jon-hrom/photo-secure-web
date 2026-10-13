@@ -1,3 +1,4 @@
+import { getIsAdmin } from '@/pages/photobank/PhotoBankAuth';
 import { useToast } from '@/hooks/use-toast';
 import { generateVideoThumbnailBlob } from '@/utils/videoThumbnail';
 
@@ -123,8 +124,10 @@ export const usePhotoBankHandlers = (
       return RAW_EXTENSIONS.includes(ext);
     };
 
-    const mediaFiles = Array.from(files).filter(file => 
-      file.type.startsWith('image/') || file.type.startsWith('video/') || isRawFile(file.name)
+    // Администратор может загружать файлы любого типа и расширения
+    const allowAnyFile = getIsAdmin();
+    const mediaFiles = Array.from(files).filter(file =>
+      allowAnyFile || file.type.startsWith('image/') || file.type.startsWith('video/') || isRawFile(file.name)
     );
     
     if (mediaFiles.length === 0) {
@@ -177,7 +180,7 @@ export const usePhotoBankHandlers = (
     // Лимит размера фото поднят до 500 МБ (загрузка идёт напрямую в S3,
     // ограничения base64 больше нет). Видео — без лимита.
     const MAX_FILE_SIZE = 500 * 1024 * 1024;
-    const tooLargeFiles = mediaFiles.filter(file => {
+    const tooLargeFiles = allowAnyFile ? [] : mediaFiles.filter(file => {
       const isVideo = file.type.startsWith('video/');
       return !isVideo && file.size > MAX_FILE_SIZE;
     });

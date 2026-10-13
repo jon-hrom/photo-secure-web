@@ -1,5 +1,5 @@
 """VK OAuth авторизация с JWT сессиями."""
-# redeploy: fix runtime module resolution (force rebuild)
+# redeploy: python runtime
 
 import json
 import os
