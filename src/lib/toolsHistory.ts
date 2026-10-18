@@ -2,7 +2,7 @@
  * История результатов AI-инструментов. Хранится локально в IndexedDB,
  * чтобы результат не терялся, если окно инструмента случайно закрылось.
  */
-export type ToolKind = 'face-swap' | 'logo-remover' | 'object-remover' | 'skin-retouch' | 'humanizer';
+export type ToolKind = 'face-swap' | 'logo-remover' | 'object-remover' | 'skin-retouch' | 'humanizer' | 'upscale';
 
 export interface ToolHistoryItem {
   id: string;
@@ -20,6 +20,7 @@ export const TOOL_LABELS: Record<ToolKind, string> = {
   'object-remover': 'Удалить объект',
   'skin-retouch': 'Ретушь фото',
   humanizer: 'Humanizer',
+  upscale: 'Увеличить разрешение',
 };
 
 const DB_NAME = 'tools_history';

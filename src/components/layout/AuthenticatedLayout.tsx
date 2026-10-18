@@ -28,6 +28,7 @@ import SyncIndicator from '@/components/SyncIndicator';
 import WelcomeDialog from '@/components/WelcomeDialog';
 import ToolsDialog from '@/components/tools/ToolsDialog';
 import LogoRemoverDialog from '@/components/tools/LogoRemoverDialog';
+import UpscaleDialog from '@/components/tools/UpscaleDialog';
 import HumanizerDialog from '@/components/tools/HumanizerDialog';
 import SkinRetouchDialog from '@/components/tools/SkinRetouchDialog';
 import ObjectRemoverDialog from '@/components/tools/ObjectRemoverDialog';
@@ -92,6 +93,7 @@ const AuthenticatedLayout = ({
   const [appealsOpenSignal, setAppealsOpenSignal] = useState(0);
   const [showTools, setShowTools] = useState(false);
   const [showLogoRemover, setShowLogoRemover] = useState(false);
+  const [showUpscale, setShowUpscale] = useState(false);
   const [showHumanizer, setShowHumanizer] = useState(false);
   const [showSkinRetouch, setShowSkinRetouch] = useState(false);
   const [showObjectRemover, setShowObjectRemover] = useState(false);
@@ -328,12 +330,14 @@ const AuthenticatedLayout = ({
         open={showTools}
         onOpenChange={setShowTools}
         onOpenLogoRemover={() => setShowLogoRemover(true)}
+        onOpenUpscale={() => setShowUpscale(true)}
         onOpenHumanizer={() => setShowHumanizer(true)}
         onOpenSkinRetouch={() => setShowSkinRetouch(true)}
         onOpenObjectRemover={() => setShowObjectRemover(true)}
         onOpenFaceSwap={() => setShowFaceSwap(true)}
       />
 
+      <UpscaleDialog open={showUpscale} onOpenChange={setShowUpscale} />
       <LogoRemoverDialog
         open={showLogoRemover}
         onOpenChange={setShowLogoRemover}

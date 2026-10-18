@@ -11,6 +11,7 @@ interface ToolsDialogProps {
   onOpenSkinRetouch: () => void;
   onOpenObjectRemover: () => void;
   onOpenFaceSwap: () => void;
+  onOpenUpscale?: () => void;
 }
 
 interface ToolCardProps {
@@ -40,7 +41,7 @@ const ToolCard = ({ icon, title, description, onClick, gradient }: ToolCardProps
   </button>
 );
 
-const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, onOpenSkinRetouch, onOpenObjectRemover, onOpenFaceSwap }: ToolsDialogProps) => {
+const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, onOpenSkinRetouch, onOpenObjectRemover, onOpenFaceSwap, onOpenUpscale}: ToolsDialogProps) => {
   const [showHistory, setShowHistory] = useState(false);
   return (
     <>
@@ -77,6 +78,17 @@ const ToolsDialog = ({ open, onOpenChange, onOpenLogoRemover, onOpenHumanizer, o
             onClick={() => {
               onOpenChange(false);
               onOpenLogoRemover();
+            }}
+          />
+
+          <ToolCard
+            icon="Maximize"
+            title="Увеличить разрешение"
+            description="Фото 2K, 4K или 8K без изменения содержимого: те же лица, цвета и композиция — только больше и чётче."
+            gradient="from-cyan-500 to-blue-600"
+            onClick={() => {
+              onOpenChange(false);
+              onOpenUpscale?.();
             }}
           />
 
