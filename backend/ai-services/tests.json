@@ -1,0 +1,6 @@
+{
+  "tests": [
+    {"name": "OPTIONS CORS", "method": "OPTIONS", "path": "/", "expectedStatus": 200},
+    {"name": "No admin", "method": "GET", "path": "/?action=gptunnel", "expectedStatus": 403}
+  ]
+}

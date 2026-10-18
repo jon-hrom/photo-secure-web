@@ -1,4 +1,5 @@
 {
+  "ai-services": "https://functions.poehali.dev/875b8861-75c4-437f-b3e9-ef21e0aec8d1",
   "upscale": "https://functions.poehali.dev/c015dc93-c17d-41f0-a0b7-ba0014b5d997",
   "face-swap": "https://functions.poehali.dev/ebf5f521-be34-42d2-a0f8-1424c0b4b494",
   "object-remove": "https://functions.poehali.dev/61d4064f-fce9-47b5-bfa8-0704146ff165",

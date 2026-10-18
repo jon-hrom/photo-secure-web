@@ -18,6 +18,7 @@ import VKSettings from '@/components/settings/VKSettings';
 import NotificationMonitor from '@/components/admin/NotificationMonitor';
 import AdminBiometricSettings from '@/components/admin/AdminBiometricSettings';
 import AdminRetouchSettings from '@/components/admin/AdminRetouchSettings';
+import AdminAiServices from '@/components/admin/AdminAiServices';
 import AdminPersonalData from '@/components/admin/AdminPersonalData';
 import AdminUserAudit from '@/components/admin/AdminUserAudit';
 import { Button } from '@/components/ui/button';
@@ -193,6 +194,18 @@ const AdminPanelTabs = ({
         </AccordionTrigger>
         <AccordionContent className="px-4 sm:px-6 pb-4">
           <AdminRetouchSettings />
+        </AccordionContent>
+      </AccordionItem>
+
+      <AccordionItem value="ai-services" className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-0">
+        <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline">
+          <div className="flex items-center gap-3">
+            <Icon name="BrainCircuit" size={20} className="text-primary" />
+            <span className="text-lg font-semibold">AI инструменты</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-4 sm:px-6 pb-4">
+          <AdminAiServices />
         </AccordionContent>
       </AccordionItem>
 
