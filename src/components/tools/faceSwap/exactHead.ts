@@ -17,6 +17,8 @@ const KEY_IDX = [36, 39, 42, 45, 27, 30, 33, 48, 54, 51, 57];
 /** Если после совмещения точки расходятся больше этой доли ширины лица — поза другая, не вклеиваем. */
 const MAX_RESIDUAL = 0.2;
 const MEAN_SHIFT_CLAMP = 22;
+/** Лёгкое сужение лица по горизонтали (вдоль линии глаз): 1 = без изменений, 0.95 = на 5% уже. */
+const FACE_WIDTH = 0.95;
 
 const loadImg = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -165,12 +167,24 @@ export const exactHeadPaste = async ({ donorUrl, donorMask, targetUrl, resultUrl
 
   // Маска головы донора: отмеченная область, а для «только лицо» — ещё и сжатая внутрь лица
   const scale = Math.hypot(T.c, T.s);
+  // Итоговая матрица: подобие T + сужение вдоль оси глаз вокруг центра лица (вертикаль не трогаем)
+  const th = Math.atan2(T.s, T.c);
+  const ux = Math.cos(th), uy = Math.sin(th);
+  const k1 = FACE_WIDTH - 1;
+  const A11 = 1 + k1 * ux * ux, A12 = k1 * ux * uy, A22 = 1 + k1 * uy * uy;
+  const cx = dstPts.reduce((a, p) => a + p.x, 0) / dstPts.length;
+  const cy = dstPts.reduce((a, p) => a + p.y, 0) / dstPts.length;
+  const m11 = A11 * T.c + A12 * T.s, m12 = -A11 * T.s + A12 * T.c;
+  const m21 = A12 * T.c + A22 * T.s, m22 = -A12 * T.s + A22 * T.c;
+  const e = A11 * (T.tx - cx) + A12 * (T.ty - cy) + cx;
+  const f = A12 * (T.tx - cx) + A22 * (T.ty - cy) + cy;
+  const M: [number, number, number, number, number, number] = [m11, m21, m12, m22, e, f];
   const featherPx = Math.max(3, faceW * (withHair ? 0.035 : 0.06));
   const warpMask = document.createElement('canvas');
   warpMask.width = RW;
   warpMask.height = RH;
   const wm = warpMask.getContext('2d', { willReadFrequently: true })!;
-  wm.setTransform(T.c, T.s, -T.s, T.c, T.tx, T.ty);
+  wm.setTransform(...M);
   wm.drawImage(dMask, 0, 0);
   wm.setTransform(1, 0, 0, 1, 0, 0);
   const soft = document.createElement('canvas');
@@ -187,7 +201,7 @@ export const exactHeadPaste = async ({ donorUrl, donorMask, targetUrl, resultUrl
   const wc = warped.getContext('2d', { willReadFrequently: true })!;
   wc.imageSmoothingEnabled = true;
   wc.imageSmoothingQuality = 'high';
-  wc.setTransform(T.c, T.s, -T.s, T.c, T.tx, T.ty);
+  wc.setTransform(...M);
   wc.drawImage(donor, 0, 0);
 
   const R = result.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, RW, RH);
