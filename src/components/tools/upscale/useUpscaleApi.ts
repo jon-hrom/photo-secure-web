@@ -7,6 +7,7 @@ import {
   SourceImage, loadSourceFromFile, loadSourceFromUrl, canvasToBlob, copyJpegMeta, downloadBlob, mimeFromName,
 } from '@/components/tools/objectRemover/fullRes';
 import { composeUpscale, targetSize, UpscalePlace } from '@/components/tools/upscale/composeUpscale';
+import { composeStable } from '@/components/tools/upscale/composeStable';
 
 export const UPSCALE_URL = 'https://functions.poehali.dev/c015dc93-c17d-41f0-a0b7-ba0014b5d997';
 
@@ -186,9 +187,10 @@ export const useUpscaleApi = (open: boolean) => {
       setLoadingText('Собираем фото в исходных цветах...');
       const aiImg = await toUrlImage(data.url, true);
       if (stabilize) setLoadingText('Стабилизация: выравниваем детали...');
-      const canvas = await composeUpscale(src.img, aiImg, data.place, width, height, (p) =>
-        setLoadingText(`Собираем фото ${width}×${height}... ${Math.round(p * 100)}%`),
-      stabilize);
+      const onProgress = (p: number) => setLoadingText(`Собираем фото ${width}×${height}... ${Math.round(p * 100)}%`);
+      const canvas = stabilize
+        ? await composeStable(src.img, aiImg, data.place, width, height, onProgress)
+        : await composeUpscale(src.img, aiImg, data.place, width, height, onProgress);
       setLoadingText('Готовим файл...');
       const mime = mimeFromName(src.name) === 'image/png' ? 'image/png' : 'image/jpeg';
       let blob = await canvasToBlob(canvas, mime, 0.95);
