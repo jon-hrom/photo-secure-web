@@ -132,8 +132,12 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
     try {
       setLoading(true);
       setLoadingText('Отправляем фото...');
-      const res = await fetch(`${FACE_SWAP_URL}?action=swap`, { method: 'POST', headers, body: JSON.stringify(payload) });
-      const started = await res.json();
+      const res = await fetch(`${FACE_SWAP_URL}?action=swap`, { method: 'POST', headers, body: JSON.stringify(payload) })
+        .catch(() => null);
+      if (!res || res.status === 504) {
+        throw new Error('AI-сервис долго не отвечал, запуск сорвался. Энергия не списана — попробуйте ещё раз через минуту.');
+      }
+      const started = await res.json().catch(() => ({}));
       if (res.status === 402) {
         toast({
           title: 'Не хватает энергии',
