@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import AdminGeneralSettings from '@/components/admin/AdminGeneralSettings';
 import AdminAppearance from '@/components/admin/AdminAppearance';
@@ -18,13 +18,14 @@ import VKSettings from '@/components/settings/VKSettings';
 import NotificationMonitor from '@/components/admin/NotificationMonitor';
 import AdminBiometricSettings from '@/components/admin/AdminBiometricSettings';
 import AdminRetouchSettings from '@/components/admin/AdminRetouchSettings';
-import AdminAiServices from '@/components/admin/AdminAiServices';
 import AdminPersonalData from '@/components/admin/AdminPersonalData';
 import AdminUserAudit from '@/components/admin/AdminUserAudit';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { useNavigate } from 'react-router-dom';
+
+const AdminAiServices = lazy(() => import('@/components/admin/AdminAiServices'));
 
 const REGEN_URL = 'https://functions.poehali.dev/3af9dfcb-748c-4d20-a5ff-e0e52a7d7aae';
 
@@ -205,7 +206,9 @@ const AdminPanelTabs = ({
           </div>
         </AccordionTrigger>
         <AccordionContent className="px-4 sm:px-6 pb-4">
-          <AdminAiServices />
+          <Suspense fallback={<div className="py-6 text-center text-sm text-muted-foreground">Загрузка…</div>}>
+            <AdminAiServices />
+          </Suspense>
         </AccordionContent>
       </AccordionItem>
 
