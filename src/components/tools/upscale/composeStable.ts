@@ -1,18 +1,19 @@
 /**
- * Сборка со стабилизацией: резкость и контуры — из ответа AI (выровненного по участкам,
- * чтобы ничего не двоилось), а цвет и общий тон — из оригинала. Там, где AI заметно
- * перерисовал (крупное расхождение), остаётся оригинал. В конце — лёгкая резкость контуров.
+ * Сборка со стабилизацией — ОДИН слой: фото целиком перерисовано AI, никаких наложений
+ * копий друг на друга (поэтому контурам нечему «не сходиться»). От оригинала берётся
+ * только общий цвет/тон на очень грубом масштабе. Если AI где-то сильно перерисовал
+ * форму — на этом месте остаётся оригинал. В конце — усиленная резкость контуров.
  */
 import type { UpscalePlace } from '@/components/tools/upscale/composeUpscale';
-import { computeShiftField, drawAligned, confRows } from '@/components/tools/upscale/stabilize';
 
 const STRIP = 256;
 const PAD = 12;
-const COARSE = 8;
-const DIFF_FROM = 12;
-const DIFF_RANGE = 18;
-const SHARP_AMOUNT = 0.6;
-const SHARP_THRESHOLD = 2;
+const COARSE = 32;
+const TONE_CLAMP = 25;
+const FALLBACK_FROM = 30;
+const FALLBACK_RANGE = 25;
+const SHARP_AMOUNT = 1.8;
+const SHARP_THRESHOLD = 3;
 
 const makeCanvas = (w: number, h: number) => {
   const c = document.createElement('canvas');
@@ -65,19 +66,17 @@ export const composeStable = async (
   const ow = original.naturalWidth;
   const oh = original.naturalHeight;
 
-  const field = computeShiftField(original, result, place);
-  await nextFrame();
-
-  // Грубые копии (1/8 итога): по ним сравниваем крупные формы и берём из оригинала цвет/тон
+  // Грубые копии (1/32 итога): только для подгонки цвета/тона под оригинал
   const lw = Math.max(8, Math.round(width / COARSE));
   const lh = Math.max(8, Math.round(height / COARSE));
   const aiLow = makeCanvas(lw, lh);
-  drawAligned(aiLow.ctx, result, place, field, lw, lh, 0, lh);
+  aiLow.ctx.drawImage(result, place.x, place.y, place.w, place.h, 0, 0, lw, lh);
   const orLow = makeCanvas(lw, lh);
   orLow.ctx.drawImage(original, 0, 0, ow, oh, 0, 0, lw, lh);
 
   const out = makeCanvas(width, height);
   const sy = oh / height;
+  const ry = place.h / height;
   const ly = lh / height;
 
   for (let y0 = 0; y0 < height; y0 += STRIP) {
@@ -89,7 +88,7 @@ export const composeStable = async (
     const base = makeCanvas(width, sh);
     base.ctx.drawImage(original, 0, a * sy, ow, sh * sy, 0, 0, width, sh);
     const model = makeCanvas(width, sh);
-    drawAligned(model.ctx, result, place, field, width, height, a, b);
+    model.ctx.drawImage(result, place.x, place.y + a * ry, place.w, sh * ry, 0, 0, width, sh);
     const mLow = makeCanvas(width, sh);
     mLow.ctx.drawImage(aiLow.c, 0, a * ly, lw, sh * ly, 0, 0, width, sh);
     const oLow = makeCanvas(width, sh);
@@ -99,18 +98,19 @@ export const composeStable = async (
     const Md = model.ctx.getImageData(0, 0, width, sh).data;
     const Ml = mLow.ctx.getImageData(0, 0, width, sh).data;
     const Ol = oLow.ctx.getImageData(0, 0, width, sh).data;
-    const conf = confRows(field, width, height, a, b);
     const d = B.data;
     const n = width * sh;
     const ch = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
 
     for (let p = 0, i = 0; p < n; p++, i += 4) {
       const diff = (Math.abs(Ml[i] - Ol[i]) + Math.abs(Ml[i + 1] - Ol[i + 1]) + Math.abs(Ml[i + 2] - Ol[i + 2])) / 3;
-      let w = diff <= DIFF_FROM ? 1 : diff >= DIFF_FROM + DIFF_RANGE ? 0 : 1 - (diff - DIFF_FROM) / DIFF_RANGE;
-      w *= conf[p];
+      const keep = diff <= FALLBACK_FROM ? 0 : diff >= FALLBACK_FROM + FALLBACK_RANGE ? 1 : (diff - FALLBACK_FROM) / FALLBACK_RANGE;
       for (let c = 0; c < 3; c++) {
-        const v = Ol[i + c] + (Md[i + c] - Ml[i + c]);
-        ch[c][p] = d[i + c] * (1 - w) + v * w;
+        let t = Ol[i + c] - Ml[i + c];
+        if (t > TONE_CLAMP) t = TONE_CLAMP;
+        else if (t < -TONE_CLAMP) t = -TONE_CLAMP;
+        const v = Md[i + c] + t;
+        ch[c][p] = keep ? v * (1 - keep) + d[i + c] * keep : v;
       }
     }
 
