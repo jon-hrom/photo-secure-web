@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
+import { Switch } from '@/components/ui/switch';
 import PhotoBankPicker from '@/components/tools/PhotoBankPicker';
 import UploadStage from '@/components/tools/logoRemover/UploadStage';
 import CompareView from '@/components/tools/skinRetouch/CompareView';
@@ -100,6 +101,19 @@ const UpscaleDialog = ({ open, onOpenChange }: UpscaleDialogProps) => {
                 </p>
               )}
             </div>
+
+            <label className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2.5 cursor-pointer">
+              <div className="min-w-0">
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <Icon name="Crosshair" size={15} className="text-primary" />
+                  Стабилизация изображения
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Точно совмещает детали по всему кадру — без двоения контуров. Итог резкий и без искажений.
+                </p>
+              </div>
+              <Switch checked={s.stabilize} onCheckedChange={s.setStabilize} disabled={s.loading} className="mt-0.5 shrink-0" />
+            </label>
 
             {s.resultInfo && (
               <div className="flex items-center gap-2 text-sm rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-2">

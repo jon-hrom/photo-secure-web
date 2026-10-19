@@ -7,6 +7,8 @@
  * что-то перерисовал заметно (крупное расхождение), его детали не берутся.
  * Считаем полосами, чтобы не держать в памяти несколько огромных холстов.
  */
+import { computeShiftField, drawAligned, confRows, ShiftField } from '@/components/tools/upscale/stabilize';
+
 export interface UpscalePlace {
   x: number;
   y: number;
@@ -47,13 +49,25 @@ export const composeUpscale = async (
   width: number,
   height: number,
   onProgress?: (p: number) => void,
+  stabilize = false,
 ): Promise<HTMLCanvasElement> => {
   const ow = original.naturalWidth;
   const oh = original.naturalHeight;
 
+  // Стабилизация: точный сдвиг ответа AI по участкам, чтобы контуры не двоились
+  let field: ShiftField | null = null;
+  if (stabilize) {
+    field = computeShiftField(original, result, place);
+    await nextFrame();
+  }
+
   // «Размытая» версия ответа AI в размере оригинала — по ней видно, что AI изменил крупно
   const low = makeCanvas(ow, oh);
-  low.ctx.drawImage(result, place.x, place.y, place.w, place.h, 0, 0, ow, oh);
+  if (field) drawAligned(low.ctx, result, place, field, ow, oh, 0, oh);
+  else low.ctx.drawImage(result, place.x, place.y, place.w, place.h, 0, 0, ow, oh);
+  const diffFrom = field ? 6 : DIFF_FROM;
+  const diffRange = field ? 12 : DIFF_RANGE;
+  const clamp = field ? 40 : DETAIL_CLAMP;
 
   const out = makeCanvas(width, height);
   const sy = oh / height;
@@ -70,7 +84,9 @@ export const composeUpscale = async (
     const lowUp = makeCanvas(width, sh);
     lowUp.ctx.drawImage(low.c, 0, a * sy, ow, sh * sy, 0, 0, width, sh);
     const model = makeCanvas(width, sh);
-    model.ctx.drawImage(result, place.x, place.y + a * ry, place.w, sh * ry, 0, 0, width, sh);
+    if (field) drawAligned(model.ctx, result, place, field, width, height, a, b);
+    else model.ctx.drawImage(result, place.x, place.y + a * ry, place.w, sh * ry, 0, 0, width, sh);
+    const conf = field ? confRows(field, width, height, y0, y1) : null;
 
     const top = y0 - a;
     const rows = y1 - y0;
@@ -81,12 +97,13 @@ export const composeUpscale = async (
 
     for (let i = 0; i < d.length; i += 4) {
       const diff = (Math.abs(L[i] - d[i]) + Math.abs(L[i + 1] - d[i + 1]) + Math.abs(L[i + 2] - d[i + 2])) / 3;
-      const w = diff <= DIFF_FROM ? 1 : diff >= DIFF_FROM + DIFF_RANGE ? 0 : 1 - (diff - DIFF_FROM) / DIFF_RANGE;
+      let w = diff <= diffFrom ? 1 : diff >= diffFrom + diffRange ? 0 : 1 - (diff - diffFrom) / diffRange;
+      if (conf) w *= conf[i >> 2];
       if (w === 0) continue;
       for (let ch = 0; ch < 3; ch++) {
         let det = M[i + ch] - L[i + ch];
-        if (det > DETAIL_CLAMP) det = DETAIL_CLAMP;
-        else if (det < -DETAIL_CLAMP) det = -DETAIL_CLAMP;
+        if (det > clamp) det = clamp;
+        else if (det < -clamp) det = -clamp;
         d[i + ch] = d[i + ch] + det * w;
       }
     }

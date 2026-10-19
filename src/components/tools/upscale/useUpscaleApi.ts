@@ -48,6 +48,10 @@ export const useUpscaleApi = (open: boolean) => {
   const { toast } = useToast();
   const [stage, setStage] = useState<Stage>('upload');
   const [size, setSize] = useState<UpscaleSize>('4k');
+  const [stabilize, setStabilize] = useState<boolean>(() => localStorage.getItem('upscale_stabilize') !== '0');
+  useEffect(() => {
+    localStorage.setItem('upscale_stabilize', stabilize ? '1' : '0');
+  }, [stabilize]);
   const [prices, setPrices] = useState<Record<UpscaleSize, number> | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
@@ -181,9 +185,10 @@ export const useUpscaleApi = (open: boolean) => {
 
       setLoadingText('Собираем фото в исходных цветах...');
       const aiImg = await toUrlImage(data.url, true);
+      if (stabilize) setLoadingText('Стабилизация: выравниваем детали...');
       const canvas = await composeUpscale(src.img, aiImg, data.place, width, height, (p) =>
         setLoadingText(`Собираем фото ${width}×${height}... ${Math.round(p * 100)}%`),
-      );
+      stabilize);
       setLoadingText('Готовим файл...');
       const mime = mimeFromName(src.name) === 'image/png' ? 'image/png' : 'image/jpeg';
       let blob = await canvasToBlob(canvas, mime, 0.95);
@@ -210,7 +215,7 @@ export const useUpscaleApi = (open: boolean) => {
     } finally {
       setLoading(false);
     }
-  }, [size, toast, clearResult]);
+  }, [size, stabilize, toast, clearResult]);
 
   const download = useCallback(async () => {
     const r = resultBlobRef.current;
@@ -237,7 +242,7 @@ export const useUpscaleApi = (open: boolean) => {
   }, [toast]);
 
   return {
-    stage, size, setSize, prices, loading, loadingText, originalUrl, resultUrl, resultInfo,
+    stage, size, setSize, stabilize, setStabilize, prices, loading, loadingText, originalUrl, resultUrl, resultInfo,
     compare, setCompare, showPicker, setShowPicker, showSaver, setShowSaver, saving, fileInputRef,
     source: srcRef.current, handleFile, handlePickFromBank, upscale, download, handleSaveToFolder, resetAll,
   };
