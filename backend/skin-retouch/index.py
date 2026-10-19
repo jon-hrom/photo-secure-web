@@ -316,6 +316,7 @@ def _handle_compose(payload: dict, user_id):
             detail=preset.get("detail", 0.0),
             eye_sharpen=eye_value,
             chin_boxes=_chin_boxes(payload.get("chin_boxes")),
+            faces=_chin_boxes(payload.get("faces")),
         )
         print(f"[SKIN] compose ok: download={downloaded - started:.2f}s "
               f"blend={time.time() - downloaded:.2f}s")
@@ -369,6 +370,7 @@ def _handle_bench(payload: dict, user_id):
                     trust_threshold=preset["trust"],
                     highlight_recovery=preset["highlights"],
                     even_out=preset["even_out"],
+                    faces=_chin_boxes(payload.get("faces")),
                 )
             except Exception as e:
                 body["compose_error"] = str(e)[:300]

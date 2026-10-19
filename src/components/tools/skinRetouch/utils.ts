@@ -101,3 +101,24 @@ export const fetchChinBoxes = async (
   }
   return [];
 };
+/**
+ * Лица на фото — боксы [x0, y0, x1, y1] в долях кадра, расширенные на лоб и
+ * виски (детектор даёт бокс от бровей до подбородка). Ищем в браузере,
+ * пока AI работает. Нужны, чтобы световые пятна правились только на лицах.
+ */
+export const detectFaceBoxes = async (imageB64: string): Promise<number[][]> => {
+  try {
+    const { detectFacesInImage } = await import('@/utils/faceDetection');
+    const faces = await detectFacesInImage(`data:image/jpeg;base64,${imageB64}`);
+    return faces.map((f) => {
+      const x0 = Math.max(0, f.x - f.width * 0.15);
+      const x1 = Math.min(1, f.x + f.width * 1.15);
+      const y0 = Math.max(0, f.y - f.height * 0.45);
+      const y1 = Math.min(1, f.y + f.height * 1.05);
+      return [x0, y0, x1, y1];
+    });
+  } catch (e) {
+    console.warn('face boxes failed', e);
+    return [];
+  }
+};

@@ -1,4 +1,4 @@
-import { SKIN_RETOUCH_URL, PresetKey, EyeSharpenKey, dataUrlToBase64, fetchChinBoxes } from '@/components/tools/skinRetouch/utils';
+import { SKIN_RETOUCH_URL, PresetKey, EyeSharpenKey, dataUrlToBase64, fetchChinBoxes, detectFaceBoxes } from '@/components/tools/skinRetouch/utils';
 
 export class NotEnoughEnergyError extends Error {
   needed: number | string;
@@ -66,6 +66,7 @@ export const runSkinRetouch = async ({
 
   status('AI выравнивает кожу...');
 
+  const facesPromise = detectFaceBoxes(imageB64);
   const chinBoxesPromise: Promise<number[][]> = removeChin
     ? fetchChinBoxes(imageB64, headers)
     : Promise.resolve([]);
@@ -148,6 +149,7 @@ export const runSkinRetouch = async ({
 
   status('Собираем результат...');
   const chinBoxes = await chinBoxesPromise;
+  const faces = await facesPromise;
   let data: Record<string, unknown> | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -155,7 +157,7 @@ export const runSkinRetouch = async ({
         method: 'POST',
         headers,
         body: JSON.stringify({
-          url: readyUrl, image: imageB64, preset, eye_sharpen: eyeSharpen, chin_boxes: chinBoxes,
+          url: readyUrl, image: imageB64, preset, eye_sharpen: eyeSharpen, chin_boxes: chinBoxes, faces,
         }),
       });
       const cd = await cr.json();

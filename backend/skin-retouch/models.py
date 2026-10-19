@@ -332,7 +332,7 @@ def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
             keep_texture: float = 0.35, regions=None,
             trust_threshold: float = 40.0, highlight_recovery: float = 0.6,
             even_out: float = 0.6, detail: float = 0.0,
-            eye_sharpen: float = 0.0, chin_boxes=None) -> str:
+            eye_sharpen: float = 0.0, chin_boxes=None, faces=None) -> str:
     """Собирает финал: результат модели только на коже, остальное — оригинал.
 
     strength          — сила ретуши 0..1 (доля результата на коже)
@@ -366,7 +366,8 @@ def compose(original_b64: str, result_bytes: bytes, strength: float = 0.8,
                              highlight_recovery=highlight_recovery,
                              even_out=even_out,
                              detail=detail,
-                             eye_sharpen=eye_sharpen)
+                             eye_sharpen=eye_sharpen,
+                             faces=faces)
 
     # Второй подбородок: в зоне подбородка берём изменённую моделью геометрию.
     if chin_boxes:

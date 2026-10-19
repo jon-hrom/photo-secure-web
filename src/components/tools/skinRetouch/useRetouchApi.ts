@@ -13,6 +13,7 @@ import {
   imageToDataUrl,
   urlToImage,
   fetchChinBoxes,
+  detectFaceBoxes,
 } from '@/components/tools/skinRetouch/utils';
 import {
   SourceImage, loadSourceFromFile, loadSourceFromUrl, exportFullRes,
@@ -229,6 +230,7 @@ export const useRetouchApi = (
       setLoadingText('AI выравнивает кожу...');
 
       // Зону подбородка ищем параллельно с ожиданием модели.
+      const facesPromise = detectFaceBoxes(imageB64);
       const chinBoxesPromise: Promise<number[][]> = chin
         ? fetchChinBoxes(imageB64, headers)
         : Promise.resolve([]);
@@ -339,6 +341,7 @@ export const useRetouchApi = (
       // времени функции и готовая ретушь срывалась по таймауту.
       setLoadingText('Собираем результат...');
       const chinBoxes = await chinBoxesPromise;
+      const faces = await facesPromise;
       if (chin && !chinBoxes.length) {
         toast({
           title: 'Подбородок не найден',
@@ -357,6 +360,7 @@ export const useRetouchApi = (
               preset: presetKey,
               eye_sharpen: eyeSharpenRef.current,
               chin_boxes: chinBoxes,
+              faces,
             }),
           });
           const cd = await cr.json();
