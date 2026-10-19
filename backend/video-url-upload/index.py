@@ -40,6 +40,22 @@ def get_proxy():
     return proxy if proxy else None
 
 
+YOUTUBE_BLOCKED_MSG = (
+    'YouTube недоступен с сервера в России — провайдеры блокируют его. '
+    'Чтобы скачивать с YouTube, администратору нужно подключить прокси за границей (секрет YOUTUBE_PROXY).'
+)
+
+
+def youtube_reachable():
+    """Быстрая проверка (до 4 секунд), открывается ли YouTube с сервера напрямую."""
+    try:
+        requests.head('https://www.youtube.com/', timeout=4)
+        return True
+    except Exception as e:
+        print(f'[VIDEO] YouTube unreachable without proxy: {e}')
+        return False
+
+
 def resp(code, body):
     return {
         'statusCode': code,
@@ -83,6 +99,9 @@ def handler(event: dict, context) -> dict:
 
     url = fix_url(url)
     print(f'[VIDEO] mode={mode} url={url}')
+
+    if mode != 'cleanup_tmp' and is_youtube_url(url) and not get_proxy() and not youtube_reachable():
+        return resp(503, {'error': YOUTUBE_BLOCKED_MSG})
 
     audio_only = body.get('audio_only', False)
 
