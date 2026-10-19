@@ -11,6 +11,7 @@ import {
 } from '@/components/tools/logoRemover/utils';
 import { CanvasState } from '@/components/tools/logoRemover/useCanvasState';
 import { buildInpaintMask } from '@/components/tools/logoRemover/maskAnalysis';
+import { exactHeadPaste } from '@/components/tools/faceSwap/exactHead';
 import {
   SourceImage, loadSourceFromFile, loadSourceFromUrl, exportFullRes,
   diffMask, downloadBlob,
@@ -189,7 +190,20 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       }
       if (!data?.image) throw new Error('Превышено время ожидания');
 
-      const resultDataUrl = `data:image/jpeg;base64,${data.image}`;
+      let resultDataUrl = `data:image/jpeg;base64,${data.image}`;
+      // Точная вклейка: голова донора — настоящими пикселями, без перерисовки черт
+      setLoadingText('Вклеиваем настоящее лицо донора без изменений...');
+      const exact = await exactHeadPaste({
+        donorUrl: donor.currentDataUrlRef.current!,
+        donorMask: donor.maskCanvasRef.current!,
+        resultUrl: resultDataUrl,
+        targetMask: target.maskCanvasRef.current!,
+        withHair,
+      }).catch((e) => {
+        console.warn('[FACE_SWAP] exact paste failed', e);
+        return null;
+      });
+      if (exact) resultDataUrl = exact;
       addToHistory({ tool: 'face-swap', image: resultDataUrl });
       historyRef.current.push(resultDataUrl);
       setHistoryLen(historyRef.current.length);
