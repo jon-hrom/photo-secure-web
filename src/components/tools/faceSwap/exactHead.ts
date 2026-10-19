@@ -12,10 +12,10 @@ interface P {
   y: number;
 }
 
-/** Опорные точки 68-точечной модели: брови, глаза, нос, рот. */
-const KEY_IDX = [17, 21, 22, 26, 36, 39, 42, 45, 27, 30, 31, 33, 35, 48, 51, 54, 57];
+/** Опорные точки: уголки глаз, переносица/кончик носа, уголки и центр рта — по ним размер и наклон. */
+const KEY_IDX = [36, 39, 42, 45, 27, 30, 33, 48, 54, 51, 57];
 /** Если после совмещения точки расходятся больше этой доли ширины лица — поза другая, не вклеиваем. */
-const MAX_RESIDUAL = 0.09;
+const MAX_RESIDUAL = 0.2;
 const MEAN_SHIFT_CLAMP = 22;
 
 const loadImg = (src: string) =>
@@ -113,15 +113,17 @@ const similarity = (src: P[], dst: P[]) => {
 export interface ExactHeadInput {
   donorUrl: string;
   donorMask: HTMLCanvasElement;
+  /** Целевое фото ДО переноса — по лицу на нём задаём размер, положение и наклон головы. */
+  targetUrl: string;
   resultUrl: string;
   targetMask: HTMLCanvasElement;
   withHair: boolean;
 }
 
 /** Возвращает dataURL с вклеенной настоящей головой донора или null, если безопасно вклеить нельзя. */
-export const exactHeadPaste = async ({ donorUrl, donorMask, resultUrl, targetMask, withHair }: ExactHeadInput) => {
+export const exactHeadPaste = async ({ donorUrl, donorMask, targetUrl, resultUrl, targetMask, withHair }: ExactHeadInput) => {
   if (!(await loadFaceDetectionModels())) return null;
-  const [dImg, rImg] = await Promise.all([loadImg(donorUrl), loadImg(resultUrl)]);
+  const [dImg, rImg, tImg] = await Promise.all([loadImg(donorUrl), loadImg(resultUrl), loadImg(targetUrl)]);
   const DW = dImg.naturalWidth, DH = dImg.naturalHeight;
   const RW = rImg.naturalWidth, RH = rImg.naturalHeight;
   const donor = toCanvas(dImg, DW, DH);
@@ -136,7 +138,16 @@ export const exactHeadPaste = async ({ donorUrl, donorMask, resultUrl, targetMas
     const m = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 0.5;
     return { x0: Math.max(0, b.x0 - m), y0: Math.max(0, b.y0 - m), x1: Math.min(W, b.x1 + m), y1: Math.min(H, b.y1 + m) };
   };
-  const [dl, rl] = await Promise.all([landmarksNear(donor, grow(dBox, DW, DH)), landmarksNear(result, grow(tBox, RW, RH))]);
+  // Размер и положение берём с ЛИЦА НА ИСХОДНОМ целевом фото (AI мог нарисовать голову
+  // меньше/круглее). Если там лицо не нашлось — по лицу, которое нарисовал AI.
+  const targetOrig = toCanvas(tImg, RW, RH);
+  const [dl, tl] = await Promise.all([
+    landmarksNear(donor, grow(dBox, DW, DH)),
+    landmarksNear(targetOrig, grow(tBox, RW, RH)),
+  ]);
+  targetOrig.width = 0;
+  const rl = tl || (await landmarksNear(result, grow(tBox, RW, RH)));
+  console.log('[FACE_SWAP] align to', tl ? 'original target face' : 'AI face');
   if (!dl || !rl) return null;
 
   const srcPts = KEY_IDX.map((i) => dl[i]);
@@ -162,17 +173,6 @@ export const exactHeadPaste = async ({ donorUrl, donorMask, resultUrl, targetMas
   wm.setTransform(T.c, T.s, -T.s, T.c, T.tx, T.ty);
   wm.drawImage(dMask, 0, 0);
   wm.setTransform(1, 0, 0, 1, 0, 0);
-  // Голову донора не выпускаем за пределы того, что AI нарисовал как голову (+ запас)
-  const limit = document.createElement('canvas');
-  limit.width = RW;
-  limit.height = RH;
-  const lc = limit.getContext('2d')!;
-  lc.filter = `blur(${Math.round(featherPx * (withHair ? 4 : 2))}px)`;
-  lc.drawImage(tMask, 0, 0);
-  wm.globalCompositeOperation = 'destination-in';
-  wm.drawImage(limit, 0, 0);
-  wm.drawImage(limit, 0, 0);
-  wm.globalCompositeOperation = 'source-over';
   const soft = document.createElement('canvas');
   soft.width = RW;
   soft.height = RH;
@@ -227,6 +227,6 @@ export const exactHeadPaste = async ({ donorUrl, donorMask, resultUrl, targetMas
   result.getContext('2d')!.putImageData(R, 0, 0);
   console.log('[FACE_SWAP] exact head pasted, scale', scale.toFixed(3));
   const out = result.toDataURL('image/jpeg', 0.95);
-  [donor, result, dMask, tMask, warpMask, limit, soft, warped].forEach((c) => { c.width = 0; c.height = 0; });
+  [donor, result, dMask, tMask, warpMask, soft, warped].forEach((c) => { c.width = 0; c.height = 0; });
   return out;
 };

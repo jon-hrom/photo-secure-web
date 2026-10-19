@@ -129,6 +129,7 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       with_hair: withHair,
     };
     const { setLoading, setLoadingText, historyRef, setHistoryLen, loadImageIntoCanvas } = target;
+    const targetBeforeUrl = target.currentDataUrlRef.current;
 
     try {
       setLoading(true);
@@ -195,6 +196,7 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
       setLoadingText('Вклеиваем настоящее лицо донора без изменений...');
       const exact = await exactHeadPaste({
         donorUrl: donor.currentDataUrlRef.current!,
+        targetUrl: targetBeforeUrl,
         donorMask: donor.maskCanvasRef.current!,
         resultUrl: resultDataUrl,
         targetMask: target.maskCanvasRef.current!,
@@ -204,6 +206,12 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
         return null;
       });
       if (exact) resultDataUrl = exact;
+      else {
+        toast({
+          title: 'Точная вклейка не удалась',
+          description: 'Не нашли лицо на одном из фото или ракурсы слишком разные — показан вариант AI. Попробуйте фото с похожим поворотом головы.',
+        });
+      }
       addToHistory({ tool: 'face-swap', image: resultDataUrl });
       historyRef.current.push(resultDataUrl);
       setHistoryLen(historyRef.current.length);
