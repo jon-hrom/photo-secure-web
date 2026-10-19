@@ -14,6 +14,7 @@ interface UpscaleDialogProps {
 }
 
 const SIZES: { id: UpscaleSize; label: string }[] = [
+  { id: 'orig', label: 'Оригинал' },
   { id: '2k', label: '2K' },
   { id: '4k', label: '4K' },
   { id: '8k', label: '8K' },
@@ -71,10 +72,10 @@ const UpscaleDialog = ({ open, onOpenChange }: UpscaleDialogProps) => {
                 <p className="text-sm font-medium">Разрешение фото</p>
                 {ow > 0 && <p className="text-xs text-muted-foreground">Сейчас: {ow}×{oh}</p>}
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {SIZES.map((opt) => {
                   const t = ow ? targetSize(ow, oh, opt.id) : null;
-                  const tooSmall = !!t && t.width <= ow;
+                  const tooSmall = opt.id !== 'orig' && !!t && t.width <= ow;
                   const active = s.size === opt.id;
                   return (
                     <button
@@ -86,7 +87,7 @@ const UpscaleDialog = ({ open, onOpenChange }: UpscaleDialogProps) => {
                         active ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-border hover:border-primary/40'
                       }`}
                     >
-                      <div className={`text-base font-bold ${active ? 'text-primary' : ''}`}>{opt.label}</div>
+                      <div className={`${opt.id === 'orig' ? 'text-sm' : 'text-base'} font-bold ${active ? 'text-primary' : ''}`}>{opt.label}</div>
                       <div className="text-[11px] text-muted-foreground">{t ? `${t.width}×${t.height}` : '—'}</div>
                       {s.prices && (
                         <div className="text-[11px] font-medium text-yellow-600 dark:text-yellow-500">{s.prices[opt.id]} ⚡</div>
@@ -95,6 +96,11 @@ const UpscaleDialog = ({ open, onOpenChange }: UpscaleDialogProps) => {
                   );
                 })}
               </div>
+              {s.size === 'orig' && (
+                <p className="text-[11px] text-muted-foreground">
+                  Размер фото не меняется — только стабилизация: чёткие контуры и глаза, без двоения.
+                </p>
+              )}
               {s.size === '8k' && (
                 <p className="text-[11px] text-muted-foreground">
                   8K — очень большой файл (до 60 МБ). На слабом телефоне сборка может занять до минуты.
@@ -112,20 +118,22 @@ const UpscaleDialog = ({ open, onOpenChange }: UpscaleDialogProps) => {
                   Точно совмещает детали по всему кадру — без двоения контуров. Итог резкий и без искажений.
                 </p>
               </div>
-              <Switch checked={s.stabilize} onCheckedChange={s.setStabilize} disabled={s.loading} className="mt-0.5 shrink-0" />
+              <Switch checked={s.stabilize || s.size === 'orig'} onCheckedChange={s.setStabilize} disabled={s.loading || s.size === 'orig'} className="mt-0.5 shrink-0" />
             </label>
 
             {s.resultInfo && (
               <div className="flex items-center gap-2 text-sm rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-2">
                 <Icon name="CircleCheck" size={16} />
-                Готово: {s.resultInfo.width}×{s.resultInfo.height} ({s.resultInfo.size.toUpperCase()}). Двигайте шторку, чтобы сравнить.
+                Готово: {s.resultInfo.width}×{s.resultInfo.height} ({s.resultInfo.size === 'orig' ? 'стабилизация' : s.resultInfo.size.toUpperCase()}). Двигайте шторку, чтобы сравнить.
               </div>
             )}
 
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={s.upscale} disabled={s.loading} size="sm" className="gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:opacity-90">
                 <Icon name="Sparkles" size={16} />
-                {s.resultInfo ? 'Увеличить заново' : `Увеличить до ${s.size.toUpperCase()}`}
+                {s.size === 'orig'
+                  ? (s.resultInfo ? 'Стабилизировать заново' : 'Стабилизировать')
+                  : (s.resultInfo ? 'Увеличить заново' : `Увеличить до ${s.size.toUpperCase()}`)}
               </Button>
               <Button onClick={s.download} disabled={s.loading || !s.resultInfo} variant="outline" size="sm" className="gap-1.5">
                 <Icon name="Download" size={16} />

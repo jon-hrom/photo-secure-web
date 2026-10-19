@@ -11,7 +11,7 @@ import { composeStable } from '@/components/tools/upscale/composeStable';
 
 export const UPSCALE_URL = 'https://functions.poehali.dev/c015dc93-c17d-41f0-a0b7-ba0014b5d997';
 
-export type UpscaleSize = '2k' | '4k' | '8k';
+export type UpscaleSize = 'orig' | '2k' | '4k' | '8k';
 export type Stage = 'upload' | 'edit';
 
 const SEND_MAX_SIDE = 2048;
@@ -42,7 +42,7 @@ const sourceToJpegB64 = (img: HTMLImageElement) => {
 const upscaledName = (name: string, size: UpscaleSize, mime: string) => {
   const base = name.replace(/\.[^.]+$/, '');
   const ext = mime === 'image/png' ? 'png' : 'jpg';
-  return `${base}_${size.toUpperCase()}.${ext}`;
+  return `${base}_${size === 'orig' ? 'STAB' : size.toUpperCase()}.${ext}`;
 };
 
 export const useUpscaleApi = (open: boolean) => {
@@ -141,7 +141,7 @@ export const useUpscaleApi = (open: boolean) => {
     const src = srcRef.current;
     if (!src) return;
     const { width, height } = targetSize(src.img.naturalWidth, src.img.naturalHeight, size);
-    if (width <= src.img.naturalWidth) {
+    if (size !== 'orig' && width <= src.img.naturalWidth) {
       toast({ title: 'Фото уже больше выбранного размера', description: 'Выберите разрешение побольше.' });
       return;
     }
@@ -152,7 +152,9 @@ export const useUpscaleApi = (open: boolean) => {
       setLoadingText('Отправляем фото...');
       clearResult();
       const res = await fetch(`${UPSCALE_URL}?action=start`, {
-        method: 'POST', headers, body: JSON.stringify({ size, image: sourceToJpegB64(src.img) }),
+        method: 'POST', headers, body: JSON.stringify({
+          size, image: sourceToJpegB64(src.img), orig_side: Math.max(src.img.naturalWidth, src.img.naturalHeight),
+        }),
       });
       const started = await res.json().catch(() => ({}));
       if (res.status === 402) {
@@ -188,7 +190,7 @@ export const useUpscaleApi = (open: boolean) => {
       const aiImg = await toUrlImage(data.url, true);
       if (stabilize) setLoadingText('Стабилизация: выравниваем детали...');
       const onProgress = (p: number) => setLoadingText(`Собираем фото ${width}×${height}... ${Math.round(p * 100)}%`);
-      const canvas = stabilize
+      const canvas = stabilize || size === 'orig'
         ? await composeStable(src.img, aiImg, data.place, width, height, onProgress)
         : await composeUpscale(src.img, aiImg, data.place, width, height, onProgress);
       setLoadingText('Готовим файл...');

@@ -16,7 +16,8 @@ export interface UpscalePlace {
 
 export const TARGET_SIDE: Record<'2k' | '4k' | '8k', number> = { '2k': 2048, '4k': 4096, '8k': 8192 };
 
-export const targetSize = (w: number, h: number, size: keyof typeof TARGET_SIDE) => {
+export const targetSize = (w: number, h: number, size: keyof typeof TARGET_SIDE | 'orig') => {
+  if (size === 'orig') return { width: w, height: h, factor: 1 };
   const k = TARGET_SIDE[size] / Math.max(w, h);
   return { width: Math.round(w * k), height: Math.round(h * k), factor: k };
 };

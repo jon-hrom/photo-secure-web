@@ -15,7 +15,7 @@ import models
 import energy
 
 MAX_IMAGE_B64 = 15 * 1024 * 1024
-SIZES = ("2k", "4k", "8k")
+SIZES = ("orig", "2k", "4k", "8k")
 
 
 def _s3():
@@ -71,7 +71,7 @@ def _estimate():
 def _handle_start(payload: dict, user_id):
     size = str(payload.get("size") or "").lower()
     if size not in SIZES:
-        return _response(400, {"error": "size must be 2k, 4k or 8k"})
+        return _response(400, {"error": "size must be orig, 2k, 4k or 8k"})
     image_b64 = payload.get("image")
     if not image_b64:
         return _response(400, {"error": "image (base64) is required"})
@@ -91,7 +91,7 @@ def _handle_start(payload: dict, user_id):
 
     model_input, aspect = models.build_model_input(img)
     try:
-        task_id = models.start_task(model_input, aspect, size)
+        task_id = models.start_task(model_input, aspect, size, int(payload.get("orig_side") or 0))
     except Exception as e:
         print(f"[upscale] start failed: {e}")
         return _response(502, {"error": str(e)[:300]})
@@ -100,7 +100,7 @@ def _handle_start(payload: dict, user_id):
     _s3().put_object(Bucket="files", Key=f"upscale/{task_id}/input.jpg",
                      Body=base64.b64decode(image_b64), ContentType="image/jpeg")
 
-    ok, balance, err = energy.spend(user_id, price, f"Увеличение разрешения {size.upper()} ({task_id})")
+    ok, balance, err = energy.spend(user_id, price, f"Стабилизация фото ({task_id})" if size == "orig" else f"Увеличение разрешения {size.upper()} ({task_id})")
     if not ok:
         print(f"[upscale] spend after start failed: {err}")
         if err == "insufficient_energy":

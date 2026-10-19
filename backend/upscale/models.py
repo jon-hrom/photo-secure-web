@@ -16,12 +16,13 @@ GPT_BASE = "https://gptunnel.ru/api/v2/media"
 MODEL = os.environ.get("UPSCALE_MODEL", "nano-banana-pro")
 
 PRICES = {
+    "orig": int(os.environ.get("UPSCALE_PRICE_ORIG", "20")),
     "2k": int(os.environ.get("UPSCALE_PRICE_2K", "30")),
     "4k": int(os.environ.get("UPSCALE_PRICE_4K", "45")),
     "8k": int(os.environ.get("UPSCALE_PRICE_8K", "50")),
 }
 # 8K модель не рисует — берём её максимум 4K, остальное — точное масштабирование
-MODEL_RES = {"2k": "2K", "4k": "4K", "8k": "4K"}
+MODEL_RES = {"orig": "2K", "2k": "2K", "4k": "4K", "8k": "4K"}
 LABEL = "Увеличение разрешения"
 
 INPUT_MAX_SIDE = 2048
@@ -79,7 +80,7 @@ def build_model_input(img):
     return buf.getvalue(), name
 
 
-def start_task(input_jpeg: bytes, aspect: str, size: str) -> str:
+def start_task(input_jpeg: bytes, aspect: str, size: str, orig_side: int = 0) -> str:
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
     b64 = base64.b64encode(input_jpeg).decode()
@@ -88,7 +89,7 @@ def start_task(input_jpeg: bytes, aspect: str, size: str) -> str:
         json={
             "model": MODEL,
             "prompt": PROMPT,
-            "params": {"resolution": MODEL_RES[size], "aspect_ratio": aspect, "output_format": "png"},
+            "params": {"resolution": "4K" if size == "orig" and orig_side > 2600 else MODEL_RES[size], "aspect_ratio": aspect, "output_format": "png"},
             "inputs": {"image_input": [f"data:image/jpeg;base64,{b64}"]},
         },
         headers=_headers(),
