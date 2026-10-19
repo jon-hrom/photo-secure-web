@@ -68,6 +68,19 @@ def _estimate():
     })
 
 
+def context_id(payload: dict) -> str:
+    import uuid
+    return uuid.uuid4().hex
+
+
+def _input_key(payload: dict, task_id: str) -> str:
+    """Где лежит исходник: новый запуск передаёт input_key, старые — по task_id."""
+    k = str(payload.get("input_key") or "")
+    if k.startswith("upscale/staging/") and k.endswith(".jpg") and ".." not in k:
+        return k
+    return f"upscale/{task_id}/input.jpg"
+
+
 def _handle_start(payload: dict, user_id):
     size = str(payload.get("size") or "").lower()
     if size not in SIZES:
@@ -89,6 +102,14 @@ def _handle_start(payload: dict, user_id):
     if balance < price:
         return _response(402, {"error": "Недостаточно энергии", "needed": price, "energy_balance": balance})
 
+    # Исходник для поиска положения кадра в ответе модели кладём в хранилище параллельно
+    # с запуском задачи — так запуск укладывается во время ожидания функции.
+    from concurrent.futures import ThreadPoolExecutor
+    raw = base64.b64decode(image_b64)
+    pool = ThreadPoolExecutor(max_workers=1)
+    staged_key = f"upscale/staging/{context_id(payload)}.jpg"
+    upload = pool.submit(_s3().put_object, Bucket="files", Key=staged_key, Body=raw, ContentType="image/jpeg")
+
     model_input, aspect = models.build_model_input(img)
     try:
         task_id = models.start_task(model_input, aspect, size, int(payload.get("orig_side") or 0))
@@ -96,9 +117,7 @@ def _handle_start(payload: dict, user_id):
         print(f"[upscale] start failed: {e}")
         return _response(502, {"error": str(e)[:300]})
 
-    # Исходник для поиска положения кадра в ответе модели — чтобы не слать его при каждом опросе
-    _s3().put_object(Bucket="files", Key=f"upscale/{task_id}/input.jpg",
-                     Body=base64.b64decode(image_b64), ContentType="image/jpeg")
+    upload.result()
 
     ok, balance, err = energy.spend(user_id, price, f"Стабилизация фото ({task_id})" if size == "orig" else f"Увеличение разрешения {size.upper()} ({task_id})")
     if not ok:
@@ -108,7 +127,7 @@ def _handle_start(payload: dict, user_id):
         return _response(500, {"error": err or "energy error"})
 
     print(f"[upscale] started {models.MODEL} {size} aspect={aspect} input={img.size} task={task_id}")
-    return _response(200, {"task_id": task_id, "charged": price, "energy_balance": balance})
+    return _response(200, {"task_id": task_id, "input_key": staged_key, "charged": price, "energy_balance": balance})
 
 
 def _handle_status(payload: dict, user_id):
@@ -135,7 +154,7 @@ def _handle_status(payload: dict, user_id):
 
     try:
         s3 = _s3()
-        input_bytes = s3.get_object(Bucket="files", Key=f"upscale/{task_id}/input.jpg")["Body"].read()
+        input_bytes = s3.get_object(Bucket="files", Key=_input_key(payload, task_id))["Body"].read()
         r = requests.get(state["url"], timeout=120)
         if r.status_code != 200:
             raise RuntimeError(f"не скачался результат: {r.status_code}")

@@ -176,7 +176,7 @@ export const useUpscaleApi = (open: boolean) => {
       for (let i = 0; i < 100; i++) {
         await new Promise((r) => setTimeout(r, 4000));
         const sr = await fetch(`${UPSCALE_URL}?action=status`, {
-          method: 'POST', headers, body: JSON.stringify({ task_id: started.task_id, size }),
+          method: 'POST', headers, body: JSON.stringify({ task_id: started.task_id, size, input_key: started.input_key }),
         });
         if (sr.status >= 500 && fails < 3) { fails += 1; continue; }
         const sd = await sr.json().catch(() => ({}));

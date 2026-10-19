@@ -76,7 +76,7 @@ def build_model_input(img):
         canvas = Image.fromarray(np.pad(a, pad, mode="edge")).filter(ImageFilter.GaussianBlur(12))
         canvas.paste(img, (ox, oy))
     buf = io.BytesIO()
-    canvas.save(buf, format="JPEG", quality=95)
+    canvas.save(buf, format="JPEG", quality=90)
     return buf.getvalue(), name
 
 
