@@ -5,6 +5,7 @@
  * форму — на этом месте остаётся оригинал. В конце — усиленная резкость контуров.
  */
 import type { UpscalePlace } from '@/components/tools/upscale/composeUpscale';
+import { detectEyeZones, eyeWeights } from '@/components/tools/upscale/eyeGuard';
 
 const STRIP = 256;
 const PAD = 12;
@@ -12,8 +13,12 @@ const COARSE = 32;
 const TONE_CLAMP = 25;
 const FALLBACK_FROM = 30;
 const FALLBACK_RANGE = 25;
-const SHARP_AMOUNT = 1.8;
-const SHARP_THRESHOLD = 3;
+/** Двухступенчатая резкость: мелкие контуры (r≈1) + средние (r≈3). */
+const SHARP_FINE = 2.0;
+const SHARP_MID = 0.9;
+const SHARP_THRESHOLD = 2;
+/** Насколько в зоне глаз берём оригинал (форма век, положение зрачков). */
+const EYE_KEEP = 0.85;
 
 const makeCanvas = (w: number, h: number) => {
   const c = document.createElement('canvas');
@@ -55,6 +60,25 @@ const blur5 = (src: Float32Array, w: number, h: number) => {
   return out;
 };
 
+/** Размытие 3×3 (1-2-1) — для мелкой резкости. */
+const blur3 = (src: Float32Array, w: number, h: number) => {
+  const tmp = new Float32Array(src.length);
+  const out = new Float32Array(src.length);
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    for (let x = 0; x < w; x++) {
+      tmp[o + x] = (src[o + (x > 0 ? x - 1 : 0)] + 2 * src[o + x] + src[o + (x < w - 1 ? x + 1 : w - 1)]) / 4;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    const a = (y > 0 ? y - 1 : 0) * w;
+    const b = (y < h - 1 ? y + 1 : h - 1) * w;
+    const o = y * w;
+    for (let x = 0; x < w; x++) out[o + x] = (tmp[a + x] + 2 * tmp[o + x] + tmp[b + x]) / 4;
+  }
+  return out;
+};
+
 export const composeStable = async (
   original: HTMLImageElement,
   result: HTMLImageElement,
@@ -65,6 +89,7 @@ export const composeStable = async (
 ): Promise<HTMLCanvasElement> => {
   const ow = original.naturalWidth;
   const oh = original.naturalHeight;
+  const eyes = await detectEyeZones(original);
 
   // Грубые копии (1/32 итога): только для подгонки цвета/тона под оригинал
   const lw = Math.max(8, Math.round(width / COARSE));
@@ -101,6 +126,7 @@ export const composeStable = async (
     const d = B.data;
     const n = width * sh;
     const ch = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
+    const eyeW = eyeWeights(eyes, width, height, a, b);
 
     for (let p = 0, i = 0; p < n; p++, i += 4) {
       const diff = (Math.abs(Ml[i] - Ol[i]) + Math.abs(Ml[i + 1] - Ol[i + 1]) + Math.abs(Ml[i + 2] - Ol[i + 2])) / 3;
@@ -111,16 +137,24 @@ export const composeStable = async (
         else if (t < -TONE_CLAMP) t = -TONE_CLAMP;
         const v = Md[i + c] + t;
         ch[c][p] = keep ? v * (1 - keep) + d[i + c] * keep : v;
+        if (eyeW && eyeW[p]) {
+          const e = eyeW[p] * EYE_KEEP;
+          ch[c][p] = ch[c][p] * (1 - e) + d[i + c] * e;
+        }
       }
     }
 
-    // Резкость контуров (unsharp mask)
+    // Резкость контуров: мелкие + средние (два unsharp mask)
     for (let c = 0; c < 3; c++) {
       const src = ch[c];
-      const bl = blur5(src, width, sh);
+      const b3 = blur3(src, width, sh);
+      const b5 = blur5(b3, width, sh);
       for (let p = 0, i = c; p < n; p++, i += 4) {
-        const det = src[p] - bl[p];
-        const v = Math.abs(det) > SHARP_THRESHOLD ? src[p] + det * SHARP_AMOUNT : src[p];
+        const fine = src[p] - b3[p];
+        const midD = b3[p] - b5[p];
+        let v = src[p];
+        if (Math.abs(fine) > SHARP_THRESHOLD) v += fine * SHARP_FINE;
+        if (Math.abs(midD) > SHARP_THRESHOLD) v += midD * SHARP_MID;
         d[i] = v < 0 ? 0 : v > 255 ? 255 : v;
       }
     }
