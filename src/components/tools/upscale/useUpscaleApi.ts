@@ -155,7 +155,10 @@ export const useUpscaleApi = (open: boolean) => {
         method: 'POST', headers, body: JSON.stringify({
           size, image: sourceToJpegB64(src.img), orig_side: Math.max(src.img.naturalWidth, src.img.naturalHeight),
         }),
-      });
+      }).catch(() => null);
+      if (!res || res.status === 504) {
+        throw new Error('AI-сервис долго не отвечал, запуск сорвался. Энергия не списана — попробуйте ещё раз через минуту.');
+      }
       const started = await res.json().catch(() => ({}));
       if (res.status === 402) {
         toast({
