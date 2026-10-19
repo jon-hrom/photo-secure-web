@@ -518,6 +518,44 @@ def mask_preview(img: Image.Image, regions=None) -> Image.Image:
 # ====================== ГЛАВНЫЙ КОМПОЗИТ ======================
 
 
+def highlight_map_small(mask_img: Image.Image, skin_s: np.ndarray, amount: float):
+    """Карта пересветов и поправка тона для них на мелкой копии кадра.
+
+    Световое пятно (солнечный зайчик, блик) — участок кожи заметно светлее и
+    желтее, чем ОСНОВНАЯ кожа того же лица. Пятно бывает в пол-лица, поэтому
+    «основной» тон берём не просто как среднее вокруг, а как среднее по
+    НЕзасвеченной коже большим радиусом (пятна исключаются в два прохода).
+    Плавный объём лица отличается на единицы и сюда не попадает.
+
+    Returns:
+        hl: 0..1 — где пересвет; delta: H×W×3 — поправка низких частот.
+    """
+    arr = _to_arr(mask_img)
+    side = min(mask_img.size)
+    m = np.clip(skin_s, 0.0, 1.0)
+    low = _blur_f(arr, max(1.5, side * 0.006))
+    lum = low.mean(axis=2)
+    yel = low[..., 0] + low[..., 1] - 2.0 * low[..., 2]
+    big_r = max(8.0, side * 0.12)
+
+    w = m.copy()
+    for t0, t1 in ((14.0, 30.0), (8.0, 20.0)):
+        b_lum = _norm_blur(lum, w, big_r)
+        w = m * (1.0 - _ramp(lum - b_lum, t0, t1))
+    base = _norm_blur(low, w, big_r)
+    base_lum = base.mean(axis=2)
+    base_yel = base[..., 0] + base[..., 1] - 2.0 * base[..., 2]
+
+    score = (lum - base_lum) + 0.25 * np.clip(yel - base_yel, 0.0, None)
+    hl = _ramp(score, 6.0, 20.0) * m
+    hl = np.clip(_blur_f(hl, max(2.0, side * 0.02)) * 1.25, 0.0, 1.0) * m
+
+    k = float(np.clip(0.5 + 0.45 * amount, 0.0, 1.0))
+    delta = (_blur_f(base, max(2.0, side * 0.015)) - _blur_f(low, max(2.0, side * 0.012))) * (hl * k)[..., None]
+    delta = np.clip(delta, -90.0, 10.0)
+    return hl, delta
+
+
 def blend_skin(original: Image.Image, generated: Image.Image,
                strength: float = 0.9, keep_texture: float = 0.9,
                regions=None, trust_threshold: float = 60.0,
@@ -567,6 +605,10 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     skin_raw = skin_mask_small(mask_img)
     protect_s = protect_mask_small(mask_img, skin_raw)
     mask_s = np.clip(skin_raw * (1.0 - protect_s), 0.0, 1.0)
+    hl_s, hl_delta_s = None, None
+    if highlight_recovery > 0.01:
+        hl_s, hl_delta_s = highlight_map_small(mask_img, mask_s, highlight_recovery)
+        print(f"[SKIN] highlights: area={float(hl_s.mean()):.4f} max_dark={float(hl_delta_s.min()):.1f}")
     # Черты лица (глаза, ресницы, брови, губы) — то, что защищено от ретуши
     # и лежит ВНУТРИ лица. Маска кожи заполнена по дырам, поэтому глаза в неё
     # входят, а волосы и одежда за контуром лица — нет.
@@ -577,7 +619,12 @@ def blend_skin(original: Image.Image, generated: Image.Image,
     del face_core
     del skin_raw, protect_s
     if regions:
-        mask_s *= regions_mask(mask_img.size, regions)
+        rm = regions_mask(mask_img.size, regions)
+        mask_s *= rm
+        if hl_s is not None:
+            hl_s = hl_s * rm
+            hl_delta_s = hl_delta_s * rm[..., None]
+        del rm
     del mask_img
 
     width, height = original.size
@@ -607,8 +654,20 @@ def blend_skin(original: Image.Image, generated: Image.Image,
         Image.fromarray((np.clip(guard, 0.0, 1.0) * 255).astype(np.uint8), mode="L")
         .resize((mask_s.shape[1], mask_s.shape[0]), Image.BILINEAR),
         dtype=np.float32) / 255.0
+    # На пересвете AI ОБЯЗАН сильно менять тон — страховка не должна его откатывать.
+    if hl_s is not None:
+        guard_full = np.maximum(guard_full, np.clip(hl_s * 1.3, 0.0, 1.0))
     mask_s = np.clip(mask_s * guard_full, 0.0, 1.0)
     del guard, guard_full
+
+    hl_delta_full = None
+    if hl_delta_s is not None and float(np.abs(hl_delta_s).max()) > 0.5:
+        # Поправка — только низкие частоты, растягиваем на полный кадр и сглаживаем.
+        off = 128.0
+        enc = np.clip(hl_delta_s + off, 0, 255).astype(np.uint8)
+        hl_delta_full = Image.fromarray(enc, mode="RGB").resize(original.size, Image.BILINEAR).filter(
+            ImageFilter.GaussianBlur(radius=max(2.0, min(original.size) * 0.004)))
+    del hl_s, hl_delta_s
 
     # Мягкий край маски: ретушь должна втекать в кожу постепенно, иначе
     # по контуру лица видна ступенька.
@@ -763,6 +822,15 @@ def blend_skin(original: Image.Image, generated: Image.Image,
         out = arr + delta
         del arr, delta, m
 
+        if hl_delta_full is not None:
+            # Свет и цвет пятна — к окружающей коже. Модель уже могла частично
+            # затемнить пятно — не затемняем дважды: берём только то, чего не хватает.
+            want = np.asarray(hl_delta_full.crop(box), dtype=np.float32) - 128.0
+            have = out - np.asarray(original.crop(box), dtype=np.float32)
+            add = np.where(want < 0, np.minimum(want - np.minimum(have, 0.0), 0.0), want)
+            out += add
+            del want, have, add
+
         if red_map is not None:
             # Красноту гасим по каналам так, чтобы яркость пикселя почти не
             # менялась: красный вниз, зелёный и синий чуть вверх. Иначе на
@@ -797,6 +865,8 @@ def blend_skin(original: Image.Image, generated: Image.Image,
         del out, chunk, inner
 
     mask_img_full.close()
+    if hl_delta_full is not None:
+        hl_delta_full.close()
     if red_map is not None:
         red_map.close()
         dark_map.close()
