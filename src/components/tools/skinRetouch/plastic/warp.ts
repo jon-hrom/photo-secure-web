@@ -6,16 +6,17 @@ import type { BodyGeo, FaceGeo, Pt, VisPt } from './detect';
  */
 export interface PlasticParams {
   chin: number;
+  jaw: number;
   shoulders: number;
   arms: number;
   waist: number;
   hips: number;
 }
 
-export const PLASTIC_ZERO: PlasticParams = { chin: 0, shoulders: 0, arms: 0, waist: 0, hips: 0 };
+export const PLASTIC_ZERO: PlasticParams = { chin: 0, jaw: 0, shoulders: 0, arms: 0, waist: 0, hips: 0 };
 
 export const isPlasticZero = (p: PlasticParams) =>
-  !p.chin && !p.shoulders && !p.arms && !p.waist && !p.hips;
+  !p.chin && !p.jaw && !p.shoulders && !p.arms && !p.waist && !p.hips;
 
 /** Поле смещений на грубой сетке: для пикселя выхода — откуда брать цвет. */
 class Field {
@@ -65,7 +66,7 @@ const lerp = (a: Pt, b: Pt, t: number): Pt => ({ x: a.x + (b.x - a.x) * t, y: a.
 // 2) Складка под подбородком слегка поджимается вверх, а компенсация
 //    размазывается по всей длине шеи — без заметного вытягивания.
 // ---------------------------------------------------------------------------
-const chinWarp = (f: Field, face: FaceGeo, amount: number) => {
+const chinWarp = (f: Field, face: FaceGeo, amount: number, jawAmount: number) => {
   const down = face.down;
   const side = { x: -down.y, y: down.x };
   const c = face.jaw[8];
@@ -96,7 +97,7 @@ const chinWarp = (f: Field, face: FaceGeo, amount: number) => {
     return pts[pts.length - 1].v;
   };
   const top = Math.min(left[0].v, right[0].v);
-  const jowl = W * 0.05 * amount;
+  const jowl = W * 0.05 * jawAmount;
   const lift = W * 0.08 * amount;
   const reach = W * 1.15;
   const R = W * 1.4;
@@ -110,7 +111,7 @@ const chinWarp = (f: Field, face: FaceGeo, amount: number) => {
 
     // Брыли: нижняя половина овала, сильнее всего у угла челюсти и ниже.
     const wvJ = smooth(top * 0.55, top * 0.15, v) * (1 - smooth(W * 0.04, W * 0.3, v));
-    if (wvJ > 0) {
+    if (wvJ > 0 && jowl) {
       const cu = Math.max(W * 0.14, contour(u < 0 ? left : right, Math.min(v, 0)));
       const inner = Math.min(cu * 0.55, W * 0.18);
       const m = smooth(inner, cu, au) * (1 - smooth(cu + W * 0.04, cu + W * 0.32, au));
@@ -120,7 +121,7 @@ const chinWarp = (f: Field, face: FaceGeo, amount: number) => {
     // Второй подбородок: только под челюстью, по центру.
     const lat = 1 - smooth(W * 0.22, W * 0.42, au);
     const sv = v - jawV(u);
-    if (lat > 0 && sv > 0 && sv < reach) {
+    if (lift && lat > 0 && sv > 0 && sv < reach) {
       const w = smooth(0, W * 0.06, sv) * (1 - smooth(W * 0.1, reach, sv));
       dv = lift * w * lat;
       du += u * 0.03 * amount * w * lat;
@@ -474,7 +475,7 @@ export const applyPlastic = (
   const poses = geo.poses.map((p) => p.map(sc));
 
   const field = new Field(W, H, 3);
-  if (params.chin) faces.forEach((fc) => chinWarp(field, fc, params.chin / 100));
+  if (params.chin || params.jaw) faces.forEach((fc) => chinWarp(field, fc, params.chin / 100, params.jaw / 100));
   poses.forEach((p) => {
     if (params.shoulders) shoulderWarp(field, p, params.shoulders / 100);
     if (params.arms) armsWarp(field, p, params.arms / 100);

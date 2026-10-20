@@ -22,7 +22,8 @@ interface Props {
 }
 
 const ROWS: { key: keyof PlasticParams; label: string; icon: string; tip: string }[] = [
-  { key: 'chin', label: 'Овал и подбородок', icon: 'ScanFace', tip: 'Подтягивает брыли к центру и складку под подбородком' },
+  { key: 'jaw', label: 'Контур лица', icon: 'ScanFace', tip: 'Подтягивает щёки у линии челюсти — овал чётче' },
+  { key: 'chin', label: 'Второй подбородок', icon: 'ChevronsUp', tip: 'Подтягивает складку под подбородком' },
   { key: 'shoulders', label: 'Плечи', icon: 'ChevronsDown', tip: 'Опускает и чуть сужает линию плеч' },
   { key: 'arms', label: 'Руки', icon: 'Minimize2', tip: 'Стройнит плечо и предплечье к оси руки' },
   { key: 'waist', label: 'Талия', icon: 'Hourglass', tip: 'Подтягивает бока с двух сторон' },
@@ -31,9 +32,9 @@ const ROWS: { key: keyof PlasticParams; label: string; icon: string; tip: string
 
 const PRESETS: { label: string; v: PlasticParams }[] = [
   { label: 'Выкл', v: PLASTIC_ZERO },
-  { label: 'Слегка', v: { chin: 40, shoulders: 25, arms: 30, waist: 25, hips: 25 } },
-  { label: 'Средне', v: { chin: 65, shoulders: 45, arms: 50, waist: 45, hips: 45 } },
-  { label: 'Заметно', v: { chin: 90, shoulders: 70, arms: 75, waist: 70, hips: 65 } },
+  { label: 'Слегка', v: { chin: 40, jaw: 35, shoulders: 25, arms: 30, waist: 25, hips: 25 } },
+  { label: 'Средне', v: { chin: 65, jaw: 55, shoulders: 45, arms: 50, waist: 45, hips: 45 } },
+  { label: 'Заметно', v: { chin: 90, jaw: 80, shoulders: 70, arms: 75, waist: 70, hips: 65 } },
 ];
 
 interface Slot {
