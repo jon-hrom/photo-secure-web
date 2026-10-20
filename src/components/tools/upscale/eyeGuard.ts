@@ -24,7 +24,7 @@ export const detectEyeZones = async (img: HTMLImageElement): Promise<EyeZone[]> 
     c.height = Math.round(img.naturalHeight * k);
     c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
     const res = await faceapi
-      .detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.3 }))
+      .detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 800, scoreThreshold: 0.2 }))
       .withFaceLandmarks();
     const W = c.width;
     const H = c.height;
