@@ -10,13 +10,14 @@ export interface PlasticParams {
   shoulders: number;
   arms: number;
   waist: number;
+  belly: number;
   hips: number;
 }
 
-export const PLASTIC_ZERO: PlasticParams = { chin: 0, jaw: 0, shoulders: 0, arms: 0, waist: 0, hips: 0 };
+export const PLASTIC_ZERO: PlasticParams = { chin: 0, jaw: 0, shoulders: 0, arms: 0, waist: 0, belly: 0, hips: 0 };
 
 export const isPlasticZero = (p: PlasticParams) =>
-  !p.chin && !p.jaw && !p.shoulders && !p.arms && !p.waist && !p.hips;
+  !p.chin && !p.jaw && !p.shoulders && !p.arms && !p.waist && !p.belly && !p.hips;
 
 /** Поле смещений на грубой сетке: для пикселя выхода — откуда брать цвет. */
 class Field {
@@ -235,6 +236,62 @@ const waistWarp = (f: Field, pose: VisPt[], amount: number) => {
     const wd = smooth(half * 0.2, half * 0.75, ad) * (1 - smooth(half * 1.15, R, ad));
     const s = (d / (ad || 1)) * half * k * wa * wd;
     return { x: n.x * s, y: n.y * s };
+  });
+};
+
+// ---------------------------------------------------------------------------
+// Живот: нижняя часть живота подтягивается внутрь.
+// Анфас — мягкое сжатие области к центру живота.
+// Профиль — передний контур живота смещается к спине, спина не двигается.
+// ---------------------------------------------------------------------------
+const bellyWarp = (f: Field, pose: VisPt[], amount: number) => {
+  if (!ok(pose[11], pose[12], pose[23], pose[24])) return;
+  const midS = lerp(pose[11], pose[12], 0.5);
+  const midH = lerp(pose[23], pose[24], 0.5);
+  const axis = sub(midH, midS);
+  const T = len(axis);
+  if (T < 20) return;
+  const t = { x: axis.x / T, y: axis.y / T };
+  const n = { x: -t.y, y: t.x };
+  const sw = len(sub(pose[11], pose[12]));
+  const hipW = len(sub(pose[23], pose[24]));
+  const center = lerp(midS, midH, 0.8);
+  const sig = T * 0.24;
+  const profile = sw / T < 0.45;
+
+  if (profile) {
+    const nose = pose[0];
+    const fd = nose && nose.v > 0.4 ? dot(sub(nose, midS), n) : 0;
+    if (Math.abs(fd) < 2) return;
+    const front = fd > 0 ? 1 : -1;
+    const depth = T * 0.38;
+    const shift = depth * 0.16 * amount;
+    const R = depth * 2.2;
+    f.apply(center.x - R, center.y - R, center.x + R, center.y + R, (x, y) => {
+      const p = { x: x - center.x, y: y - center.y };
+      const a = dot(p, t);
+      const d = dot(p, n) * front;
+      if (d <= -depth * 0.2 || d >= R || Math.abs(a) > sig * 2.6) return null;
+      const wa = Math.exp(-(a * a) / (2 * sig * sig));
+      const wd = smooth(-depth * 0.2, depth * 0.6, d) * (1 - smooth(depth * 1.1, R, d));
+      const s = shift * wa * wd * front;
+      return { x: n.x * s, y: n.y * s };
+    });
+    return;
+  }
+
+  const half = Math.max(hipW * 0.7, sw * 0.38);
+  const k = 0.1 * amount;
+  const R = half * 1.8;
+  f.apply(center.x - R, center.y - sig * 2.6, center.x + R, center.y + sig * 2.6, (x, y) => {
+    const p = { x: x - center.x, y: y - center.y };
+    const a = dot(p, t);
+    const d = dot(p, n);
+    const ad = Math.abs(d);
+    if (ad >= R || Math.abs(a) > sig * 2.6) return null;
+    const wa = Math.exp(-(a * a) / (2 * sig * sig));
+    const wd = 1 - smooth(half * 0.9, R, ad);
+    return { x: n.x * d * k * wa * wd + t.x * a * k * 0.4 * wa * wd, y: n.y * d * k * wa * wd + t.y * a * k * 0.4 * wa * wd };
   });
 };
 
@@ -480,6 +537,7 @@ export const applyPlastic = (
     if (params.shoulders) shoulderWarp(field, p, params.shoulders / 100);
     if (params.arms) armsWarp(field, p, params.arms / 100);
     if (params.waist) waistWarp(field, p, params.waist / 100);
+    if (params.belly) bellyWarp(field, p, params.belly / 100);
     if (params.hips) hipsWarp(field, p, params.hips / 100);
   });
   if (useSlim) slimWarp(field, slim!);
