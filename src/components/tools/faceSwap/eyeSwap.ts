@@ -125,7 +125,7 @@ export const eyeSwap = async ({ donorUrl, donorMask, targetUrl, targetMask }: Ey
     const ux = Math.cos(ang), uy = Math.sin(ang);
     const toLocal = (p: P) => ({ u: (p.x - tc.x) * ux + (p.y - tc.y) * uy, v: -(p.x - tc.x) * uy + (p.y - tc.y) * ux });
     const toWorld = (u: number, v: number) => ({ x: tc.x + u * ux - v * uy - bx0, y: tc.y + u * uy + v * ux - by0 });
-    // Закрытый глаз на цели — тонкая линия, ресницы свисают ниже уголков. Поэтому маска —
+    // Закрытый глаз на цели — тонкая линия, ресницы свисают ниже уголков, поэтому маска —
     // объединение формы открытого глаза донора (перенесённой на цель) и закрытого глаза цели с запасом вниз.
     const apply = (p: P) => ({ x: M[0] * p.x + M[2] * p.y + M[4], y: M[1] * p.x + M[3] * p.y + M[5] });
     const donorContour = idx.map((i) => toLocal(apply(dl[i])));
