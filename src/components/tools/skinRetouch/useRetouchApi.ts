@@ -26,6 +26,12 @@ export const useRetouchApi = (
   getSlimMask?: () => HTMLCanvasElement | null,
   getRedrawMask?: () => HTMLCanvasElement | null,
   getSlimAmount?: () => number,
+  plasticHooks?: {
+    /** Маска и зоны AI-пластики для фото заданного размера — или null */
+    get: (w: number, h: number) => { mask: HTMLCanvasElement; zones: { zone: string; amount: number }[] } | null;
+    /** Вернуть снятым с обработки людям исходные пиксели */
+    restore: (resultUrl: string, originalUrl: string) => Promise<string>;
+  },
 ) => {
   const { toast } = useToast();
 
@@ -59,6 +65,8 @@ export const useRetouchApi = (
   getRedrawMaskRef.current = getRedrawMask;
   const getSlimAmountRef = useRef(getSlimAmount);
   getSlimAmountRef.current = getSlimAmount;
+  const plasticRef = useRef(plasticHooks);
+  plasticRef.current = plasticHooks;
   const [compare, setCompare] = useState(50);
   const [showPicker, setShowPicker] = useState(false);
   const [showSaver, setShowSaver] = useState(false);
@@ -120,10 +128,37 @@ export const useRetouchApi = (
     userId: string | number,
     slimMask: HTMLCanvasElement | null,
     redrawMask: HTMLCanvasElement | null,
+    withPlastic = false,
   ) => {
     let out = url;
     let note = '';
     let balance: number | undefined;
+    if (withPlastic && plasticRef.current) {
+      try {
+        const img = await urlToImage(out);
+        const pl = plasticRef.current.get(img.naturalWidth, img.naturalHeight);
+        if (pl) {
+          const res = await runSlim({
+            userId,
+            imageB64: dataUrlToBase64(out),
+            maskB64: maskToB64(pl.mask, img.naturalWidth, img.naturalHeight),
+            onStatus: setLoadingText,
+            mode: 'plastic',
+            zones: pl.zones,
+          });
+          out = `data:image/jpeg;base64,${res.image}`;
+          note += ` AI-пластика: ${res.charged} ⚡.`;
+          balance = res.energy_balance ?? balance;
+        }
+      } catch (err) {
+        console.error(err);
+        toast({
+          title: 'AI-пластика не удалась',
+          description: `${String((err as Error)?.message || err)}. Энергия возвращена.`,
+          variant: 'destructive',
+        });
+      }
+    }
     if (slimMask) {
       try {
         const img = await urlToImage(out);
@@ -177,24 +212,25 @@ export const useRetouchApi = (
   applyMasksRef.current = applyMasks;
 
   /** Доработка готового результата новыми масками — без повторной ретуши кожи. */
-  const refine = useCallback(async (slimMask: HTMLCanvasElement | null, redrawMask: HTMLCanvasElement | null) => {
+  const refine = useCallback(async (slimMask: HTMLCanvasElement | null, redrawMask: HTMLCanvasElement | null, withPlastic = false) => {
     const userId = getAuthUserId();
-    if (!userId || !baseResultUrl || (!slimMask && !redrawMask)) return false;
+    if (!userId || !baseResultUrl || (!slimMask && !redrawMask && !withPlastic)) return false;
     setLoading(true);
     setLoadingText('Отправляем маску...');
     try {
-      const r = await applyMasks(baseResultUrl, userId, slimMask, redrawMask);
+      const r = await applyMasks(baseResultUrl, userId, slimMask, redrawMask, withPlastic);
       if (!r.changed) return false;
-      addToHistory({ tool: 'skin-retouch', image: r.url });
-      setBaseResultUrl(r.url);
-      setResultUrl(r.url);
+      const url = plasticRef.current && originalUrl ? await plasticRef.current.restore(r.url, originalUrl) : r.url;
+      addToHistory({ tool: 'skin-retouch', image: url });
+      setBaseResultUrl(url);
+      setResultUrl(url);
       toast({ title: 'Готово', description: `${r.note.trim()} Осталось ${r.balance ?? '—'} ⚡.` });
       return true;
     } finally {
       setLoading(false);
       setLoadingText('');
     }
-  }, [applyMasks, baseResultUrl, toast]);
+  }, [applyMasks, baseResultUrl, originalUrl, toast]);
 
   /** Основной прогон: ставит задачу, ждёт результат, показывает «до/после». */
   const runRetouch = useCallback(async (sourceDataUrl: string, presetKey: PresetKey) => {
@@ -382,8 +418,11 @@ export const useRetouchApi = (
         userId,
         getSlimMaskRef.current?.() ?? null,
         getRedrawMaskRef.current?.() ?? null,
+        true,
       );
-      const retouchedUrl = masked.url;
+      const retouchedUrl = plasticRef.current
+        ? await plasticRef.current.restore(masked.url, sourceDataUrl)
+        : masked.url;
       const slimNote = masked.note;
       data.energy_balance = masked.balance ?? data.energy_balance;
       addToHistory({ tool: 'skin-retouch', image: retouchedUrl });

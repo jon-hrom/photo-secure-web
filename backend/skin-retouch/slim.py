@@ -100,6 +100,44 @@ def slim_prompt(amount: int, zone: str) -> str:
     )
 
 
+# Режим «Пластика»: зоны строятся по точкам лица и позы на фронте.
+# Пиксели не растягиваем — модель перерисовывает только эти зоны тоньше.
+ZONE_WORDS = {
+    "jaw": "jawline and lower cheeks: slimmer, tighter, defined jawline, no sagging jowls",
+    "chin": "under the chin: remove the double chin, tight clean chin-to-neck line",
+    "shoulders": "shoulders: slightly slimmer and softer",
+    "arms": "upper arms and forearms: noticeably thinner, toned arms",
+    "waist": "waist sides: narrower waist",
+    "belly": "belly: flatter stomach",
+    "hips": "hips and thighs: less volume, slimmer outer line",
+}
+
+
+def _level(amount: int) -> str:
+    if amount <= 30:
+        return "slightly"
+    if amount <= 60:
+        return "noticeably"
+    return "clearly"
+
+
+def plastic_prompt(zones: list, zone: str) -> str:
+    parts = []
+    for z in zones:
+        w = ZONE_WORDS.get(str(z.get("zone")))
+        if w:
+            parts.append(f"{_level(int(z.get('amount') or 0))} {w}")
+    what = "; ".join(parts) or "slimmer, natural body"
+    return (
+        "Professional slimming retouch. IMAGE 2 is a black/white mask: edit IMAGE 1 "
+        "only inside the WHITE areas. There make the person " + what + ". "
+        "Keep the same person, face features, expression, pose, proportions of the "
+        "head, hair, jewellery, clothing and skin texture. " + zone + " "
+        "Fill freed space with the matching background. Do NOT stretch or distort, "
+        "no color change. Outside white areas keep IMAGE 1 identical. Photorealistic."
+    )[:800]
+
+
 # Режим «Разгладить»: зона на фото замазана размытым окружением (без цветной
 # заливки), маска идёт отдельной ч/б картинкой. Модель не видит складку
 # и рисует место заново по краям — в настоящих цветах одежды.
@@ -208,12 +246,17 @@ def build_inputs(image_b64: str, mask_b64: str, mode: str = "slim"):
 
 
 # ---------- провайдер ----------
-def start(image_b64: str, mask_b64: str, model: str = None, mode: str = "slim", amount: int = 0):
+def start(image_b64: str, mask_b64: str, model: str = None, mode: str = "slim", amount: int = 0, zones: list = None):
     """Запускает модель; при ошибке старта пробует следующую по цепочке."""
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
     crop_b64, marked_b64, zone = build_inputs(image_b64, mask_b64, mode)
-    prompt = redraw_prompt(zone) if mode == "redraw" else slim_prompt(amount, zone)
+    if mode == "plastic":
+        prompt = plastic_prompt(zones or [], zone)
+    elif mode == "redraw":
+        prompt = redraw_prompt(zone)
+    else:
+        prompt = slim_prompt(amount, zone)
     print(f"[SLIM] mode={mode} zone='{zone}' prompt_len={len(prompt)}")
     # В обоих режимах: IMAGE 1 — фото в настоящих цветах, IMAGE 2 — ч/б маска.
     # В redraw складка на фото уже замазана, оригинал модели не передаём.

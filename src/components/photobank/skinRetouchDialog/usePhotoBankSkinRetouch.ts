@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { saveBlobToPhotoBank } from '@/components/tools/saveToPhotoBank';
 import { useToast } from '@/hooks/use-toast';
-import { usePlasticParams, plasticProcess, isPlasticZero } from '@/components/tools/skinRetouch/plastic';
+import { usePlasticParams, isPlasticZero, detectPeople, zoneMask, activeZones } from '@/components/tools/skinRetouch/plastic';
+import { runSlim, maskToB64 } from '@/components/tools/skinRetouch/runSlim';
 import {
   PRESETS,
   PresetKey,
@@ -266,15 +267,40 @@ export const usePhotoBankSkinRetouch = ({
         isCancelled: () => cancelRef.current,
       });
       if (!isPlasticZero(plastic)) {
-        onStatus('Пластика...');
-        const warped = await plasticProcess(`data:image/jpeg;base64,${result.image}`, plastic);
-        result.image = warped.split(',')[1] || result.image;
+        // Пиксели не растягиваем: AI перерисовывает только зоны по точкам лица и позы.
+        onStatus('Ищем людей для пластики...');
+        try {
+          const dataUrl = `data:image/jpeg;base64,${result.image}`;
+          const { img, geo, people } = await detectPeople(dataUrl);
+          if (people.length) {
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            const mask = document.createElement('canvas');
+            mask.width = w;
+            mask.height = h;
+            const mctx = mask.getContext('2d')!;
+            for (const person of people) mctx.drawImage(zoneMask(w, h, geo, person, plastic), 0, 0);
+            const res = await runSlim({
+              userId,
+              imageB64: result.image,
+              maskB64: maskToB64(mask, w, h),
+              onStatus,
+              mode: 'plastic',
+              zones: activeZones(plastic),
+            });
+            result.image = res.image;
+            result.energy_balance = res.energy_balance ?? result.energy_balance;
+          }
+        } catch (e) {
+          console.warn('[PLASTIC] AI plastic failed', e);
+          toast({ title: 'AI-пластика не удалась', description: `${String((e as Error)?.message || e)}. Энергия возвращена.`, variant: 'destructive' });
+        }
       }
       onStatus('Сохраняем в папку...');
       await saveResult(src, result.image);
       return { sourceDataUrl, result };
     },
-    [eyeSharpen, removeChin, plastic, getSourceUrl, preset, saveResult, userId],
+    [eyeSharpen, removeChin, plastic, getSourceUrl, preset, saveResult, userId, toast],
   );
 
   const runSingle = async () => {

@@ -10,7 +10,9 @@ import PlasticPanel from '@/components/tools/skinRetouch/PlasticPanel';
 import EyeSharpenSelector from '@/components/tools/skinRetouch/EyeSharpenSelector';
 import SlimBrushEditor from '@/components/tools/skinRetouch/SlimBrushEditor';
 import { useSlimMask } from '@/components/tools/skinRetouch/useSlimMask';
-import { usePlasticParams, useLivePlastic } from '@/components/tools/skinRetouch/plastic';
+import PeoplePicker from '@/components/tools/skinRetouch/PeoplePicker';
+import { usePlasticParams, activeZones, isPlasticZero } from '@/components/tools/skinRetouch/plastic';
+import { usePeople } from '@/components/tools/skinRetouch/plastic/usePeople';
 import { useRetouchApi } from '@/components/tools/skinRetouch/useRetouchApi';
 import { PRESETS, EYE_SHARPEN_OPTIONS } from '@/components/tools/skinRetouch/utils';
 
@@ -27,20 +29,34 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
   // Маска кисти уходит в генеративную модель вместе с ретушью
   const maskRef = useRef(mask);
   maskRef.current = mask;
+  const { params: plastic, setParams: setPlastic } = usePlasticParams();
+  const [originalForPeople, setOriginalForPeople] = useState('');
+  const people = usePeople(originalForPeople, plastic);
+  const peopleRef = useRef(people);
+  peopleRef.current = people;
+  const plasticValRef = useRef(plastic);
+  plasticValRef.current = plastic;
   const s = useRetouchApi(
     open,
     () => (maskRef.current.hasPaint ? maskRef.current.canvas : null),
     () => (redrawRef.current.hasPaint ? redrawRef.current.canvas : null),
     () => maskRef.current.amount,
+    {
+      get: (w, h) => {
+        const mask = peopleRef.current.buildMask(w, h, plasticValRef.current);
+        return mask ? { mask, zones: activeZones(plasticValRef.current) } : null;
+      },
+      restore: (resultUrl, originalUrl) => peopleRef.current.restore(resultUrl, originalUrl),
+    },
   );
-  const { params: plastic, setParams: setPlastic } = usePlasticParams();
-  const [setupPreview, setSetupPreview] = useState('');
+  useEffect(() => setOriginalForPeople(s.originalUrl), [s.originalUrl]);
+  const plasticOn = !isPlasticZero(plastic) && people.selected.size > 0;
+  const plasticCost = plasticOn && s.slimPrice !== null ? s.slimPrice : 0;
 
   // Маска рисуется в разрешении загруженного фото — сбрасываем её на новом фото.
   const { init: initMask } = mask;
   const { init: initRedraw } = redraw;
   useEffect(() => {
-    setSetupPreview('');
     if (!s.originalUrl) return;
     const img = new Image();
     img.onload = () => {
@@ -50,17 +66,7 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
     img.src = s.originalUrl;
   }, [s.originalUrl, initMask, initRedraw]);
 
-  // Одна живая пластика: на этапе настроек — по оригиналу (предпросмотр),
-  // после ретуши — по результату AI.
-  const liveBase = s.stage === 'result' ? s.baseResultUrl : s.stage === 'setup' ? s.originalUrl : '';
-  const live = useLivePlastic(
-    liveBase,
-    plastic,
-    (url) => (s.stage === 'result' ? s.setResultUrl(url) : setSetupPreview(url)),
-    null,
-    0,
-  );
-  const liveBusy = live.status === 'applying' || live.status === 'detecting';
+  const liveBusy = people.status === 'detecting';
 
   // Доработка результата: маски, отработанные при «Ретуши», очищаем,
   // чтобы на готовом фото рисовать с нуля (иначе AI обработал бы их второй раз).
@@ -129,7 +135,7 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
           <div className="mt-3 space-y-3">
             <SlimBrushEditor
               imageUrl={s.originalUrl}
-              previewUrl={setupPreview}
+              previewUrl={people.preview}
               slimMask={mask}
               redrawMask={redraw}
               disabled={s.loading}
@@ -138,13 +144,23 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               footer="Результат — после кнопки «Ретушь»."
             />
 
+            <div className="rounded-lg border border-border p-3">
+              <PeoplePicker
+                people={people.people}
+                selected={people.selected}
+                onToggle={people.toggle}
+                status={people.status}
+                disabled={s.loading}
+              />
+            </div>
+
             <PlasticPanel
               value={plastic}
               onChange={setPlastic}
               disabled={s.loading}
-              status={live.status}
-              found={live.found}
-              hint="Предпросмотр — во вкладке «Результат» над фото. Пластика и кисть применятся к фото после ретуши."
+              status={people.status === 'detecting' ? 'detecting' : 'ready'}
+              found={people.found}
+              hint={`AI перерисует только отмеченные зоны выбранных людей — фото не растягивается. Зоны видно по кнопке «Ползунки» над фото.${s.slimPrice !== null ? ` Стоимость ${s.slimPrice} ⚡.` : ''}`}
             />
 
             <div className="rounded-lg border border-border p-3 space-y-3">
@@ -183,7 +199,7 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
                 Ретушь
                 {s.price !== null && (
                   <span className="inline-flex items-center gap-0.5 text-xs opacity-90">
-                    · {s.price + (mask.hasPaint ? s.slimPrice ?? 0 : 0) + (redraw.hasPaint ? s.slimPrice ?? 0 : 0)}
+                    · {s.price + plasticCost + (mask.hasPaint ? s.slimPrice ?? 0 : 0) + (redraw.hasPaint ? s.slimPrice ?? 0 : 0)}
                     <Icon name="Zap" size={12} className="fill-current" />
                   </span>
                 )}
@@ -224,13 +240,38 @@ const SkinRetouchDialog = ({ open, onOpenChange }: SkinRetouchDialogProps) => {
               </Button>
             </div>
 
-            <PlasticPanel
-              value={plastic}
-              onChange={setPlastic}
-              disabled={s.loading}
-              status={live.status}
-              found={live.found}
-            />
+            <div className="rounded-lg border border-border p-3 space-y-3">
+              <PeoplePicker
+                people={people.people}
+                selected={people.selected}
+                onToggle={people.toggle}
+                status={people.status}
+                disabled={s.loading}
+              />
+              <PlasticPanel
+                value={plastic}
+                onChange={setPlastic}
+                disabled={s.loading}
+                status={people.status === 'detecting' ? 'detecting' : 'ready'}
+                found={people.found}
+                hint="Изменили ползунки или людей? Нажмите «Применить AI-пластику» — перерисуются только зоны выбранных людей."
+              />
+              <Button
+                onClick={() => s.refine(null, null, true)}
+                disabled={s.loading || liveBusy || !plasticOn}
+                size="sm"
+                className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90"
+              >
+                <Icon name="Wand2" size={16} />
+                Применить AI-пластику
+                {s.slimPrice !== null && (
+                  <span className="inline-flex items-center gap-0.5 text-xs opacity-90">
+                    · {s.slimPrice}
+                    <Icon name="Zap" size={12} className="fill-current" />
+                  </span>
+                )}
+              </Button>
+            </div>
 
             <div className="rounded-lg border border-border p-3 space-y-2">
               <button

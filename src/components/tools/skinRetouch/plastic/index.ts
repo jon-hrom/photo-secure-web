@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { detectBody, BodyGeo } from './detect';
 import { applyPlastic, isPlasticZero, hasSlimMask, PlasticParams, PLASTIC_ZERO, SlimMask } from './warp';
 
+import { buildPeople } from './people';
+
 export type { PlasticParams, SlimMask } from './warp';
+export type { Person } from './people';
+export type { BodyGeo } from './detect';
+export { restoreExcluded, zonesPreview, zoneMask, activeZones } from './people';
 export { PLASTIC_ZERO, isPlasticZero, hasSlimMask, maskHasPaint } from './warp';
 
 const STORAGE_KEY = 'retouch_plastic_v1';
@@ -74,6 +79,13 @@ export const localChinBoxes = async (dataUrl: string): Promise<number[][]> => {
     console.warn('[PLASTIC] local chin boxes failed', e);
     return [];
   }
+};
+
+/** Находит людей на фото: лица, позы и миниатюры для выбора. */
+export const detectPeople = async (dataUrl: string) => {
+  const img = await loadImg(dataUrl);
+  const geo = await geoFor(dataUrl, img);
+  return { img, geo, people: buildPeople(img, geo) };
 };
 
 /** Применяет пластику к картинке (data URL) и возвращает новый JPEG data URL. */
