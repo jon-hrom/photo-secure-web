@@ -125,8 +125,12 @@ export const eyeSwap = async ({ donorUrl, donorMask, targetUrl, targetMask }: Ey
     const ux = Math.cos(ang), uy = Math.sin(ang);
     const toLocal = (p: P) => ({ u: (p.x - tc.x) * ux + (p.y - tc.y) * uy, v: -(p.x - tc.x) * uy + (p.y - tc.y) * ux });
     const toWorld = (u: number, v: number) => ({ x: tc.x + u * ux - v * uy - bx0, y: tc.y + u * uy + v * ux - by0 });
-    const contour = idx.map((i) => toLocal(tl[i]));
-    const drawShape = (ctx: CanvasRenderingContext2D, grow: number, up: number, down: number) => {
+    // Закрытый глаз на цели — тонкая линия, а ресницы свисают ниже уголков. Поэтому маска —
+    // объединение формы открытого глаза донора (перенесённой на цель) и закрытого глаза цели с запасом вниз.
+    const apply = (p: P) => ({ x: M[0] * p.x + M[2] * p.y + M[4], y: M[1] * p.x + M[3] * p.y + M[5] });
+    const donorContour = idx.map((i) => toLocal(apply(dl[i])));
+    const targetContour = idx.map((i) => toLocal(tl[i]));
+    const drawShape = (ctx: CanvasRenderingContext2D, contour: { u: number; v: number }[], grow: number, up: number, down: number) => {
       ctx.beginPath();
       contour.forEach((q, j) => {
         const u = q.u * grow;
@@ -144,7 +148,8 @@ export const eyeSwap = async ({ donorUrl, donorMask, targetUrl, targetMask }: Ey
     const mc = mk.getContext('2d', { willReadFrequently: true })!;
     mc.filter = `blur(${Math.max(1.2, w * 0.1)}px)`;
     mc.fillStyle = '#fff';
-    drawShape(mc, 1.25, w * 0.22, w * 0.05);
+    drawShape(mc, donorContour, 1.25, w * 0.22, w * 0.1);
+    drawShape(mc, targetContour, 1.2, w * 0.12, w * 0.24);
     const Md = mc.getImageData(0, 0, bw, bh).data;
 
     // Сам глаз (без кожи) — чтобы мерить цвет кожи только вокруг него
@@ -153,7 +158,8 @@ export const eyeSwap = async ({ donorUrl, donorMask, targetUrl, targetMask }: Ey
     ek.height = bh;
     const ec = ek.getContext('2d', { willReadFrequently: true })!;
     ec.fillStyle = '#fff';
-    drawShape(ec, 1.08, w * 0.04, w * 0.03);
+    drawShape(ec, donorContour, 1.08, w * 0.04, w * 0.04);
+    drawShape(ec, targetContour, 1.08, w * 0.04, w * 0.16);
     const Ed = ec.getImageData(0, 0, bw, bh).data;
 
     // Цвет кожи: отдельно для верхнего века и для полосы под глазом, плавный переход между ними
