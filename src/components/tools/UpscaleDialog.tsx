@@ -145,52 +145,6 @@ const UpscaleDialog = ({ open, onOpenChange }: UpscaleDialogProps) => {
               </div>
             )}
 
-            {s.resultInfo && (
-              <div className="rounded-lg border border-border p-3 space-y-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium flex items-center gap-1.5">
-                    <Icon name="Columns3" size={15} className="text-primary" />
-                    Сравнить детализацию 30 / 60 / 90%
-                  </p>
-                  {!s.variants ? (
-                    <Button onClick={s.makeVariants} disabled={s.loading} variant="outline" size="sm" className="ml-auto gap-1.5">
-                      <Icon name="Eye" size={14} /> Показать
-                    </Button>
-                  ) : (
-                    <Button onClick={() => s.setVariants(null)} disabled={s.loading} variant="ghost" size="sm" className="ml-auto gap-1.5">
-                      <Icon name="X" size={14} /> Скрыть
-                    </Button>
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Собирается из уже полученного результата — без нового списания. Нажмите на понравившийся вариант, и фото пересоберётся в полном размере.
-                </p>
-                {s.variants && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {s.variants.map((v) => (
-                      <button
-                        key={v.level}
-                        type="button"
-                        disabled={s.loading}
-                        onClick={() => s.pickVariant(v.level)}
-                        className={`group rounded-lg overflow-hidden border-2 text-left transition-all disabled:opacity-60 ${
-                          s.detail === v.level ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/60'
-                        }`}
-                      >
-                        <div className="aspect-[3/4] bg-black/5 overflow-hidden">
-                          <img src={v.url} alt={`Детализация ${v.level}%`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.6] origin-center" />
-                        </div>
-                        <div className="px-2 py-1.5 text-xs font-medium flex items-center justify-between">
-                          {v.level}%
-                          {s.detail === v.level && <Icon name="Check" size={14} className="text-primary" />}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={s.upscale} disabled={s.loading} size="sm" className="gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:opacity-90">
                 <Icon name="Sparkles" size={16} />

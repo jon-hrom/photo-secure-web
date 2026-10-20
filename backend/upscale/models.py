@@ -87,7 +87,7 @@ def detail_prompt(detail: int) -> str:
     lvl = "slightly" if detail <= 35 else "strongly" if detail > 70 else "clearly"
     return (PROMPT.replace(" Keep any blurred background areas blurred.", "") + (
         f" Then {lvl} remove haze, fog, veiling glare and soft 'soapy' blur from the "
-        "people: crisp faces, both eyes equally sharp with the same shape and gaze, eyelashes, hair strands, skin texture, fabric weave, "
+        "people: crisp faces, eyes, eyelashes, hair strands, skin texture, fabric weave, "
         "seams, lace and jewellery, as if shot with a sharp prime lens. Keep every detail "
         "of body and clothing, same shapes. Deep clean contrast, no halos, no oversharpening."
     ))[:800]

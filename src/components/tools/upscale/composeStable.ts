@@ -17,15 +17,8 @@ const FALLBACK_RANGE = 25;
 const SHARP_FINE = 2.0;
 const SHARP_MID = 0.9;
 const SHARP_THRESHOLD = 2;
-/**
- * Глаза: форма и положение — из оригинала (без искажений), а мелкая прорисовка
- * (ресницы, радужка, блик) — из AI, но только там, где AI совпал с оригиналом.
- * Плюс отдельная резкость, чтобы глаз не «мылил».
- */
-const EYE_DETAIL_CLAMP = 40;
-const EYE_AGREE_FROM = 10;
-const EYE_AGREE_RANGE = 22;
-const EYE_SHARP_BOOST = 1.7;
+/** Насколько в зоне глаз берём оригинал (форма век, положение зрачков). */
+const EYE_KEEP = 0.85;
 
 const makeCanvas = (w: number, h: number) => {
   const c = document.createElement('canvas');
@@ -150,30 +143,9 @@ export const composeStable = async (
         else if (t < -toneClamp) t = -toneClamp;
         const v = Md[i + c] + t;
         ch[c][p] = keep ? v * (1 - keep) + d[i + c] * keep : v;
-      }
-    }
-
-    if (eyeW) {
-      // Глаза: оригинал + мелкие детали AI там, где AI совпал с оригиналом по форме
-      const mc = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
-      const oc = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
-      for (let p = 0, i = 0; p < n; p++, i += 4) {
-        for (let c = 0; c < 3; c++) { mc[c][p] = Md[i + c]; oc[c][p] = d[i + c]; }
-      }
-      const mB = mc.map((x) => blur5(blur3(x, width, sh), width, sh));
-      const oB = oc.map((x) => blur5(blur3(x, width, sh), width, sh));
-      for (let p = 0; p < n; p++) {
-        const e = eyeW[p];
-        if (!e) continue;
-        const mis = (Math.abs(mB[0][p] - oB[0][p]) + Math.abs(mB[1][p] - oB[1][p]) + Math.abs(mB[2][p] - oB[2][p])) / 3;
-        const agree = mis <= EYE_AGREE_FROM ? 1 : mis >= EYE_AGREE_FROM + EYE_AGREE_RANGE ? 0 : 1 - (mis - EYE_AGREE_FROM) / EYE_AGREE_RANGE;
-        for (let c = 0; c < 3; c++) {
-          let det = mc[c][p] - mB[c][p];
-          if (det > EYE_DETAIL_CLAMP) det = EYE_DETAIL_CLAMP;
-          else if (det < -EYE_DETAIL_CLAMP) det = -EYE_DETAIL_CLAMP;
-          // база — оригинал (форма), сверху — прорисовка AI
-          const eyeV = oB[c][p] + (oc[c][p] - oB[c][p]) * (1 - agree) + det * agree;
-          ch[c][p] = ch[c][p] * (1 - e) + eyeV * e;
+        if (eyeW && eyeW[p]) {
+          const e = eyeW[p] * EYE_KEEP;
+          ch[c][p] = ch[c][p] * (1 - e) + d[i + c] * e;
         }
       }
     }
@@ -187,9 +159,8 @@ export const composeStable = async (
         const fine = src[p] - b3[p];
         const midD = b3[p] - b5[p];
         let v = src[p];
-        const boost = eyeW && eyeW[p] ? 1 + (EYE_SHARP_BOOST - 1) * eyeW[p] : 1;
-        if (Math.abs(fine) > SHARP_THRESHOLD) v += fine * SHARP_FINE * boost;
-        if (Math.abs(midD) > SHARP_THRESHOLD) v += midD * SHARP_MID * boost;
+        if (Math.abs(fine) > SHARP_THRESHOLD) v += fine * SHARP_FINE;
+        if (Math.abs(midD) > SHARP_THRESHOLD) v += midD * SHARP_MID;
         d[i] = v < 0 ? 0 : v > 255 ? 255 : v;
       }
     }

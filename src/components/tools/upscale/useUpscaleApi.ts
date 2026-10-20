@@ -82,12 +82,10 @@ export const useUpscaleApi = (open: boolean) => {
 
   /** Последний ответ AI — из него без нового списания собираются варианты детализации. */
   const lastAiRef = useRef<{ ai: HTMLImageElement; place: UpscalePlace; width: number; height: number; size: UpscaleSize } | null>(null);
-  const [variants, setVariants] = useState<{ level: number; url: string }[] | null>(null);
 
   const clearResult = useCallback(() => {
     if (resultUrl) URL.revokeObjectURL(resultUrl);
     lastAiRef.current = null;
-    setVariants(null);
     setResultUrl('');
     setResultInfo(null);
     resultBlobRef.current = null;
@@ -191,45 +189,6 @@ export const useUpscaleApi = (open: boolean) => {
     }
   }, [composeAt]);
 
-  /** Три превью 30/60/90% из уже полученного ответа AI — бесплатно. */
-  const makeVariants = useCallback(async () => {
-    const last = lastAiRef.current;
-    if (!last || !srcRef.current) return;
-    try {
-      setLoading(true);
-      const k = Math.min(1, 1100 / Math.max(last.width, last.height));
-      const w = Math.round(last.width * k);
-      const h = Math.round(last.height * k);
-      const out: { level: number; url: string }[] = [];
-      for (const level of [30, 60, 90]) {
-        setLoadingText(`Готовим вариант ${level}%...`);
-        const c = await composeAt(level, stabilize, w, h);
-        out.push({ level, url: c.toDataURL('image/jpeg', 0.9) });
-        c.width = 0;
-      }
-      setVariants(out);
-    } catch (e) {
-      toast({ title: 'Не удалось собрать варианты', description: String((e as Error)?.message || e), variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  }, [composeAt, stabilize, toast]);
-
-  /** Собирает итог в полном размере с выбранной детализацией — без нового списания. */
-  const pickVariant = useCallback(async (level: number) => {
-    try {
-      setLoading(true);
-      setDetail(level);
-      await buildFinal(level, stabilize);
-      setVariants(null);
-      toast({ title: `Детализация ${level}%`, description: 'Фото пересобрано без доплаты.' });
-    } catch (e) {
-      toast({ title: 'Не удалось собрать фото', description: String((e as Error)?.message || e), variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  }, [buildFinal, setDetail, stabilize, toast]);
-
   const upscale = useCallback(async () => {
     const src = srcRef.current;
     if (!src) return;
@@ -288,8 +247,7 @@ export const useUpscaleApi = (open: boolean) => {
       setLoadingText('Собираем фото в исходных цветах...');
       const aiImg = await toUrlImage(data.url, true);
       lastAiRef.current = { ai: aiImg, place: data.place, width, height, size };
-      setVariants(null);
-      await buildFinal(detail, stabilize);
+        await buildFinal(detail, stabilize);
       toast({
         title: 'Готово',
         description: `Фото ${width}×${height}. Списано ${data.charged} ⚡, осталось ${data.energy_balance ?? '—'} ⚡.`,
@@ -327,7 +285,7 @@ export const useUpscaleApi = (open: boolean) => {
   }, [toast]);
 
   return {
-    stage, size, setSize, stabilize, setStabilize, detail, setDetail, variants, setVariants, makeVariants, pickVariant, prices, loading, loadingText, originalUrl, resultUrl, resultInfo,
+    stage, size, setSize, stabilize, setStabilize, detail, setDetail, prices, loading, loadingText, originalUrl, resultUrl, resultInfo,
     compare, setCompare, showPicker, setShowPicker, showSaver, setShowSaver, saving, fileInputRef,
     source: srcRef.current, handleFile, handlePickFromBank, upscale, download, handleSaveToFolder, resetAll,
   };
