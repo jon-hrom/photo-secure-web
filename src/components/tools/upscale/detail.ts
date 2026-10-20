@@ -1,10 +1,21 @@
 /**
- * Детализация поверх собранного фото: снимает «дымку» (локальный контраст
- * на крупном масштабе) и «мыло» (резкость мелких и средних деталей).
- * Сила 0–100. Обрабатывает холст полосами, чтобы не съесть память.
+ * Детализация поверх собранного фото.
+ * 1) Строим карту «мыльности» по всему кадру: где мало мелких деталей — сильнее резкость,
+ *    где уже резко — почти не трогаем (без пересвета контуров).
+ * 2) Лица и фигуры людей находим отдельно и усиливаем там прорисовку.
+ * 3) Сильное размытие фона (боке) — не трогаем, кроме зон людей.
+ * Контраст — мягкий, с плавным сжатием светов и теней, без переконтраста.
  */
+import * as faceapi from '@vladmandic/face-api';
+import { loadFaceDetectionModels } from '@/utils/faceDetection';
+
 const STRIP = 256;
 const PAD = 8;
+const CELL = 16;
+/** Уровень «нормальной» резкости (средний модуль лапласиана на 1/4 масштаба). */
+const SHARP_OK = 9;
+/** Ниже этого — уже не «мыло», а намеренное размытие фона. */
+const BOKEH = 1.6;
 
 const nextFrame = () => new Promise((r) => setTimeout(r, 0));
 
@@ -34,6 +45,103 @@ const blur3 = (src: Float32Array, w: number, h: number) => {
   return out;
 };
 
+type Box = { x: number; y: number; w: number; h: number };
+
+const detectFaces = async (canvas: HTMLCanvasElement): Promise<Box[]> => {
+  try {
+    if (!(await loadFaceDetectionModels())) return [];
+    const k = Math.min(1, 1600 / Math.max(canvas.width, canvas.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(canvas.width * k);
+    c.height = Math.round(canvas.height * k);
+    ctx2d(c).drawImage(canvas, 0, 0, c.width, c.height);
+    const res = await faceapi.detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.3 }));
+    const out = res.map((r) => ({ x: r.box.x / c.width, y: r.box.y / c.height, w: r.box.width / c.width, h: r.box.height / c.height }));
+    c.width = 0;
+    return out;
+  } catch (e) {
+    console.warn('[DETAIL] face detection failed', e);
+    return [];
+  }
+};
+
+/**
+ * Карта силы резкости (сетка W/CELL × H/CELL), 0..~1.6.
+ * Мыло → больше, резко → меньше, боке вне людей → почти 0, лица → максимум.
+ */
+const buildAmountMap = (canvas: HTMLCanvasElement, faces: Box[]) => {
+  const W = canvas.width;
+  const H = canvas.height;
+  const sw = Math.max(32, Math.round(W / 4));
+  const sh = Math.max(32, Math.round(H / 4));
+  const s = document.createElement('canvas');
+  s.width = sw;
+  s.height = sh;
+  const sctx = ctx2d(s);
+  sctx.drawImage(canvas, 0, 0, sw, sh);
+  const px = sctx.getImageData(0, 0, sw, sh).data;
+  s.width = 0;
+  const lum = new Float32Array(sw * sh);
+  for (let p = 0, i = 0; p < lum.length; p++, i += 4) lum[p] = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+
+  const gw = Math.max(4, Math.ceil(W / CELL));
+  const gh = Math.max(4, Math.ceil(H / CELL));
+  const sum = new Float32Array(gw * gh);
+  const cnt = new Float32Array(gw * gh);
+  for (let y = 1; y < sh - 1; y++) {
+    for (let x = 1; x < sw - 1; x++) {
+      const p = y * sw + x;
+      const lap = Math.abs(4 * lum[p] - lum[p - 1] - lum[p + 1] - lum[p - sw] - lum[p + sw]);
+      const g = Math.min(gh - 1, Math.floor((y / sh) * gh)) * gw + Math.min(gw - 1, Math.floor((x / sw) * gw));
+      sum[g] += lap;
+      cnt[g] += 1;
+    }
+  }
+  let sharp = new Float32Array(gw * gh);
+  for (let g = 0; g < sharp.length; g++) sharp[g] = cnt[g] ? sum[g] / cnt[g] : SHARP_OK;
+  sharp = blur3(blur3(sharp, gw, gh), gw, gh);
+
+  // Зоны людей: лицо (сильно) и фигура под ним (умеренно)
+  const people = new Float32Array(gw * gh);
+  const face = new Float32Array(gw * gh);
+  for (const f of faces) {
+    const fcx = (f.x + f.w / 2) * gw;
+    const fcy = (f.y + f.h / 2) * gh;
+    const frx = f.w * gw * 0.9;
+    const fry = f.h * gh * 1.0;
+    const bx0 = Math.floor((f.x - f.w * 1.6) * gw);
+    const bx1 = Math.ceil((f.x + f.w * 2.6) * gw);
+    const by0 = Math.floor((f.y - f.h * 0.6) * gh);
+    const by1 = Math.ceil((f.y + f.h * 8) * gh);
+    for (let y = Math.max(0, by0); y < Math.min(gh, by1); y++) {
+      for (let x = Math.max(0, bx0); x < Math.min(gw, bx1); x++) {
+        const g = y * gw + x;
+        people[g] = 1;
+        const dx = (x + 0.5 - fcx) / frx;
+        const dy = (y + 0.5 - fcy) / fry;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 1) face[g] = Math.max(face[g], d < 0.6 ? 1 : 1 - (d - 0.6) / 0.4);
+      }
+    }
+  }
+  const peopleS = blur3(blur3(people, gw, gh), gw, gh);
+  const faceS = blur3(face, gw, gh);
+
+  const amt = new Float32Array(gw * gh);
+  for (let g = 0; g < amt.length; g++) {
+    const v = sharp[g];
+    // насколько кадр здесь «мылит»: 0 — уже резко, 1 — сильно мыльно
+    const soft = Math.max(0, Math.min(1, (SHARP_OK - v) / (SHARP_OK - BOKEH)));
+    // боке вне людей не трогаем
+    const bokeh = v < BOKEH ? 1 : v < BOKEH * 2 ? 1 - (v - BOKEH) / BOKEH : 0;
+    const keepBg = 1 - bokeh * (1 - peopleS[g]);
+    let a = (0.35 + 0.65 * soft) * keepBg;
+    a *= 1 + 0.25 * peopleS[g] + 0.4 * faceS[g];
+    amt[g] = a;
+  }
+  return { amt, gw, gh };
+};
+
 export const applyDetail = async (
   canvas: HTMLCanvasElement,
   detail: number,
@@ -45,6 +153,9 @@ export const applyDetail = async (
   const H = canvas.height;
   const ctx = ctx2d(canvas);
 
+  const faces = await detectFaces(canvas);
+  const { amt, gw, gh } = buildAmountMap(canvas, faces);
+
   // Крупное размытие через уменьшенную копию: по нему видно «вуаль» дымки
   const lw = Math.max(8, Math.round(W / 40));
   const lh = Math.max(8, Math.round(H / 40));
@@ -52,17 +163,21 @@ export const applyDetail = async (
   low.width = lw;
   low.height = lh;
   ctx2d(low).drawImage(canvas, 0, 0, lw, lh);
-  // Мягкий уровень чёрного: самые тёмные места кадра на крупном масштабе
   const ld = ctx2d(low).getImageData(0, 0, lw, lh).data;
   const mins: number[] = [];
   for (let i = 0; i < ld.length; i += 4) mins.push(Math.min(ld[i], ld[i + 1], ld[i + 2]));
   mins.sort((a, b) => a - b);
-  const veil = Math.min(40, mins[Math.floor(mins.length * 0.02)] || 0) * k * 0.8;
+  // Мягкое снятие вуали: не больше 20 уровней, чтобы тени не проваливались
+  const veil = Math.min(20, mins[Math.floor(mins.length * 0.02)] || 0) * k * 0.5;
   const gain = 255 / (255 - veil);
 
-  const clarity = 0.45 * k;
-  const fineAmt = 1.6 * k;
-  const midAmt = 0.8 * k;
+  const clarity = 0.22 * k;
+  const fineAmt = 1.5 * k;
+  const midAmt = 0.7 * k;
+  /** Ограничение прироста резкости — без ореолов и пересвеченных контуров. */
+  const halo = 26;
+  const gx = gw / W;
+  const gy = gh / H;
 
   for (let y0 = 0; y0 < H; y0 += STRIP) {
     const y1 = Math.min(H, y0 + STRIP);
@@ -76,24 +191,57 @@ export const applyDetail = async (
     ctx2d(lc).drawImage(low, 0, (a * lh) / H, lw, (sh * lh) / H, 0, 0, W, sh);
     const L = ctx2d(lc).getImageData(0, 0, W, sh).data;
     lc.width = 0;
-    const d = img.data;
+
+    // Сила по пикселям — билинейно из сетки
     const n = W * sh;
+    const A = new Float32Array(n);
+    for (let y = 0; y < sh; y++) {
+      const fy = Math.max(0, Math.min(gh - 1.001, (a + y) * gy - 0.5));
+      const yi = Math.floor(fy);
+      const ty = fy - yi;
+      const r0 = yi * gw;
+      const r1 = Math.min(gh - 1, yi + 1) * gw;
+      for (let x = 0; x < W; x++) {
+        const fx = Math.max(0, Math.min(gw - 1.001, x * gx - 0.5));
+        const xi = Math.floor(fx);
+        const tx = fx - xi;
+        const x1 = Math.min(gw - 1, xi + 1);
+        A[y * W + x] = (amt[r0 + xi] * (1 - tx) + amt[r0 + x1] * tx) * (1 - ty) + (amt[r1 + xi] * (1 - tx) + amt[r1 + x1] * tx) * ty;
+      }
+    }
+
+    const d = img.data;
     for (let c = 0; c < 3; c++) {
       const src = new Float32Array(n);
       for (let p = 0, i = c; p < n; p++, i += 4) src[p] = d[i];
       const b1 = blur3(src, W, sh);
       const b2 = blur3(blur3(b1, W, sh), W, sh);
       for (let p = 0, i = c; p < n; p++, i += 4) {
+        const s = A[p];
         let v = src[p];
         const fine = v - b1[p];
         const mid = b1[p] - b2[p];
-        if (Math.abs(fine) > 1.5) v += fine * fineAmt;
-        if (Math.abs(mid) > 1.5) v += mid * midAmt;
-        // Локальный контраст: слабее у краёв диапазона, чтобы не выбить света и тени
+        let add = 0;
+        if (Math.abs(fine) > 1.5) add += fine * fineAmt * s;
+        if (Math.abs(mid) > 1.5) add += mid * midAmt * s;
+        // плавное ограничение: мелкое усиливается полностью, крупные перепады — нет
+        add = (halo * add) / (halo + Math.abs(add));
+        v += add;
         const lum = L[i];
-        const room = 1 - Math.abs(lum - 128) / 160;
-        v += (v - lum) * clarity * (room > 0 ? room : 0);
+        const room = 1 - Math.abs(lum - 128) / 150;
+        v += (v - lum) * clarity * Math.min(1, s) * (room > 0 ? room : 0);
         v = (v - veil) * gain;
+        // мягкое колено: прирост в светах/тенях плавно гасится у края диапазона —
+        // исходные белые и чёрные не меняются, но и не выбиваются
+        const o = src[p];
+        const dv = v - o;
+        if (dv > 0 && v > 225) {
+          const room = Math.max(1, 255 - o);
+          v = o + (room * dv) / (room + dv);
+        } else if (dv < 0 && v < 30) {
+          const room = Math.max(1, o);
+          v = o - (room * -dv) / (room - dv);
+        }
         d[i] = v < 0 ? 0 : v > 255 ? 255 : v;
       }
     }
