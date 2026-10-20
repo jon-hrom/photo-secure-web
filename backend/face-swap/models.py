@@ -77,6 +77,17 @@ PROMPT = (
     "in IMAGE 1 unchanged: body, clothes, other people, background."
 )
 
+# Режим «Только глаза»: на целевом фото глаза закрыты/моргнули, донор — тот же человек с открытыми глазами.
+PROMPT_EYES = (
+    "Photo retouch, eyes only. IMAGE 1 is the photo to edit: the person blinked or has half-closed eyes. "
+    "IMAGE 2 and IMAGE 3 show the SAME person with open eyes. Open the eyes in IMAGE 1 naturally, "
+    "copying this person's real eyes from IMAGE 3: iris colour, eye shape, eyelid fold, lashes. Match "
+    "IMAGE 1 exactly: head angle, gaze direction, eye size relative to the face, lighting, skin tone, "
+    "colour grade, sharpness, noise and resolution. Skin under the eyes smooth and natural, no bags, "
+    "no dark circles, no double lashes, no makeup change. Do not change brows, nose, mouth, face shape, "
+    "hair or anything else. Photorealistic, not retouched-looking."
+)
+
 # Если средняя разница в зоне лица меньше порога — модель фактически ничего не сделала.
 UNCHANGED_THRESHOLD = float(os.environ.get("FACE_SWAP_MIN_DIFF", "6"))
 
@@ -277,7 +288,8 @@ def _to_bytes(img, fmt: str, quality: int = 93) -> bytes:
     return buf.getvalue()
 
 
-def validate_inputs(donor_b64, donor_mask_b64, target_b64, target_mask_b64, with_hair: bool = False):
+def validate_inputs(donor_b64, donor_mask_b64, target_b64, target_mask_b64, with_hair: bool = False,
+                    eyes: bool = False):
     _bbox(_open_mask(donor_mask_b64, _open_rgb(donor_b64).size))
     _bbox(_open_mask(target_mask_b64, _open_rgb(target_b64).size))
 
@@ -398,13 +410,13 @@ def _gpt_poll(task_id: str) -> dict:
 
 # ---------- Общий интерфейс ----------
 def start_with_fallback(donor_b64, donor_mask_b64, target_b64, target_mask_b64, model: str = None,
-                        with_hair: bool = False):
+                        with_hair: bool = False, eyes: bool = False):
     # Второй референс — крупный план лица строго по маске: модель видит черты в деталях
     # и копирует именно это лицо (а не соседнее, если на фото донора несколько людей).
     donor_list = [build_donor(donor_b64, donor_mask_b64, with_hair),
                   build_donor_face(donor_b64, donor_mask_b64)]
     target_bytes, aspect = build_target(target_b64, target_mask_b64, with_hair)
-    prompt = PROMPT_HAIR if with_hair else PROMPT
+    prompt = PROMPT_EYES if eyes else (PROMPT_HAIR if with_hair else PROMPT)
     name = model or MODEL
     last_err = None
     while name:
@@ -449,7 +461,8 @@ def _match_colors(original, generated, blend_mask):
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB")
 
 
-def compose(target_b64: str, target_mask_b64: str, result_url: str, with_hair: bool = False) -> str:
+def compose(target_b64: str, target_mask_b64: str, result_url: str, with_hair: bool = False,
+            eyes: bool = False) -> str:
     """Модель вернула готовый кадр целиком — приводим к размеру оригинала без вклеек."""
     import numpy as np
     from PIL import Image
@@ -479,6 +492,8 @@ def compose(target_b64: str, target_mask_b64: str, result_url: str, with_hair: b
     # Отрезаем служебные поля — возвращаемся ровно к кадру оригинала
     generated = generated.crop((ox, oy, ox + original.width, oy + original.height))
     _check_framing(original, full_mask, generated)
+    if eyes:
+        return _blend_eyes(original, full_mask, generated, result_url)
     # Из ответа модели берём только голову; остальные люди, фон и одежда остаются 1:1
     region = _expand_box(_bbox(full_mask), original.size, 3.0 if with_hair else 2.4)
     merged = _blend_crop(original, full_mask, region, generated.crop(region), with_hair)
@@ -567,6 +582,29 @@ def _blend_crop(original, mask, crop_box, g, with_hair: bool):
     out = original.copy()
     out.paste(Image.composite(g, orig_crop, m), (x0, y0))
     return out
+
+
+def _blend_eyes(original, full_mask, generated, result_url: str) -> str:
+    """Из ответа модели берём только полосу глаз (≈20–62% высоты отмеченного лица), мягкий край."""
+    import numpy as np
+    from PIL import Image, ImageFilter
+    x0, y0, x1, y1 = _bbox(full_mask)
+    fw, fh = x1 - x0, y1 - y0
+    band = Image.new("L", original.size, 0)
+    band.paste(255, (int(x0 + fw * 0.04), int(y0 + fh * 0.2), int(x1 - fw * 0.04), int(y0 + fh * 0.62)))
+    band = band.filter(ImageFilter.GaussianBlur(max(3, fh * 0.06)))
+    region = _expand_box((x0, y0, x1, y1), original.size, 1.4)
+    g = _match_colors(original.crop(region), generated.crop(region), band.crop(region))
+    gen = original.copy()
+    gen.paste(g, region[:2])
+    out = Image.composite(gen, original, band)
+    a = np.asarray(band.resize((256, 256)), dtype=np.uint8) > 200
+    d = float(np.abs(np.asarray(out.resize((256, 256)), dtype=np.float32)
+                     - np.asarray(original.resize((256, 256)), dtype=np.float32))[a].mean()) if a.sum() > 20 else 99
+    print(f"[face-swap] eyes diff={d:.2f} url={result_url[:120]}")
+    if d < 2.0:
+        raise UnchangedResult(f"eyes diff={d:.2f}")
+    return base64.b64encode(_to_bytes(out, "JPEG", 95)).decode()
 
 
 def _finish(original, full_mask, generated, result_url: str) -> str:

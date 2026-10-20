@@ -123,11 +123,35 @@ const FaceSwapDialog = ({ open, onOpenChange }: FaceSwapDialogProps) => {
           })}
         </div>
         {api.mode === 'eyes' && (
-          <p className="text-[11px] text-muted-foreground px-1 mt-1">
-            Фото 1 — снимок этого же человека с открытыми глазами, фото 2 — где глаза закрыты. На обоих фото закрасьте
-            лицо целиком: глаза найдутся автоматически и подстроятся под поворот головы, наклон, ширину и высоту глаз.
-            Бесплатно, без AI — переносятся настоящие глаза.
-          </p>
+          <div className="mt-2 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">Способ:</span>
+              {[
+                { ai: true, label: 'AI — естественнее', icon: 'Sparkles' },
+                { ai: false, label: 'Без AI — бесплатно', icon: 'Copy' },
+              ].map((o) => (
+                <button
+                  key={o.label}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => api.setEyesAi(o.ai)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 inline-flex items-center gap-1 ${
+                    api.eyesAi === o.ai ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40'
+                  }`}
+                >
+                  <Icon name={o.icon} size={13} />
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground px-1">
+              Фото 1 — этот же человек с открытыми глазами, фото 2 — где глаза закрыты. На обоих закрасьте лицо целиком,
+              приближать фото не нужно.{' '}
+              {api.eyesAi
+                ? 'AI откроет глаза по образцу с фото 1, подстроит свет, цвет и резкость под фото 2. Меняется только зона глаз.'
+                : 'Настоящие глаза с фото 1 вклеиваются с подгонкой поворота и размера.'}
+            </p>
+          </div>
         )}
 
         {/* ШАГ 1 — донор. Держим смонтированным, чтобы маска не терялась при переключении шагов. */}
@@ -199,8 +223,8 @@ const FaceSwapDialog = ({ open, onOpenChange }: FaceSwapDialogProps) => {
                     {api.mode === 'eyes' ? 'Перенести глаза' : 'Перенести лицо'}
                   </Button>
                   <span className="text-[10px] font-medium text-yellow-600 dark:text-yellow-500 inline-flex items-center gap-0.5 leading-none">
-                    {api.mode === 'eyes' ? 'бесплатно' : price}
-                    {api.mode !== 'eyes' && <Icon name="Zap" size={10} className="fill-current" />}
+                    {api.mode === 'eyes' && !api.eyesAi ? 'бесплатно' : price}
+                    {!(api.mode === 'eyes' && !api.eyesAi) && <Icon name="Zap" size={10} className="fill-current" />}
                   </span>
                 </div>
                 <Button onClick={target.clearMask} disabled={busy || !target.hasMask} variant="outline" size="sm" className="gap-1.5">
