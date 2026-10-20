@@ -12,6 +12,7 @@ import {
 import { CanvasState } from '@/components/tools/logoRemover/useCanvasState';
 import { buildInpaintMask } from '@/components/tools/logoRemover/maskAnalysis';
 import { exactHeadPaste } from '@/components/tools/faceSwap/exactHead';
+import { eyeSwap } from '@/components/tools/faceSwap/eyeSwap';
 import {
   SourceImage, loadSourceFromFile, loadSourceFromUrl, exportFullRes,
   diffMask, downloadBlob,
@@ -20,6 +21,7 @@ import {
 export const FACE_SWAP_URL = 'https://functions.poehali.dev/ebf5f521-be34-42d2-a0f8-1424c0b4b494';
 
 export type SwapStep = 'donor' | 'target';
+export type SwapMode = 'face' | 'eyes';
 
 /** Загрузка фото в конкретный редактор (донора или целевой). */
 const useLoader = (s: CanvasState) => {
@@ -84,6 +86,10 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
   useEffect(() => {
     localStorage.setItem('face_swap_with_hair', withHair ? '1' : '0');
   }, [withHair]);
+  const [mode, setMode] = useState<SwapMode>(() => (localStorage.getItem('face_swap_mode') === 'eyes' ? 'eyes' : 'face'));
+  useEffect(() => {
+    localStorage.setItem('face_swap_mode', mode);
+  }, [mode]);
   const estimateLoaded = useRef(false);
   const donorLoader = useLoader(donor);
   const targetLoader = useLoader(target);
@@ -117,6 +123,34 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
     }
     if (!target.hasMask || !target.currentDataUrlRef.current) {
       toast({ title: 'Закрасьте лицо, которое нужно заменить', description: 'Проведите кистью по лицу на этом фото' });
+      return;
+    }
+    if (mode === 'eyes') {
+      const { setLoading, setLoadingText, historyRef, setHistoryLen, loadImageIntoCanvas } = target;
+      try {
+        setLoading(true);
+        setLoadingText('Подгоняем глаза под поворот и размер...');
+        const r = await eyeSwap({
+          donorUrl: donor.currentDataUrlRef.current,
+          donorMask: donor.maskCanvasRef.current!,
+          targetUrl: target.currentDataUrlRef.current,
+          targetMask: target.maskCanvasRef.current!,
+        });
+        if (!r.ok) {
+          toast({ title: 'Не удалось перенести глаза', description: r.reason, variant: 'destructive' });
+          return;
+        }
+        addToHistory({ tool: 'face-swap', image: r.dataUrl });
+        historyRef.current.push(r.dataUrl);
+        setHistoryLen(historyRef.current.length);
+        await loadImageIntoCanvas(r.dataUrl);
+        toast({ title: 'Глаза перенесены', description: 'Если результат не устроил — нажмите «Отменить».' });
+      } catch (e) {
+        console.error(e);
+        toast({ title: 'Не удалось перенести глаза', description: String((e as Error)?.message || e), variant: 'destructive' });
+      } finally {
+        setLoading(false);
+      }
       return;
     }
     const userId = getAuthUserId();
@@ -226,7 +260,7 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
     } finally {
       setLoading(false);
     }
-  }, [donor, target, toast, withHair]);
+  }, [donor, target, toast, withHair, mode]);
 
   const undo = useCallback(async () => {
     const { historyRef, setHistoryLen, loadImageIntoCanvas } = target;
@@ -298,5 +332,5 @@ export const useFaceSwapApi = (donor: CanvasState, target: CanvasState, open: bo
     setStep('donor');
   }, [donor, target]);
 
-  return { step, setStep, price, withHair, setWithHair, donorLoader, targetLoader, goToTarget, swap, undo, download, handleSaveToFolder, resetAll };
+  return { step, setStep, price, mode, setMode, withHair, setWithHair, donorLoader, targetLoader, goToTarget, swap, undo, download, handleSaveToFolder, resetAll };
 };

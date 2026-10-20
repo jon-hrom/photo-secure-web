@@ -7,7 +7,7 @@
 import * as faceapi from '@vladmandic/face-api';
 import { loadFaceDetectionModels } from '@/utils/faceDetection';
 
-interface P {
+export interface P {
   x: number;
   y: number;
 }
@@ -20,7 +20,7 @@ const MEAN_SHIFT_CLAMP = 22;
 /** Лёгкое сужение лица по горизонтали (вдоль линии глаз): 1 = без изменений, 0.95 = на 5% уже. */
 const FACE_WIDTH = 0.95;
 
-const loadImg = (src: string) =>
+export const loadImg = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
     i.onload = () => resolve(i);
@@ -28,7 +28,7 @@ const loadImg = (src: string) =>
     i.src = src;
   });
 
-const toCanvas = (img: CanvasImageSource, w: number, h: number) => {
+export const toCanvas = (img: CanvasImageSource, w: number, h: number) => {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
@@ -37,7 +37,7 @@ const toCanvas = (img: CanvasImageSource, w: number, h: number) => {
 };
 
 /** Маска кисти может быть полупрозрачной — делаем её сплошной (как на сервере: alpha > 10). */
-const binarize = (c: HTMLCanvasElement) => {
+export const binarize = (c: HTMLCanvasElement) => {
   const ctx = c.getContext('2d', { willReadFrequently: true })!;
   const im = ctx.getImageData(0, 0, c.width, c.height);
   const d = im.data;
@@ -50,7 +50,7 @@ const binarize = (c: HTMLCanvasElement) => {
   return c;
 };
 
-const maskBox = (mask: HTMLCanvasElement) => {
+export const maskBox = (mask: HTMLCanvasElement) => {
   const { width: w, height: h } = mask;
   const d = mask.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
   let x0 = w, y0 = h, x1 = -1, y1 = -1;
@@ -68,7 +68,7 @@ const maskBox = (mask: HTMLCanvasElement) => {
 };
 
 /** Точки лица, ближайшего к центру отмеченной области. */
-const landmarksNear = async (src: HTMLCanvasElement, box: { x0: number; y0: number; x1: number; y1: number }) => {
+export const landmarksNear = async (src: HTMLCanvasElement, box: { x0: number; y0: number; x1: number; y1: number }) => {
   const res = await faceapi
     .detectAllFaces(src, new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.25 }))
     .withFaceLandmarks();

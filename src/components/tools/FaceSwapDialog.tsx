@@ -100,23 +100,35 @@ const FaceSwapDialog = ({ open, onOpenChange }: FaceSwapDialogProps) => {
         <div className="flex flex-wrap items-center gap-2 mt-2">
           <span className="text-xs text-muted-foreground">Что переносить:</span>
           {[
-            { v: true, label: 'Лицо + волосы', hint: 'максимальная узнаваемость' },
-            { v: false, label: 'Только лицо', hint: 'причёска останется как на фото 2' },
-          ].map((o) => (
-            <button
-              key={o.label}
-              type="button"
-              disabled={busy}
-              onClick={() => api.setWithHair(o.v)}
-              title={o.hint}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 ${
-                api.withHair === o.v ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40'
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
+            { key: 'hair', label: 'Лицо + волосы', hint: 'максимальная узнаваемость', on: () => { api.setMode('face'); api.setWithHair(true); } },
+            { key: 'face', label: 'Только лицо', hint: 'причёска останется как на фото 2', on: () => { api.setMode('face'); api.setWithHair(false); } },
+            { key: 'eyes', label: 'Только глаза', hint: 'открытые глаза с другого фото этого же человека', on: () => api.setMode('eyes') },
+          ].map((o) => {
+            const active = api.mode === 'eyes' ? o.key === 'eyes' : o.key === (api.withHair ? 'hair' : 'face');
+            return (
+              <button
+                key={o.key}
+                type="button"
+                disabled={busy}
+                onClick={o.on}
+                title={o.hint}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 inline-flex items-center gap-1 ${
+                  active ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/40'
+                }`}
+              >
+                {o.key === 'eyes' && <Icon name="Eye" size={13} />}
+                {o.label}
+              </button>
+            );
+          })}
         </div>
+        {api.mode === 'eyes' && (
+          <p className="text-[11px] text-muted-foreground px-1 mt-1">
+            Фото 1 — снимок этого же человека с открытыми глазами, фото 2 — где глаза закрыты. На обоих фото закрасьте
+            лицо целиком: глаза найдутся автоматически и подстроятся под поворот головы, наклон, ширину и высоту глаз.
+            Бесплатно, без AI — переносятся настоящие глаза.
+          </p>
+        )}
 
         {/* ШАГ 1 — донор. Держим смонтированным, чтобы маска не терялась при переключении шагов. */}
         <div className={step === 'donor' ? '' : 'hidden'}>
@@ -183,12 +195,12 @@ const FaceSwapDialog = ({ open, onOpenChange }: FaceSwapDialogProps) => {
                     size="sm"
                     className="gap-1.5 bg-gradient-to-r from-fuchsia-500 to-violet-500 text-white hover:opacity-90"
                   >
-                    <Icon name="Sparkles" size={16} />
-                    Перенести лицо
+                    <Icon name={api.mode === 'eyes' ? 'Eye' : 'Sparkles'} size={16} />
+                    {api.mode === 'eyes' ? 'Перенести глаза' : 'Перенести лицо'}
                   </Button>
                   <span className="text-[10px] font-medium text-yellow-600 dark:text-yellow-500 inline-flex items-center gap-0.5 leading-none">
-                    {price}
-                    <Icon name="Zap" size={10} className="fill-current" />
+                    {api.mode === 'eyes' ? 'бесплатно' : price}
+                    {api.mode !== 'eyes' && <Icon name="Zap" size={10} className="fill-current" />}
                   </span>
                 </div>
                 <Button onClick={target.clearMask} disabled={busy || !target.hasMask} variant="outline" size="sm" className="gap-1.5">
