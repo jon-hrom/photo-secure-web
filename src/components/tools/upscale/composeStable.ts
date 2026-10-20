@@ -9,7 +9,7 @@ import type { UpscalePlace } from '@/components/tools/upscale/composeUpscale';
 const STRIP = 256;
 const PAD = 12;
 const COARSE = 32;
-const TONE_CLAMP = 25;
+const TONE_CLAMP = 60;
 const FALLBACK_FROM = 30;
 const FALLBACK_RANGE = 25;
 /** Двухступенчатая резкость: мелкие контуры (r≈1) + средние (r≈3). */
@@ -90,7 +90,8 @@ export const composeStable = async (
   // Детализация: AI убрал дымку — не возвращаем её подгонкой тона под оригинал
   // и реже откатываемся к мыльному оригиналу.
   const dk = Math.max(0, Math.min(100, detail)) / 100;
-  const toneClamp = TONE_CLAMP * (1 - dk * 0.75);
+  // Тон и цвет всегда как в оригинале: AI даёт только мелкую прорисовку
+  const toneClamp = TONE_CLAMP;
   const fbFrom = FALLBACK_FROM + dk * 20;
 
   // Грубые копии (1/32 итога): только для подгонки цвета/тона под оригинал
@@ -139,6 +140,13 @@ export const composeStable = async (
         const v = Md[i + c] + t;
         ch[c][p] = keep ? v * (1 - keep) + d[i + c] * keep : v;
       }
+      // Цвет (Cb/Cr) — строго из оригинала, от AI берём только яркостные детали.
+      // Так не «плывёт» оттенок кожи на половине лица и цвет глаз.
+      const y = 0.299 * ch[0][p] + 0.587 * ch[1][p] + 0.114 * ch[2][p];
+      const oy = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      ch[0][p] = y + (d[i] - oy);
+      ch[1][p] = y + (d[i + 1] - oy);
+      ch[2][p] = y + (d[i + 2] - oy);
     }
 
     // Резкость контуров: мелкие + средние (два unsharp mask)
