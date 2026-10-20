@@ -68,25 +68,67 @@ export const maskBox = (mask: HTMLCanvasElement) => {
 };
 
 /** Точки лица, ближайшего к центру отмеченной области. */
-export const landmarksNear = async (src: HTMLCanvasElement, box: { x0: number; y0: number; x1: number; y1: number }) => {
-  const res = await faceapi
-    .detectAllFaces(src, new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.25 }))
-    .withFaceLandmarks();
+const pickNearest = (
+  res: faceapi.WithFaceLandmarks<{ detection: faceapi.FaceDetection }, faceapi.FaceLandmarks68>[],
+  box: { x0: number; y0: number; x1: number; y1: number },
+  map: (p: P) => P,
+) => {
   const cx = (box.x0 + box.x1) / 2;
   const cy = (box.y0 + box.y1) / 2;
   let best: P[] | null = null;
   let bd = Infinity;
   for (const r of res) {
-    const b = r.detection.box;
-    const fx = b.x + b.width / 2;
-    const fy = b.y + b.height / 2;
-    if (fx < box.x0 || fx > box.x1 || fy < box.y0 || fy > box.y1) continue;
-    const dd = Math.hypot(fx - cx, fy - cy);
+    const pts = r.landmarks.positions.map((p) => map({ x: p.x, y: p.y }));
+    const c = pts.reduce((a, p) => ({ x: a.x + p.x / pts.length, y: a.y + p.y / pts.length }), { x: 0, y: 0 });
+    if (c.x < box.x0 || c.x > box.x1 || c.y < box.y0 || c.y > box.y1) continue;
+    const dd = Math.hypot(c.x - cx, c.y - cy);
     if (dd < bd) {
       bd = dd;
-      best = r.landmarks.positions.map((p) => ({ x: p.x, y: p.y }));
+      best = pts;
     }
   }
+  return best;
+};
+
+/**
+ * Ищет лицо рядом с отмеченной областью. Сначала — в увеличенном фрагменте вокруг отметки
+ * (на больших групповых снимках лицо в целом кадре слишком мелкое), затем — во всём фото.
+ */
+export const landmarksNear = async (src: HTMLCanvasElement, box: { x0: number; y0: number; x1: number; y1: number }) => {
+  const bw = box.x1 - box.x0, bh = box.y1 - box.y0;
+  const side = Math.max(bw, bh);
+  const cx = (box.x0 + box.x1) / 2, cy = (box.y0 + box.y1) / 2;
+  const x0 = Math.max(0, Math.round(cx - side / 2)), y0 = Math.max(0, Math.round(cy - side / 2));
+  const x1 = Math.min(src.width, Math.round(cx + side / 2)), y1 = Math.min(src.height, Math.round(cy + side / 2));
+  const cw = x1 - x0, ch = y1 - y0;
+  if (cw > 8 && ch > 8) {
+    for (const target of [512, 768, 384]) {
+      const k = target / Math.max(cw, ch);
+      const crop = document.createElement('canvas');
+      crop.width = Math.max(1, Math.round(cw * k));
+      crop.height = Math.max(1, Math.round(ch * k));
+      const cc = crop.getContext('2d')!;
+      cc.imageSmoothingQuality = 'high';
+      cc.drawImage(src, x0, y0, cw, ch, 0, 0, crop.width, crop.height);
+      for (const scoreThreshold of [0.3, 0.12]) {
+        const res = await faceapi
+          .detectAllFaces(crop, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold }))
+          .withFaceLandmarks();
+        const best = pickNearest(res, box, (p) => ({ x: x0 + p.x / k, y: y0 + p.y / k }));
+        if (best) {
+          crop.width = 0;
+          console.log('[FACE_FIND] found in crop', target, 'thr', scoreThreshold);
+          return best;
+        }
+      }
+      crop.width = 0;
+    }
+  }
+  const res = await faceapi
+    .detectAllFaces(src, new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.2 }))
+    .withFaceLandmarks();
+  const best = pickNearest(res, box, (p) => p);
+  console.log('[FACE_FIND] full image', best ? 'found' : 'not found', 'faces', res.length);
   return best;
 };
 
