@@ -22,17 +22,18 @@ interface Props {
 }
 
 const ROWS: { key: keyof PlasticParams; label: string; icon: string; tip: string }[] = [
-  { key: 'chin', label: 'Второй подбородок', icon: 'ScanFace', tip: 'Подтягивает складку под челюстью к шее' },
+  { key: 'chin', label: 'Овал и подбородок', icon: 'ScanFace', tip: 'Подтягивает брыли к центру и складку под подбородком' },
   { key: 'shoulders', label: 'Плечи', icon: 'ChevronsDown', tip: 'Опускает и чуть сужает линию плеч' },
   { key: 'arms', label: 'Руки', icon: 'Minimize2', tip: 'Стройнит плечо и предплечье к оси руки' },
   { key: 'waist', label: 'Талия', icon: 'Hourglass', tip: 'Подтягивает бока с двух сторон' },
+  { key: 'hips', label: 'Бёдра', icon: 'MoveHorizontal', tip: 'Уменьшает объём бёдер, сильнее у полных' },
 ];
 
 const PRESETS: { label: string; v: PlasticParams }[] = [
   { label: 'Выкл', v: PLASTIC_ZERO },
-  { label: 'Слегка', v: { chin: 40, shoulders: 25, arms: 25, waist: 25 } },
-  { label: 'Средне', v: { chin: 65, shoulders: 45, arms: 45, waist: 45 } },
-  { label: 'Заметно', v: { chin: 90, shoulders: 70, arms: 70, waist: 70 } },
+  { label: 'Слегка', v: { chin: 40, shoulders: 25, arms: 30, waist: 25, hips: 25 } },
+  { label: 'Средне', v: { chin: 65, shoulders: 45, arms: 50, waist: 45, hips: 45 } },
+  { label: 'Заметно', v: { chin: 90, shoulders: 70, arms: 75, waist: 70, hips: 65 } },
 ];
 
 interface Slot {
@@ -229,9 +230,9 @@ const PlasticPanel = ({ value, onChange, disabled, status, found, hint }: Props)
         ))}
       </div>
 
-      {(found && found.bodies === 0 && !off && (value.shoulders || value.arms || value.waist)) ? (
+      {(found && found.bodies === 0 && !off && (value.shoulders || value.arms || value.waist || value.hips)) ? (
         <p className="text-[11px] text-amber-600 dark:text-amber-500">
-          Фигура в кадре не найдена — плечи, руки и талия не изменятся. Подбородок работает по лицу.
+          Фигура в кадре не найдена — плечи, руки, талия и бёдра не изменятся. Подбородок работает по лицу.
         </p>
       ) : null}
       <p className="text-[10px] text-muted-foreground">

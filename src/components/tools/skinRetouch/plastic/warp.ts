@@ -9,12 +9,13 @@ export interface PlasticParams {
   shoulders: number;
   arms: number;
   waist: number;
+  hips: number;
 }
 
-export const PLASTIC_ZERO: PlasticParams = { chin: 0, shoulders: 0, arms: 0, waist: 0 };
+export const PLASTIC_ZERO: PlasticParams = { chin: 0, shoulders: 0, arms: 0, waist: 0, hips: 0 };
 
 export const isPlasticZero = (p: PlasticParams) =>
-  !p.chin && !p.shoulders && !p.arms && !p.waist;
+  !p.chin && !p.shoulders && !p.arms && !p.waist && !p.hips;
 
 /** Поле смещений на грубой сетке: для пикселя выхода — откуда брать цвет. */
 class Field {
@@ -58,45 +59,74 @@ const dot = (a: Pt, b: Pt) => a.x * b.x + a.y * b.y;
 const lerp = (a: Pt, b: Pt, t: number): Pt => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 
 // ---------------------------------------------------------------------------
-// Второй подбородок: ткань под линией челюсти подтягивается к челюсти,
-// складка и её тень «съедаются», шея ниже слегка растягивается.
-// Сама челюсть и всё, что выше, не двигаются.
+// Овал лица и второй подбородок.
+// 1) Щёки у челюсти (брыли) мягко подтягиваются к центру лица — контур
+//    челюсти становится чётче. Середина лица (губы, нос) не двигается.
+// 2) Складка под подбородком слегка поджимается вверх, а компенсация
+//    размазывается по всей длине шеи — без заметного вытягивания.
 // ---------------------------------------------------------------------------
 const chinWarp = (f: Field, face: FaceGeo, amount: number) => {
   const down = face.down;
   const side = { x: -down.y, y: down.x };
   const c = face.jaw[8];
   const W = face.width;
-  // Контур челюсти в координатах лица (u — поперёк, v — вниз).
-  const jaw = face.jaw.map((p) => ({ u: dot(sub(p, c), side), v: dot(sub(p, c), down) })).sort((a, b) => a.u - b.u);
-  const jawV = (u: number) => {
-    if (u <= jaw[0].u) return jaw[0].v;
-    for (let i = 1; i < jaw.length; i++) {
-      if (u <= jaw[i].u) {
-        const t = (u - jaw[i - 1].u) / (jaw[i].u - jaw[i - 1].u || 1);
-        return jaw[i - 1].v + (jaw[i].v - jaw[i - 1].v) * t;
+  const loc = face.jaw.map((p) => ({ u: dot(sub(p, c), side), v: dot(sub(p, c), down) }));
+  const sideOf = (pts: { u: number; v: number }[]) => [...pts].sort((a, b) => a.v - b.v);
+  const left = sideOf(loc.slice(0, 9));
+  const right = sideOf(loc.slice(8));
+  const contour = (pts: { u: number; v: number }[], v: number) => {
+    if (v <= pts[0].v) return Math.abs(pts[0].u);
+    for (let i = 1; i < pts.length; i++) {
+      if (v <= pts[i].v) {
+        const t = (v - pts[i - 1].v) / (pts[i].v - pts[i - 1].v || 1);
+        return Math.abs(pts[i - 1].u + (pts[i].u - pts[i - 1].u) * t);
       }
     }
-    return jaw[jaw.length - 1].v;
+    return Math.abs(pts[pts.length - 1].u);
   };
-  const shift = W * 0.16 * amount;
-  const reach = W * 0.62;
-  const R = W * 1.1;
+  const jawV = (u: number) => {
+    const pts = [...loc].sort((a, b) => a.u - b.u);
+    if (u <= pts[0].u) return pts[0].v;
+    for (let i = 1; i < pts.length; i++) {
+      if (u <= pts[i].u) {
+        const t = (u - pts[i - 1].u) / (pts[i].u - pts[i - 1].u || 1);
+        return pts[i - 1].v + (pts[i].v - pts[i - 1].v) * t;
+      }
+    }
+    return pts[pts.length - 1].v;
+  };
+  const top = Math.min(left[0].v, right[0].v);
+  const jowl = W * 0.05 * amount;
+  const lift = W * 0.08 * amount;
+  const reach = W * 1.15;
+  const R = W * 1.4;
   f.apply(c.x - R, c.y - R, c.x + R, c.y + R, (x, y) => {
     const p = { x: x - c.x, y: y - c.y };
     const u = dot(p, side);
     const v = dot(p, down);
-    const lat = 1 - smooth(W * 0.26, W * 0.46, Math.abs(u));
-    if (lat <= 0) return null;
-    const s = v - jawV(u);
-    if (s <= 0 || s >= reach) return null;
-    // Быстрый подъём сразу под челюстью, плавный спад к середине шеи.
-    const w = smooth(0, W * 0.07, s) * (1 - smooth(W * 0.12, reach, s));
-    const k = shift * w * lat;
-    // Берём цвет ниже по шее — складка подтягивается вверх.
-    // Плюс лёгкое сужение по бокам — подбородок становится чётче.
-    const pinch = 0.035 * amount * w * lat;
-    return { x: down.x * k + side.x * u * pinch, y: down.y * k + side.y * u * pinch };
+    const au = Math.abs(u);
+    let du = 0;
+    let dv = 0;
+
+    // Брыли: нижняя половина овала, сильнее всего у угла челюсти и ниже.
+    const wvJ = smooth(top * 0.55, top * 0.15, v) * (1 - smooth(W * 0.04, W * 0.3, v));
+    if (wvJ > 0) {
+      const cu = Math.max(W * 0.14, contour(u < 0 ? left : right, Math.min(v, 0)));
+      const inner = Math.min(cu * 0.55, W * 0.18);
+      const m = smooth(inner, cu, au) * (1 - smooth(cu + W * 0.04, cu + W * 0.32, au));
+      du = Math.sign(u) * jowl * m * wvJ;
+    }
+
+    // Второй подбородок: только под челюстью, по центру.
+    const lat = 1 - smooth(W * 0.22, W * 0.42, au);
+    const sv = v - jawV(u);
+    if (lat > 0 && sv > 0 && sv < reach) {
+      const w = smooth(0, W * 0.06, sv) * (1 - smooth(W * 0.1, reach, sv));
+      dv = lift * w * lat;
+      du += u * 0.03 * amount * w * lat;
+    }
+    if (!du && !dv) return null;
+    return { x: side.x * du + down.x * dv, y: side.y * du + down.y * dv };
   });
 };
 
@@ -166,10 +196,11 @@ const shoulderWarp = (f: Field, pose: VisPt[], amount: number) => {
 const armsWarp = (f: Field, pose: VisPt[], amount: number) => {
   const sw = ok(pose[11], pose[12]) ? len(sub(pose[11], pose[12])) : 0;
   if (sw < 10) return;
-  const k = 0.13 * amount;
+  const k = 0.17 * amount * (0.8 + 0.4 * fullness(pose));
   for (const [s, e, w] of [[11, 13, 15], [12, 14, 16]]) {
-    if (ok(pose[s], pose[e])) limbWarp(f, pose[s], pose[e], sw * 0.17, k);
-    if (ok(pose[e], pose[w])) limbWarp(f, pose[e], pose[w], sw * 0.12, k * 0.8);
+    // Плечевая часть руки у полных людей шире — берём зону с запасом.
+    if (ok(pose[s], pose[e])) limbWarp(f, pose[s], pose[e], sw * (0.19 + 0.05 * fullness(pose)), k);
+    if (ok(pose[e], pose[w])) limbWarp(f, pose[e], pose[w], sw * 0.13, k * 0.7);
   }
 };
 
@@ -202,6 +233,52 @@ const waistWarp = (f: Field, pose: VisPt[], amount: number) => {
     // Центр живота почти не трогаем — работают бока.
     const wd = smooth(half * 0.2, half * 0.75, ad) * (1 - smooth(half * 1.15, R, ad));
     const s = (d / (ad || 1)) * half * k * wa * wd;
+    return { x: n.x * s, y: n.y * s };
+  });
+};
+
+// ---------------------------------------------------------------------------
+// «Полнота» по позе: чем шире таз относительно плеч, тем сильнее работаем
+// с бёдрами и руками. 0 — стройная фигура, 1 — полная.
+// ---------------------------------------------------------------------------
+const fullness = (pose: VisPt[]) => {
+  if (!ok(pose[11], pose[12], pose[23], pose[24])) return 0.5;
+  const r = len(sub(pose[23], pose[24])) / (len(sub(pose[11], pose[12])) || 1);
+  return Math.min(1, Math.max(0, (r - 0.55) / 0.3));
+};
+
+// ---------------------------------------------------------------------------
+// Бёдра: внешний контур таза и верх бедра подтягиваются к оси тела.
+// Центр фигуры не двигается, фон снаружи растягивается на большом участке.
+// ---------------------------------------------------------------------------
+const hipsWarp = (f: Field, pose: VisPt[], amount: number) => {
+  if (!ok(pose[11], pose[12], pose[23], pose[24])) return;
+  const midS = lerp(pose[11], pose[12], 0.5);
+  const midH = lerp(pose[23], pose[24], 0.5);
+  const axis = sub(midH, midS);
+  const T = len(axis);
+  if (T < 20) return;
+  const t = { x: axis.x / T, y: axis.y / T };
+  const n = { x: -t.y, y: t.x };
+  const hipW = len(sub(pose[23], pose[24]));
+  const sw = len(sub(pose[11], pose[12]));
+  const kneesOk = ok(pose[25], pose[26]);
+  const thigh = kneesOk ? (len(sub(pose[25], pose[23])) + len(sub(pose[26], pose[24]))) / 2 : T * 0.9;
+  const center = { x: midH.x + t.x * thigh * 0.2, y: midH.y + t.y * thigh * 0.2 };
+  const half = Math.max(hipW * 0.95, sw * 0.5);
+  const full = fullness(pose);
+  const shift = half * 0.08 * amount * (0.6 + 0.6 * full);
+  const sig = thigh * 0.38;
+  const R = half * 2;
+  f.apply(center.x - R, center.y - thigh, center.x + R, center.y + thigh, (x, y) => {
+    const p = { x: x - center.x, y: y - center.y };
+    const a = dot(p, t);
+    const d = dot(p, n);
+    const ad = Math.abs(d);
+    if (ad >= R || Math.abs(a) > sig * 2.6) return null;
+    const wa = Math.exp(-(a * a) / (2 * sig * sig));
+    const wd = smooth(half * 0.35, half * 0.95, ad) * (1 - smooth(half * 1.1, R, ad));
+    const s = Math.sign(d) * shift * wa * wd;
     return { x: n.x * s, y: n.y * s };
   });
 };
@@ -402,6 +479,7 @@ export const applyPlastic = (
     if (params.shoulders) shoulderWarp(field, p, params.shoulders / 100);
     if (params.arms) armsWarp(field, p, params.arms / 100);
     if (params.waist) waistWarp(field, p, params.waist / 100);
+    if (params.hips) hipsWarp(field, p, params.hips / 100);
   });
   if (useSlim) slimWarp(field, slim!);
 
