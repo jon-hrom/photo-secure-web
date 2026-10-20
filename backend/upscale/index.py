@@ -153,19 +153,26 @@ def _handle_status(payload: dict, user_id):
                                "refunded": price})
 
     try:
+        from concurrent.futures import ThreadPoolExecutor
         s3 = _s3()
-        input_bytes = s3.get_object(Bucket="files", Key=_input_key(payload, task_id))["Body"].read()
+        pool = ThreadPoolExecutor(max_workers=2)
+        inp_f = pool.submit(lambda: s3.get_object(Bucket="files", Key=_input_key(payload, task_id))["Body"].read())
         r = requests.get(state["url"], timeout=120)
         if r.status_code != 200:
             raise RuntimeError(f"не скачался результат: {r.status_code}")
         res = models.open_rgb(r.content)
-        place = models.locate(res, models.open_rgb(input_bytes))
-        import io
-        buf = io.BytesIO()
-        res.save(buf, format="JPEG", quality=95)
         key = f"upscale/{task_id}/result.jpg"
-        s3.put_object(Bucket="files", Key=key, Body=buf.getvalue(), ContentType="image/jpeg",
-                      CacheControl="public, max-age=86400")
+        if r.content[:2] == b"\xff\xd8":
+            body_bytes = r.content
+        else:
+            import io
+            buf = io.BytesIO()
+            res.save(buf, format="JPEG", quality=95)
+            body_bytes = buf.getvalue()
+        up_f = pool.submit(s3.put_object, Bucket="files", Key=key, Body=body_bytes, ContentType="image/jpeg",
+                           CacheControl="public, max-age=86400")
+        place = models.locate(res, models.open_rgb(inp_f.result()))
+        up_f.result()
     except Exception as e:
         print(f"[upscale] finish failed: {e}")
         if user_id:

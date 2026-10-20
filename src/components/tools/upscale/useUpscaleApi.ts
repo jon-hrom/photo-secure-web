@@ -177,8 +177,11 @@ export const useUpscaleApi = (open: boolean) => {
         await new Promise((r) => setTimeout(r, 4000));
         const sr = await fetch(`${UPSCALE_URL}?action=status`, {
           method: 'POST', headers, body: JSON.stringify({ task_id: started.task_id, size, input_key: started.input_key }),
-        });
-        if (sr.status >= 500 && fails < 3) { fails += 1; continue; }
+        }).catch(() => null);
+        if (!sr || sr.status >= 500) {
+          if (fails < 5) { fails += 1; setLoadingText('Собираем результат...'); continue; }
+          throw new Error('Сервер не успел собрать результат. Попробуйте ещё раз через минуту.');
+        }
         const sd = await sr.json().catch(() => ({}));
         if (!sr.ok) throw new Error(sd?.error || `HTTP ${sr.status}`);
         fails = 0;

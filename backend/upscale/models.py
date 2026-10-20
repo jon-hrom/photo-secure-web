@@ -89,7 +89,7 @@ def start_task(input_jpeg: bytes, aspect: str, size: str, orig_side: int = 0) ->
         json={
             "model": MODEL,
             "prompt": PROMPT,
-            "params": {"resolution": "4K" if size == "orig" and orig_side > 2600 else MODEL_RES[size], "aspect_ratio": aspect, "output_format": "png"},
+            "params": {"resolution": "4K" if size == "orig" and orig_side > 2600 else MODEL_RES[size], "aspect_ratio": aspect, "output_format": "jpg"},
             "inputs": {"image_input": [f"data:image/jpeg;base64,{b64}"]},
         },
         headers=_headers(),
@@ -182,9 +182,12 @@ def locate(res, inp):
     box = (ox * sx, oy * sy, inp.width * sx, inp.height * sy)
     gray = res.convert("L")
     pyr = []
-    for side in (160, 320, 640, 1280, 2048):
+    cur, cur_k = gray, 1.0
+    for side in (2048, 1280, 640, 320, 160):
         k = min(1.0, side / max(res.size))
-        pyr.append((gray.resize((max(1, round(res.width * k)), max(1, round(res.height * k))), Image.BILINEAR), k))
+        size = (max(1, round(res.width * k)), max(1, round(res.height * k)))
+        cur = cur.resize(size, Image.BILINEAR, reducing_gap=2.0) if size != cur.size else cur
+        pyr.insert(0, (cur, size[0] / res.width))
     score = None
     for ref_side, steps in ((96, 4), (192, 2), (384, 2), (768, 2), (1024, 1)):
         if ref_side > max(inp.size) * 1.2:
