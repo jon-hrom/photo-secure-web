@@ -486,7 +486,7 @@ def _handle_slim_compose(payload: dict, user_id):
     if not url:
         return _response(400, {"error": "url is required"})
     try:
-        out = slim.compose(image_b64, mask_b64, url)
+        out = slim.compose(image_b64, mask_b64, url, mode=_slim_mode(payload))
     except Exception as e:
         print(f"[SLIM] compose failed: {e}")
         if user_id:

@@ -133,8 +133,10 @@ def plastic_prompt(zones: list, zone: str) -> str:
         "only inside the WHITE areas. There make the person " + what + ". "
         "Keep the same person, face features, expression, pose, proportions of the "
         "head, hair, jewellery, clothing and skin texture. " + zone + " "
-        "Fill freed space with the matching background. Do NOT stretch or distort, "
-        "no color change. Outside white areas keep IMAGE 1 identical. Photorealistic."
+        "Each body part stays in the same place, only its outline moves inward; draw "
+        "it once, no second or ghost outline. Fill freed space with the matching "
+        "background. No shift, zoom or color change. Outside white areas keep IMAGE 1 "
+        "pixel-identical. Photorealistic."
     )[:800]
 
 
@@ -309,7 +311,63 @@ def poll(task_id: str) -> dict:
 
 
 # ---------- сборка ----------
-def compose(image_b64: str, mask_b64: str, result_url: str) -> str:
+def _align(gen, orig, keep):
+    """Модель возвращает кадр чуть сдвинутым/масштабированным — отсюда «двойная рука».
+
+    По пикселям вне маски (там должен быть оригинал) перебором ищем сдвиг
+    и масштаб, при которых генерация лучше всего совпадает с оригиналом,
+    и приводим генерацию к оригиналу. Считаем на мелкой копии — быстро.
+    """
+    import numpy as np
+    from PIL import Image
+    cw, ch = orig.size
+    k = min(1.0, 192 / max(cw, ch))
+    sw, sh = max(16, round(cw * k)), max(16, round(ch * k))
+    o = np.asarray(orig.convert("L").resize((sw, sh), Image.BILINEAR), dtype=np.float32)
+    g_img = gen.convert("L").resize((sw, sh), Image.BILINEAR)
+    w = np.asarray(keep.resize((sw, sh), Image.BILINEAR), dtype=np.float32) / 255
+    if w.sum() < 300:
+        return gen
+    o = o - (o * w).sum() / w.sum()
+
+    def score(sc, dx, dy):
+        # Аффинное отображение: пиксель выхода (x, y) берём из генерации в
+        # ((x - cx) / sc + cx - dx, ...). Совпадение — по нормированной корреляции.
+        cx, cy = sw / 2, sh / 2
+        t = g_img.transform((sw, sh), Image.AFFINE,
+                            (1 / sc, 0, cx - cx / sc - dx, 0, 1 / sc, cy - cy / sc - dy),
+                            resample=Image.BILINEAR)
+        g = np.asarray(t, dtype=np.float32)
+        g = g - (g * w).sum() / w.sum()
+        den = np.sqrt((g * g * w).sum() * (o * o * w).sum()) or 1
+        return float((g * o * w).sum() / den)
+
+    best = (score(1.0, 0, 0), 1.0, 0.0, 0.0)
+    base = best[0]
+    for sc in (0.97, 0.98, 0.99, 1.0, 1.01, 1.02, 1.03):
+        for dx in range(-6, 7, 2):
+            for dy in range(-6, 7, 2):
+                v = score(sc, dx, dy)
+                if v > best[0]:
+                    best = (v, sc, float(dx), float(dy))
+    v, sc, dx, dy = best
+    for ddx in (-1, 0, 1):
+        for ddy in (-1, 0, 1):
+            vv = score(sc, dx + ddx, dy + ddy)
+            if vv > v:
+                v, best = vv, (vv, sc, dx + ddx, dy + ddy)
+    _, sc, dx, dy = best
+    print(f"[SLIM] align scale={sc:.3f} dx={dx / k:.1f}px dy={dy / k:.1f}px corr {base:.3f}->{best[0]:.3f}")
+    if sc == 1.0 and dx == 0 and dy == 0:
+        return gen
+    cx, cy = cw / 2, ch / 2
+    fx, fy = dx / k, dy / k
+    return gen.transform((cw, ch), Image.AFFINE,
+                         (1 / sc, 0, cx - cx / sc - fx, 0, 1 / sc, cy - cy / sc - fy),
+                         resample=Image.BICUBIC)
+
+
+def compose(image_b64: str, mask_b64: str, result_url: str, mode: str = "slim") -> str:
     """Вклеивает перерисованную зону в фото по расширенной маске с мягким краем."""
     import numpy as np
     from PIL import Image, ImageFilter
@@ -324,6 +382,11 @@ def compose(image_b64: str, mask_b64: str, result_url: str) -> str:
     gen = Image.open(io.BytesIO(r.content)).convert("RGB").resize((cw, ch), Image.LANCZOS)
     orig = img.crop(box)
     m = mask.crop(box)
+    # Что точно должно совпасть с оригиналом: всё далеко за маской.
+    k0 = min(1.0, 320 / max(cw, ch))
+    far = m.resize((max(8, round(cw * k0)), max(8, round(ch * k0))), Image.BILINEAR)
+    far = far.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.MaxFilter(9))
+    gen = _align(gen, orig, far.point(lambda v: 0 if v > 20 else 255).resize((cw, ch)))
 
     # Маску считаем на мелкой копии — MaxFilter/Blur на полном кропе дорогие,
     # а лимит функции 5 секунд.
@@ -334,13 +397,15 @@ def compose(image_b64: str, mask_b64: str, result_url: str) -> str:
     size = max(bw[2] - bw[0], bw[3] - bw[1]) if bw else max(sw, sh)
     # Расширяем: схуднённый контур уходит внутрь, и фон за старым контуром
     # тоже должен прийти из генерации — иначе останется «призрак» руки.
-    grow = max(3, int(size * 0.12)) | 1
+    # В пластике контур уходит сильнее — берём больший запас, иначе по краю
+    # остаётся старый контур и рука «двоится».
+    grow = max(3, int(size * (0.2 if mode == "plastic" else 0.12))) | 1
     left = grow
     while left > 1:
         step = min(left, 15) | 1
         small = small.filter(ImageFilter.MaxFilter(step))
         left -= step - 1
-    feather = max(2, int(size * 0.05))
+    feather = max(2, int(size * (0.03 if mode == "plastic" else 0.05)))
     soft = small.filter(ImageFilter.GaussianBlur(feather)).resize((cw, ch), Image.BILINEAR)
 
     # Модель сдвигает цвета всего кадра. Вне маски она должна была вернуть

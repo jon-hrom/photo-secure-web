@@ -121,8 +121,10 @@ const drawZone = (ctx: Ctx, person: Person, zone: ZoneKey) => {
   }
   if (zone === 'arms' && sw > 10) {
     for (const [s, e, w] of [[11, 13, 15], [12, 14, 16]]) {
-      if (ok(p[s], p[e])) line(ctx, p[s], p[e], sw * 0.42);
-      if (ok(p[e], p[w])) line(ctx, p[e], p[w], sw * 0.28);
+      // Зона шире руки с запасом: старый контур должен целиком попасть внутрь,
+      // иначе рядом с новой рукой остаётся край прежней.
+      if (ok(p[s], p[e])) line(ctx, p[s], p[e], sw * 0.62);
+      if (ok(p[e], p[w])) line(ctx, p[e], p[w], sw * 0.42);
     }
     return;
   }

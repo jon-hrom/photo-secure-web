@@ -77,7 +77,7 @@ export const runSlim = async ({ userId, imageB64, maskB64, onStatus, mode = 'sli
 
   onStatus?.('Вклеиваем результат...');
   for (let i = 0; i < 3; i++) {
-    const { r: cr, d: cd } = await post('slim_compose', { image: imageB64, mask: maskB64, url, task_id: taskId });
+    const { r: cr, d: cd } = await post('slim_compose', { image: imageB64, mask: maskB64, url, task_id: taskId, mode });
     if (cr.ok && cd.status === 'done' && cd.image) {
       return { image: String(cd.image), charged: cd.charged as number, energy_balance: cd.energy_balance as number };
     }
