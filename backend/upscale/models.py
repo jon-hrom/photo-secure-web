@@ -80,7 +80,20 @@ def build_model_input(img):
     return buf.getvalue(), name
 
 
-def start_task(input_jpeg: bytes, aspect: str, size: str, orig_side: int = 0) -> str:
+def detail_prompt(detail: int) -> str:
+    """Детализация: убрать дымку и «мыло», людей сделать резкими, ничего не меняя."""
+    if detail <= 0:
+        return PROMPT
+    lvl = "slightly" if detail <= 35 else "strongly" if detail > 70 else "clearly"
+    return (PROMPT.replace(" Keep any blurred background areas blurred.", "") + (
+        f" Then {lvl} remove haze, fog, veiling glare and soft 'soapy' blur from the "
+        "people: crisp faces, eyes, eyelashes, hair strands, skin texture, fabric weave, "
+        "seams, lace and jewellery, as if shot with a sharp prime lens. Keep every detail "
+        "of body and clothing, same shapes. Deep clean contrast, no halos, no oversharpening."
+    ))[:800]
+
+
+def start_task(input_jpeg: bytes, aspect: str, size: str, orig_side: int = 0, detail: int = 0) -> str:
     if not GPTUNNEL_KEY:
         raise RuntimeError("GPTUNNEL_API_KEY не задан")
     b64 = base64.b64encode(input_jpeg).decode()
@@ -88,7 +101,7 @@ def start_task(input_jpeg: bytes, aspect: str, size: str, orig_side: int = 0) ->
         f"{GPT_BASE}/tasks",
         json={
             "model": MODEL,
-            "prompt": PROMPT,
+            "prompt": detail_prompt(detail),
             "params": {"resolution": "4K" if size == "orig" and orig_side > 2600 else MODEL_RES[size], "aspect_ratio": aspect, "output_format": "jpg"},
             "inputs": {"image_input": [f"data:image/jpeg;base64,{b64}"]},
         },

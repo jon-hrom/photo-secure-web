@@ -86,9 +86,15 @@ export const composeStable = async (
   width: number,
   height: number,
   onProgress?: (p: number) => void,
+  detail = 0,
 ): Promise<HTMLCanvasElement> => {
   const ow = original.naturalWidth;
   const oh = original.naturalHeight;
+  // Детализация: AI убрал дымку — не возвращаем её подгонкой тона под оригинал
+  // и реже откатываемся к мыльному оригиналу.
+  const dk = Math.max(0, Math.min(100, detail)) / 100;
+  const toneClamp = TONE_CLAMP * (1 - dk * 0.75);
+  const fbFrom = FALLBACK_FROM + dk * 20;
   const eyes = await detectEyeZones(original);
 
   // Грубые копии (1/32 итога): только для подгонки цвета/тона под оригинал
@@ -130,11 +136,11 @@ export const composeStable = async (
 
     for (let p = 0, i = 0; p < n; p++, i += 4) {
       const diff = (Math.abs(Ml[i] - Ol[i]) + Math.abs(Ml[i + 1] - Ol[i + 1]) + Math.abs(Ml[i + 2] - Ol[i + 2])) / 3;
-      const keep = diff <= FALLBACK_FROM ? 0 : diff >= FALLBACK_FROM + FALLBACK_RANGE ? 1 : (diff - FALLBACK_FROM) / FALLBACK_RANGE;
+      const keep = diff <= fbFrom ? 0 : diff >= fbFrom + FALLBACK_RANGE ? 1 : (diff - fbFrom) / FALLBACK_RANGE;
       for (let c = 0; c < 3; c++) {
         let t = Ol[i + c] - Ml[i + c];
-        if (t > TONE_CLAMP) t = TONE_CLAMP;
-        else if (t < -TONE_CLAMP) t = -TONE_CLAMP;
+        if (t > toneClamp) t = toneClamp;
+        else if (t < -toneClamp) t = -toneClamp;
         const v = Md[i + c] + t;
         ch[c][p] = keep ? v * (1 - keep) + d[i + c] * keep : v;
         if (eyeW && eyeW[p]) {

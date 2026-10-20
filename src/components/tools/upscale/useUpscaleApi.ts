@@ -8,6 +8,7 @@ import {
 } from '@/components/tools/objectRemover/fullRes';
 import { composeUpscale, targetSize, UpscalePlace } from '@/components/tools/upscale/composeUpscale';
 import { composeStable } from '@/components/tools/upscale/composeStable';
+import { applyDetail } from '@/components/tools/upscale/detail';
 
 export const UPSCALE_URL = 'https://functions.poehali.dev/c015dc93-c17d-41f0-a0b7-ba0014b5d997';
 
@@ -53,6 +54,11 @@ export const useUpscaleApi = (open: boolean) => {
   useEffect(() => {
     localStorage.setItem('upscale_stabilize', stabilize ? '1' : '0');
   }, [stabilize]);
+  const [detail, setDetailState] = useState<number>(() => Number(localStorage.getItem('upscale_detail')) || 0);
+  const setDetail = useCallback((v: number) => {
+    setDetailState(v);
+    localStorage.setItem('upscale_detail', String(v));
+  }, []);
   const [prices, setPrices] = useState<Record<UpscaleSize, number> | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
@@ -153,7 +159,7 @@ export const useUpscaleApi = (open: boolean) => {
       clearResult();
       const res = await fetch(`${UPSCALE_URL}?action=start`, {
         method: 'POST', headers, body: JSON.stringify({
-          size, image: sourceToJpegB64(src.img), orig_side: Math.max(src.img.naturalWidth, src.img.naturalHeight),
+          size, detail, image: sourceToJpegB64(src.img), orig_side: Math.max(src.img.naturalWidth, src.img.naturalHeight),
         }),
       }).catch(() => null);
       if (!res || res.status === 504) {
@@ -196,9 +202,13 @@ export const useUpscaleApi = (open: boolean) => {
       const aiImg = await toUrlImage(data.url, true);
       if (stabilize) setLoadingText('Стабилизация: выравниваем детали...');
       const onProgress = (p: number) => setLoadingText(`Собираем фото ${width}×${height}... ${Math.round(p * 100)}%`);
-      const canvas = stabilize || size === 'orig'
-        ? await composeStable(src.img, aiImg, data.place, width, height, onProgress)
+      // С детализацией берём перерисовку AI целиком: в ней уже нет дымки
+      const canvas = stabilize || detail > 0
+        ? await composeStable(src.img, aiImg, data.place, width, height, onProgress, detail)
         : await composeUpscale(src.img, aiImg, data.place, width, height, onProgress);
+      if (detail > 0) {
+        await applyDetail(canvas, detail, (p) => setLoadingText(`Детализация: убираем дымку... ${Math.round(p * 100)}%`));
+      }
       setLoadingText('Готовим файл...');
       const mime = mimeFromName(src.name) === 'image/png' ? 'image/png' : 'image/jpeg';
       let blob = await canvasToBlob(canvas, mime, 0.95);
@@ -225,7 +235,7 @@ export const useUpscaleApi = (open: boolean) => {
     } finally {
       setLoading(false);
     }
-  }, [size, stabilize, toast, clearResult]);
+  }, [size, stabilize, detail, toast, clearResult]);
 
   const download = useCallback(async () => {
     const r = resultBlobRef.current;
@@ -252,7 +262,7 @@ export const useUpscaleApi = (open: boolean) => {
   }, [toast]);
 
   return {
-    stage, size, setSize, stabilize, setStabilize, prices, loading, loadingText, originalUrl, resultUrl, resultInfo,
+    stage, size, setSize, stabilize, setStabilize, detail, setDetail, prices, loading, loadingText, originalUrl, resultUrl, resultInfo,
     compare, setCompare, showPicker, setShowPicker, showSaver, setShowSaver, saving, fileInputRef,
     source: srcRef.current, handleFile, handlePickFromBank, upscale, download, handleSaveToFolder, resetAll,
   };

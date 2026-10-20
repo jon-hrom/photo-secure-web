@@ -112,7 +112,11 @@ def _handle_start(payload: dict, user_id):
 
     model_input, aspect = models.build_model_input(img)
     try:
-        task_id = models.start_task(model_input, aspect, size, int(payload.get("orig_side") or 0))
+        try:
+            detail = max(0, min(100, int(payload.get("detail") or 0)))
+        except (TypeError, ValueError):
+            detail = 0
+        task_id = models.start_task(model_input, aspect, size, int(payload.get("orig_side") or 0), detail)
     except Exception as e:
         print(f"[upscale] start failed: {e}")
         return _response(502, {"error": str(e)[:300]})

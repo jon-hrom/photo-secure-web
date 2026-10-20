@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import PhotoBankPicker from '@/components/tools/PhotoBankPicker';
 import UploadStage from '@/components/tools/logoRemover/UploadStage';
 import CompareView from '@/components/tools/skinRetouch/CompareView';
@@ -98,7 +99,7 @@ const UpscaleDialog = ({ open, onOpenChange }: UpscaleDialogProps) => {
               </div>
               {s.size === 'orig' && (
                 <p className="text-[11px] text-muted-foreground">
-                  Размер фото не меняется — только стабилизация: чёткие контуры и глаза, без двоения.
+                  Размер фото не меняется — AI повышает чёткость. Стабилизация и детализация включаются ниже.
                 </p>
               )}
               {s.size === '8k' && (
@@ -118,13 +119,29 @@ const UpscaleDialog = ({ open, onOpenChange }: UpscaleDialogProps) => {
                   Точно совмещает детали по всему кадру — без двоения контуров. Итог резкий и без искажений.
                 </p>
               </div>
-              <Switch checked={s.stabilize || s.size === 'orig'} onCheckedChange={s.setStabilize} disabled={s.loading || s.size === 'orig'} className="mt-0.5 shrink-0" />
+              <Switch checked={s.stabilize} onCheckedChange={s.setStabilize} disabled={s.loading} className="mt-0.5 shrink-0" />
             </label>
+
+            <div className={`rounded-lg border px-3 py-2.5 space-y-2 ${s.detail > 0 ? 'border-primary/60 bg-primary/5' : 'border-border'}`}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <Icon name="ScanEye" size={15} className="text-primary" />
+                  Детализация
+                </p>
+                <span className={`text-xs font-medium ${s.detail > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {s.detail > 0 ? `${s.detail}%` : 'выкл'}
+                </span>
+              </div>
+              <Slider value={[s.detail]} min={0} max={100} step={5} onValueChange={([v]) => s.setDetail(v)} disabled={s.loading} />
+              <p className="text-[11px] text-muted-foreground">
+                AI находит дымку и «мыльность» кадра и делает людей резкими: лица, глаза, волосы, кожа, ткань одежды — все детали сохраняются. Без доплаты.
+              </p>
+            </div>
 
             {s.resultInfo && (
               <div className="flex items-center gap-2 text-sm rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-3 py-2">
                 <Icon name="CircleCheck" size={16} />
-                Готово: {s.resultInfo.width}×{s.resultInfo.height} ({s.resultInfo.size === 'orig' ? 'стабилизация' : s.resultInfo.size.toUpperCase()}). Двигайте шторку, чтобы сравнить.
+                Готово: {s.resultInfo.width}×{s.resultInfo.height} ({s.resultInfo.size === 'orig' ? 'исходный размер' : s.resultInfo.size.toUpperCase()}). Двигайте шторку, чтобы сравнить.
               </div>
             )}
 
@@ -132,7 +149,7 @@ const UpscaleDialog = ({ open, onOpenChange }: UpscaleDialogProps) => {
               <Button onClick={s.upscale} disabled={s.loading} size="sm" className="gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:opacity-90">
                 <Icon name="Sparkles" size={16} />
                 {s.size === 'orig'
-                  ? (s.resultInfo ? 'Стабилизировать заново' : 'Стабилизировать')
+                  ? (s.resultInfo ? 'Обработать заново' : s.stabilize ? 'Стабилизировать' : 'Улучшить')
                   : (s.resultInfo ? 'Увеличить заново' : `Увеличить до ${s.size.toUpperCase()}`)}
               </Button>
               <Button onClick={s.download} disabled={s.loading || !s.resultInfo} variant="outline" size="sm" className="gap-1.5">
