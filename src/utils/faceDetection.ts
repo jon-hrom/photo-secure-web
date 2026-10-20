@@ -29,12 +29,28 @@ type Tf = {
   setBackend: (name: string) => Promise<boolean>;
 };
 
+/** Свои файлы моделей, а если хостинг их не отдал — официальная копия библиотеки. */
+const MODEL_SOURCES = () => [
+  `${window.location.origin}/models`,
+  'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model',
+];
+
 const loadNets = async () => {
-  const MODEL_URL = `${window.location.origin}/models`;
-  await Promise.all([
-    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-  ]);
+  let lastErr: unknown = null;
+  for (const url of MODEL_SOURCES()) {
+    try {
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(url),
+        faceapi.nets.faceLandmark68Net.loadFromUri(url),
+      ]);
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+      console.warn('[FACE_MODELS] source failed', url, e);
+    }
+  }
+  if (lastErr) throw lastErr;
   // Пробный прогон: на некоторых видеокартах WebGL «есть», но падает при первом расчёте
   const probe = document.createElement('canvas');
   probe.width = 64;
