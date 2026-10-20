@@ -4,7 +4,7 @@
  * уголкам — так учитываются поворот головы (у повёрнутого лица глаза разной ширины),
  * наклон и размер. Высота глаза берётся у донора (он открыт) и масштабируется вместе
  * с шириной; дополнительно поправляется наклон головы вверх/вниз (вертикальное сжатие).
- * Цвет и свет кожи век подгоняются под кожу вокруг глаз на целевом фото.
+ * Свет и тон кожи берутся с целевого фото (низкие частоты), детали глаза — с донора.
  */
 import { loadFaceDetectionModels, getFaceModelsError } from '@/utils/faceDetection';
 import { P, loadImg, toCanvas, binarize, maskBox, landmarksNear } from '@/components/tools/faceSwap/exactHead';
@@ -88,7 +88,6 @@ export const eyeSwap = async ({ donorUrl, donorMask, targetUrl, targetMask }: Ey
   const kv = Math.min(1.15, Math.max(0.85, pitchRatio(tl) / pitchRatio(dl)));
 
   const out = toCanvas(target, TW, TH);
-  const T = target.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, TW, TH).data;
   const O = out.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, TW, TH);
   const od = O.data;
 
@@ -120,48 +119,51 @@ export const eyeSwap = async ({ donorUrl, donorMask, targetUrl, targetMask }: Ey
     wc.drawImage(donor, 0, 0);
     const Wd = wc.getImageData(0, 0, bw, bh).data;
 
-    // Мягкая маска-эллипс: плотная в центре, растушёвка к краю
+    // Маска: в центре глаз полностью непрозрачен (без «двойных» век), растушёвка только по краю
     const mk = document.createElement('canvas');
     mk.width = bw;
     mk.height = bh;
     const mc = mk.getContext('2d', { willReadFrequently: true })!;
-    mc.filter = `blur(${Math.max(2, Math.round(w * 0.14))}px)`;
+    mc.filter = `blur(${Math.max(1.5, w * 0.09)}px)`;
     mc.fillStyle = '#fff';
     mc.beginPath();
-    mc.ellipse(cx - bx0, cy - by0, rx * 0.8, ry * 0.78, ang, 0, Math.PI * 2);
+    mc.ellipse(cx - bx0, cy - by0, rx * 0.8, ry * 0.8, ang, 0, Math.PI * 2);
     mc.fill();
     const Md = mc.getImageData(0, 0, bw, bh).data;
 
-    // Цвет и свет кожи век — по кольцу у края маски (там кожа, а не сам глаз)
-    const sumT = [0, 0, 0], sumW = [0, 0, 0];
-    let n = 0;
-    for (let y = 0; y < bh; y++) {
-      for (let x = 0; x < bw; x++) {
-        const i = (y * bw + x) * 4;
-        const a = Md[i + 3] / 255;
-        if (a < 0.15 || a > 0.6 || Wd[i + 3] < 250) continue;
-        const g = ((by0 + y) * TW + bx0 + x) * 4;
-        for (let k = 0; k < 3; k++) { sumT[k] += T[g + k]; sumW[k] += Wd[i + k]; }
-        n++;
-      }
-    }
-    const gain = [1, 1, 1].map((v, k) => (n > 20 ? Math.min(1.5, Math.max(0.65, (sumT[k] + 1) / (sumW[k] + 1))) : v));
+    // Свет и цвет: переносим только «низкие частоты» цели (тон кожи, тени), детали глаза — донора.
+    // Итог = донор + размытая цель − размытый донор. Резкость и чистота глаза сохраняются.
+    const R = Math.max(3, w * 0.45);
+    const blurOf = (srcCanvas: CanvasImageSource, sx: number, sy: number) => {
+      const c = document.createElement('canvas');
+      c.width = bw;
+      c.height = bh;
+      const cc = c.getContext('2d', { willReadFrequently: true })!;
+      cc.filter = `blur(${R}px)`;
+      cc.drawImage(srcCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
+      const d = cc.getImageData(0, 0, bw, bh).data;
+      c.width = 0;
+      return d;
+    };
+    const Tb = blurOf(target, bx0, by0);
+    const Db = blurOf(warped, 0, 0);
 
     for (let y = 0; y < bh; y++) {
       for (let x = 0; x < bw; x++) {
         const i = (y * bw + x) * 4;
-        const a = (Md[i + 3] / 255) * (Wd[i + 3] / 255);
+        const m = Md[i + 3] / 255;
+        const a = Math.min(1, Math.max(0, (m - 0.08) / 0.55)) * (Wd[i + 3] / 255);
         if (a < 0.004) continue;
         const g = ((by0 + y) * TW + bx0 + x) * 4;
         for (let k = 0; k < 3; k++) {
-          const v = Math.min(255, Wd[i + k] * gain[k]);
+          const v = Math.min(255, Math.max(0, Wd[i + k] + (Tb[i + k] - Db[i + k])));
           od[g + k] = od[g + k] * (1 - a) + v * a;
         }
       }
     }
     warped.width = 0;
     mk.width = 0;
-    console.log('[EYE_SWAP] eye', idx === LEFT ? 'L' : 'R', 'width', w.toFixed(1), 'gain', gain.map((v) => v.toFixed(2)).join(','));
+    console.log('[EYE_SWAP] eye', idx === LEFT ? 'L' : 'R', 'width', w.toFixed(1));
   }
   console.log('[EYE_SWAP] pitch k', kv.toFixed(3));
 
