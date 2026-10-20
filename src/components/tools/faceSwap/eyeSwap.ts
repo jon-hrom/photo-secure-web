@@ -6,7 +6,7 @@
  * с шириной; дополнительно поправляется наклон головы вверх/вниз (вертикальное сжатие).
  * Цвет и свет кожи век подгоняются под кожу вокруг глаз на целевом фото.
  */
-import { loadFaceDetectionModels } from '@/utils/faceDetection';
+import { loadFaceDetectionModels, getFaceModelsError } from '@/utils/faceDetection';
 import { P, loadImg, toCanvas, binarize, maskBox, landmarksNear } from '@/components/tools/faceSwap/exactHead';
 
 const LEFT = [36, 37, 38, 39, 40, 41];
@@ -61,7 +61,13 @@ export interface EyeSwapInput {
 export type EyeSwapResult = { ok: true; dataUrl: string } | { ok: false; reason: string };
 
 export const eyeSwap = async ({ donorUrl, donorMask, targetUrl, targetMask }: EyeSwapInput): Promise<EyeSwapResult> => {
-  if (!(await loadFaceDetectionModels())) return { ok: false, reason: 'Не загрузился модуль распознавания лиц.' };
+  if (!(await loadFaceDetectionModels())) {
+    const why = getFaceModelsError();
+    return {
+      ok: false,
+      reason: `Не загрузился модуль распознавания лиц. Обновите страницу (Ctrl+F5) и попробуйте снова.${why ? ` Причина: ${why}` : ''}`,
+    };
+  }
   const [dImg, tImg] = await Promise.all([loadImg(donorUrl), loadImg(targetUrl)]);
   const DW = dImg.naturalWidth, DH = dImg.naturalHeight;
   const TW = tImg.naturalWidth, TH = tImg.naturalHeight;
