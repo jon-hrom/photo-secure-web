@@ -46,22 +46,52 @@ const blur3 = (src: Float32Array, w: number, h: number) => {
 };
 
 type Box = { x: number; y: number; w: number; h: number };
+/** Прямоугольник глаза в долях кадра; pair — индекс лица. */
+type Eye = { x0: number; y0: number; x1: number; y1: number; pair: number };
 
-const detectFaces = async (canvas: HTMLCanvasElement): Promise<Box[]> => {
+const detectFaces = async (canvas: HTMLCanvasElement): Promise<{ faces: Box[]; eyes: Eye[] }> => {
+  const empty = { faces: [], eyes: [] };
   try {
-    if (!(await loadFaceDetectionModels())) return [];
+    if (!(await loadFaceDetectionModels())) return empty;
     const k = Math.min(1, 1600 / Math.max(canvas.width, canvas.height));
     const c = document.createElement('canvas');
     c.width = Math.round(canvas.width * k);
     c.height = Math.round(canvas.height * k);
     ctx2d(c).drawImage(canvas, 0, 0, c.width, c.height);
-    const res = await faceapi.detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.3 }));
-    const out = res.map((r) => ({ x: r.box.x / c.width, y: r.box.y / c.height, w: r.box.width / c.width, h: r.box.height / c.height }));
+    const res = await faceapi
+      .detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.3 }))
+      .withFaceLandmarks();
+    const W = c.width;
+    const H = c.height;
     c.width = 0;
-    return out;
+    const faces: Box[] = [];
+    const eyes: Eye[] = [];
+    res.forEach((r, fi) => {
+      const bx = r.detection.box;
+      faces.push({ x: bx.x / W, y: bx.y / H, w: bx.width / W, h: bx.height / H });
+      const p = r.landmarks.positions;
+      for (const [a, b] of [[36, 41], [42, 47]]) {
+        const pts = p.slice(a, b + 1);
+        const xs = pts.map((q) => q.x);
+        const ys = pts.map((q) => q.y);
+        const ex0 = Math.min(...xs);
+        const ex1 = Math.max(...xs);
+        const ew = ex1 - ex0;
+        const ecy = (Math.min(...ys) + Math.max(...ys)) / 2;
+        // с запасом: веки, ресницы, уголки
+        eyes.push({
+          x0: (ex0 - ew * 0.45) / W,
+          x1: (ex1 + ew * 0.45) / W,
+          y0: (ecy - ew * 0.6) / H,
+          y1: (ecy + ew * 0.6) / H,
+          pair: fi,
+        });
+      }
+    });
+    return { faces, eyes };
   } catch (e) {
     console.warn('[DETAIL] face detection failed', e);
-    return [];
+    return empty;
   }
 };
 
@@ -153,7 +183,7 @@ export const applyDetail = async (
   const H = canvas.height;
   const ctx = ctx2d(canvas);
 
-  const faces = await detectFaces(canvas);
+  const { faces, eyes } = await detectFaces(canvas);
   const { amt, gw, gh } = buildAmountMap(canvas, faces);
 
   // Крупное размытие через уменьшенную копию: по нему видно «вуаль» дымки
@@ -250,5 +280,84 @@ export const applyDetail = async (
     await nextFrame();
   }
   low.width = 0;
+  equalizeEyes(canvas, eyes, k);
   return canvas;
+};
+
+/** Резкость участка: средний модуль лапласиана по яркости. */
+const lapEnergy = (lum: Float32Array, w: number, h: number) => {
+  let s = 0;
+  let c = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      s += Math.abs(4 * lum[p] - lum[p - 1] - lum[p + 1] - lum[p - w] - lum[p + w]);
+      c++;
+    }
+  }
+  return c ? s / c : 0;
+};
+
+/**
+ * Выравнивание глаз: мыльный глаз дотягиваем по резкости до второго глаза того же лица
+ * (и до уровня «живого» глаза, если мылят оба). Форма не меняется — только прорисовка.
+ */
+const equalizeEyes = (canvas: HTMLCanvasElement, eyes: Eye[], k: number) => {
+  if (!eyes.length) return;
+  const W = canvas.width;
+  const H = canvas.height;
+  const ctx = ctx2d(canvas);
+  const boxes = eyes.map((e) => {
+    const x0 = Math.max(0, Math.floor(e.x0 * W));
+    const y0 = Math.max(0, Math.floor(e.y0 * H));
+    const x1 = Math.min(W, Math.ceil(e.x1 * W));
+    const y1 = Math.min(H, Math.ceil(e.y1 * H));
+    return { x0, y0, w: x1 - x0, h: y1 - y0, pair: e.pair, energy: 0 };
+  }).filter((b) => b.w > 8 && b.h > 8);
+
+  for (const b of boxes) {
+    const d = ctx.getImageData(b.x0, b.y0, b.w, b.h).data;
+    const lum = new Float32Array(b.w * b.h);
+    for (let p = 0, i = 0; p < lum.length; p++, i += 4) lum[p] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    // считаем по центральной части — сам глаз, без бровей и кожи по краям
+    b.energy = lapEnergy(lum, b.w, b.h);
+  }
+
+  for (const b of boxes) {
+    const mate = boxes.find((o) => o !== b && o.pair === b.pair);
+    const target = Math.max(mate ? mate.energy : 0, b.energy * 1.25);
+    if (target <= b.energy * 1.05) continue;
+    // во сколько раз этот глаз мягче нужного уровня → сила дорисовки
+    const ratio = Math.min(3, target / Math.max(0.5, b.energy));
+    const amount = (ratio - 1) * 1.6 * (0.5 + 0.5 * k);
+    const img = ctx.getImageData(b.x0, b.y0, b.w, b.h);
+    const d = img.data;
+    const n = b.w * b.h;
+    // мягкая эллиптическая маска — без видимых границ
+    const mask = new Float32Array(n);
+    for (let y = 0; y < b.h; y++) {
+      const dy = (y + 0.5 - b.h / 2) / (b.h / 2);
+      for (let x = 0; x < b.w; x++) {
+        const dx = (x + 0.5 - b.w / 2) / (b.w / 2);
+        const r = Math.sqrt(dx * dx + dy * dy);
+        const v = r <= 0.55 ? 1 : r >= 1 ? 0 : 1 - (r - 0.55) / 0.45;
+        mask[y * b.w + x] = v * v * (3 - 2 * v);
+      }
+    }
+    for (let c = 0; c < 3; c++) {
+      const src = new Float32Array(n);
+      for (let p = 0, i = c; p < n; p++, i += 4) src[p] = d[i];
+      const b1 = blur3(src, b.w, b.h);
+      const b2 = blur3(blur3(b1, b.w, b.h), b.w, b.h);
+      for (let p = 0, i = c; p < n; p++, i += 4) {
+        const m = mask[p];
+        if (!m) continue;
+        let add = ((src[p] - b1[p]) * 1.0 + (b1[p] - b2[p]) * 0.8) * amount * m;
+        add = (30 * add) / (30 + Math.abs(add));
+        const v = src[p] + add;
+        d[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+      }
+    }
+    ctx.putImageData(img, b.x0, b.y0);
+  }
 };

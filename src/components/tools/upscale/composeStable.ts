@@ -5,7 +5,6 @@
  * форму — на этом месте остаётся оригинал. В конце — усиленная резкость контуров.
  */
 import type { UpscalePlace } from '@/components/tools/upscale/composeUpscale';
-import { detectEyeZones, eyeWeights } from '@/components/tools/upscale/eyeGuard';
 
 const STRIP = 256;
 const PAD = 12;
@@ -17,8 +16,6 @@ const FALLBACK_RANGE = 25;
 const SHARP_FINE = 2.0;
 const SHARP_MID = 0.9;
 const SHARP_THRESHOLD = 2;
-/** Насколько в зоне глаз берём оригинал (форма век, положение зрачков). */
-const EYE_KEEP = 0.85;
 
 const makeCanvas = (w: number, h: number) => {
   const c = document.createElement('canvas');
@@ -95,7 +92,6 @@ export const composeStable = async (
   const dk = Math.max(0, Math.min(100, detail)) / 100;
   const toneClamp = TONE_CLAMP * (1 - dk * 0.75);
   const fbFrom = FALLBACK_FROM + dk * 20;
-  const eyes = await detectEyeZones(original);
 
   // Грубые копии (1/32 итога): только для подгонки цвета/тона под оригинал
   const lw = Math.max(8, Math.round(width / COARSE));
@@ -132,7 +128,6 @@ export const composeStable = async (
     const d = B.data;
     const n = width * sh;
     const ch = [new Float32Array(n), new Float32Array(n), new Float32Array(n)];
-    const eyeW = eyeWeights(eyes, width, height, a, b);
 
     for (let p = 0, i = 0; p < n; p++, i += 4) {
       const diff = (Math.abs(Ml[i] - Ol[i]) + Math.abs(Ml[i + 1] - Ol[i + 1]) + Math.abs(Ml[i + 2] - Ol[i + 2])) / 3;
@@ -143,10 +138,6 @@ export const composeStable = async (
         else if (t < -toneClamp) t = -toneClamp;
         const v = Md[i + c] + t;
         ch[c][p] = keep ? v * (1 - keep) + d[i + c] * keep : v;
-        if (eyeW && eyeW[p]) {
-          const e = eyeW[p] * EYE_KEEP;
-          ch[c][p] = ch[c][p] * (1 - e) + d[i + c] * e;
-        }
       }
     }
 
