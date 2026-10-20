@@ -80,8 +80,14 @@ export const useUpscaleApi = (open: boolean) => {
       .catch(() => undefined);
   }, []);
 
+  /** Последний ответ AI — из него без нового списания собираются варианты детализации. */
+  const lastAiRef = useRef<{ ai: HTMLImageElement; place: UpscalePlace; width: number; height: number; size: UpscaleSize } | null>(null);
+  const [variants, setVariants] = useState<{ level: number; url: string }[] | null>(null);
+
   const clearResult = useCallback(() => {
     if (resultUrl) URL.revokeObjectURL(resultUrl);
+    lastAiRef.current = null;
+    setVariants(null);
     setResultUrl('');
     setResultInfo(null);
     resultBlobRef.current = null;
@@ -143,6 +149,87 @@ export const useUpscaleApi = (open: boolean) => {
     }
   }, [startWith, toast]);
 
+
+  const composeAt = useCallback(async (level: number, stab: boolean, w: number, h: number, onProgress?: (p: number) => void) => {
+    const src = srcRef.current!;
+    const last = lastAiRef.current!;
+    const canvas = stab || level > 0
+      ? await composeStable(src.img, last.ai, last.place, w, h, onProgress, level)
+      : await composeUpscale(src.img, last.ai, last.place, w, h, onProgress);
+    if (level > 0) {
+      await applyDetail(canvas, level, onProgress && ((p) => setLoadingText(`Детализация: убираем дымку... ${Math.round(p * 100)}%`)));
+    }
+    return canvas;
+  }, []);
+
+  const buildFinal = useCallback(async (level: number, stab: boolean) => {
+    const src = srcRef.current;
+    const last = lastAiRef.current;
+    if (!src || !last) return;
+    const { width, height, size: sz } = last;
+    if (stab) setLoadingText('Стабилизация: выравниваем детали...');
+    const onProgress = (p: number) => setLoadingText(`Собираем фото ${width}×${height}... ${Math.round(p * 100)}%`);
+    const canvas = await composeAt(level, stab, width, height, onProgress);
+    setLoadingText('Готовим файл...');
+    const mime = mimeFromName(src.name) === 'image/png' ? 'image/png' : 'image/jpeg';
+    let blob = await canvasToBlob(canvas, mime, 0.95);
+    if (mime === 'image/jpeg') blob = await copyJpegMeta(src.bytes, blob);
+    canvas.width = 0;
+    canvas.height = 0;
+    const name = upscaledName(src.name, sz, mime);
+    resultBlobRef.current = { blob, name, width, height };
+    setResultUrl((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return URL.createObjectURL(blob);
+    });
+    setResultInfo({ width, height, size: sz });
+    setCompare(50);
+    if (sz !== '8k') {
+      const reader = new FileReader();
+      reader.onload = () => addToHistory({ tool: 'upscale', image: String(reader.result) });
+      reader.readAsDataURL(blob);
+    }
+  }, [composeAt]);
+
+  /** Три превью 30/60/90% из уже полученного ответа AI — бесплатно. */
+  const makeVariants = useCallback(async () => {
+    const last = lastAiRef.current;
+    if (!last || !srcRef.current) return;
+    try {
+      setLoading(true);
+      const k = Math.min(1, 1100 / Math.max(last.width, last.height));
+      const w = Math.round(last.width * k);
+      const h = Math.round(last.height * k);
+      const out: { level: number; url: string }[] = [];
+      for (const level of [30, 60, 90]) {
+        setLoadingText(`Готовим вариант ${level}%...`);
+        const c = await composeAt(level, stabilize, w, h);
+        out.push({ level, url: c.toDataURL('image/jpeg', 0.9) });
+        c.width = 0;
+      }
+      setVariants(out);
+    } catch (e) {
+      toast({ title: 'Не удалось собрать варианты', description: String((e as Error)?.message || e), variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [composeAt, stabilize, toast]);
+
+  /** Собирает итог в полном размере с выбранной детализацией — без нового списания. */
+  const pickVariant = useCallback(async (level: number) => {
+    try {
+      setLoading(true);
+      setDetail(level);
+      await buildFinal(level, stabilize);
+      setVariants(null);
+      toast({ title: `Детализация ${level}%`, description: 'Фото пересобрано без доплаты.' });
+    } catch (e) {
+      toast({ title: 'Не удалось собрать фото', description: String((e as Error)?.message || e), variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  }, [buildFinal, setDetail, stabilize, toast]);
+
   const upscale = useCallback(async () => {
     const src = srcRef.current;
     if (!src) return;
@@ -200,31 +287,9 @@ export const useUpscaleApi = (open: boolean) => {
 
       setLoadingText('Собираем фото в исходных цветах...');
       const aiImg = await toUrlImage(data.url, true);
-      if (stabilize) setLoadingText('Стабилизация: выравниваем детали...');
-      const onProgress = (p: number) => setLoadingText(`Собираем фото ${width}×${height}... ${Math.round(p * 100)}%`);
-      // С детализацией берём перерисовку AI целиком: в ней уже нет дымки
-      const canvas = stabilize || detail > 0
-        ? await composeStable(src.img, aiImg, data.place, width, height, onProgress, detail)
-        : await composeUpscale(src.img, aiImg, data.place, width, height, onProgress);
-      if (detail > 0) {
-        await applyDetail(canvas, detail, (p) => setLoadingText(`Детализация: убираем дымку... ${Math.round(p * 100)}%`));
-      }
-      setLoadingText('Готовим файл...');
-      const mime = mimeFromName(src.name) === 'image/png' ? 'image/png' : 'image/jpeg';
-      let blob = await canvasToBlob(canvas, mime, 0.95);
-      if (mime === 'image/jpeg') blob = await copyJpegMeta(src.bytes, blob);
-      canvas.width = 0;
-      canvas.height = 0;
-      const name = upscaledName(src.name, size, mime);
-      resultBlobRef.current = { blob, name, width, height };
-      setResultUrl(URL.createObjectURL(blob));
-      setResultInfo({ width, height, size });
-      setCompare(50);
-      if (size !== '8k') {
-        const reader = new FileReader();
-        reader.onload = () => addToHistory({ tool: 'upscale', image: String(reader.result) });
-        reader.readAsDataURL(blob);
-      }
+      lastAiRef.current = { ai: aiImg, place: data.place, width, height, size };
+      setVariants(null);
+      await buildFinal(detail, stabilize);
       toast({
         title: 'Готово',
         description: `Фото ${width}×${height}. Списано ${data.charged} ⚡, осталось ${data.energy_balance ?? '—'} ⚡.`,
@@ -235,7 +300,7 @@ export const useUpscaleApi = (open: boolean) => {
     } finally {
       setLoading(false);
     }
-  }, [size, stabilize, detail, toast, clearResult]);
+  }, [size, stabilize, detail, toast, clearResult, buildFinal]);
 
   const download = useCallback(async () => {
     const r = resultBlobRef.current;
@@ -262,7 +327,7 @@ export const useUpscaleApi = (open: boolean) => {
   }, [toast]);
 
   return {
-    stage, size, setSize, stabilize, setStabilize, detail, setDetail, prices, loading, loadingText, originalUrl, resultUrl, resultInfo,
+    stage, size, setSize, stabilize, setStabilize, detail, setDetail, variants, setVariants, makeVariants, pickVariant, prices, loading, loadingText, originalUrl, resultUrl, resultInfo,
     compare, setCompare, showPicker, setShowPicker, showSaver, setShowSaver, saving, fileInputRef,
     source: srcRef.current, handleFile, handlePickFromBank, upscale, download, handleSaveToFolder, resetAll,
   };
