@@ -101,7 +101,7 @@ export const eyeSwap = async ({ donorUrl, donorMask, targetUrl, targetMask }: Ey
     // Область: от складки века до верха щеки, по ширине — с запасом за уголки
     const nx = Math.sin(ang), ny = -Math.cos(ang);
     const cx = c.x + nx * w * 0.08, cy = c.y + ny * w * 0.08;
-    const rx = w * 0.95, ry = w * 0.5;
+    const rx = w * 0.95;
 
     const pad = Math.ceil(rx + 4);
     const bx0 = Math.max(0, Math.floor(cx - pad)), by0 = Math.max(0, Math.floor(cy - pad));
@@ -119,48 +119,78 @@ export const eyeSwap = async ({ donorUrl, donorMask, targetUrl, targetMask }: Ey
     wc.drawImage(donor, 0, 0);
     const Wd = wc.getImageData(0, 0, bw, bh).data;
 
-    // Маска: в центре глаз полностью непрозрачен (без «двойных» век), растушёвка только по краю
+    // Маска по форме глаза цели: веко сверху с запасом, снизу — тонкая полоса.
+    // Кожу под глазом (мешки, тени) оставляем свою — именно там появлялись следы.
+    const tc = mean(idx.map((i) => tl[i]));
+    const ux = Math.cos(ang), uy = Math.sin(ang);
+    const toLocal = (p: P) => ({ u: (p.x - tc.x) * ux + (p.y - tc.y) * uy, v: -(p.x - tc.x) * uy + (p.y - tc.y) * ux });
+    const toWorld = (u: number, v: number) => ({ x: tc.x + u * ux - v * uy - bx0, y: tc.y + u * uy + v * ux - by0 });
+    const contour = idx.map((i) => toLocal(tl[i]));
+    const drawShape = (ctx: CanvasRenderingContext2D, grow: number, up: number, down: number) => {
+      ctx.beginPath();
+      contour.forEach((q, j) => {
+        const u = q.u * grow;
+        const v = q.v < 0 ? q.v * grow - up : q.v * grow + down;
+        const pt = toWorld(u, v);
+        if (j === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.closePath();
+      ctx.fill();
+    };
     const mk = document.createElement('canvas');
     mk.width = bw;
     mk.height = bh;
     const mc = mk.getContext('2d', { willReadFrequently: true })!;
-    mc.filter = `blur(${Math.max(1.5, w * 0.09)}px)`;
+    mc.filter = `blur(${Math.max(1.2, w * 0.1)}px)`;
     mc.fillStyle = '#fff';
-    mc.beginPath();
-    mc.ellipse(cx - bx0, cy - by0, rx * 0.8, ry * 0.8, ang, 0, Math.PI * 2);
-    mc.fill();
+    drawShape(mc, 1.25, w * 0.22, w * 0.05);
     const Md = mc.getImageData(0, 0, bw, bh).data;
 
-    // Свет и цвет: переносим только «низкие частоты» цели (тон кожи, тени), детали глаза — донора.
-    // Итог = донор + размытая цель − размытый донор. Резкость и чистота глаза сохраняются.
-    const R = Math.max(3, w * 0.45);
-    const blurOf = (srcCanvas: CanvasImageSource, sx: number, sy: number) => {
-      const c = document.createElement('canvas');
-      c.width = bw;
-      c.height = bh;
-      const cc = c.getContext('2d', { willReadFrequently: true })!;
-      cc.filter = `blur(${R}px)`;
-      cc.drawImage(srcCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
-      const d = cc.getImageData(0, 0, bw, bh).data;
-      c.width = 0;
-      return d;
-    };
-    const Tb = blurOf(target, bx0, by0);
-    const Db = blurOf(warped, 0, 0);
+    // Сам глаз (без кожи) — чтобы мерить цвет кожи только вокруг него
+    const ek = document.createElement('canvas');
+    ek.width = bw;
+    ek.height = bh;
+    const ec = ek.getContext('2d', { willReadFrequently: true })!;
+    ec.fillStyle = '#fff';
+    drawShape(ec, 1.08, w * 0.04, w * 0.03);
+    const Ed = ec.getImageData(0, 0, bw, bh).data;
+
+    // Цвет кожи: отдельно для верхнего века и для полосы под глазом, плавный переход между ними
+    const acc = { up: [0, 0, 0, 0, 0, 0, 0], dn: [0, 0, 0, 0, 0, 0, 0] };
+    for (let y = 0; y < bh; y++) {
+      for (let x = 0; x < bw; x++) {
+        const i = (y * bw + x) * 4;
+        const m = Md[i + 3] / 255;
+        if (m < 0.2 || Ed[i + 3] > 10 || Wd[i + 3] < 250) continue;
+        const v = -(x + bx0 - tc.x) * uy + (y + by0 - tc.y) * ux;
+        const r = v < 0 ? acc.up : acc.dn;
+        const g = ((by0 + y) * TW + bx0 + x) * 4;
+        for (let k = 0; k < 3; k++) { r[k] += od[g + k]; r[k + 3] += Wd[i + k]; }
+        r[6]++;
+      }
+    }
+    const gainOf = (r: number[]) => [0, 1, 2].map((k) => (r[6] > 8 ? Math.min(1.6, Math.max(0.6, (r[k] + 1) / (r[k + 3] + 1))) : 1));
+    const gUp = gainOf(acc.up[6] > 8 ? acc.up : acc.dn);
+    const gDn = gainOf(acc.dn[6] > 8 ? acc.dn : acc.up);
 
     for (let y = 0; y < bh; y++) {
       for (let x = 0; x < bw; x++) {
         const i = (y * bw + x) * 4;
         const m = Md[i + 3] / 255;
-        const a = Math.min(1, Math.max(0, (m - 0.08) / 0.55)) * (Wd[i + 3] / 255);
+        const a = m * m * (3 - 2 * m) * (Wd[i + 3] / 255);
         if (a < 0.004) continue;
+        const v = -(x + bx0 - tc.x) * uy + (y + by0 - tc.y) * ux;
+        const t = Math.min(1, Math.max(0, v / (w * 0.3) + 0.5));
         const g = ((by0 + y) * TW + bx0 + x) * 4;
         for (let k = 0; k < 3; k++) {
-          const v = Math.min(255, Math.max(0, Wd[i + k] + (Tb[i + k] - Db[i + k])));
-          od[g + k] = od[g + k] * (1 - a) + v * a;
+          const gain = gUp[k] * (1 - t) + gDn[k] * t;
+          const val = Math.min(255, Wd[i + k] * gain);
+          od[g + k] = od[g + k] * (1 - a) + val * a;
         }
       }
     }
+    ek.width = 0;
     warped.width = 0;
     mk.width = 0;
     console.log('[EYE_SWAP] eye', idx === LEFT ? 'L' : 'R', 'width', w.toFixed(1));
