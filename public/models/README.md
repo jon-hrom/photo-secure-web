@@ -7,9 +7,9 @@
 ```bash
 cd public/models && \
 curl -LO https://github.com/vladmandic/face-api/raw/master/model/tiny_face_detector_model-weights_manifest.json && \
-curl -LO https://github.com/vladmandic/face-api/raw/master/model/tiny_face_detector_model-shard1 && \
+curl -LO https://github.com/vladmandic/face-api/raw/master/model/tiny_face_detector_model.bin -o tiny_face_detector_model-shard1.bin && \
 curl -LO https://github.com/vladmandic/face-api/raw/master/model/face_landmark_68_model-weights_manifest.json && \
-curl -LO https://github.com/vladmandic/face-api/raw/master/model/face_landmark_68_model-shard1 && \
+curl -LO https://github.com/vladmandic/face-api/raw/master/model/face_landmark_68_model.bin -o face_landmark_68_model-shard1.bin && \
 echo "✅ Модели загружены!"
 ```
 
