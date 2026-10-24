@@ -6,6 +6,7 @@ Returns: HTTP response with trash operations status
 
 import json
 import os
+import time
 import traceback
 from typing import Dict, Any
 import psycopg2
@@ -14,6 +15,86 @@ import boto3
 from botocore.client import Config
 
 SCHEMA = 't_p28211681_photo_secure_web'
+
+
+CLEANUP_BUDGET_SEC = 6
+
+
+def _poehali_s3():
+    return boto3.client(
+        's3',
+        endpoint_url='https://bucket.poehali.dev',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+    )
+
+
+def _delete_keys_batch(s3_client, bucket, rows):
+    """Удаляет файлы пачками по 1000 (один запрос вместо тысячи)."""
+    yc_keys, ph_keys = [], []
+    for r in rows:
+        for k in (r.get('s3_key'), r.get('thumbnail_s3_key')):
+            if not k:
+                continue
+            (ph_keys if k.startswith('uploads/') else yc_keys).append(k)
+    targets = [(s3_client, bucket, yc_keys)]
+    if ph_keys:
+        targets.append((_poehali_s3(), 'files', ph_keys))
+    for client, bkt, keys in targets:
+        for i in range(0, len(keys), 1000):
+            chunk = keys[i:i + 1000]
+            try:
+                client.delete_objects(Bucket=bkt, Delete={'Objects': [{'Key': k} for k in chunk], 'Quiet': True})
+            except Exception as e:
+                print(f'[AUTO_CLEANUP] Batch delete failed ({len(chunk)} keys): {e}')
+
+
+def _auto_cleanup(conn, s3_client, bucket):
+    started = time.time()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'''
+                SELECT id FROM {SCHEMA}.photo_folders
+                WHERE is_trashed = TRUE AND trashed_at < NOW() - INTERVAL '7 days'
+                ORDER BY trashed_at LIMIT 20
+            ''')
+            for folder in cur.fetchall():
+                if time.time() - started > CLEANUP_BUDGET_SEC:
+                    return
+                cur.execute(f'SELECT s3_key, thumbnail_s3_key FROM {SCHEMA}.photo_bank WHERE folder_id = %s', (folder['id'],))
+                _delete_keys_batch(s3_client, bucket, cur.fetchall())
+                _purge_folders_forever(cur, [folder['id']])
+                conn.commit()
+                print(f'[AUTO_CLEANUP] Purged expired folder {folder["id"]}')
+    except Exception as e:
+        conn.rollback()
+        print(f'[AUTO_CLEANUP] Folders cleanup skipped: {e}')
+
+    if time.time() - started > CLEANUP_BUDGET_SEC:
+        return
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(f'''
+                SELECT pb.id, pb.s3_key, pb.thumbnail_s3_key
+                FROM {SCHEMA}.photo_bank pb
+                LEFT JOIN {SCHEMA}.photo_folders pf ON pb.folder_id = pf.id
+                WHERE pb.is_trashed = TRUE AND pb.trashed_at < NOW() - INTERVAL '7 days'
+                  AND (pf.is_trashed = FALSE OR pf.is_trashed IS NULL)
+                LIMIT 1000
+            ''')
+            photos = cur.fetchall()
+            if photos:
+                _delete_keys_batch(s3_client, bucket, photos)
+                ids = tuple(p['id'] for p in photos)
+                ph = ','.join(['%s'] * len(ids))
+                cur.execute(f'DELETE FROM {SCHEMA}.download_logs WHERE photo_id IN ({ph})', ids)
+                cur.execute(f'DELETE FROM {SCHEMA}.photobook_design_photos WHERE photo_bank_id IN ({ph})', ids)
+                cur.execute(f'DELETE FROM {SCHEMA}.photo_bank WHERE id IN ({ph})', ids)
+                conn.commit()
+                print(f'[AUTO_CLEANUP] Deleted {len(ids)} expired photos')
+    except Exception as e:
+        conn.rollback()
+        print(f'[AUTO_CLEANUP] Standalone cleanup skipped: {e}')
 
 
 def _purge_folders_forever(cur, folder_ids):
@@ -144,131 +225,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         conn = psycopg2.connect(db_url)
         
-        # Auto-cleanup: delete trashed items older than 7 days.
-        # Оборачиваем в try/except — даже если очистка не удалась,
-        # корзина должна открываться (GET-запросы не должны падать).
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                # Clean up expired folders first (including their photos)
-                cur.execute('''
-                    SELECT id, s3_prefix, folder_name
-                    FROM t_p28211681_photo_secure_web.photo_folders
-                    WHERE is_trashed = TRUE 
-                      AND trashed_at < NOW() - INTERVAL '7 days'
-                ''')
-                expired_folders = cur.fetchall()
-                
-                deleted_files_count = 0
-                
-                for folder in expired_folders:
-                    folder_id = folder['id']
-                    
-                    # Получаем все s3_key из БД для этой папки
-                    cur.execute('''
-                        SELECT s3_key, thumbnail_s3_key
-                        FROM t_p28211681_photo_secure_web.photo_bank
-                        WHERE folder_id = %s AND is_trashed = TRUE
-                    ''', (folder_id,))
-                    photos = cur.fetchall()
-                    
-                    # Удаляем файлы из обоих хранилищ (Yandex Cloud + poehali.dev)
-                    for photo in photos:
-                        s3_key = photo['s3_key']
-                        thumb_key = photo['thumbnail_s3_key']
-                        
-                        if not s3_key:
-                            continue
-                        
-                        # Определяем хранилище по префиксу
-                        if s3_key.startswith('uploads/'):
-                            storage_client = boto3.client(
-                                's3',
-                                endpoint_url='https://bucket.poehali.dev',
-                                aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-                                aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
-                            )
-                            storage_bucket = 'files'
-                        else:
-                            storage_client = s3_client
-                            storage_bucket = bucket
-                        
-                        try:
-                            storage_client.delete_object(Bucket=storage_bucket, Key=s3_key)
-                            deleted_files_count += 1
-                        except Exception as e:
-                            print(f'[AUTO_CLEANUP] Failed to delete {s3_key}: {e}')
-                        
-                        if thumb_key:
-                            try:
-                                storage_client.delete_object(Bucket=storage_bucket, Key=thumb_key)
-                                deleted_files_count += 1
-                            except Exception as e:
-                                print(f'[AUTO_CLEANUP] Failed to delete thumbnail {thumb_key}: {e}')
-                
-                if expired_folders:
-                    expired_folder_ids = [f['id'] for f in expired_folders]
-                    _purge_folders_forever(cur, expired_folder_ids)
-                    conn.commit()
-                    print(f'[AUTO_CLEANUP] Deleted {len(expired_folders)} expired folders ({deleted_files_count} files) from trash')
-        except Exception as cleanup_err:
-            conn.rollback()
-            print(f'[AUTO_CLEANUP] Folders cleanup skipped due to error: {cleanup_err}')
-
-        # Clean up expired standalone photos (not in trashed folders)
-        try:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute('''
-                    SELECT pb.id, pb.s3_key, pb.thumbnail_s3_key, pb.folder_id
-                    FROM t_p28211681_photo_secure_web.photo_bank pb
-                    LEFT JOIN t_p28211681_photo_secure_web.photo_folders pf ON pb.folder_id = pf.id
-                    WHERE pb.is_trashed = TRUE 
-                      AND pb.trashed_at < NOW() - INTERVAL '7 days'
-                      AND (pf.is_trashed = FALSE OR pf.is_trashed IS NULL)
-                ''')
-                expired_photos = cur.fetchall()
-                
-                for photo in expired_photos:
-                    s3_key = photo['s3_key']
-                    thumb_key = photo['thumbnail_s3_key']
-                    
-                    if not s3_key:
-                        continue
-                    
-                    if s3_key.startswith('uploads/'):
-                        storage_client = boto3.client(
-                            's3',
-                            endpoint_url='https://bucket.poehali.dev',
-                            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-                            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
-                        )
-                        storage_bucket = 'files'
-                    else:
-                        storage_client = s3_client
-                        storage_bucket = bucket
-                    
-                    try:
-                        storage_client.delete_object(Bucket=storage_bucket, Key=s3_key)
-                    except Exception as e:
-                        print(f'[AUTO_CLEANUP] Failed to delete {s3_key}: {e}')
-                    
-                    if thumb_key:
-                        try:
-                            storage_client.delete_object(Bucket=storage_bucket, Key=thumb_key)
-                        except Exception as e:
-                            print(f'[AUTO_CLEANUP] Failed to delete thumbnail {thumb_key}: {e}')
-                
-                if expired_photos:
-                    expired_ids = [p['id'] for p in expired_photos]
-                    p_ph = ','.join(['%s'] * len(expired_ids))
-                    p_t = tuple(expired_ids)
-                    cur.execute(f'DELETE FROM t_p28211681_photo_secure_web.download_logs WHERE photo_id IN ({p_ph})', p_t)
-                    cur.execute(f'DELETE FROM t_p28211681_photo_secure_web.photobook_design_photos WHERE photo_bank_id IN ({p_ph})', p_t)
-                    cur.execute(f'DELETE FROM t_p28211681_photo_secure_web.photo_bank WHERE id IN ({p_ph})', p_t)
-                    conn.commit()
-                    print(f'[AUTO_CLEANUP] Deleted {len(expired_photos)} expired standalone photos from trash')
-        except Exception as cleanup_err2:
-            conn.rollback()
-            print(f'[AUTO_CLEANUP] Standalone cleanup skipped due to error: {cleanup_err2}')
+        # Автоочистка корзины (старше 7 дней): пакетное удаление файлов, с бюджетом по времени,
+        # чтобы открытие корзины никогда не зависало. Остаток доочистится при следующих заходах.
+        _auto_cleanup(conn, s3_client, bucket)
         
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list')
