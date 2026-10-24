@@ -17,7 +17,7 @@ from botocore.client import Config
 SCHEMA = 't_p28211681_photo_secure_web'
 
 
-CLEANUP_BUDGET_SEC = 6
+CLEANUP_BUDGET_SEC = 18
 
 
 def _poehali_s3():
@@ -51,6 +51,7 @@ def _delete_keys_batch(s3_client, bucket, rows):
 
 def _auto_cleanup(conn, s3_client, bucket):
     started = time.time()
+    stats = {'folders': 0, 'photos': 0}
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(f'''
@@ -60,18 +61,19 @@ def _auto_cleanup(conn, s3_client, bucket):
             ''')
             for folder in cur.fetchall():
                 if time.time() - started > CLEANUP_BUDGET_SEC:
-                    return
+                    return stats
                 cur.execute(f'SELECT s3_key, thumbnail_s3_key FROM {SCHEMA}.photo_bank WHERE folder_id = %s', (folder['id'],))
                 _delete_keys_batch(s3_client, bucket, cur.fetchall())
                 _purge_folders_forever(cur, [folder['id']])
                 conn.commit()
+                stats['folders'] += 1
                 print(f'[AUTO_CLEANUP] Purged expired folder {folder["id"]}')
     except Exception as e:
         conn.rollback()
         print(f'[AUTO_CLEANUP] Folders cleanup skipped: {e}')
 
     if time.time() - started > CLEANUP_BUDGET_SEC:
-        return
+        return stats
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(f'''
@@ -91,10 +93,39 @@ def _auto_cleanup(conn, s3_client, bucket):
                 cur.execute(f'DELETE FROM {SCHEMA}.photobook_design_photos WHERE photo_bank_id IN ({ph})', ids)
                 cur.execute(f'DELETE FROM {SCHEMA}.photo_bank WHERE id IN ({ph})', ids)
                 conn.commit()
+                stats['photos'] = len(ids)
                 print(f'[AUTO_CLEANUP] Deleted {len(ids)} expired photos')
     except Exception as e:
         conn.rollback()
         print(f'[AUTO_CLEANUP] Standalone cleanup skipped: {e}')
+    return stats
+
+
+def _make_yc_client():
+    return boto3.client(
+        's3',
+        endpoint_url='https://storage.yandexcloud.net',
+        region_name='ru-central1',
+        aws_access_key_id=os.environ.get('YC_S3_KEY_ID'),
+        aws_secret_access_key=os.environ.get('YC_S3_SECRET'),
+        config=Config(signature_version='s3v4')
+    )
+
+
+def _run_cron_cleanup(event):
+    """Фоновая автоочистка корзины — вызывается планировщиком (notifications-tick) ночью."""
+    headers = event.get('headers') or {}
+    token = headers.get('X-Cron-Token') or headers.get('x-cron-token') or ''
+    expected = os.environ.get('CRON_TOKEN', '')
+    cors = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+    if expected and token != expected:
+        return {'statusCode': 403, 'headers': cors, 'body': json.dumps({'error': 'forbidden'}), 'isBase64Encoded': False}
+    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    try:
+        stats = _auto_cleanup(conn, _make_yc_client(), 'foto-mix')
+    finally:
+        conn.close()
+    return {'statusCode': 200, 'headers': cors, 'body': json.dumps({'success': True, **stats}), 'isBase64Encoded': False}
 
 
 def _purge_folders_forever(cur, folder_ids):
@@ -197,6 +228,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'isBase64Encoded': False
         }
     
+    if (event.get('queryStringParameters') or {}).get('action') == 'cron_cleanup':
+        return _run_cron_cleanup(event)
+
     headers = event.get('headers', {})
     user_id = headers.get('X-User-Id') or headers.get('x-user-id')
     
@@ -225,9 +259,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         conn = psycopg2.connect(db_url)
         
-        # Автоочистка корзины (старше 7 дней): пакетное удаление файлов, с бюджетом по времени,
-        # чтобы открытие корзины никогда не зависало. Остаток доочистится при следующих заходах.
-        _auto_cleanup(conn, s3_client, bucket)
         
         if method == 'GET':
             action = event.get('queryStringParameters', {}).get('action', 'list')

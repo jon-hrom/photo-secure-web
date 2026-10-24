@@ -11,6 +11,7 @@ import json
 import os
 import psycopg2
 import requests
+from datetime import datetime, timezone
 
 SCHEMA = 't_p28211681_photo_secure_web'
 
@@ -23,6 +24,7 @@ BIRTHDAY_CHECKER_URL = 'https://functions.poehali.dev/e8f71ffe-1b27-4576-b601-7f
 RECURRING_CRON_URL = 'https://functions.poehali.dev/3ed78003-2909-425d-9e2c-ec1788b7ef66'
 EMAIL_NOTIFICATIONS_URL = 'https://functions.poehali.dev/26301a69-7e80-461b-bc17-2ad62cd57d4f'
 REVIEW_REMINDERS_URL = 'https://functions.poehali.dev/e159cc2f-c043-400b-95f1-06848fb596ce'
+TRASH_CLEANUP_URL = 'https://functions.poehali.dev/d2679e28-52e9-417d-86d7-f508a013bf7d?action=cron_cleanup'
 
 CRON_TOKEN = os.environ.get('CRON_TOKEN', '')
 
@@ -94,6 +96,10 @@ def run_all_checks():
     results['recurring'] = call_worker('recurring', RECURRING_CRON_URL, {})
     results['storage_warnings'] = call_worker('storage_warnings', EMAIL_NOTIFICATIONS_URL, {})
     results['review_reminders'] = call_worker('review_reminders', REVIEW_REMINDERS_URL, {'source': 'cron'})
+    # Очистка корзины (файлы старше 7 дней) — только ночью по Москве, чтобы не нагружать днём
+    msk_hour = (datetime.now(timezone.utc).hour + 3) % 24
+    if 1 <= msk_hour < 6:
+        results['trash_cleanup'] = call_worker('trash_cleanup', TRASH_CLEANUP_URL, {})
     return results
 
 
