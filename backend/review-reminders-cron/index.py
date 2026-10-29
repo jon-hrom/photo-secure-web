@@ -54,8 +54,7 @@ def extract_first_name(full_name: str) -> str:
 
 
 def build_message(full_name: str, slug: str) -> str:
-    name = extract_first_name(full_name)
-    hello = f'{name}, здравствуйте!' if name else 'Здравствуйте!'
+    hello = 'Здравствуйте!'
     link = portfolio_url(slug)
     return (
         f'{hello} 💛\n\n'
@@ -67,8 +66,7 @@ def build_message(full_name: str, slug: str) -> str:
 
 
 def build_email_html(full_name: str, slug: str) -> str:
-    name = extract_first_name(full_name)
-    hello = f'{name}, здравствуйте!' if name else 'Здравствуйте!'
+    hello = 'Здравствуйте!'
     link = portfolio_url(slug)
     return f'''
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1f2937;">
