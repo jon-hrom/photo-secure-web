@@ -56,7 +56,7 @@ export default function PublicGallery() {
     downloadPhoto,
     downloadAll,
     cancelDownload
-  } = usePhotoDownloader(code, password, gallery?.folder_name);
+  } = usePhotoDownloader(code, password, gallery?.folder_name, state.clientData?.client_id || undefined);
 
   const {
     saveToYandexDisk,

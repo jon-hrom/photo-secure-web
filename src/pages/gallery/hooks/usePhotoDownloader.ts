@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import * as zip from '@zip.js/zip.js';
 import { saveBlobToDevice, isIOS, savePhotosToGallery } from '@/utils/savePhoto';
 
@@ -42,7 +42,7 @@ async function fetchFileWithRetry(url: string, signal: AbortSignal, attempts = 3
   return null;
 }
 
-export function usePhotoDownloader(code?: string, password?: string, folderName?: string) {
+export function usePhotoDownloader(code?: string, password?: string, folderName?: string, clientId?: number) {
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgress>({
     show: false,
@@ -51,6 +51,8 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
     status: 'preparing'
   });
   const [downloadAbortController, setDownloadAbortController] = useState<AbortController | null>(null);
+  const clientIdRef = useRef<number | undefined>(clientId);
+  clientIdRef.current = clientId;
 
   const downloadPhoto = async (photo: Photo) => {
     try {
@@ -129,9 +131,22 @@ export function usePhotoDownloader(code?: string, password?: string, folderName?
         }
       }
       
+      let cid = clientIdRef.current;
+      if (!cid && code) {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i) || '';
+            if (key.startsWith('client_') && key.endsWith(`_${code}`)) {
+              const saved = JSON.parse(localStorage.getItem(key) || '{}');
+              if (saved?.client_id > 0) { cid = saved.client_id; break; }
+            }
+          }
+        } catch { /* noop */ }
+      }
+      const clientParam = cid && cid > 0 ? `&clientId=${cid}` : '';
       const url = password 
-        ? `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}&password=${encodeURIComponent(password)}`
-        : `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}`;
+        ? `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}&password=${encodeURIComponent(password)}${clientParam}`
+        : `https://functions.poehali.dev/08b459b7-c9d2-4c3d-8778-87ffc877fb2a?code=${code}${clientParam}`;
       
       const response = await fetch(url, { signal: abortController.signal });
       const data = await response.json();

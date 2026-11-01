@@ -5,6 +5,7 @@ import PhotoBankStorageIndicator from '@/components/photobank/PhotoBankStorageIn
 import PhotoBankHeader from '@/components/photobank/PhotoBankHeader';
 import PhotoBankFoldersList from '@/components/photobank/PhotoBankFoldersList';
 import PhotoBankPhotoGrid from '@/components/photobank/PhotoBankPhotoGrid';
+import ArchiveDownloadersModal from '@/components/photobank/ArchiveDownloadersModal';
 import FavoriteListsViewer from '@/components/photobank/FavoriteListsViewer';
 import ClientUploadViewer from '@/components/photobank/ClientUploadViewer';
 import YandexDiskModal from '@/components/photobank/yandex-disk/YandexDiskModal';
@@ -132,6 +133,7 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
   } = props;
 
   const [vkPostOpen, setVkPostOpen] = useState(false);
+  const [downloadersFolder, setDownloadersFolder] = useState<{ id: number; name: string } | null>(null);
   const [vkPhotoUrls, setVkPhotoUrls] = useState<string[]>([]);
 
   const yandexDisk = useYandexDiskPhotobank({
@@ -226,7 +228,22 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
             ? () => yandexDisk.openExport(selectedFolder.id, selectedFolder.folder_name)
             : undefined
         }
+        onShowArchiveDownloaders={
+          selectedFolder && !isAdminViewing
+            ? () => setDownloadersFolder({ id: selectedFolder.id, name: selectedFolder.folder_name })
+            : undefined
+        }
       />
+
+      {downloadersFolder && userId && (
+        <ArchiveDownloadersModal
+          isOpen={!!downloadersFolder}
+          onClose={() => setDownloadersFolder(null)}
+          folderId={downloadersFolder.id}
+          folderName={downloadersFolder.name}
+          userId={parseInt(userId, 10)}
+        />
+      )}
 
       {!selectedFolder ? (
         <PhotoBankFoldersList
@@ -244,6 +261,7 @@ const PhotoBankMainContent = (props: PhotoBankMainContentProps) => {
           onOpenChat={(clientId, clientName) => setChatClient({ id: clientId, name: clientName })}
           onOpenFolderChats={handleOpenFolderChats}
           onShowViewsStats={(id, name) => setViewsStatsFolder({ id, name })}
+          onShowArchiveDownloaders={isAdminViewing ? undefined : (id, name) => setDownloadersFolder({ id, name })}
           onCreateSubfolder={(parentId) => setCreateSubfolderParentId(parentId)}
           onOpenSubfolderSettings={(subfolder) => setSubfolderSettings(subfolder)}
         />

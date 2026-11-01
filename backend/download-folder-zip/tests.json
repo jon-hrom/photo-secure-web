@@ -15,6 +15,16 @@
       "method": "OPTIONS",
       "path": "/",
       "expectedStatus": 200
+    },
+    {
+      "name": "Downloaders without auth",
+      "method": "GET",
+      "path": "/?action=downloaders&folderId=1",
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
     }
   ]
 }

@@ -1,0 +1,2 @@
+ALTER TABLE t_p28211681_photo_secure_web.download_logs ADD COLUMN IF NOT EXISTS client_id integer NULL;
+CREATE INDEX IF NOT EXISTS idx_download_logs_folder_type ON t_p28211681_photo_secure_web.download_logs (folder_id, download_type);

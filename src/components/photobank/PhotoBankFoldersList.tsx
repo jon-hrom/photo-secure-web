@@ -36,6 +36,7 @@ interface PhotoBankFoldersListProps {
   onOpenChat?: (clientId: number, clientName: string) => void;
   onOpenFolderChats?: (folderId: number) => void;
   onShowViewsStats?: (folderId: number, folderName: string) => void;
+  onShowArchiveDownloaders?: (folderId: number, folderName: string) => void;
   isAdminViewing?: boolean;
   onCreateSubfolder?: (parentFolderId: number) => void;
   onOpenSubfolderSettings?: (subfolder: PhotoFolder) => void;
@@ -55,6 +56,7 @@ const PhotoBankFoldersList = ({
   onOpenChat,
   onOpenFolderChats,
   onShowViewsStats,
+  onShowArchiveDownloaders,
   isAdminViewing = false,
   onCreateSubfolder,
   onOpenSubfolderSettings
@@ -129,7 +131,7 @@ const PhotoBankFoldersList = ({
                   <th className="text-left px-2 py-1.5 text-sm font-medium text-muted-foreground hidden md:table-cell">Дата создания</th>
                   <th className="text-left px-2 py-1.5 text-sm font-medium text-muted-foreground hidden md:table-cell">Дата завершения</th>
                   <th className="text-center px-2 py-1.5 text-sm font-medium text-muted-foreground hidden lg:table-cell">Фото</th>
-                  <th className="text-center px-2 py-1.5 text-sm font-medium text-muted-foreground hidden lg:table-cell">Кол-во просмотров</th>
+                  <th className="text-center px-2 py-1.5 text-sm font-medium text-muted-foreground hidden lg:table-cell">Просмотры / скачивания</th>
                   <th className="text-left md:text-right px-2 py-1.5 text-sm font-medium text-muted-foreground">Действия</th>
                 </tr>
               </thead>
@@ -199,6 +201,19 @@ const PhotoBankFoldersList = ({
                               <Icon name="Eye" size={14} />
                               <span>{folder.share_views_count ?? 0}</span>
                             </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onShowArchiveDownloaders?.(folder.id, folder.folder_name);
+                              }}
+                              className="inline-flex items-center gap-1 text-emerald-600 font-medium hover:text-emerald-700 transition-colors"
+                              title="Скачиваний архива — кто скачал"
+                              aria-label="Кто скачал архив"
+                            >
+                              <Icon name="Download" size={14} />
+                              <span>{folder.archive_download_count ?? 0}</span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -228,12 +243,6 @@ const PhotoBankFoldersList = ({
                           <Icon name="Image" size={16} />
                           <span>{folder.photo_count || 0}</span>
                         </div>
-                        {(folder.archive_download_count ?? 0) > 0 && (
-                          <div className="inline-flex items-center gap-1 text-emerald-600 font-medium" title="Скачиваний архива клиентами">
-                            <Icon name="Download" size={16} />
-                            <span>{folder.archive_download_count}</span>
-                          </div>
-                        )}
                         {(() => {
                           const unread = folder.unread_messages_count ?? 0;
                           const total = folder.total_messages_count ?? 0;
@@ -270,6 +279,18 @@ const PhotoBankFoldersList = ({
                       >
                         <Icon name="Eye" size={16} />
                         <span>{folder.share_views_count ?? 0}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShowArchiveDownloaders?.(folder.id, folder.folder_name);
+                        }}
+                        className="ml-3 inline-flex items-center gap-1 text-emerald-600 font-medium hover:text-emerald-700 hover:underline transition-colors"
+                        title="Скачиваний архива — кто скачал"
+                      >
+                        <Icon name="Download" size={16} />
+                        <span>{folder.archive_download_count ?? 0}</span>
                       </button>
                     </td>
                     <td className="px-2 py-1.5">

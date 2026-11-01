@@ -51,6 +51,53 @@ def make_presigned_url(s3_key: str) -> Optional[str]:
         print(f'[PRESIGN_ERROR] {s3_key}: {e}')
         return None
 
+def list_downloaders(event: Dict[str, Any], query_params: Dict[str, Any]) -> Dict[str, Any]:
+    '''Список скачиваний архива папки для фотографа: кто, когда (UTC, фронт переводит в пояс фотографа).'''
+    cors = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
+    headers = event.get('headers') or {}
+    user_id_str = headers.get('X-User-Id') or headers.get('x-user-id') or ''
+    folder_id_str = query_params.get('folderId', '')
+    if not user_id_str.isdigit() or not folder_id_str.isdigit():
+        return {'statusCode': 400, 'headers': cors, 'body': json.dumps({'error': 'folderId and X-User-Id required'}), 'isBase64Encoded': False}
+    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT user_id FROM t_p28211681_photo_secure_web.photo_folders WHERE id = %s",
+            (int(folder_id_str),)
+        )
+        row = cur.fetchone()
+        if not row or row[0] != int(user_id_str):
+            return {'statusCode': 403, 'headers': cors, 'body': json.dumps({'error': 'Access denied'}), 'isBase64Encoded': False}
+        cur.execute(
+            """
+            SELECT dl.id, dl.downloaded_at, dl.client_ip, dl.user_agent,
+                   fc.id, fc.full_name, fc.phone, fc.email
+            FROM t_p28211681_photo_secure_web.download_logs dl
+            LEFT JOIN t_p28211681_photo_secure_web.favorite_clients fc ON fc.id = dl.client_id
+            WHERE dl.folder_id = %s AND dl.download_type = 'archive'
+            ORDER BY dl.downloaded_at DESC
+            LIMIT 500
+            """,
+            (int(folder_id_str),)
+        )
+        items = []
+        for r in cur.fetchall():
+            items.append({
+                'id': r[0],
+                'downloaded_at': r[1].isoformat() if r[1] else None,
+                'ip': r[2],
+                'user_agent': r[3],
+                'client_id': r[4],
+                'full_name': r[5],
+                'phone': r[6],
+                'email': r[7],
+            })
+    finally:
+        conn.close()
+    return {'statusCode': 200, 'headers': cors, 'body': json.dumps({'items': items, 'total': len(items)}), 'isBase64Encoded': False}
+
+
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
     Возвращает список pre-signed URLs для скачивания всех фотографий из папки
@@ -82,6 +129,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     folder_id_str: str = query_params.get('folderId', '')
     user_id_str: str = query_params.get('userId', '')
     share_code: str = query_params.get('code', '')
+    action: str = query_params.get('action', '')
+    client_id_str: str = query_params.get('clientId', '')
+
+    if action == 'downloaders':
+        return list_downloaders(event, query_params)
     
     if not share_code and (not folder_id_str or not user_id_str):
         return {
@@ -215,10 +267,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 cur.execute(
                     """
                     INSERT INTO t_p28211681_photo_secure_web.download_logs
-                    (user_id, folder_id, download_type, client_ip, user_agent)
-                    VALUES (%s, %s, %s, %s, %s)
+                    (user_id, folder_id, download_type, client_ip, user_agent, client_id)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                     """,
-                    (owner_user_id, folder_id, 'archive', client_ip[:45], user_agent)
+                    (owner_user_id, folder_id, 'archive', client_ip[:45], user_agent,
+                     int(client_id_str) if client_id_str.isdigit() else None)
                 )
             
             conn.commit()
