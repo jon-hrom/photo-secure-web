@@ -4,11 +4,13 @@
 Шлём в Telegram (если привязан) и на e-mail, плюс пишем в журнал событий.
 '''
 import os
+import threading
 from datetime import datetime, timedelta
 
 import requests
 
 SCHEMA = 't_p28211681_photo_secure_web'
+SEND_BUDGET_SEC = 1.6
 
 EVENT_TITLES = {
     'client_registered': 'Новый клиент в галерее',
@@ -29,7 +31,7 @@ def _send_telegram(chat_id: str, text: str) -> bool:
                 'parse_mode': 'HTML',
                 'disable_web_page_preview': True,
             },
-            timeout=8,
+            timeout=(1.5, 2.5),
         )
         return r.status_code == 200
     except Exception as e:
@@ -44,8 +46,10 @@ def _send_email(to_email: str, subject: str, html: str) -> bool:
         return False
     try:
         import boto3
+        from botocore.client import Config as _Cfg
         client = boto3.client(
             'sesv2',
+            config=_Cfg(connect_timeout=2, read_timeout=3, retries={'max_attempts': 1}),
             region_name='ru-central1',
             endpoint_url='https://postbox.cloud.yandex.net',
             aws_access_key_id=access_key,
@@ -135,9 +139,10 @@ def notify_photographer(cur, short_code: str, event_type: str,
         lines.append(f'Галерея: {link}')
         text = '\n'.join(lines)
 
+        jobs = []
         chat = tg_chat_id or tg_id
         if chat:
-            _send_telegram(str(chat), text)
+            jobs.append(threading.Thread(target=_send_telegram, args=(str(chat), text), daemon=True))
 
         if email:
             html = (
@@ -151,6 +156,16 @@ def notify_photographer(cur, short_code: str, event_type: str,
                 f'style="background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;'
                 f'text-decoration:none">Открыть галерею</a></p></div>'
             )
-            _send_email(email, title, html)
+            jobs.append(threading.Thread(target=_send_email, args=(email, title, html), daemon=True))
+
+        # Отправляем параллельно и ждём не дольше SEND_BUDGET_SEC —
+        # чтобы регистрация клиента никогда не упиралась в таймаут функции.
+        for j in jobs:
+            j.start()
+        deadline = datetime.utcnow() + timedelta(seconds=SEND_BUDGET_SEC)
+        for j in jobs:
+            left = (deadline - datetime.utcnow()).total_seconds()
+            if left > 0:
+                j.join(left)
     except Exception as e:
         print(f'[GALLERY_NOTIFY] failed: {e}')
