@@ -159,7 +159,7 @@ def notify_photographer(cur, short_code: str, event_type: str,
             jobs.append(threading.Thread(target=_send_email, args=(email, title, html), daemon=True))
 
         # Отправляем параллельно и ждём не дольше SEND_BUDGET_SEC —
-        # чтобы регистрация клиента никогда не упиралась в таймаут функции.
+        # чтобы регистрация и загрузка клиента никогда не упиралась в таймаут функции.
         for j in jobs:
             j.start()
         deadline = datetime.utcnow() + timedelta(seconds=SEND_BUDGET_SEC)
